@@ -1,0 +1,62 @@
+{
+  "constitucion_politica_1991": {
+    "articulos": [
+      {
+        "id": 11,
+        "derecho": "Derecho a la vida (inviolable)",
+        "aplicacion": "Tutelas por omisión médica que pone en riesgo la vida"
+      },
+      {
+        "id": 13,
+        "derecho": "Igualdad ante la ley, protección especial a vulnerables",
+        "aplicacion": "Acciones por discriminación"
+      },
+      {
+        "id": 15,
+        "derecho": "Habeas Data",
+        "aplicacion": "Reclamos ante SIC por datos personales"
+      },
+      {
+        "id": 49,
+        "derecho": "Derecho fundamental a la salud",
+        "aplicacion": "Base para tutelas contra EPS"
+      },
+      {
+        "id": 86,
+        "derecho": "Acción de Tutela",
+        "aplicacion": "Protección inmediata de derechos fundamentales"
+      }
+    ]
+  },
+  "ley_1751_2015_salud": {
+    "descripcion": "Reconoce la salud como derecho fundamental autónomo.",
+    "principios": ["Universalidad", "Pro homine", "Equidad", "Continuidad", "Oportunidad", "Integralidad"],
+    "derechos_pacientes": [
+      "Acceso oportuno y de calidad",
+      "Información adecuada",
+      "Autonomía para decisiones",
+      "No negación de servicios por médico tratante"
+    ]
+  },
+  "jurisprudencia_hito": {
+    "T-760_2008": "Hito en salud. Prohibición de negar servicios por razones administrativas o económicas.",
+    "T-025_2004": "Estado de cosas inconstitucional frente al desplazamiento forzado."
+  },
+  "acciones_legales": [
+    {
+      "nombre": "Acción de Tutela",
+      "norma": "Decreto 2591 de 1991",
+      "termino": "10 días hábiles para fallo"
+    },
+    {
+      "nombre": "Derecho de Petición",
+      "norma": "Ley 1755 de 2015",
+      "termino": "15 días hábiles general, 10 días para documentos"
+    },
+    {
+      "nombre": "Incidente de Desacato",
+      "norma": "Decreto 2591/1991 Art. 52",
+      "termino": "En caso de incumplimiento de orden de tutela"
+    }
+  ]
+}

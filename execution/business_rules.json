@@ -1,0 +1,17 @@
+[
+  {
+    "Regla": "Portal 24/7",
+    "Descripción": "El sistema permite la radicación en cualquier momento. Si el juzgado/entidad está fuera de horario, el correo queda en cola o se envía con marca de tiempo del siguiente día hábil si es requerido por ley, aunque la mayoría de juzgados en Colombia aceptan correos 24/7 para reparto.",
+    "Acción": "Encolar y enviar inmediatamente con CC al usuario."
+  },
+  {
+    "Regla": "Ruteo de Tutelas",
+    "Descripción": "Se debe enviar al correo_reparto del municipio/departamento del usuario.",
+    "Prioridad": "Alta"
+  },
+  {
+    "Regla": "Entidades Directas",
+    "Descripción": "Si el documento es una Reclamación o Derecho de Petición, se envía al contacto_envio de la entidad detectada.",
+    "Prioridad": "Media"
+  }
+]

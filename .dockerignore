@@ -1,0 +1,10 @@
+.git
+.tmp
+tmp
+frontend/node_modules
+frontend/dist
+__pycache__
+*.pyc
+.env
+token.json
+credentials.json
