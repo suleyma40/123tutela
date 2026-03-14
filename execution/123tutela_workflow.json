@@ -1,0 +1,106 @@
+{
+  "name": "123tutela - Motor Jurídico Principal",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook-casos",
+        "options": {}
+      },
+      "id": "e3a1f81e-1234-4a2b-8c9e-f0a1b2c3d4e5",
+      "name": "Webhook - Receptor de Casos",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM conocimiento_legal WHERE titulo LIKE '%' || :problem_type || '%' LIMIT 3;"
+      },
+      "id": "f4b2g92f-5678-4b3c-9d0f-g1h2j3k4l5m6",
+      "name": "Supabase - Consulta Base Legal",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "TUTELA_DB_CREDENTIALS"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gemini-pro",
+        "prompt": "={{$node[\"Webhook - Receptor de Casos\"].json[\"prompt_maestro\"]}}\n\nDATOS DEL USUARIO:\nNombre: {{$node[\"Webhook - Receptor de Casos\"].json[\"name\"]}}\nCiudad: {{$node[\"Webhook - Receptor de Casos\"].json[\"city\"]}}\nRespuestas: {{$node[\"Webhook - Receptor de Casos\"].json[\"answers\"]}}\n\nBASE LEGAL:\n{{$json.contenido}}\n\nGenera un diagnóstico legal y pasos a seguir.",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
+      "name": "AI - Analizador de Casos",
+      "type": "n8n-nodes-base.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        750,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "allEntryItems",
+        "options": {}
+      },
+      "id": "b2c3d4e5-f6g7-4h8i-9j0k-l1m2n3o4p5q6",
+      "name": "Respuesta - Diagnóstico",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Receptor de Casos": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Consulta Base Legal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Consulta Base Legal": {
+      "main": [
+        [
+          {
+            "node": "AI - Analizador de Casos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Analizador de Casos": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - Diagnóstico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
