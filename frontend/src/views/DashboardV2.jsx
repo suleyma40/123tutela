@@ -39,6 +39,19 @@ const defaultIntakeFields = {
   urgency_detail: "",
   disputed_data: "",
   requested_data_action: "corregir",
+  labor_relation_type: "",
+  dismissal_or_measure: "",
+  minimum_vital_impact: "",
+  reinforced_stability: "",
+  bank_product_type: "",
+  disputed_charge: "",
+  report_or_block_reason: "",
+  service_company_name: "",
+  service_impact: "",
+  cutoff_or_billing_detail: "",
+  provider_name: "",
+  product_or_service_issue: "",
+  guarantee_or_refund_request: "",
 };
 
 const statusLabels = {
@@ -124,6 +137,19 @@ const buildStructuredDescription = (form) => {
     form.category === "Salud" && form.urgency_detail ? `Urgencia o riesgo clinico: ${form.urgency_detail}` : "",
     form.category === "Datos" && form.disputed_data ? `Dato o reporte cuestionado: ${form.disputed_data}` : "",
     form.category === "Datos" && form.requested_data_action ? `Accion solicitada sobre el dato: ${form.requested_data_action}` : "",
+    form.category === "Laboral" && form.labor_relation_type ? `Tipo de relacion laboral: ${form.labor_relation_type}` : "",
+    form.category === "Laboral" && form.dismissal_or_measure ? `Despido, sancion o medida cuestionada: ${form.dismissal_or_measure}` : "",
+    form.category === "Laboral" && form.minimum_vital_impact ? `Impacto en minimo vital: ${form.minimum_vital_impact}` : "",
+    form.category === "Laboral" && form.reinforced_stability ? `Estabilidad reforzada o condicion especial: ${form.reinforced_stability}` : "",
+    form.category === "Bancos" && form.bank_product_type ? `Producto financiero involucrado: ${form.bank_product_type}` : "",
+    form.category === "Bancos" && form.disputed_charge ? `Cobro, mora o valor discutido: ${form.disputed_charge}` : "",
+    form.category === "Bancos" && form.report_or_block_reason ? `Reporte, bloqueo o causa principal: ${form.report_or_block_reason}` : "",
+    form.category === "Servicios" && form.service_company_name ? `Empresa de servicios: ${form.service_company_name}` : "",
+    form.category === "Servicios" && form.service_impact ? `Impacto del servicio o corte: ${form.service_impact}` : "",
+    form.category === "Servicios" && form.cutoff_or_billing_detail ? `Detalle de corte o facturacion discutida: ${form.cutoff_or_billing_detail}` : "",
+    form.category === "Consumidor" && form.provider_name ? `Proveedor o comercio: ${form.provider_name}` : "",
+    form.category === "Consumidor" && form.product_or_service_issue ? `Falla del producto o servicio: ${form.product_or_service_issue}` : "",
+    form.category === "Consumidor" && form.guarantee_or_refund_request ? `Garantia, cambio o devolucion solicitada: ${form.guarantee_or_refund_request}` : "",
     form.description ? `Relato del usuario: ${form.description}` : "",
   ].filter(Boolean);
 
@@ -152,6 +178,26 @@ const getGuidedIntakeMissing = (form) => {
 
   if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category)) {
     if (!form.numbered_requests.trim()) missing.push("Solicitudes numeradas esperadas");
+  }
+
+  if (form.category === "Laboral") {
+    if (!form.labor_relation_type.trim()) missing.push("Tipo de relacion laboral");
+    if (!form.dismissal_or_measure.trim()) missing.push("Despido, sancion o medida cuestionada");
+  }
+
+  if (form.category === "Bancos") {
+    if (!form.bank_product_type.trim()) missing.push("Producto financiero involucrado");
+    if (!form.report_or_block_reason.trim()) missing.push("Reporte, bloqueo o causa principal");
+  }
+
+  if (form.category === "Servicios") {
+    if (!form.service_company_name.trim()) missing.push("Empresa de servicios");
+    if (!form.cutoff_or_billing_detail.trim()) missing.push("Detalle de corte o facturacion");
+  }
+
+  if (form.category === "Consumidor") {
+    if (!form.provider_name.trim()) missing.push("Proveedor o comercio");
+    if (!form.product_or_service_issue.trim()) missing.push("Falla del producto o servicio");
   }
 
   return missing;
@@ -185,6 +231,22 @@ const getPreviewGateIssues = (form) => {
 
   if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category) && form.numbered_requests.trim().length < 15) {
     issues.push("Para un derecho de peticion fuerte debes dejar mas claras las solicitudes numeradas esperadas.");
+  }
+
+  if (form.category === "Laboral" && form.minimum_vital_impact.trim().length < 20) {
+    issues.push("En laboral debes explicar mejor como afecta el minimo vital o la estabilidad del usuario.");
+  }
+
+  if (form.category === "Bancos" && form.disputed_charge.trim().length < 10) {
+    issues.push("En bancos debes precisar mejor el cobro, mora, bloqueo o reporte discutido.");
+  }
+
+  if (form.category === "Servicios" && form.service_impact.trim().length < 20) {
+    issues.push("En servicios debes explicar con mas detalle el impacto del corte, cobro o incumplimiento.");
+  }
+
+  if (form.category === "Consumidor" && form.guarantee_or_refund_request.trim().length < 15) {
+    issues.push("En consumidor debes explicar con mas claridad la garantia, cambio o devolucion que solicitas.");
   }
 
   return issues;
@@ -403,6 +465,77 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
           <TextArea value={form.supporting_documents} onChange={(event) => setField("supporting_documents", event.target.value)} placeholder="Ej: cedula, tutela previa, radicado, formula, capturas, certificado laboral" style={{ minHeight: 100 }} />
         </Field>
       </div>
+
+      {form.category === "Laboral" && (
+        <div className="glass-card" style={{ padding: 18, background: "#FFF7ED" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PREGUNTAS DINAMICAS PARA LABORAL</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 14 }}>
+            <Field label="Tipo de relacion laboral">
+              <TextInput value={form.labor_relation_type} onChange={(event) => setField("labor_relation_type", event.target.value)} placeholder="Ej: contrato laboral, prestacion de servicios, relacion de hecho" />
+            </Field>
+            <Field label="Despido, sancion o medida cuestionada">
+              <TextInput value={form.dismissal_or_measure} onChange={(event) => setField("dismissal_or_measure", event.target.value)} placeholder="Ej: despido sin justa causa, suspension, no pago de salarios" />
+            </Field>
+            <Field label="Impacto en minimo vital">
+              <TextInput value={form.minimum_vital_impact} onChange={(event) => setField("minimum_vital_impact", event.target.value)} placeholder="Ej: no puedo pagar arriendo, alimentacion o medicamentos" />
+            </Field>
+            <Field label="Estabilidad reforzada o condicion especial">
+              <TextInput value={form.reinforced_stability} onChange={(event) => setField("reinforced_stability", event.target.value)} placeholder="Ej: embarazo, discapacidad, enfermedad, fuero sindical" />
+            </Field>
+          </div>
+        </div>
+      )}
+
+      {form.category === "Bancos" && (
+        <div className="glass-card" style={{ padding: 18, background: "#F5F3FF" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PREGUNTAS DINAMICAS PARA BANCOS</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 14 }}>
+            <Field label="Producto financiero involucrado">
+              <TextInput value={form.bank_product_type} onChange={(event) => setField("bank_product_type", event.target.value)} placeholder="Ej: tarjeta de credito, credito, cuenta de ahorros, Nequi" />
+            </Field>
+            <Field label="Cobro, mora o valor discutido">
+              <TextInput value={form.disputed_charge} onChange={(event) => setField("disputed_charge", event.target.value)} placeholder="Ej: cobro de 450.000, mora reportada, cuota no reconocida" />
+            </Field>
+            <Field label="Reporte, bloqueo o causa principal">
+              <TextInput value={form.report_or_block_reason} onChange={(event) => setField("report_or_block_reason", event.target.value)} placeholder="Ej: bloqueo injustificado, reporte negativo, debito no autorizado" />
+            </Field>
+          </div>
+        </div>
+      )}
+
+      {form.category === "Servicios" && (
+        <div className="glass-card" style={{ padding: 18, background: "#ECFEFF" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PREGUNTAS DINAMICAS PARA SERVICIOS PUBLICOS</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 14 }}>
+            <Field label="Empresa de servicios">
+              <TextInput value={form.service_company_name} onChange={(event) => setField("service_company_name", event.target.value)} placeholder="Ej: Enel, Acueducto, Vanti, Claro" />
+            </Field>
+            <Field label="Impacto del servicio o corte">
+              <TextInput value={form.service_impact} onChange={(event) => setField("service_impact", event.target.value)} placeholder="Ej: corte total, suspension parcial, afectacion a salud o trabajo" />
+            </Field>
+            <Field label="Detalle de corte o facturacion discutida">
+              <TextInput value={form.cutoff_or_billing_detail} onChange={(event) => setField("cutoff_or_billing_detail", event.target.value)} placeholder="Ej: factura excesiva, reconexion negada, corte sin aviso" />
+            </Field>
+          </div>
+        </div>
+      )}
+
+      {form.category === "Consumidor" && (
+        <div className="glass-card" style={{ padding: 18, background: "#F0FDF4" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PREGUNTAS DINAMICAS PARA CONSUMIDOR</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 14 }}>
+            <Field label="Proveedor o comercio">
+              <TextInput value={form.provider_name} onChange={(event) => setField("provider_name", event.target.value)} placeholder="Ej: exito.com, tienda X, aerolinea, aseguradora" />
+            </Field>
+            <Field label="Falla del producto o servicio">
+              <TextInput value={form.product_or_service_issue} onChange={(event) => setField("product_or_service_issue", event.target.value)} placeholder="Ej: producto defectuoso, incumplimiento, publicidad engañosa" />
+            </Field>
+            <Field label="Garantia, cambio o devolucion solicitada">
+              <TextInput value={form.guarantee_or_refund_request} onChange={(event) => setField("guarantee_or_refund_request", event.target.value)} placeholder="Ej: devolucion total, cambio del producto, cumplimiento de garantia" />
+            </Field>
+          </div>
+        </div>
+      )}
 
       {form.category === "Salud" && (
         <div className="glass-card" style={{ padding: 18, background: "#F5FAFF" }}>

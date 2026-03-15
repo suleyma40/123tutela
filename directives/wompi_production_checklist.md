@@ -238,6 +238,7 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [x] Implementar una primera version del intake guiado en frontend con mezcla de campos estructurados y texto libre.
 - [x] Implementar preguntas dinamicas iniciales para Salud y Habeas Data dentro del wizard.
 - [x] Implementar preguntas dinamicas iniciales para Derecho de Peticion en categorias de respuesta formal.
+- [x] Implementar preguntas dinamicas iniciales para Laboral, Bancos, Servicios y Consumidor.
 - [ ] Diseñar los formularios de entrada por categoria para pedir mejores hechos.
 - [ ] Definir preguntas dinamicas por tipo de caso.
 - [x] Implementar una primera separacion entre campos estructurados y texto libre dentro del wizard.
