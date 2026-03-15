@@ -232,6 +232,24 @@ function DetailPanel({ detail, onViewDocument }) {
   }
 
   const { case: item, files, submission_attempts: attempts, timeline } = detail;
+  const nextStep =
+    item.payment_status !== "pagado"
+      ? "Completar el pago para activar el documento final."
+      : !item.generated_document
+        ? "Generar el documento final desde acciones operativas."
+        : item.status === "radicado"
+          ? "Revisar el comprobante y continuar con seguimiento si aplica."
+          : item.routing?.automatable
+            ? "Ejecutar la radicación automática o revisar el último intento."
+            : "Completar el envío manual o presencial y registrar el radicado.";
+  const estimatedTime =
+    item.payment_status !== "pagado"
+      ? "Pendiente de pago"
+      : item.status === "radicado"
+        ? "Radicado emitido"
+        : item.routing?.automatable
+          ? "Menos de 5 minutos cuando el canal responde"
+          : "Depende del canal manual elegido";
   return (
     <div style={{ display: "grid", gap: 18 }}>
       <SessionCard title="Expediente activo" subtitle={`${item.category} · ${item.workflow_type.replaceAll("_", " ")}`}>
@@ -242,11 +260,52 @@ function DetailPanel({ detail, onViewDocument }) {
             <Badge color={item.routing?.automatable ? C.primary : C.danger}>{item.routing?.automatable ? "Canal automático" : "Fallback manual"}</Badge>
           </div>
           <div style={{ color: C.text }}>{item.description}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 14 }}>
+            <div style={{ padding: 18, borderRadius: 18, background: "#08172E", color: "#fff" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#8FD3FF" }}>SIGUIENTE PASO</div>
+              <div style={{ marginTop: 10, fontSize: 24, lineHeight: 1.2, fontWeight: 800 }}>{nextStep}</div>
+              <div style={{ marginTop: 12, color: "rgba(255,255,255,0.72)" }}>
+                Tiempo estimado: {estimatedTime}
+              </div>
+            </div>
+            <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>RESUMEN DEL CASO</div>
+              <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: C.textMuted }}>Análisis</span>
+                  <strong style={{ color: C.success }}>Listo</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: C.textMuted }}>Pago</span>
+                  <strong style={{ color: item.payment_status === "pagado" ? C.success : C.warning }}>
+                    {item.payment_status === "pagado" ? "Confirmado" : "Pendiente"}
+                  </strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: C.textMuted }}>Documento</span>
+                  <strong style={{ color: item.generated_document ? C.success : C.textMuted }}>
+                    {item.generated_document ? "Disponible" : "Aún no generado"}
+                  </strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: C.textMuted }}>Radicación</span>
+                  <strong style={{ color: item.status === "radicado" ? C.success : C.textMuted }}>
+                    {item.status === "radicado" ? "Completada" : "Pendiente"}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </div>
           <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
             <div style={{ fontWeight: 800, color: C.text }}>{item.routing?.primary_target?.name || "Sin destino"}</div>
             <div style={{ color: C.textMuted, marginTop: 6 }}>{item.routing?.subject || "Sin asunto sugerido"}</div>
           </div>
-          {item.generated_document && <Button variant="outline" onClick={() => onViewDocument(item)} style={{ width: "fit-content" }}>Abrir borrador</Button>}
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {item.generated_document && <Button variant="outline" onClick={() => onViewDocument(item)} style={{ width: "fit-content" }}>Abrir documento</Button>}
+            <Button variant="ghost" style={{ background: "#EEF4FF", color: C.primary }}>
+              Ver siguiente etapa
+            </Button>
+          </div>
         </div>
       </SessionCard>
 

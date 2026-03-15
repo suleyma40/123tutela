@@ -23,22 +23,22 @@ Objetivo: reemplazar el pago demo actual por un flujo real con Wompi, validado p
 
 ## 1. Definiciones de negocio
 
-- [ ] Confirmar el precio oficial en COP.
+- [x] Confirmar el precio oficial en COP.
 - [ ] Confirmar el nombre del producto que compra el usuario.
-- [ ] Confirmar si el pago cubre solo generacion del documento o tambien envio/radicacion.
+- [x] Confirmar si el pago cubre solo generacion del documento o tambien envio/radicacion.
 - [ ] Confirmar politica de reembolso.
 - [ ] Confirmar texto legal visible antes de pagar.
-- [ ] Definir la descripcion comercial corta de cada producto.
-- [ ] Definir la descripcion detallada de cada producto.
+- [x] Definir la descripcion comercial corta de cada producto.
+- [x] Definir la descripcion detallada de cada producto.
 - [ ] Definir exactamente que significa la promesa `menos de 5 minutos` en cada flujo.
 
 ## 2. Accesos y credenciales
 
-- [ ] Crear o validar cuenta Wompi.
-- [ ] Completar vinculacion para cobros en produccion.
+- [x] Crear o validar cuenta Wompi.
+- [x] Completar vinculacion para cobros en produccion.
 - [ ] Obtener credenciales sandbox.
-- [ ] Obtener credenciales produccion.
-- [ ] Guardar secretos solo en `.env` o en variables seguras de Dokploy.
+- [x] Obtener credenciales produccion.
+- [x] Guardar secretos solo en `.env` o en variables seguras de Dokploy.
 
 Credenciales requeridas:
 
@@ -53,77 +53,77 @@ Credenciales requeridas:
 
 ## 3. URLs y configuracion externa
 
-- [ ] Confirmar URL publica frontend: `https://123tutelaapp.com`
-- [ ] Confirmar URL publica backend: `https://api.123tutelaapp.com`
-- [ ] Definir URL de resultado de pago: `https://123tutelaapp.com/pago/resultado`
-- [ ] Definir webhook sandbox: `https://api.123tutelaapp.com/payments/wompi/webhook/sandbox`
-- [ ] Definir webhook produccion: `https://api.123tutelaapp.com/payments/wompi/webhook`
-- [ ] Configurar URL de eventos sandbox en Wompi.
-- [ ] Configurar URL de eventos produccion en Wompi.
+- [x] Confirmar URL publica frontend: `https://123tutelaapp.com`
+- [x] Confirmar URL publica backend: `https://api.123tutelaapp.com`
+- [x] Definir URL de resultado de pago: `https://123tutelaapp.com/pago/resultado`
+- [x] Definir webhook sandbox: `https://api.123tutelaapp.com/payments/wompi/webhook/sandbox`
+- [x] Definir webhook produccion: `https://api.123tutelaapp.com/payments/wompi/webhook`
+- [x] Configurar URL de eventos sandbox en Wompi.
+- [x] Configurar URL de eventos produccion en Wompi.
 
 ## 4. Decisiones de implementacion
 
-- [ ] Confirmar que arrancamos con Wompi Widget o Web Checkout.
-- [ ] Usar validacion final por webhook, no por redireccion.
-- [ ] Mantener el frontend sin secretos de Wompi.
-- [ ] Generar referencias de pago unicas por intento.
-- [ ] Definir estados internos de pago: `pending`, `approved`, `declined`, `error`, `voided`.
+- [x] Confirmar que arrancamos con Wompi Widget o Web Checkout.
+- [x] Usar validacion final por webhook, no por redireccion.
+- [x] Mantener el frontend sin secretos de Wompi.
+- [x] Generar referencias de pago unicas por intento.
+- [x] Definir estados internos de pago: `pending`, `approved`, `declined`, `error`, `voided`.
 - [x] Implementar desde el inicio todo el catalogo de productos individuales.
-- [ ] Dejar los combos para una fase posterior, cuando las reglas de encadenamiento esten cerradas.
+- [x] Dejar los combos para una fase posterior, cuando las reglas de encadenamiento esten cerradas.
 
 Decision recomendada para este MVP:
 
-- [ ] Fase 1: Widget o Checkout + webhook para todos los productos individuales.
+- [x] Fase 1: Widget o Checkout + webhook para todos los productos individuales.
 - [ ] Fase 2: evaluar API avanzada solo si luego hace falta tokenizacion, devoluciones o cargos mas complejos.
 - [ ] Fase 2: agregar combos cuando el motor de continuidad comercial este completamente definido.
 
 ## 5. Base de datos
 
-- [ ] Crear tabla `payments` o `payment_orders`.
-- [ ] Relacionar cada pago con `case_id` y `user_id`.
-- [ ] Guardar `reference`, `amount_in_cents`, `currency`, `status`, `transaction_id`, `provider`, `environment`.
-- [ ] Guardar payload crudo del webhook para auditoria.
-- [ ] Guardar timestamps de creacion, aprobacion y ultimo cambio de estado.
-- [ ] Crear indice por `reference`.
+- [x] Crear tabla `payments` o `payment_orders`.
+- [x] Relacionar cada pago con `case_id` y `user_id`.
+- [x] Guardar `reference`, `amount_in_cents`, `currency`, `status`, `transaction_id`, `provider`, `environment`.
+- [x] Guardar payload crudo del webhook para auditoria.
+- [x] Guardar timestamps de creacion, aprobacion y ultimo cambio de estado.
+- [x] Crear indice por `reference`.
 - [ ] Crear indice por `transaction_id`.
 
 ## 6. Backend
 
-- [ ] Crear modulo Wompi en backend.
-- [ ] Crear endpoint para iniciar pago y entregar configuracion segura al frontend.
-- [ ] Crear generacion de firma de integridad.
-- [ ] Crear endpoint webhook de Wompi.
-- [ ] Validar firma del evento entrante.
-- [ ] Hacer idempotente el webhook para no procesar dos veces el mismo evento.
-- [ ] Marcar el expediente como pagado solo con evento `approved`.
-- [ ] Registrar errores y rechazos de pago.
-- [ ] Deshabilitar el flujo `pago demo`.
+- [x] Crear modulo Wompi en backend.
+- [x] Crear endpoint para iniciar pago y entregar configuracion segura al frontend.
+- [x] Crear generacion de firma de integridad.
+- [x] Crear endpoint webhook de Wompi.
+- [x] Validar firma del evento entrante.
+- [x] Hacer idempotente el webhook para no procesar dos veces el mismo evento.
+- [x] Marcar el expediente como pagado solo con evento `approved`.
+- [x] Registrar errores y rechazos de pago.
+- [x] Deshabilitar el flujo `pago demo`.
 
 Rutas sugeridas:
 
-- [ ] `POST /payments/wompi/checkout-session`
-- [ ] `POST /payments/wompi/webhook`
-- [ ] `POST /payments/wompi/webhook/sandbox`
-- [ ] `GET /payments/{reference}`
+- [x] `POST /payments/wompi/checkout-session`
+- [x] `POST /payments/wompi/webhook`
+- [x] `POST /payments/wompi/webhook/sandbox`
+- [x] `GET /payments/{reference}`
 
 ## 7. Frontend
 
-- [ ] Reemplazar boton `Confirmar pago demo`.
-- [ ] Mostrar boton real de pago Wompi en el paso correcto.
-- [ ] Mostrar estado visual: pendiente, pagado, rechazado, en revision.
-- [ ] Crear pantalla `pago/resultado`.
-- [ ] Mostrar mensaje claro si la redireccion vuelve antes de que llegue el webhook.
-- [ ] Bloquear generacion de documento final hasta que el backend confirme pago aprobado.
+- [x] Reemplazar boton `Confirmar pago demo`.
+- [x] Mostrar boton real de pago Wompi en el paso correcto.
+- [x] Mostrar estado visual: pendiente, pagado, rechazado, en revision.
+- [x] Crear pantalla `pago/resultado`.
+- [x] Mostrar mensaje claro si la redireccion vuelve antes de que llegue el webhook.
+- [x] Bloquear generacion de documento final hasta que el backend confirme pago aprobado.
 - [ ] Mostrar referencia de pago al usuario.
-- [ ] Mostrar informe gratis con derecho vulnerado, analisis y recomendacion antes del pago.
-- [ ] Permitir elegir entre `Solo documento` y `Documento + radicacion` cuando el producto lo soporte.
+- [x] Mostrar informe gratis con derecho vulnerado, analisis y recomendacion antes del pago.
+- [x] Permitir elegir entre `Solo documento` y `Documento + radicacion` cuando el producto lo soporte.
 - [ ] Mostrar siguientes pasos sugeridos segun el tipo de caso.
 - [ ] Mostrar ofertas de continuidad: seguimiento, impugnacion, desacato y otros pasos posteriores.
 - [ ] Mostrar esos pasos tanto en panel como en correo.
 - [ ] Mostrar tiempos estimados, siguiente accion esperada y posibles escenarios del tramite.
-- [ ] Mostrar descripcion clara del producto antes del pago.
-- [ ] Mostrar que la plataforma cuenta con base de correos de juzgados y entidades para radicacion donde aplique.
-- [ ] No mostrar `Guia de radicacion` ni `Documento urgente` en la oferta inicial.
+- [x] Mostrar descripcion clara del producto antes del pago.
+- [x] Mostrar que la plataforma cuenta con base de correos de juzgados y entidades para radicacion donde aplique.
+- [x] No mostrar `Guia de radicacion` ni `Documento urgente` en la oferta inicial.
 
 ## 8. UX y legal
 
@@ -136,20 +136,20 @@ Rutas sugeridas:
 
 ## 9. Dokploy y variables de entorno
 
-- [ ] Agregar variables Wompi en Dokploy para backend.
-- [ ] Agregar variables Wompi en `.env.production.template`.
-- [ ] Agregar placeholders Wompi en `.env.example`.
-- [ ] Verificar que ninguna llave sensible quede en frontend.
-- [ ] Hacer redeploy de backend y frontend despues de integrar pagos.
+- [x] Agregar variables Wompi en Dokploy para backend.
+- [x] Agregar variables Wompi en `.env.production.template`.
+- [x] Agregar placeholders Wompi en `.env.example`.
+- [x] Verificar que ninguna llave sensible quede en frontend.
+- [x] Hacer redeploy de backend y frontend despues de integrar pagos.
 
 Variables previstas:
 
-- [ ] `WOMPI_ENVIRONMENT`
-- [ ] `WOMPI_PUBLIC_KEY`
-- [ ] `WOMPI_INTEGRITY_SECRET`
-- [ ] `WOMPI_EVENT_SECRET`
+- [x] `WOMPI_ENVIRONMENT`
+- [x] `WOMPI_PUBLIC_KEY`
+- [x] `WOMPI_INTEGRITY_SECRET`
+- [x] `WOMPI_EVENT_SECRET`
 - [ ] `WOMPI_PRIVATE_KEY` si despues la usamos
-- [ ] `WOMPI_PAYMENT_REDIRECT_URL`
+- [x] `WOMPI_PAYMENT_REDIRECT_URL`
 
 ## 10. Pruebas sandbox
 
@@ -165,13 +165,13 @@ Variables previstas:
 
 ## 11. Salida a produccion
 
-- [ ] Cargar credenciales productivas en Dokploy.
-- [ ] Configurar evento productivo en Wompi.
-- [ ] Hacer despliegue a produccion.
-- [ ] Ejecutar una compra real controlada.
-- [ ] Verificar recepcion del webhook productivo.
-- [ ] Verificar cambio de estado del expediente.
-- [ ] Verificar habilitacion del documento final.
+- [x] Cargar credenciales productivas en Dokploy.
+- [x] Configurar evento productivo en Wompi.
+- [x] Hacer despliegue a produccion.
+- [x] Ejecutar una compra real controlada.
+- [x] Verificar recepcion del webhook productivo.
+- [x] Verificar cambio de estado del expediente.
+- [x] Verificar habilitacion del documento final.
 - [ ] Verificar trazabilidad en base de datos y logs.
 
 ## 12. Operacion y soporte
@@ -189,21 +189,21 @@ Variables previstas:
 
 Solo damos este bloque por terminado cuando se cumpla todo lo siguiente:
 
-- [ ] El pago demo ya no existe.
-- [ ] El usuario puede pagar con Wompi en produccion.
-- [ ] El backend valida el pago por webhook.
-- [ ] El expediente cambia a pagado correctamente.
-- [ ] El documento final solo se habilita tras pago aprobado.
+- [x] El pago demo ya no existe.
+- [x] El usuario puede pagar con Wompi en produccion.
+- [x] El backend valida el pago por webhook.
+- [x] El expediente cambia a pagado correctamente.
+- [x] El documento final solo se habilita tras pago aprobado.
 - [ ] Hay paginas legales publicas visibles.
-- [ ] La prueba real en produccion quedo completada.
+- [x] La prueba real en produccion quedo completada.
 
 ## 14. Lo que necesitamos ya para arrancar
 
-- [ ] Precio oficial en COP.
-- [ ] Decision final: Widget o Web Checkout.
+- [x] Precio oficial en COP.
+- [x] Decision final: Widget o Web Checkout.
 - [ ] Credenciales sandbox.
-- [ ] Credenciales produccion.
-- [ ] Confirmacion de la URL final de resultado.
+- [x] Credenciales produccion.
+- [x] Confirmacion de la URL final de resultado.
 - [ ] Confirmacion de la politica de reembolso.
-- [ ] Confirmacion del catalogo inicial completo de productos individuales.
-- [ ] Confirmacion del texto comercial de cada producto.
+- [x] Confirmacion del catalogo inicial completo de productos individuales.
+- [x] Confirmacion del texto comercial de cada producto.
