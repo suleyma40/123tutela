@@ -6,6 +6,7 @@ import AuthViewVision from "./views/AuthViewVision";
 import DashboardV2 from "./views/DashboardV2";
 import DocumentModal from "./views/DocumentModal";
 import LandingVision from "./views/LandingVision";
+import LegalPageView from "./views/LegalPageView";
 import PaymentResultView from "./views/PaymentResultView";
 
 const ROUTES = {
@@ -14,6 +15,9 @@ const ROUTES = {
   register: "/register",
   dashboard: "/dashboard",
   payment_result: "/pago/resultado",
+  terminos: "/terminos",
+  privacidad: "/privacidad",
+  contacto: "/contacto",
 };
 
 const pathToView = (pathname) => {
@@ -21,6 +25,9 @@ const pathToView = (pathname) => {
   if (pathname === ROUTES.register) return "register";
   if (pathname === ROUTES.dashboard) return "dashboard";
   if (pathname === ROUTES.payment_result) return "payment_result";
+  if (pathname === ROUTES.terminos) return "terminos";
+  if (pathname === ROUTES.privacidad) return "privacidad";
+  if (pathname === ROUTES.contacto) return "contacto";
   return "landing";
 };
 
@@ -320,7 +327,11 @@ export default function MainAppV2() {
       <AnimatePresence mode="wait">
         {view === "landing" && (
           <div key="landing">
-            <LandingVision onStart={() => navigate("register")} onLogin={() => navigate("login")} />
+            <LandingVision
+              onStart={() => navigate("register")}
+              onLogin={() => navigate("login")}
+              onLegalNavigate={(page) => navigate(page)}
+            />
           </div>
         )}
 
@@ -373,6 +384,12 @@ export default function MainAppV2() {
               onLogin={() => navigate("login", { replace: true })}
               onBackHome={() => navigate("landing", { replace: true })}
             />
+          </div>
+        )}
+
+        {["terminos", "privacidad", "contacto"].includes(view) && (
+          <div key={view}>
+            <LegalPageView page={view} onBackHome={() => navigate("landing", { replace: true })} />
           </div>
         )}
 

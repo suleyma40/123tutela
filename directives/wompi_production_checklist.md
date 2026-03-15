@@ -127,9 +127,9 @@ Rutas sugeridas:
 
 ## 8. UX y legal
 
-- [ ] Crear pagina publica de Terminos.
-- [ ] Crear pagina publica de Privacidad.
-- [ ] Crear pagina publica de Contacto o Soporte.
+- [x] Crear pagina publica de Terminos.
+- [x] Crear pagina publica de Privacidad.
+- [x] Crear pagina publica de Contacto o Soporte.
 - [ ] Mostrar que el cobro se procesa con Wompi.
 - [ ] Mostrar claramente que recibe el usuario al pagar.
 - [ ] Revisar textos de consentimiento antes del pago.
@@ -194,7 +194,7 @@ Solo damos este bloque por terminado cuando se cumpla todo lo siguiente:
 - [x] El backend valida el pago por webhook.
 - [x] El expediente cambia a pagado correctamente.
 - [x] El documento final solo se habilita tras pago aprobado.
-- [ ] Hay paginas legales publicas visibles.
+- [x] Hay paginas legales publicas visibles.
 - [x] La prueba real en produccion quedo completada.
 
 ## 14. Lo que necesitamos ya para arrancar

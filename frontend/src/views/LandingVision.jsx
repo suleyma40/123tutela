@@ -36,7 +36,7 @@ const priceHighlights = [
   "Radicacion automatizada cuando el cliente la elige.",
 ];
 
-export default function LandingVision({ onStart, onLogin }) {
+export default function LandingVision({ onStart, onLogin, onLegalNavigate }) {
   return (
     <div style={{ minHeight: "100vh", background: "#F5F7FB", color: C.text }}>
       <nav
@@ -312,6 +312,36 @@ export default function LandingVision({ onStart, onLogin }) {
           </div>
         </div>
       </section>
+
+      <footer style={{ borderTop: `1px solid ${C.border}`, background: "#FCFDFF" }}>
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: "0 auto",
+            padding: "26px 24px 36px",
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 18,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ color: C.textMuted }}>
+            © 2026 123tutela Colombia. No reemplazamos asesoría legal personalizada en casos penales o de alta complejidad.
+          </div>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => onLegalNavigate?.("terminos")} style={{ border: "none", background: "transparent", color: C.textMuted, cursor: "pointer", fontWeight: 700 }}>
+              Términos
+            </button>
+            <button type="button" onClick={() => onLegalNavigate?.("privacidad")} style={{ border: "none", background: "transparent", color: C.textMuted, cursor: "pointer", fontWeight: 700 }}>
+              Privacidad
+            </button>
+            <button type="button" onClick={() => onLegalNavigate?.("contacto")} style={{ border: "none", background: "transparent", color: C.textMuted, cursor: "pointer", fontWeight: 700 }}>
+              Contacto
+            </button>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
