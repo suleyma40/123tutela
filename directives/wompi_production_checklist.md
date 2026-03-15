@@ -117,10 +117,10 @@ Rutas sugeridas:
 - [ ] Mostrar referencia de pago al usuario.
 - [x] Mostrar informe gratis con derecho vulnerado, analisis y recomendacion antes del pago.
 - [x] Permitir elegir entre `Solo documento` y `Documento + radicacion` cuando el producto lo soporte.
-- [ ] Mostrar siguientes pasos sugeridos segun el tipo de caso.
-- [ ] Mostrar ofertas de continuidad: seguimiento, impugnacion, desacato y otros pasos posteriores.
+- [x] Mostrar siguientes pasos sugeridos segun el tipo de caso.
+- [x] Mostrar ofertas de continuidad: seguimiento, impugnacion, desacato y otros pasos posteriores.
 - [ ] Mostrar esos pasos tanto en panel como en correo.
-- [ ] Mostrar tiempos estimados, siguiente accion esperada y posibles escenarios del tramite.
+- [x] Mostrar tiempos estimados, siguiente accion esperada y posibles escenarios del tramite.
 - [x] Mostrar descripcion clara del producto antes del pago.
 - [x] Mostrar que la plataforma cuenta con base de correos de juzgados y entidades para radicacion donde aplique.
 - [x] No mostrar `Guia de radicacion` ni `Documento urgente` en la oferta inicial.

@@ -49,6 +49,31 @@ const normalizeAction = (value) =>
     .toLowerCase()
     .trim();
 
+const buildContinuationOptions = (item) => {
+  const action = normalizeAction(item?.recommended_action);
+  if (item?.status === "radicado") {
+    return [
+      "Seguimiento del caso para revisar respuesta, admisión o requerimientos.",
+      action === "accion de tutela" ? "Impugnación si el fallo no protege completamente el derecho." : null,
+      action === "accion de tutela" ? "Incidente de desacato si existe orden judicial incumplida." : null,
+    ].filter(Boolean);
+  }
+
+  if (item?.payment_status === "pagado" && !item?.generated_document) {
+    return ["Generar el documento final y revisar el contenido antes de radicar."];
+  }
+
+  if (item?.generated_document && item?.status !== "radicado") {
+    return [
+      item?.routing?.automatable
+        ? "Radicación automática con el canal sugerido y envío de comprobante."
+        : "Radicación manual o presencial con registro del comprobante en el panel.",
+    ];
+  }
+
+  return ["Completar el paso actual para habilitar la siguiente etapa del caso."];
+};
+
 function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPayment, onRefreshCase, loading }) {
   const [includeFiling, setIncludeFiling] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
@@ -226,7 +251,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
   );
 }
 
-function DetailPanel({ detail, onViewDocument }) {
+function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
   if (!detail) {
     return <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>Abre un expediente para ver timeline, archivos y trazabilidad.</div>;
   }
@@ -250,6 +275,7 @@ function DetailPanel({ detail, onViewDocument }) {
         : item.routing?.automatable
           ? "Menos de 5 minutos cuando el canal responde"
           : "Depende del canal manual elegido";
+  const continuationOptions = buildContinuationOptions(item);
   return (
     <div style={{ display: "grid", gap: 18 }}>
       <SessionCard title="Expediente activo" subtitle={`${item.category} · ${item.workflow_type.replaceAll("_", " ")}`}>
@@ -302,9 +328,22 @@ function DetailPanel({ detail, onViewDocument }) {
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             {item.generated_document && <Button variant="outline" onClick={() => onViewDocument(item)} style={{ width: "fit-content" }}>Abrir documento</Button>}
-            <Button variant="ghost" style={{ background: "#EEF4FF", color: C.primary }}>
+            <Button variant="ghost" style={{ background: "#EEF4FF", color: C.primary }} onClick={onGoNextStage}>
               Ver siguiente etapa
             </Button>
+          </div>
+        </div>
+      </SessionCard>
+
+      <SessionCard title="Continuidad del caso" subtitle="Esto es lo siguiente que puede necesitar tu trámite después del estado actual.">
+        <div style={{ display: "grid", gap: 12 }}>
+          {continuationOptions.map((option) => (
+            <div key={option} className="glass-card" style={{ padding: 16, background: "#FCFDFF" }}>
+              <div style={{ color: C.text, fontWeight: 700 }}>{option}</div>
+            </div>
+          ))}
+          <div style={{ color: C.textMuted, fontSize: 14 }}>
+            Cuando una continuidad implique nuevo cobro, lo verás claramente dentro del panel y también en las notificaciones del caso.
           </div>
         </div>
       </SessionCard>
@@ -482,6 +521,13 @@ export default function DashboardV2(props) {
     if (!file || !activeCaseDetail?.case?.id) return;
     await onUploadEvidence(activeCaseDetail.case.id, file, evidenceNote);
     setEvidenceNote("");
+  };
+
+  const jumpToNextStage = () => {
+    const target = document.getElementById("case-next-stage");
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   const content = {
@@ -782,7 +828,7 @@ export default function DashboardV2(props) {
     ) : <div className="glass-card" style={{ padding: 30, color: C.textMuted }}>Todavía no tienes expedientes guardados. Empieza con el análisis gratis y desde ahí creamos el primer caso.</div>,
     detalle: (
       <div style={{ display: "grid", gap: 18 }}>
-        <DetailPanel detail={activeCaseDetail} onViewDocument={setDocumentCase} />
+        <DetailPanel detail={activeCaseDetail} onViewDocument={setDocumentCase} onGoNextStage={jumpToNextStage} />
         {activeCaseDetail && canOperateActiveCase && (
           <>
             <PaymentCard
@@ -794,6 +840,7 @@ export default function DashboardV2(props) {
               onRefreshCase={onRefreshCase}
               loading={loading}
             />
+            <div id="case-next-stage">
             <SessionCard title="Acciones operativas" subtitle="Documento, envío, radicado manual y evidencia del caso activo.">
               <div style={{ display: "grid", gap: 14 }}>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -818,6 +865,7 @@ export default function DashboardV2(props) {
                 </div>
               </div>
             </SessionCard>
+            </div>
           </>
         )}
       </div>
