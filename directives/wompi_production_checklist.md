@@ -242,9 +242,9 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [ ] Definir preguntas dinamicas por tipo de caso.
 - [x] Implementar una primera separacion entre campos estructurados y texto libre dentro del wizard.
 - [x] Implementar una primera captura guiada de fechas, respuestas previas, entidad, pruebas y actos o decisiones relevantes.
-- [ ] Definir validaciones minimas de longitud, claridad y completitud del relato.
+- [x] Implementar una primera capa de validaciones minimas de longitud, claridad y completitud antes del preview.
 - [x] Implementar una primera capa de ayudas de redaccion por categoria dentro del wizard.
-- [ ] Definir cuando bloquear el avance por informacion insuficiente.
+- [x] Bloquear el preview cuando la informacion base siga siendo insuficiente para un analisis juridico serio.
 - [x] Bloquear el guardado del expediente cuando la revision juridica inicial detecte datos criticos faltantes en tutela, derecho de peticion o habeas data.
 
 ## 15. Radicacion y canales

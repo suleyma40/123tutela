@@ -157,6 +157,39 @@ const getGuidedIntakeMissing = (form) => {
   return missing;
 };
 
+const getPreviewGateIssues = (form) => {
+  const issues = [];
+  const descriptionLength = form.description.trim().length;
+  const harmLength = form.current_harm.trim().length;
+  const evidenceLength = form.evidence_summary.trim().length;
+
+  if (descriptionLength < 60) {
+    issues.push("El relato libre todavia es muy corto. Describe mejor que paso, en que orden y con que fechas.");
+  }
+
+  if (harmLength < 25) {
+    issues.push("Debes explicar mejor la afectacion actual o el riesgo concreto que justifica el documento.");
+  }
+
+  if (evidenceLength < 20) {
+    issues.push("Falta explicar que pruebas, soportes o documentos tienes disponibles.");
+  }
+
+  if (form.prior_response_status === "sin_gestion_previa" && ["Laboral", "Bancos", "Servicios", "Consumidor", "Datos"].includes(form.category)) {
+    issues.push("Todavia no reportas una gestion previa. Revisa si primero conviene un derecho de peticion o una reclamacion formal.");
+  }
+
+  if (form.category === "Salud" && form.urgency_detail.trim().length < 20) {
+    issues.push("En salud debes explicar mejor la urgencia o el riesgo clinico actual.");
+  }
+
+  if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category) && form.numbered_requests.trim().length < 15) {
+    issues.push("Para un derecho de peticion fuerte debes dejar mas claras las solicitudes numeradas esperadas.");
+  }
+
+  return issues;
+};
+
 const getWritingAid = (category) => {
   if (category === "Salud") {
     return "Cuenta los hechos en orden: que te ordenaron, que negaron o demoraron, desde cuando pasa y por que hoy existe urgencia o riesgo.";
@@ -169,6 +202,33 @@ const getWritingAid = (category) => {
   }
   return "Describe hechos concretos, fechas, entidad involucrada y una solicitud clara. Evita opiniones generales y enfocate en lo verificable.";
 };
+
+function PreviewGateCard({ issues }) {
+  if (!issues.length) {
+    return (
+      <div className="glass-card" style={{ padding: 18, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>CALIDAD MINIMA PARA ANALISIS</div>
+        <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>La informacion actual ya permite generar un preview juridico mas confiable.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="glass-card" style={{ padding: 18, background: "#FFF7ED", border: "1px solid #FDBA74" }}>
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>ANTES DEL PREVIEW</div>
+      <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+        Todavia faltan detalles minimos para que la IA produzca un analisis juridico serio.
+      </div>
+      <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+        {issues.map((issue) => (
+          <div key={issue} style={{ color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", padding: 14, borderRadius: 14 }}>
+            {issue}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function IntakeReviewCard({ review }) {
   if (!review || review.status === "not_scored") {
@@ -849,8 +909,13 @@ export default function DashboardV2(props) {
   const selectedPriorActions = priorActionMap[form.category] || [];
   const canOperateActiveCase = !!activeCaseDetail?.case && activeCaseDetail.case.user_id === session.user.id;
   const guidedMissing = useMemo(() => getGuidedIntakeMissing(form), [form]);
+  const previewGateIssues = useMemo(() => getPreviewGateIssues(form), [form]);
   const composedDescription = useMemo(() => buildStructuredDescription(form), [form]);
-  const analysisReady = !!form.category && (form.description.trim().length >= 20 || composedDescription.trim().length >= 120);
+  const analysisReady =
+    !!form.category &&
+    (form.description.trim().length >= 20 || composedDescription.trim().length >= 120) &&
+    guidedMissing.length === 0 &&
+    previewGateIssues.length === 0;
   const wizardSteps = [
     { id: 1, label: "Perfil", ready: profileReady },
     { id: 2, label: "Análisis", ready: analysisReady || !!preview },
@@ -1027,6 +1092,7 @@ export default function DashboardV2(props) {
             </div>
             <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe hechos, fechas, respuestas previas y urgencia." />
             <GuidedIntakeFields form={form} setForm={setForm} missingFields={guidedMissing} />
+            <PreviewGateCard issues={previewGateIssues} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
               <Field label="Ciudad"><TextInput value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} /></Field>
               <Field label="Departamento"><TextInput value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))} /></Field>
