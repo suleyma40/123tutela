@@ -177,3 +177,8 @@ def generate_document(case_id: str, current_user: dict[str, Any] = Depends(get_c
 
     normalized = _normalize_case(updated)
     return CaseDocumentResponse(case=CaseResponse(**normalized), document=document)
+
+
+from backend.app_v2 import app as app_v2
+
+app = app_v2

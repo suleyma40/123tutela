@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _split_csv(raw: str | None) -> list[str]:
@@ -23,11 +26,11 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o")
-    knowledge_base_json: str = os.getenv(
-        "KNOWLEDGE_BASE_JSON", "knowledge_base/marcos_normativos.json"
-    )
+    knowledge_base_json: str = os.getenv("KNOWLEDGE_BASE_JSON", "knowledge_base/marcos_normativos.json")
     jwt_secret: str = os.getenv("JWT_SECRET", "change-me")
     session_secret: str = os.getenv("SESSION_SECRET", "change-me-session")
+    uploads_dir: str = os.getenv("UPLOADS_DIR", str(ROOT / ".tmp" / "uploads"))
+    internal_admin_emails: list[str] = None  # type: ignore[assignment]
     cors_origins: list[str] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
@@ -39,6 +42,7 @@ class Settings:
             "http://localhost:4173",
         }
         self.cors_origins = [origin for origin in configured or defaults if origin]
+        self.internal_admin_emails = [email.lower() for email in _split_csv(os.getenv("INTERNAL_ADMIN_EMAILS"))]
 
 
 settings = Settings()

@@ -1,6 +1,6 @@
 import uvicorn
 
-from backend.app import app
+from backend.app_v2 import app
 
 
 if __name__ == "__main__":

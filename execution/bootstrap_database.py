@@ -10,7 +10,7 @@ if str(ROOT) not in sys.path:
 from backend.db import get_connection
 
 
-def apply_schema(schema_path: str = "execution/schema_mvp.sql") -> None:
+def apply_schema(schema_path: str = "execution/schema_mvp_v3.sql") -> None:
     sql = Path(schema_path).read_text(encoding="utf-8")
     with get_connection() as connection, connection.cursor() as cursor:
         cursor.execute(sql)
