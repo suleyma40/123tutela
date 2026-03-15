@@ -24,6 +24,8 @@ const defaultIntakeFields = {
   previous_response: "",
   response_channel: "",
   case_reference: "",
+  request_type: "interes_particular",
+  numbered_requests: "",
   eps_name: "",
   ips_name: "",
   diagnosis: "",
@@ -97,7 +99,9 @@ const buildStructuredDescription = (form) => {
     form.target_entity ? `Entidad o destinatario: ${form.target_entity}` : "",
     form.event_date ? `Fecha o periodo relevante: ${form.event_date}` : "",
     form.case_reference ? `Numero o referencia relacionada: ${form.case_reference}` : "",
+    form.request_type ? `Tipo de peticion o enfoque principal: ${form.request_type}` : "",
     form.concrete_request ? `Solicitud principal del usuario: ${form.concrete_request}` : "",
+    form.numbered_requests ? `Solicitudes numeradas esperadas: ${form.numbered_requests}` : "",
     form.current_harm ? `Afectacion actual o riesgo: ${form.current_harm}` : "",
     form.previous_response ? `Respuesta previa o antecedente: ${form.previous_response}` : "",
     form.response_channel ? `Canal de respuesta deseado: ${form.response_channel}` : "",
@@ -120,6 +124,7 @@ const getGuidedIntakeMissing = (form) => {
   if (!form.target_entity.trim()) missing.push("Entidad o destinatario");
   if (!form.event_date.trim()) missing.push("Fecha o periodo");
   if (!form.concrete_request.trim()) missing.push("Solicitud concreta");
+  if (!form.response_channel.trim()) missing.push("Canal de respuesta");
 
   if (form.category === "Salud") {
     if (!form.eps_name.trim()) missing.push("EPS");
@@ -132,7 +137,24 @@ const getGuidedIntakeMissing = (form) => {
     if (!form.requested_data_action.trim()) missing.push("Accion solicitada sobre el dato");
   }
 
+  if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category)) {
+    if (!form.numbered_requests.trim()) missing.push("Solicitudes numeradas esperadas");
+  }
+
   return missing;
+};
+
+const getWritingAid = (category) => {
+  if (category === "Salud") {
+    return "Cuenta los hechos en orden: que te ordenaron, que negaron o demoraron, desde cuando pasa y por que hoy existe urgencia o riesgo.";
+  }
+  if (category === "Datos") {
+    return "Explica que dato esta mal, donde aparece, desde cuando lo conoces, si ya reclamaste y que accion exacta quieres: corregir, actualizar o suprimir.";
+  }
+  if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(category)) {
+    return "Escribe como un derecho de peticion fuerte: a quien va dirigido, que antecedentes existen, que solicitas exactamente y que respuesta esperas obtener.";
+  }
+  return "Describe hechos concretos, fechas, entidad involucrada y una solicitud clara. Evita opiniones generales y enfocate en lo verificable.";
 };
 
 function IntakeReviewCard({ review }) {
@@ -194,6 +216,8 @@ function IntakeReviewCard({ review }) {
 
 function GuidedIntakeFields({ form, setForm, missingFields }) {
   const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const writingAid = getWritingAid(form.category);
+  const isPetitionTrack = ["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category);
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
@@ -207,6 +231,9 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
             {missingFields.map((item) => <Badge key={item} color={C.warning}>Falta: {item}</Badge>)}
           </div>
         )}
+        <div style={{ marginTop: 12, color: C.textMuted, fontSize: 13, lineHeight: 1.7 }}>
+          Ayuda de redaccion: {writingAid}
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
@@ -226,6 +253,33 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
           <TextInput value={form.response_channel} onChange={(event) => setField("response_channel", event.target.value)} placeholder="Ej: correo electronico, direccion fisica o ambos" />
         </Field>
       </div>
+
+      {isPetitionTrack && (
+        <div className="glass-card" style={{ padding: 18, background: "#F8FAFD" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PREGUNTAS DINAMICAS PARA DERECHO DE PETICION</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 14 }}>
+            <Field label="Tipo de peticion">
+              <select
+                value={form.request_type}
+                onChange={(event) => setField("request_type", event.target.value)}
+                style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+              >
+                <option value="interes_particular">Interes particular</option>
+                <option value="informacion">Informacion</option>
+                <option value="documentos">Documentos</option>
+                <option value="consulta">Consulta</option>
+                <option value="interes_general">Interes general</option>
+              </select>
+            </Field>
+            <Field label="Solicitudes numeradas esperadas">
+              <TextInput value={form.numbered_requests} onChange={(event) => setField("numbered_requests", event.target.value)} placeholder="Ej: 1) Responder de fondo 2) Entregar copia 3) Corregir cobro" />
+            </Field>
+          </div>
+          <div style={{ marginTop: 12, color: C.textMuted, fontSize: 13, lineHeight: 1.7 }}>
+            Usa esta ruta cuando necesitas una respuesta formal de fondo, entrega de informacion, documentos o correccion de una actuacion de la entidad.
+          </div>
+        </div>
+      )}
 
       <Field label="Afectacion actual o riesgo concreto">
         <TextArea value={form.current_harm} onChange={(event) => setField("current_harm", event.target.value)} placeholder="Explica por que esto te afecta hoy: salud, minimo vital, reporte negativo, corte de servicio, falta de respuesta, etc." style={{ minHeight: 110 }} />
