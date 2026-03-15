@@ -78,6 +78,8 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
   const [includeFiling, setIncludeFiling] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
   const [selectedCode, setSelectedCode] = useState("");
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [latestReference, setLatestReference] = useState("");
 
   const suggestedCode = useMemo(() => {
     const action = normalizeAction(caseItem?.recommended_action);
@@ -175,11 +177,16 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
       setPaymentMessage("No hay producto seleccionado para cobrar.");
       return;
     }
+    if (!consentAccepted) {
+      setPaymentMessage("Debes aceptar los términos, privacidad y condiciones del pago antes de continuar.");
+      return;
+    }
     setPaymentMessage("");
     const session = await onCreateWompiSession(caseItem.id, {
       product_code: selectedProduct.code,
       include_filing: includeFiling,
     });
+    setLatestReference(session.order.reference);
     await launchWidget(session.checkout);
     setPaymentMessage("Pago iniciado. Esperando confirmación segura de Wompi.");
     await pollPayment(session.order.reference);
@@ -238,6 +245,34 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
             <div style={{ color: C.textMuted, fontSize: 13, marginTop: 8 }}>
               Siguiente paso sugerido: {selectedProduct.next_step_hint}
             </div>
+            <div style={{ marginTop: 16, padding: 14, borderRadius: 14, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>LO QUE RECIBES AL PAGAR</div>
+              <div style={{ display: "grid", gap: 8, marginTop: 10, color: C.text }}>
+                <div>1. Documento jurídico final listo para usar.</div>
+                <div>2. Acceso al expediente y trazabilidad del caso desde tu panel.</div>
+                <div>3. {includeFiling ? "Radicación por parte de la plataforma cuando el canal lo permita." : "Opción de radicación según el producto que elijas."}</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
+              <strong style={{ color: C.primary }}>Pago seguro con Wompi.</strong>
+              <div style={{ marginTop: 6, color: C.textMuted, fontSize: 13 }}>
+                El cobro se procesa a través de Wompi. La activación final del documento depende de la confirmación segura del pago por webhook.
+              </div>
+            </div>
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 16, color: C.text }}>
+              <input type="checkbox" checked={consentAccepted} onChange={(event) => setConsentAccepted(event.target.checked)} />
+              <span style={{ fontSize: 14, lineHeight: 1.6 }}>
+                Confirmo que entiendo qué estoy comprando, acepto los términos y la política de privacidad, y autorizo el procesamiento del pago mediante Wompi.
+              </span>
+            </label>
+            <div style={{ color: C.textMuted, fontSize: 13 }}>
+              Consulta: <a href="/terminos" style={{ color: C.primary }}>Términos</a> · <a href="/privacidad" style={{ color: C.primary }}>Privacidad</a> · <a href="/contacto" style={{ color: C.primary }}>Contacto</a>
+            </div>
+            {latestReference && (
+              <div style={{ color: C.textMuted, fontSize: 13, marginTop: 6 }}>
+                Referencia del intento: <strong style={{ color: C.text }}>{latestReference}</strong>
+              </div>
+            )}
           </div>
         )}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

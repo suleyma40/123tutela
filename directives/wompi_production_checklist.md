@@ -130,9 +130,9 @@ Rutas sugeridas:
 - [x] Crear pagina publica de Terminos.
 - [x] Crear pagina publica de Privacidad.
 - [x] Crear pagina publica de Contacto o Soporte.
-- [ ] Mostrar que el cobro se procesa con Wompi.
-- [ ] Mostrar claramente que recibe el usuario al pagar.
-- [ ] Revisar textos de consentimiento antes del pago.
+- [x] Mostrar que el cobro se procesa con Wompi.
+- [x] Mostrar claramente que recibe el usuario al pagar.
+- [x] Revisar textos de consentimiento antes del pago.
 
 ## 9. Dokploy y variables de entorno
 
