@@ -72,6 +72,10 @@ def user_profile_complete(user: dict[str, Any]) -> bool:
     return all(isinstance(value, str) and value.strip() for value in required)
 
 
+def _contains_any(text: str, keywords: list[str]) -> bool:
+    return any(keyword in text for keyword in keywords)
+
+
 def normalize_prior_actions(prior_actions: list[str], category: str) -> list[dict[str, Any]]:
     config = CATEGORY_CONFIG.get(category, {})
     completed = set(prior_actions)
@@ -101,43 +105,85 @@ def infer_workflow(
     warnings: list[str] = []
 
     workflow_type = config["default_workflow"]
-    recommended_action = legal_analysis.get("recommended_action") or "Reclamación"
+    recommended_action = legal_analysis.get("recommended_action") or "Reclamacion"
+    has_habeas_signal = _contains_any(lowered, ["habeas", "datacredito", "cifin", "reporte", "central de riesgo", "dato personal"])
+    has_petition_signal = _contains_any(lowered, ["derecho de peticion", "derecho de petición", "respondan", "entreguen", "informacion", "información", "documentos", "consulta", "certifiquen"])
+    has_complaint_signal = _contains_any(lowered, ["queja", "reclamo", "garantia", "garantía", "devolucion", "devolución", "factura", "cobro", "bloqueo", "corte", "incumplimiento"])
+    has_tutela_signal = _contains_any(lowered, ["tutela", "derecho fundamental", "minimo vital", "mínimo vital", "vida", "salud", "urgencia", "riesgo", "perjuicio irremediable"])
 
     if category == "Salud":
         if all_required_done or urgent:
             workflow_type = "tutela"
-            recommended_action = "Acción de tutela"
+            recommended_action = "Accion de tutela"
         else:
             workflow_type = "derecho_peticion"
-            recommended_action = "Derecho de petición a EPS"
-            warnings.append("Antes de tutela en salud, la vía previa ante EPS debe quedar documentada salvo urgencia manifiesta.")
+            recommended_action = "Derecho de peticion a EPS"
+            warnings.append("Antes de tutela en salud, la via previa ante EPS debe quedar documentada salvo urgencia manifiesta.")
     elif category == "Datos":
-        if all_required_done and ("habeas" in lowered or "datacredito" in lowered or "cifin" in lowered):
+        if all_required_done and has_habeas_signal:
             workflow_type = "tutela"
-            recommended_action = "Acción de tutela por habeas data"
+            recommended_action = "Accion de tutela por habeas data"
         else:
             workflow_type = "reclamacion"
-            recommended_action = "Reclamación de habeas data"
-            warnings.append("La tutela en habeas data se reserva para cuando la reclamación previa no resuelve o existe afectación grave.")
+            recommended_action = "Reclamacion de habeas data"
+            warnings.append("La tutela en habeas data se reserva para cuando la reclamacion previa no resuelve o existe afectacion grave.")
     elif category == "Laboral":
-        if urgent or "minimo vital" in lowered or "mínimo vital" in lowered:
+        if urgent or "minimo vital" in lowered or "mínimo vital" in lowered or has_tutela_signal:
             workflow_type = "tutela"
-            recommended_action = "Acción de tutela"
+            recommended_action = "Accion de tutela"
         else:
             workflow_type = "derecho_peticion"
-            recommended_action = "Derecho de petición laboral"
-    elif category in {"Bancos", "Servicios", "Consumidor"}:
+            recommended_action = "Derecho de peticion laboral"
+    elif category == "Bancos":
+        if has_habeas_signal:
+            if all_required_done and (urgent or has_tutela_signal):
+                workflow_type = "tutela"
+                recommended_action = "Accion de tutela por habeas data"
+            else:
+                workflow_type = "reclamacion"
+                recommended_action = "Reclamacion de habeas data"
+                warnings.append("En bancos, los reportes y datos negativos suelen exigir reclamacion previa antes de escalar a tutela.")
+        elif all_required_done and urgent:
+            workflow_type = "tutela"
+            recommended_action = "Accion de tutela"
+        elif has_petition_signal:
+            workflow_type = "derecho_peticion"
+            recommended_action = "Derecho de peticion financiero"
+        else:
+            workflow_type = "reclamacion"
+            recommended_action = "Reclamacion financiera"
+            if not all_required_done:
+                warnings.append("Debes agotar la reclamacion directa ante la entidad financiera antes de escalar a tutela salvo vulneracion urgente.")
+    elif category == "Servicios":
         if all_required_done and urgent:
             workflow_type = "tutela"
-            recommended_action = "Acción de tutela"
+            recommended_action = "Accion de tutela"
+        elif has_petition_signal:
+            workflow_type = "derecho_peticion"
+            recommended_action = "Derecho de peticion a empresa de servicios"
         else:
             workflow_type = "reclamacion"
-            recommended_action = "Reclamación formal"
+            recommended_action = "Reclamacion por servicios publicos"
             if not all_required_done:
-                warnings.append("Debes agotar la reclamación directa antes de escalar a tutela salvo vulneración urgente.")
+                warnings.append("Debes agotar la reclamacion directa ante la empresa de servicios antes de escalar a tutela salvo afectacion urgente.")
+    elif category == "Consumidor":
+        if all_required_done and urgent:
+            workflow_type = "tutela"
+            recommended_action = "Accion de tutela"
+        elif has_petition_signal:
+            workflow_type = "derecho_peticion"
+            recommended_action = "Derecho de peticion al proveedor"
+        elif has_complaint_signal:
+            workflow_type = "reclamacion"
+            recommended_action = "Reclamo de consumo"
+        else:
+            workflow_type = "reclamacion"
+            recommended_action = "Queja o reclamo al proveedor"
+            if not all_required_done:
+                warnings.append("Antes de escalar un conflicto de consumo, conviene dejar trazabilidad de la reclamacion directa al proveedor.")
 
     if rights and workflow_type != "tutela" and any("fundamental" in str(item).lower() for item in rights):
-        warnings.append("Se detectaron derechos fundamentales comprometidos, pero el flujo conserva la vía previa exigida por la operación.")
+        warnings.append("Se detectaron derechos fundamentales comprometidos, pero el flujo conserva la via previa exigida por la operacion.")
 
     legal_analysis["recommended_action"] = recommended_action
     return {
