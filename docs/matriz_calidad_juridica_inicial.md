@@ -2,6 +2,31 @@
 
 Objetivo: convertir requisitos juridicos y de calidad documental en reglas operativas para 123tutela. Este documento no reemplaza revision profesional final; sirve como base para prompts, validaciones, intake y QA.
 
+## 0. Alcance real del producto
+
+123tutela no solo genera tutelas. Esta matriz debe cubrir todo documento permitido para actuacion directa del ciudadano sin necesidad de abogado, al menos en esta fase:
+
+- accion de tutela
+- derecho de peticion
+- carta formal a entidad
+- queja formal
+- reclamo administrativo
+- habeas data
+- recurso de reposicion o apelacion cuando proceda sin apoderado
+- queja disciplinaria
+- accion de cumplimiento
+- impugnacion de tutela
+- incidente de desacato
+- accion popular en los escenarios habilitados para actuacion ciudadana
+
+Regla base:
+
+- cada producto requiere criterio propio de procedencia
+- cada producto exige una estructura narrativa distinta
+- cada producto debe pedir informacion minima distinta
+- la IA no debe convertir todo en tutela por defecto
+- la seleccion del remedio correcto es tan importante como la redaccion
+
 ## 1. Principios rectores
 
 - No generar documentos que suenen juridicos pero sean improcedentes, incompletos o debiles.
@@ -152,7 +177,177 @@ Servicios y consumidor:
 - confunde queja, denuncia y peticion en un solo texto desordenado
 - el usuario necesita una pretension mas concreta para que la respuesta sea util
 
-## 4. Politica de citas y soporte
+## 4. Otros productos del catalogo
+
+### 4.1 Carta formal a entidad
+
+Usar cuando:
+
+- el usuario necesita dejar constancia formal
+- quiere pedir, advertir, insistir o requerir sin activar todavía un mecanismo más técnico
+
+Minimos:
+
+- destinatario claro
+- hechos resumidos
+- solicitud concreta
+- tono respetuoso y firme
+- fecha, ciudad y medio de respuesta
+
+No debe parecer:
+
+- ni tutela disfrazada
+- ni derecho de petición cuando no se busca respuesta formal bajo ese marco
+
+### 4.2 Queja formal
+
+Usar cuando:
+
+- hay mala atención, irregularidad, incumplimiento o conducta reprochable y el objetivo principal es dejar inconformidad formal y pedir intervención
+
+Minimos:
+
+- conducta o hecho que genera la queja
+- fecha o periodo
+- entidad o funcionario involucrado
+- efecto para el usuario
+- solicitud de revisión o corrección
+
+### 4.3 Reclamo administrativo
+
+Usar cuando:
+
+- el usuario exige corrección, revisión o solución frente a un acto, servicio o decisión administrativa o contractual no judicial
+
+Minimos:
+
+- actuación o servicio reclamado
+- por qué se considera incorrecto o insuficiente
+- qué solución pide
+- soporte documental si existe
+
+### 4.4 Habeas data
+
+Usar cuando:
+
+- el usuario busca corrección, actualización, supresión o prueba de autorización sobre datos personales
+
+Minimos:
+
+- base de datos o entidad fuente
+- dato cuestionado
+- qué se pide exactamente: corregir, actualizar, eliminar o informar
+- reclamación previa si aplica
+- daño actual o riesgo concreto
+
+Regla fuerte:
+
+- no convertir automáticamente cualquier problema de centrales de riesgo en tutela
+
+### 4.5 Recurso de reposicion o apelacion
+
+Usar cuando:
+
+- existe una decisión previa recurrible
+- el usuario está dentro del término o al menos puede justificar situación sobre el término
+
+Minimos:
+
+- acto o decisión recurrida
+- fecha de notificación o conocimiento
+- errores o razones de inconformidad
+- lo que se pide al resolver el recurso
+
+Bloqueo:
+
+- si no existe acto recurrible identificable
+
+### 4.6 Queja disciplinaria
+
+Usar cuando:
+
+- se denuncia conducta de servidor o funcionario público con posible relevancia disciplinaria
+
+Minimos:
+
+- funcionario o dependencia
+- hechos verificables
+- fecha o periodo
+- soporte o testigos si existen
+- petición de investigación
+
+Regla:
+
+- no confundir con denuncia penal, petición o simple queja de servicio
+
+### 4.7 Accion de cumplimiento
+
+Usar cuando:
+
+- el usuario busca que una autoridad cumpla una norma con fuerza obligatoria o un acto administrativo claro y exigible
+
+Minimos:
+
+- norma o acto incumplido
+- autoridad obligada
+- requerimiento previo cuando proceda
+- incumplimiento concreto
+
+Bloqueo:
+
+- si no hay deber claro, expreso y exigible
+
+### 4.8 Impugnacion de tutela
+
+Usar cuando:
+
+- existe fallo de tutela de primera instancia y el usuario busca controvertirlo
+
+Minimos:
+
+- fecha del fallo
+- sentido de la decisión
+- errores concretos del fallo
+- puntos no valorados o mal valorados
+- lo que se pide en segunda instancia
+
+### 4.9 Incidente de desacato
+
+Usar cuando:
+
+- ya existe fallo o orden de tutela
+- la autoridad o particular obligado incumple total o parcialmente
+
+Minimos:
+
+- copia o datos del fallo
+- orden concreta incumplida
+- pruebas del incumplimiento
+- fechas posteriores al fallo
+
+Bloqueo:
+
+- si todavía no existe orden judicial identificable
+
+### 4.10 Accion popular
+
+Usar cuando:
+
+- el problema afecta derechos o intereses colectivos y no solo un perjuicio individual
+
+Minimos:
+
+- colectivo afectado
+- hecho u omisión
+- riesgo o daño colectivo
+- autoridad o responsable
+- prueba inicial de afectación general
+
+Bloqueo:
+
+- si el caso en realidad es individual y corresponde a tutela, reclamación o petición
+
+## 5. Politica de citas y soporte
 
 - citar primero norma basica aplicable
 - citar jurisprudencia solo cuando aporte una regla util al caso
@@ -160,7 +355,7 @@ Servicios y consumidor:
 - no llenar el documento de citas si el caso no lo requiere
 - la fuerza del documento debe venir de hechos bien planteados + pretensiones bien construidas
 
-## 5. Intake recomendado para la IA
+## 6. Intake recomendado para la IA
 
 Antes de redactar una tutela o un derecho de peticion, la IA deberia confirmar:
 
@@ -175,7 +370,9 @@ Antes de redactar una tutela o un derecho de peticion, la IA deberia confirmar:
 
 Si dos o mas de esas respuestas faltan, la IA no deberia cerrar un documento final sin repreguntar.
 
-## 6. QA minimo antes de entregar al cliente
+Adicionalmente, debe existir intake especifico por producto. No basta una sola caja de texto para todo el sistema.
+
+## 7. QA minimo antes de entregar al cliente
 
 - el documento identifica sujeto activo y pasivo
 - los hechos tienen secuencia
@@ -185,8 +382,12 @@ Si dos o mas de esas respuestas faltan, la IA no deberia cerrar un documento fin
 - el remedio escogido coincide con el caso
 - si es tutela, hay una justificacion razonable de procedencia
 - si es derecho de peticion, la solicitud puede responderse de fondo
+- si es recurso, existe decision recurrible
+- si es desacato, existe orden judicial incumplida
+- si es accion de cumplimiento, existe deber claro y exigible
+- si es accion popular, el daño es realmente colectivo
 
-## 7. Implicaciones para producto
+## 8. Implicaciones para producto
 
 - el formulario de intake no puede ser solo texto libre
 - debe haber preguntas dinamicas por tipo de caso
@@ -194,7 +395,7 @@ Si dos o mas de esas respuestas faltan, la IA no deberia cerrar un documento fin
 - algunas salidas deben quedar en estado `insuficiente informacion`
 - la app debe preferir pedir un dato mas antes que entregar una tutela debil
 
-## 8. Fuentes oficiales base
+## 9. Fuentes oficiales base
 
 - Constitución Política, artículo 86: acción de tutela
   - https://www.suin-juriscol.gov.co/legislacion/accionesconstitucionales.html
@@ -208,12 +409,22 @@ Si dos o mas de esas respuestas faltan, la IA no deberia cerrar un documento fin
   - https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=170948
   - https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=266477
 
-## 9. Estado
+Pendientes de respaldo oficial especifico para ampliar esta matriz:
+
+- recursos administrativos
+- queja disciplinaria
+- accion de cumplimiento
+- accion popular
+- habeas data y protección de datos
+- desacato e impugnacion
+
+## 10. Estado
 
 Esto es una matriz inicial. Falta convertirla en:
 
 - prompts estructurados
 - validaciones de intake
 - reglas por categoria
+- reglas por producto completo
 - pruebas con casos reales anonimizados
 - criterios de scoring de calidad de salida

@@ -190,6 +190,7 @@ Variables previstas:
 Este bloque es critico. No basta con generar documentos; deben estar construidos para maximizar probabilidad de exito y reducir negaciones evitables.
 
 - [x] Documentar una matriz inicial de calidad juridica para tutela y derecho de peticion basada en fuentes oficiales.
+- [x] Dejar explicito que la calidad juridica debe cubrir todo el catalogo permitido sin abogado, no solo tutela y derecho de peticion.
 - [ ] Definir los criterios juridicos minimos por tipo de documento: tutela, derecho de peticion, carta formal, reclamo, impugnacion, desacato, etc.
 - [ ] Definir la estructura obligatoria por documento:
   - hechos
