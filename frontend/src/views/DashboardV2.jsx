@@ -165,6 +165,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
   }
 
   const finalPrice = includeFiling ? selectedProduct?.price_with_filing_cop : selectedProduct?.price_cop;
+  const filingPrice = selectedProduct ? selectedProduct.price_with_filing_cop - selectedProduct.price_cop : 0;
 
   return (
     <SessionCard title={title} subtitle="El análisis es gratis. Pagas solo cuando decides generar el documento o el documento con radicación.">
@@ -204,7 +205,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
             <label style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 16, color: C.text }}>
               <input type="checkbox" checked={includeFiling} onChange={(event) => setIncludeFiling(event.target.checked)} />
               Agregar radicación por nosotros
-              <strong>+34.000 COP</strong>
+              <strong>+{filingPrice.toLocaleString("es-CO")} COP</strong>
             </label>
             <div style={{ color: C.textMuted, fontSize: 13, marginTop: 10 }}>
               Si compras radicación, usamos la base operativa de juzgados y entidades en Colombia y te enviamos el comprobante al correo cuando aplique.

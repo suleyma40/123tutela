@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from backend.catalog import get_product, list_catalog, suggest_product_code
+from backend.catalog_runtime import get_product, list_catalog, suggest_product_code
 from backend.config import settings
 from backend.legal_service import LegalAnalyzer
 from backend.schemas_v2 import (

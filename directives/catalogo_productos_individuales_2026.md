@@ -19,7 +19,7 @@ Objetivo: definir el catalogo inicial de venta para 123tutela en la etapa de cob
 ## Reglas de precios
 
 - Todos los precios estan en COP.
-- `Documento + radicacion` = `Precio base + 34.000`.
+- `Documento + radicacion` = `Precio base + 36.000`.
 - Los pasos posteriores del caso se ofrecen por evento, no por suscripcion.
 - Si un producto posterior aplica, se informa en panel y en correo junto con su valor.
 
@@ -38,18 +38,18 @@ Objetivo: definir el catalogo inicial de venta para 123tutela en la etapa de cob
 
 | Codigo | Producto | Precio solo documento | Precio documento + radicacion | Descripcion comercial corta | Que paga el cliente |
 |---|---|---:|---:|---|---|
-| `carta_formal` | Carta formal a entidad | 29.900 | 63.900 | Documento formal para pedir, exigir o dejar constancia ante una entidad o empresa. | Redaccion completa del documento y, si compra la opcion superior, envio o radicacion por el canal operativo disponible. |
-| `queja_formal` | Queja formal | 33.900 | 67.900 | Queja formal ante entidad de control o ante la entidad responsable por una mala atencion o incumplimiento. | Analisis, redaccion y estructura del escrito; opcion de radicacion incluida en el plan superior. |
-| `reclamo_administrativo` | Reclamo administrativo | 33.900 | 67.900 | Reclamo escrito para exigir respuesta, correccion o solucion frente a una decision o servicio. | Documento completo listo para usar; si el usuario lo compra, tambien radicacion. |
-| `derecho_peticion` | Derecho de peticion | 38.900 | 72.900 | Solicitud formal para pedir informacion, respuesta, copia, correccion o actuacion de una entidad o particular obligado. | Analisis del caso, documento juridico completo y radicacion opcional. |
-| `habeas_data` | Habeas data | 38.900 | 72.900 | Solicitud para corregir, actualizar o eliminar informacion personal en centrales de riesgo o bases de datos. | Documento especializado en proteccion de datos y opcion de radicacion. |
-| `recurso_reposicion_apelacion` | Recurso de reposicion o apelacion | 46.900 | 80.900 | Recurso para pedir que una decision sea revisada, corregida o revocada por la misma autoridad o su superior. | Documento recursivo completo y radicacion opcional. |
-| `queja_disciplinaria` | Queja disciplinaria | 46.900 | 80.900 | Escrito para denunciar conductas irregulares de servidores o funcionarios ante la autoridad competente. | Preparacion del documento con hechos y fundamentos; opcion de radicacion. |
-| `accion_cumplimiento` | Accion de cumplimiento | 63.900 | 97.900 | Demanda para exigir que una autoridad cumpla una ley o un acto administrativo obligatorio. | Documento completo listo para presentar y radicacion opcional. |
-| `accion_tutela` | Accion de tutela | 72.900 | 106.900 | Documento para proteger derechos fundamentales cuando existe vulneracion o amenaza urgente. | Analisis juridico, escrito de tutela y radicacion opcional usando la base operativa disponible. |
-| `impugnacion_tutela` | Impugnacion de tutela | 72.900 | 106.900 | Recurso para controvertir una decision de tutela cuando fue negada o limitada. | Documento completo de impugnacion y radicacion opcional. |
-| `incidente_desacato` | Incidente de desacato | 79.900 | 113.900 | Documento para denunciar incumplimiento de un fallo de tutela y pedir medidas al juez. | Redaccion completa del incidente y radicacion opcional. |
-| `accion_popular` | Accion popular | 79.900 | 113.900 | Accion para proteger derechos e intereses colectivos cuando hay afectacion general. | Documento juridico completo y radicacion opcional. |
+| `carta_formal` | Carta formal a entidad | 32.900 | 68.900 | Documento formal para pedir, exigir o dejar constancia ante una entidad o empresa. | Redaccion completa del documento y, si compra la opcion superior, envio o radicacion por el canal operativo disponible. |
+| `queja_formal` | Queja formal | 36.900 | 72.900 | Queja formal ante entidad de control o ante la entidad responsable por una mala atencion o incumplimiento. | Analisis, redaccion y estructura del escrito; opcion de radicacion incluida en el plan superior. |
+| `reclamo_administrativo` | Reclamo administrativo | 36.900 | 72.900 | Reclamo escrito para exigir respuesta, correccion o solucion frente a una decision o servicio. | Documento completo listo para usar; si el usuario lo compra, tambien radicacion. |
+| `derecho_peticion` | Derecho de peticion | 41.900 | 77.900 | Solicitud formal para pedir informacion, respuesta, copia, correccion o actuacion de una entidad o particular obligado. | Analisis del caso, documento juridico completo y radicacion opcional. |
+| `habeas_data` | Habeas data | 41.900 | 77.900 | Solicitud para corregir, actualizar o eliminar informacion personal en centrales de riesgo o bases de datos. | Documento especializado en proteccion de datos y opcion de radicacion. |
+| `recurso_reposicion_apelacion` | Recurso de reposicion o apelacion | 49.900 | 85.900 | Recurso para pedir que una decision sea revisada, corregida o revocada por la misma autoridad o su superior. | Documento recursivo completo y radicacion opcional. |
+| `queja_disciplinaria` | Queja disciplinaria | 49.900 | 85.900 | Escrito para denunciar conductas irregulares de servidores o funcionarios ante la autoridad competente. | Preparacion del documento con hechos y fundamentos; opcion de radicacion. |
+| `accion_cumplimiento` | Accion de cumplimiento | 67.900 | 103.900 | Demanda para exigir que una autoridad cumpla una ley o un acto administrativo obligatorio. | Documento completo listo para presentar y radicacion opcional. |
+| `accion_tutela` | Accion de tutela | 76.900 | 112.900 | Documento para proteger derechos fundamentales cuando existe vulneracion o amenaza urgente. | Analisis juridico, escrito de tutela y radicacion opcional usando la base operativa disponible. |
+| `impugnacion_tutela` | Impugnacion de tutela | 76.900 | 112.900 | Recurso para controvertir una decision de tutela cuando fue negada o limitada. | Documento completo de impugnacion y radicacion opcional. |
+| `incidente_desacato` | Incidente de desacato | 84.900 | 120.900 | Documento para denunciar incumplimiento de un fallo de tutela y pedir medidas al juez. | Redaccion completa del incidente y radicacion opcional. |
+| `accion_popular` | Accion popular | 84.900 | 120.900 | Accion para proteger derechos e intereses colectivos cuando hay afectacion general. | Documento juridico completo y radicacion opcional. |
 
 ## Descripciones detalladas por producto
 
