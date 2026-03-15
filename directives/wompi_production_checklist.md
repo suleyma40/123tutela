@@ -240,8 +240,8 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [x] Implementar preguntas dinamicas iniciales para Derecho de Peticion en categorias de respuesta formal.
 - [ ] Diseñar los formularios de entrada por categoria para pedir mejores hechos.
 - [ ] Definir preguntas dinamicas por tipo de caso.
-- [ ] Definir que campos deben ser texto libre y cuales deben ser estructurados.
-- [ ] Definir como pedir fechas, respuestas previas, nombres de entidades, pruebas, diagnosticos, actos administrativos u omisiones.
+- [x] Implementar una primera separacion entre campos estructurados y texto libre dentro del wizard.
+- [x] Implementar una primera captura guiada de fechas, respuestas previas, entidad, pruebas y actos o decisiones relevantes.
 - [ ] Definir validaciones minimas de longitud, claridad y completitud del relato.
 - [x] Implementar una primera capa de ayudas de redaccion por categoria dentro del wizard.
 - [ ] Definir cuando bloquear el avance por informacion insuficiente.

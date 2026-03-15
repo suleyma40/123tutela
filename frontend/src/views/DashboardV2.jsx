@@ -19,13 +19,19 @@ const priorActionMap = {
 const defaultIntakeFields = {
   target_entity: "",
   event_date: "",
+  event_period_detail: "",
   concrete_request: "",
   current_harm: "",
+  prior_response_status: "sin_respuesta",
   previous_response: "",
   response_channel: "",
   case_reference: "",
   request_type: "interes_particular",
   numbered_requests: "",
+  authority_act_type: "",
+  authority_act_date: "",
+  evidence_summary: "",
+  supporting_documents: "",
   eps_name: "",
   ips_name: "",
   diagnosis: "",
@@ -98,13 +104,19 @@ const buildStructuredDescription = (form) => {
     `Categoria: ${form.category || "Sin categoria definida"}`,
     form.target_entity ? `Entidad o destinatario: ${form.target_entity}` : "",
     form.event_date ? `Fecha o periodo relevante: ${form.event_date}` : "",
+    form.event_period_detail ? `Detalle adicional de la cronologia: ${form.event_period_detail}` : "",
     form.case_reference ? `Numero o referencia relacionada: ${form.case_reference}` : "",
     form.request_type ? `Tipo de peticion o enfoque principal: ${form.request_type}` : "",
     form.concrete_request ? `Solicitud principal del usuario: ${form.concrete_request}` : "",
     form.numbered_requests ? `Solicitudes numeradas esperadas: ${form.numbered_requests}` : "",
     form.current_harm ? `Afectacion actual o riesgo: ${form.current_harm}` : "",
+    form.prior_response_status ? `Estado de respuesta previa: ${form.prior_response_status}` : "",
     form.previous_response ? `Respuesta previa o antecedente: ${form.previous_response}` : "",
     form.response_channel ? `Canal de respuesta deseado: ${form.response_channel}` : "",
+    form.authority_act_type ? `Acto, decision o barrera relevante: ${form.authority_act_type}` : "",
+    form.authority_act_date ? `Fecha del acto o decision: ${form.authority_act_date}` : "",
+    form.evidence_summary ? `Pruebas o soportes disponibles: ${form.evidence_summary}` : "",
+    form.supporting_documents ? `Documentos o anexos esperados: ${form.supporting_documents}` : "",
     form.category === "Salud" && form.eps_name ? `EPS involucrada: ${form.eps_name}` : "",
     form.category === "Salud" && form.ips_name ? `IPS o clinica: ${form.ips_name}` : "",
     form.category === "Salud" && form.diagnosis ? `Diagnostico o condicion medica: ${form.diagnosis}` : "",
@@ -125,6 +137,7 @@ const getGuidedIntakeMissing = (form) => {
   if (!form.event_date.trim()) missing.push("Fecha o periodo");
   if (!form.concrete_request.trim()) missing.push("Solicitud concreta");
   if (!form.response_channel.trim()) missing.push("Canal de respuesta");
+  if (!form.evidence_summary.trim()) missing.push("Pruebas o soportes disponibles");
 
   if (form.category === "Salud") {
     if (!form.eps_name.trim()) missing.push("EPS");
@@ -246,6 +259,25 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        <Field label="Detalle de la cronologia">
+          <TextInput value={form.event_period_detail} onChange={(event) => setField("event_period_detail", event.target.value)} placeholder="Ej: me respondieron 8 dias despues / el corte fue ayer / llevo 3 meses esperando" />
+        </Field>
+        <Field label="Estado de respuesta previa">
+          <select
+            value={form.prior_response_status}
+            onChange={(event) => setField("prior_response_status", event.target.value)}
+            style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+          >
+            <option value="sin_respuesta">Sin respuesta</option>
+            <option value="respuesta_parcial">Respuesta parcial</option>
+            <option value="respuesta_negativa">Respuesta negativa</option>
+            <option value="respuesta_favorable_incumplida">Respuesta favorable incumplida</option>
+            <option value="sin_gestion_previa">Aun no hice gestion previa</option>
+          </select>
+        </Field>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
         <Field label="Que solicitas exactamente">
           <TextInput value={form.concrete_request} onChange={(event) => setField("concrete_request", event.target.value)} placeholder="Ej: entrega de medicamento, respuesta de fondo, correccion del reporte" />
         </Field>
@@ -291,6 +323,24 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
         </Field>
         <Field label="Numero o referencia relacionada">
           <TextInput value={form.case_reference} onChange={(event) => setField("case_reference", event.target.value)} placeholder="Ej: numero de radicado, afiliacion, contrato o caso" />
+        </Field>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        <Field label="Acto, decision o barrera relevante">
+          <TextInput value={form.authority_act_type} onChange={(event) => setField("authority_act_type", event.target.value)} placeholder="Ej: negativa del servicio, cobro indebido, reporte negativo, despido, respuesta evasiva" />
+        </Field>
+        <Field label="Fecha del acto o decision">
+          <TextInput value={form.authority_act_date} onChange={(event) => setField("authority_act_date", event.target.value)} placeholder="Ej: 10 de marzo de 2026" />
+        </Field>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        <Field label="Pruebas o soportes disponibles">
+          <TextArea value={form.evidence_summary} onChange={(event) => setField("evidence_summary", event.target.value)} placeholder="Ej: orden medica, historia clinica, factura, correo de respuesta, captura del reporte, contrato, desprendible" style={{ minHeight: 100 }} />
+        </Field>
+        <Field label="Documentos o anexos que deberian mencionarse">
+          <TextArea value={form.supporting_documents} onChange={(event) => setField("supporting_documents", event.target.value)} placeholder="Ej: cedula, tutela previa, radicado, formula, capturas, certificado laboral" style={{ minHeight: 100 }} />
         </Field>
       </div>
 
