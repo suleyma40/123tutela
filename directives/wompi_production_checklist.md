@@ -185,7 +185,75 @@ Variables previstas:
 - [ ] Definir regla de negocio para cobrar pasos posteriores solo cuando el usuario los active o cuando el sistema los recomiende.
 - [ ] Definir si seguimiento es un producto cobrable, informativo o mixto.
 
-## 13. Criterio de cierre
+## 13. Calidad juridica e IA
+
+Este bloque es critico. No basta con generar documentos; deben estar construidos para maximizar probabilidad de exito y reducir negaciones evitables.
+
+- [x] Documentar una matriz inicial de calidad juridica para tutela y derecho de peticion basada en fuentes oficiales.
+- [ ] Definir los criterios juridicos minimos por tipo de documento: tutela, derecho de peticion, carta formal, reclamo, impugnacion, desacato, etc.
+- [ ] Definir la estructura obligatoria por documento:
+  - hechos
+  - derechos vulnerados o interes juridico
+  - fundamentos normativos
+  - pretensiones claras
+  - pruebas o anexos
+  - competencia o destino
+  - firma y datos del accionante
+- [ ] Definir el tono y tecnica narrativa por producto:
+  - claridad
+  - precision fáctica
+  - lenguaje juridico suficiente pero no inflado
+  - pretensiones concretas
+  - no inventar hechos, normas ni anexos
+- [ ] Definir que informacion minima debe pedir la IA al usuario antes de generar cada tipo de documento.
+- [ ] Definir que informacion adicional es opcional pero mejora la calidad del resultado.
+- [ ] Crear reglas para detectar cuando el caso esta incompleto y no debe generarse automaticamente sin pedir mas datos.
+- [ ] Crear reglas para detectar contradicciones, fechas faltantes, falta de prueba o ausencia de legitimacion.
+- [ ] Definir cuando recomendar tutela y cuando no recomendarla para evitar tutelas débiles o improcedentes.
+- [ ] Definir cuando exigir agotamiento de via previa o reclamacion previa.
+- [ ] Definir cuando sugerir derecho de peticion antes de tutela.
+- [ ] Definir cuando ofrecer impugnacion, desacato, seguimiento o nueva actuacion.
+- [ ] Crear plantillas base por tipo de producto con alta calidad juridica.
+- [ ] Revisar el grosor argumentativo de cada plantilla:
+  - suficiencia constitucional o legal
+  - conexidad entre hechos y pretensiones
+  - peticiones medibles y ejecutables
+  - anexos esperados
+- [ ] Definir una politica estricta para citas:
+  - normas permitidas
+  - jurisprudencia permitida
+  - cuando citar y cuando no citar
+  - no citar sin soporte verificable
+- [ ] Definir criterios de calidad minima antes de entregar un documento al cliente.
+- [ ] Crear evaluacion manual o semiautomatica de documentos generados.
+- [ ] Crear un set de casos de prueba reales o anonimizados para medir calidad de salida.
+- [ ] Validar que el documento final no se limite a sonar juridico; debe ser util, procedente y accionable.
+
+## 14. Intake del usuario
+
+- [ ] Diseñar los formularios de entrada por categoria para pedir mejores hechos.
+- [ ] Definir preguntas dinamicas por tipo de caso.
+- [ ] Definir que campos deben ser texto libre y cuales deben ser estructurados.
+- [ ] Definir como pedir fechas, respuestas previas, nombres de entidades, pruebas, diagnosticos, actos administrativos u omisiones.
+- [ ] Definir validaciones minimas de longitud, claridad y completitud del relato.
+- [ ] Definir ayudas de redaccion para que el usuario describa hechos con calidad suficiente.
+- [ ] Definir cuando bloquear el avance por informacion insuficiente.
+
+## 15. Radicacion y canales
+
+- [ ] Definir estrategia de radicacion por tipo de documento.
+- [ ] Confirmar que Evolution API sera el canal inicial donde aplique y documentar limites reales.
+- [ ] Definir que parte de la radicacion sera automatica y cual sera asistida o manual.
+- [ ] Definir como se enviara el radicado o comprobante al cliente:
+  - correo
+  - panel
+  - ambos
+- [ ] Definir que evidencia se guarda de cada envio.
+- [ ] Definir como registrar errores de entrega, rebotes o rechazo del canal.
+- [ ] Definir fallback cuando no exista canal digital confiable.
+- [ ] Definir SLA real por canal de radicacion.
+
+## 16. Criterio de cierre
 
 Solo damos este bloque por terminado cuando se cumpla todo lo siguiente:
 
@@ -196,8 +264,11 @@ Solo damos este bloque por terminado cuando se cumpla todo lo siguiente:
 - [x] El documento final solo se habilita tras pago aprobado.
 - [x] Hay paginas legales publicas visibles.
 - [x] La prueba real en produccion quedo completada.
+- [ ] La calidad juridica del documento fue validada con criterios claros por tipo de producto.
+- [ ] La IA pide informacion suficiente antes de generar documentos sensibles.
+- [ ] La estrategia de radicacion y entrega de comprobantes esta cerrada.
 
-## 14. Lo que necesitamos ya para arrancar
+## 17. Lo que necesitamos ya para arrancar
 
 - [x] Precio oficial en COP.
 - [x] Decision final: Widget o Web Checkout.
@@ -207,3 +278,6 @@ Solo damos este bloque por terminado cuando se cumpla todo lo siguiente:
 - [ ] Confirmacion de la politica de reembolso.
 - [x] Confirmacion del catalogo inicial completo de productos individuales.
 - [x] Confirmacion del texto comercial de cada producto.
+- [ ] Confirmacion de reglas juridicas minimas por tipo de documento.
+- [ ] Confirmacion de formularios y preguntas minimas por tipo de caso.
+- [ ] Confirmacion del canal inicial de radicacion y su evidencia de entrega.
