@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 
 from backend.catalog_runtime import get_product, list_catalog, suggest_product_code
 from backend.config import settings
+from backend.intake_validation import validate_intake
 from backend.legal_service import LegalAnalyzer
 from backend.schemas_v2 import (
     AnalysisPreviewRequest,
@@ -320,6 +321,16 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
         legal_analysis=result["legal_analysis"],
         warnings=workflow["warnings"],
     )
+    intake_review = validate_intake(
+        category=payload.category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        description=payload.description,
+        facts=result["facts"],
+        prior_actions=payload.prior_actions,
+    )
+    result["facts"]["intake_review"] = intake_review
+    combined_warnings = workflow["warnings"] + intake_review.get("blocking_issues", []) + intake_review.get("warnings", [])
     return AnalysisPreviewResponse(
         facts=result["facts"],
         legal_analysis=result["legal_analysis"],
@@ -327,7 +338,7 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
         recommended_action=workflow["recommended_action"],
         workflow_type=workflow["workflow_type"],
         prerequisites=workflow["prerequisites"],
-        warnings=workflow["warnings"],
+        warnings=list(dict.fromkeys(combined_warnings)),
         routing=routing,
     )
 
@@ -361,6 +372,16 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         legal_analysis=result["legal_analysis"],
         warnings=workflow["warnings"],
     )
+    intake_review = validate_intake(
+        category=payload.category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        description=payload.description,
+        facts=result["facts"],
+        prior_actions=payload.prior_actions,
+    )
+    result["facts"]["intake_review"] = intake_review
+    combined_warnings = workflow["warnings"] + intake_review.get("blocking_issues", []) + intake_review.get("warnings", [])
 
     case = repository.create_case_record(
         user_id=str(current_user["id"]),
@@ -380,7 +401,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         legal_analysis=result["legal_analysis"],
         routing=routing,
         prerequisites=workflow["prerequisites"],
-        warnings=workflow["warnings"],
+        warnings=list(dict.fromkeys(combined_warnings)),
         attachment_ids=payload.attachment_ids,
     )
     if payload.attachment_ids:
