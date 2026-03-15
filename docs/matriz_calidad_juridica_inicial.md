@@ -32,6 +32,7 @@ Regla base:
 - No generar documentos que suenen juridicos pero sean improcedentes, incompletos o debiles.
 - No inventar hechos, anexos, autoridades, respuestas previas ni citas.
 - Exigir hechos verificables, fechas, entidad o accionado y pretensiones claras.
+- El objetivo no es producir plantillas genericas de dos parrafos; el objetivo es producir documentos que un juez o entidad tome en serio, con calidad comparable a la de un abogado competente.
 - Separar con rigor:
   - hechos
   - problema juridico
@@ -41,6 +42,17 @@ Regla base:
   - anexos
   - canal de radicacion
 - Si falta informacion critica, la IA debe pedirla antes de redactar.
+
+Estándar minimo transversal de calidad:
+
+- identificacion completa de las partes
+- hechos cronologicos, claros y detallados
+- derecho vulnerado o interes juridico identificado con precision
+- fundamentacion juridica suficiente
+- jurisprudencia aplicable cuando aporte regla util
+- pruebas enumeradas y referenciadas
+- pretensiones claras, concretas y ejecutables
+- datos de notificacion del usuario y, cuando aplique, del destinatario o accionado
 
 ## 2. Accion de tutela
 
@@ -66,8 +78,13 @@ La tutela debe tratarse como ruta fuerte solo si, al menos preliminarmente, se c
 
 - nombre del accionante
 - documento de identidad
+- direccion de residencia
+- telefono o celular
+- correo electronico recomendado
 - ciudad y departamento
 - entidad, autoridad o particular accionado
+- direccion de la entidad accionada
+- representante legal, si se conoce
 - relato claro de hechos en orden cronologico
 - fecha o periodo aproximado de ocurrencia
 - que se solicito antes, si hubo solicitud previa
@@ -87,11 +104,13 @@ La tutela debe tratarse como ruta fuerte solo si, al menos preliminarmente, se c
 
 ### 2.5 Estructura obligatoria de la tutela
 
+- encabezado con despacho de reparto y referencia constitucional
 - identificacion del accionante
 - identificacion del accionado
+- legitimacion por activa y por pasiva
 - hechos cronologicos, concretos y no inflados
 - derechos fundamentales vulnerados o amenazados
-- fundamentos constitucionales y legales solo si son pertinentes
+- fundamentos constitucionales y legales pertinentes
 - justificacion de procedencia:
   - subsidiariedad
   - inmediatez
@@ -100,6 +119,13 @@ La tutela debe tratarse como ruta fuerte solo si, al menos preliminarmente, se c
 - solicitud de medida provisional si de verdad se justifica
 - anexos
 - juramento o manifestacion equivalente cuando corresponda
+- notificaciones
+
+Regla fuerte:
+
+- los hechos de tutela deben salir numerados y en cronologia estricta
+- cada hecho relevante debe poder vincularse a una prueba o anexo
+- la IA no debe mezclar multiples eventos complejos en un solo hecho
 
 ### 2.6 Calidad narrativa exigida
 
@@ -119,6 +145,51 @@ La tutela debe tratarse como ruta fuerte solo si, al menos preliminarmente, se c
 - no hay explicacion de urgencia en un caso que parece ordinario
 - el texto mezcla queja emocional con hechos sin separar
 - la IA propone tutela pero el propio caso muestra que falta via previa evidente sin urgencia
+- no incluye juramento de no temeridad
+- no incluye datos de notificacion del accionante
+- no identifica que orden concreta deberia impartir el juez
+- no aporta o no referencia pruebas minimas para hechos clave
+
+### 2.9 Checklist reforzado de tutela
+
+- nombre completo y cedula del accionante
+- accionado identificado con direccion o medio de notificacion razonable
+- minimo funcional de hechos cronologicos suficientes
+- derecho fundamental conectado con articulo constitucional
+- explicacion de por que ese derecho esta vulnerado en este caso
+- soporte normativo suficiente
+- soporte jurisprudencial util cuando realmente agrega valor
+- argumentacion de procedencia frente a subsidiariedad e inmediatez
+- pretensiones concretas con terminos o acciones verificables
+- pruebas enumeradas como anexos
+- juramento de no temeridad
+- notificaciones
+
+### 2.10 Jurisprudencia base sugerida por area
+
+Salud:
+- T-760 de 2008
+- T-121 de 2015
+- SU-508 de 2020
+
+Laboral:
+- SU-049 de 2017
+- T-320 de 2016
+- T-572 de 2017
+
+Datos y financiero:
+- C-748 de 2011
+- T-729 de 2002
+- T-260 de 2012
+
+Servicios publicos y consumidor:
+- T-578 de 2018
+- T-793 de 2012
+- C-1141 de 2000
+
+Regla:
+
+- estas referencias deben verificarse y usarse solo cuando la regla juridica realmente coincide con el caso
 
 ### 2.8 Heuristicas iniciales por categoria
 
@@ -151,8 +222,10 @@ Servicios y consumidor:
 - autoridad o destinatario
 - nombre e identificacion del peticionario
 - direccion fisica o electronica para respuesta
+- telefono o medio complementario de contacto
 - hechos o razones de la peticion
 - lo que solicita exactamente
+- tipo de peticion
 - anexos si existen
 
 ### 3.3 Calidad minima de la peticion
@@ -162,6 +235,8 @@ Servicios y consumidor:
 - lenguaje respetuoso
 - sin exceso de citas innecesarias
 - debe permitir respuesta de fondo
+- debe incluir el termino legal de respuesta aplicable
+- debe advertir que el incumplimiento puede habilitar tutela cuando corresponda
 
 ### 3.4 Plazos que la app debe tener presentes
 
@@ -176,6 +251,17 @@ Servicios y consumidor:
 - no deja canal de respuesta
 - confunde queja, denuncia y peticion en un solo texto desordenado
 - el usuario necesita una pretension mas concreta para que la respuesta sea util
+
+### 3.6 Checklist reforzado de derecho de peticion
+
+- peticionario identificado
+- destinatario identificado
+- objeto claro y especifico
+- hechos de soporte suficientes
+- fundamento juridico base: articulo 23 CP y Ley 1755 de 2015
+- termino legal de respuesta visible
+- advertencia de falta disciplinaria o consecuencias de no responder cuando sea pertinente
+- canal de notificacion del usuario
 
 ## 4. Otros productos del catalogo
 
@@ -329,6 +415,40 @@ Bloqueo:
 
 - si todavía no existe orden judicial identificable
 
+Calidad reforzada:
+
+- debe dirigirse al mismo juez que conocio la tutela en primera instancia
+- debe identificar el fallo, fecha y orden incumplida
+- debe explicar el incumplimiento con hechos posteriores al fallo
+- debe pedir simultaneamente sancion y cumplimiento inmediato
+
+### 4.11 Requisitos reforzados de impugnacion de tutela
+
+- debe revisar la fecha de notificacion del fallo
+- debe identificar las razones exactas por las que el juez nego o limito la tutela
+- debe contraargumentar cada razon relevante del fallo
+- debe aportar pruebas nuevas si la debilidad del primer fallo fue probatoria
+
+Bloqueo:
+
+- si no hay fallo identificable
+- si el usuario no describe por que el fallo debe revocarse
+
+### 4.12 Mapa inicial de autoridades y canales por tipo de queja o reclamo
+
+- Supersalud: salud y EPS
+- Superfinanciera: bancos, seguros, pensiones
+- SIC datos: habeas data y proteccion de datos
+- SIC consumidor: garantias y publicidad engañosa
+- Superservicios: servicios publicos
+- Ministerio del Trabajo: asuntos laborales administrativos
+- Procuraduria: queja disciplinaria contra servidor publico
+- Personeria: defensa ciudadana y acompanamiento
+
+Regla:
+
+- la IA debe distinguir entre documento para entidad origen y documento para autoridad de control
+
 ### 4.10 Accion popular
 
 Usar cuando:
@@ -354,6 +474,11 @@ Bloqueo:
 - no citar sentencias de memoria sin soporte verificable
 - no llenar el documento de citas si el caso no lo requiere
 - la fuerza del documento debe venir de hechos bien planteados + pretensiones bien construidas
+- si se cita jurisprudencia, idealmente debe quedar:
+  - numero de sentencia
+  - año
+  - magistrado ponente, si se valida
+  - regla juridica aplicable al caso
 
 ## 6. Intake recomendado para la IA
 
@@ -386,6 +511,8 @@ Adicionalmente, debe existir intake especifico por producto. No basta una sola c
 - si es desacato, existe orden judicial incumplida
 - si es accion de cumplimiento, existe deber claro y exigible
 - si es accion popular, el daño es realmente colectivo
+- si es tutela, el documento no se siente como una carta informal sino como una accion constitucional completa
+- si es derecho de peticion, el destinatario podria responder de fondo sin adivinar lo que se pide
 
 ## 8. Implicaciones para producto
 
@@ -428,3 +555,7 @@ Esto es una matriz inicial. Falta convertirla en:
 - reglas por producto completo
 - pruebas con casos reales anonimizados
 - criterios de scoring de calidad de salida
+
+Fuente adicional ya incorporada:
+
+- Documento local del usuario: `123tutela_Requisitos_Juridicos_Documentos_Calidad.docx`
