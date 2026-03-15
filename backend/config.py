@@ -30,6 +30,12 @@ class Settings:
     jwt_secret: str = os.getenv("JWT_SECRET", "change-me")
     session_secret: str = os.getenv("SESSION_SECRET", "change-me-session")
     uploads_dir: str = os.getenv("UPLOADS_DIR", str(ROOT / ".tmp" / "uploads"))
+    wompi_environment: str = os.getenv("WOMPI_ENVIRONMENT", "sandbox")
+    wompi_public_key: str = os.getenv("WOMPI_PUBLIC_KEY", "")
+    wompi_integrity_secret: str = os.getenv("WOMPI_INTEGRITY_SECRET", "")
+    wompi_event_secret: str = os.getenv("WOMPI_EVENT_SECRET", "")
+    wompi_payment_redirect_url: str = os.getenv("WOMPI_PAYMENT_REDIRECT_URL", "http://localhost:5173/pago/resultado")
+    wompi_widget_url: str = os.getenv("WOMPI_WIDGET_URL", "https://checkout.wompi.co/widget.js")
     internal_admin_emails: list[str] = None  # type: ignore[assignment]
     cors_origins: list[str] = None  # type: ignore[assignment]
 

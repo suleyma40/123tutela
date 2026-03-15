@@ -3,16 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from backend.catalog import get_product, list_catalog, suggest_product_code
 from backend.config import settings
 from backend.legal_service import LegalAnalyzer
 from backend.schemas_v2 import (
     AnalysisPreviewRequest,
     AnalysisPreviewResponse,
     AuthResponse,
+    CatalogProductResponse,
     CaseCreateRequest,
     CaseDetailResponse,
     CaseDocumentResponse,
@@ -21,15 +23,29 @@ from backend.schemas_v2 import (
     InternalStatusUpdateRequest,
     LoginRequest,
     ManualRadicadoRequest,
+    PaymentOrderResponse,
     PaymentConfirmationRequest,
     RegisterRequest,
     UploadedFileResponse,
     UserProfileUpdateRequest,
     UserResponse,
+    WompiCheckoutSessionRequest,
+    WompiCheckoutSessionResponse,
+    WompiWebhookResponse,
 )
 from backend.security import create_token, decode_token, hash_password, verify_password
 from backend.storage import absolute_path, move_relative_path, save_upload
 from backend import repository_ext as repository
+from backend.wompi import (
+    amount_cop_to_cents,
+    build_checkout_payload,
+    build_reference,
+    ensure_checkout_configured,
+    ensure_webhook_configured,
+    extract_transaction_from_event,
+    parse_approved_at,
+    verify_event_signature,
+)
 from backend.workflows import (
     build_document,
     build_routing,
@@ -134,6 +150,30 @@ def _normalize_attempts(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _normalize_payment_order(order: dict[str, Any]) -> PaymentOrderResponse:
+    return PaymentOrderResponse(
+        id=str(order["id"]),
+        case_id=str(order["case_id"]),
+        user_id=str(order["user_id"]),
+        provider=order["provider"],
+        environment=order["environment"],
+        product_code=order["product_code"],
+        product_name=order["product_name"],
+        include_filing=order["include_filing"],
+        amount_cop=order["amount_cop"],
+        amount_in_cents=order["amount_in_cents"],
+        currency=order["currency"],
+        reference=order["reference"],
+        status=order["status"],
+        provider_transaction_id=order.get("provider_transaction_id"),
+        provider_status=order.get("provider_status"),
+        checkout_payload=order.get("checkout_payload") or {},
+        approved_at=order.get("approved_at"),
+        created_at=order["created_at"],
+        updated_at=order["updated_at"],
+    )
+
+
 def _snapshot_case_detail(case: dict[str, Any]) -> CaseDetailResponse:
     files = repository.list_files_for_case(str(case["id"]))
     attempts = repository.list_submission_attempts(str(case["id"]))
@@ -187,6 +227,11 @@ def _role_for_email(email: str) -> str:
 @app.get("/health")
 def healthcheck() -> dict[str, str]:
     return {"status": "ok", "app": settings.app_name}
+
+
+@app.get("/catalog/products", response_model=list[CatalogProductResponse])
+def get_catalog_products() -> list[CatalogProductResponse]:
+    return [CatalogProductResponse(**product) for product in list_catalog()]
 
 
 @app.post("/auth/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -404,6 +449,75 @@ def confirm_payment(
     return _normalize_case(updated)
 
 
+@app.post("/cases/{case_id}/payments/wompi/session", response_model=WompiCheckoutSessionResponse)
+def create_wompi_checkout_session(
+    case_id: str,
+    payload: WompiCheckoutSessionRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> WompiCheckoutSessionResponse:
+    ensure_checkout_configured()
+
+    case = repository.get_case_for_user(case_id, str(current_user["id"]))
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
+    if case.get("payment_status") == "pagado":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este trámite ya tiene un pago aprobado.")
+
+    product_code = payload.product_code or suggest_product_code(case.get("recommended_action"))
+    product = get_product(product_code or "")
+    if not product:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fue posible determinar el producto a cobrar.")
+
+    amount_cop = product.price_with_filing_cop if payload.include_filing else product.price_cop
+    amount_in_cents = amount_cop_to_cents(amount_cop)
+    reference = build_reference(case_id, product.code)
+    product_name = product.name if not payload.include_filing else f"{product.name} + radicación"
+    checkout = build_checkout_payload(
+        reference=reference,
+        amount_in_cents=amount_in_cents,
+        product_name=product_name,
+        description=product.short_description,
+        customer_email=current_user["email"],
+    )
+    order = repository.create_payment_order(
+        case_id=case_id,
+        user_id=str(current_user["id"]),
+        environment=settings.wompi_environment,
+        product_code=product.code,
+        product_name=product_name,
+        include_filing=payload.include_filing,
+        amount_cop=amount_cop,
+        amount_in_cents=amount_in_cents,
+        currency="COP",
+        reference=reference,
+        checkout_payload=checkout,
+    )
+    repository.create_event(
+        case_id=case_id,
+        event_type="payment_order_created",
+        actor_type="user",
+        actor_id=str(current_user["id"]),
+        payload={
+            "reference": reference,
+            "product_code": product.code,
+            "product_name": product_name,
+            "include_filing": payload.include_filing,
+            "amount_cop": amount_cop,
+        },
+    )
+    return WompiCheckoutSessionResponse(order=_normalize_payment_order(order), checkout=checkout)
+
+
+@app.get("/payments/{reference}", response_model=PaymentOrderResponse)
+def get_payment(reference: str, current_user: dict[str, Any] = Depends(get_current_user)) -> PaymentOrderResponse:
+    order = repository.get_payment_order_by_reference(reference)
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pago no encontrado.")
+    if str(order["user_id"]) != str(current_user["id"]) and not _is_internal(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a este pago.")
+    return _normalize_payment_order(order)
+
+
 @app.post("/cases/{case_id}/document", response_model=CaseDocumentResponse)
 def generate_document(case_id: str, current_user: dict[str, Any] = Depends(get_current_user)) -> CaseDocumentResponse:
     case = repository.get_case_for_user(case_id, str(current_user["id"]))
@@ -607,6 +721,97 @@ def download_file(file_id: str, current_user: dict[str, Any] = Depends(get_curre
     if not path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo físico no encontrado.")
     return FileResponse(Path(path), filename=file_record["original_name"], media_type=file_record["mime_type"])
+
+
+def _wompi_case_payment_status(provider_status: str) -> str:
+    mapping = {
+        "APPROVED": "pagado",
+        "DECLINED": "rechazado",
+        "ERROR": "error",
+        "VOIDED": "anulado",
+        "PENDING": "pendiente",
+    }
+    return mapping.get(provider_status, "pendiente")
+
+
+def _wompi_order_status(provider_status: str) -> str:
+    mapping = {
+        "APPROVED": "approved",
+        "DECLINED": "declined",
+        "ERROR": "error",
+        "VOIDED": "voided",
+        "PENDING": "pending",
+    }
+    return mapping.get(provider_status, "pending")
+
+
+def _process_wompi_webhook(event_payload: dict[str, Any]) -> WompiWebhookResponse:
+    ensure_webhook_configured()
+    if not verify_event_signature(event_payload, settings.wompi_event_secret):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Firma de evento Wompi inválida.")
+
+    transaction = extract_transaction_from_event(event_payload)
+    reference = transaction.get("reference")
+    provider_status = str(transaction.get("status") or "PENDING").upper()
+    if not reference:
+        return WompiWebhookResponse(ok=True, processed=False, status=_wompi_order_status(provider_status))
+
+    existing = repository.get_payment_order_by_reference(str(reference))
+    if not existing:
+        return WompiWebhookResponse(ok=True, processed=False, reference=str(reference), status=_wompi_order_status(provider_status))
+
+    next_order_status = _wompi_order_status(provider_status)
+    approved_at = parse_approved_at(transaction) if provider_status == "APPROVED" else None
+    updated_order = repository.update_payment_order_status(
+        str(reference),
+        status=next_order_status,
+        provider_transaction_id=str(transaction.get("id")) if transaction.get("id") else None,
+        provider_status=provider_status,
+        webhook_payload=event_payload,
+        approved_at=approved_at,
+    )
+    if not updated_order:
+        return WompiWebhookResponse(ok=True, processed=False, reference=str(reference), status=next_order_status)
+
+    case_record = repository.get_case_by_id(str(existing["case_id"]))
+    if case_record and (case_record.get("payment_status") != "pagado" or provider_status == "APPROVED"):
+        repository.update_case_payment(
+            str(existing["case_id"]),
+            str(reference),
+            payment_status=_wompi_case_payment_status(provider_status),
+        )
+
+    if existing.get("status") != next_order_status:
+        repository.create_event(
+            case_id=str(existing["case_id"]),
+            event_type="payment_webhook_updated",
+            actor_type="system",
+            actor_id=None,
+            payload={
+                "reference": str(reference),
+                "order_status": next_order_status,
+                "provider_status": provider_status,
+                "transaction_id": str(transaction.get("id")) if transaction.get("id") else None,
+            },
+        )
+
+    return WompiWebhookResponse(ok=True, processed=True, reference=str(reference), status=next_order_status)
+
+
+@app.post("/payments/wompi/webhook", response_model=WompiWebhookResponse)
+async def wompi_webhook(request: Request) -> WompiWebhookResponse:
+    if settings.wompi_environment == "sandbox":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este entorno espera eventos sandbox.")
+    payload = await request.json()
+    return _process_wompi_webhook(payload)
+
+
+@app.post("/payments/wompi/webhook/sandbox", response_model=WompiWebhookResponse)
+async def wompi_webhook_sandbox(request: Request) -> WompiWebhookResponse:
+    if settings.wompi_environment != "sandbox":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este entorno no está configurado como sandbox.")
+    payload = await request.json()
+    return _process_wompi_webhook(payload)
 
 
 @app.get("/internal/cases", response_model=list[CaseResponse])

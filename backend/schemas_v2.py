@@ -96,6 +96,57 @@ class PaymentConfirmationRequest(BaseModel):
     reference: str = Field(min_length=3, max_length=80)
 
 
+class CatalogProductResponse(BaseModel):
+    code: str
+    name: str
+    price_cop: int
+    price_with_filing_cop: int
+    currency: str
+    short_description: str
+    detailed_description: str
+    next_step_hint: str
+    supports_filing: bool = True
+
+
+class WompiCheckoutSessionRequest(BaseModel):
+    product_code: str | None = Field(default=None, min_length=3, max_length=80)
+    include_filing: bool = False
+
+
+class PaymentOrderResponse(BaseModel):
+    id: str
+    case_id: str
+    user_id: str
+    provider: str
+    environment: str
+    product_code: str
+    product_name: str
+    include_filing: bool
+    amount_cop: int
+    amount_in_cents: int
+    currency: str
+    reference: str
+    status: str
+    provider_transaction_id: str | None = None
+    provider_status: str | None = None
+    checkout_payload: dict[str, Any] = Field(default_factory=dict)
+    approved_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WompiCheckoutSessionResponse(BaseModel):
+    order: PaymentOrderResponse
+    checkout: dict[str, Any] = Field(default_factory=dict)
+
+
+class WompiWebhookResponse(BaseModel):
+    ok: bool
+    processed: bool
+    reference: str | None = None
+    status: str | None = None
+
+
 class CaseSubmitRequest(BaseModel):
     mode: str = Field(pattern="^(auto|manual_contact|presencial)$")
     manual_contact: str | None = Field(default=None, max_length=180)

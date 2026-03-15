@@ -243,6 +243,29 @@ CREATE TABLE IF NOT EXISTS case_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS payment_orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_id UUID NOT NULL REFERENCES casos(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL DEFAULT 'wompi',
+    environment TEXT NOT NULL DEFAULT 'sandbox',
+    product_code TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    include_filing BOOLEAN NOT NULL DEFAULT FALSE,
+    amount_cop INTEGER NOT NULL,
+    amount_in_cents BIGINT NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'COP',
+    reference TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    provider_transaction_id TEXT,
+    provider_status TEXT,
+    checkout_payload JSONB NOT NULL DEFAULT '{}'::JSONB,
+    webhook_payload JSONB NOT NULL DEFAULT '{}'::JSONB,
+    approved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_casos_user_id ON casos(user_id);
 CREATE INDEX IF NOT EXISTS idx_casos_estado ON casos(estado);
 CREATE INDEX IF NOT EXISTS idx_casos_created_at ON casos(created_at DESC);
@@ -250,3 +273,8 @@ CREATE INDEX IF NOT EXISTS idx_case_files_case_id ON case_files(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_files_uploaded_by ON case_files(uploaded_by);
 CREATE INDEX IF NOT EXISTS idx_submission_attempts_case_id ON submission_attempts(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_events_case_id ON case_events(case_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_case_id ON payment_orders(case_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_user_id ON payment_orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_reference ON payment_orders(reference);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(status);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_provider_transaction_id ON payment_orders(provider_transaction_id);

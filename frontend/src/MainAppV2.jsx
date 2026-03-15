@@ -29,6 +29,7 @@ export default function MainAppV2() {
   const [session, setSession] = useState(loadSession());
   const [cases, setCases] = useState([]);
   const [internalCases, setInternalCases] = useState([]);
+  const [catalog, setCatalog] = useState([]);
   const [activeTab, setActiveTab] = useState("inicio");
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
@@ -62,6 +63,26 @@ export default function MainAppV2() {
     await loadCases(token);
     await loadInternalCases(token, role);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCatalog = async () => {
+      try {
+        const response = await api.get("/catalog/products");
+        if (!cancelled) {
+          setCatalog(response.data || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setCatalog([]);
+        }
+      }
+    };
+    loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!session?.token) {
@@ -176,6 +197,26 @@ export default function MainAppV2() {
       setActiveCaseDetail(detail.data);
       return response.data;
     }, "No fue posible registrar el pago.");
+
+  const handleCreateWompiSession = (caseId, payload) =>
+    withAction(async () => {
+      const response = await api.post(`/cases/${caseId}/payments/wompi/session`, payload, withAuth(session.token));
+      return response.data;
+    }, "No fue posible iniciar el pago con Wompi.");
+
+  const handleGetPayment = (reference) =>
+    withAction(async () => {
+      const response = await api.get(`/payments/${reference}`, withAuth(session.token));
+      return response.data;
+    }, "No fue posible consultar el estado del pago.");
+
+  const handleRefreshCase = async (caseId, scope = "citizen") => {
+    const endpoint = scope === "internal" ? `/internal/cases/${caseId}` : `/cases/${caseId}`;
+    const response = await api.get(endpoint, withAuth(session.token));
+    setActiveCaseDetail(response.data);
+    await refreshCollections(session.token, session.user.role);
+    return response.data;
+  };
 
   const handleGenerateDocument = (caseId) =>
     withAction(async () => {
@@ -294,6 +335,7 @@ export default function MainAppV2() {
               session={session}
               cases={cases}
               internalCases={internalCases}
+              catalog={catalog}
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               activeCaseDetail={activeCaseDetail}
@@ -305,6 +347,9 @@ export default function MainAppV2() {
               onCreateCase={handleCreateCase}
               onOpenCase={handleOpenCase}
               onConfirmPayment={handleConfirmPayment}
+              onCreateWompiSession={handleCreateWompiSession}
+              onGetPayment={handleGetPayment}
+              onRefreshCase={handleRefreshCase}
               onGenerateDocument={handleGenerateDocument}
               onSubmitCase={handleSubmitCase}
               onManualRadicado={handleManualRadicado}

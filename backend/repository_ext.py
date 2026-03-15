@@ -401,12 +401,134 @@ def get_case_by_id(case_id: str) -> dict[str, Any] | None:
         return cursor.fetchone()
 
 
-def update_case_payment(case_id: str, payment_reference: str) -> dict[str, Any] | None:
+def create_payment_order(
+    *,
+    case_id: str,
+    user_id: str,
+    environment: str,
+    product_code: str,
+    product_name: str,
+    include_filing: bool,
+    amount_cop: int,
+    amount_in_cents: int,
+    currency: str,
+    reference: str,
+    checkout_payload: dict[str, Any],
+) -> dict[str, Any]:
+    query = """
+        INSERT INTO payment_orders (
+            case_id,
+            user_id,
+            environment,
+            product_code,
+            product_name,
+            include_filing,
+            amount_cop,
+            amount_in_cents,
+            currency,
+            reference,
+            checkout_payload
+        )
+        VALUES (
+            %(case_id)s,
+            %(user_id)s,
+            %(environment)s,
+            %(product_code)s,
+            %(product_name)s,
+            %(include_filing)s,
+            %(amount_cop)s,
+            %(amount_in_cents)s,
+            %(currency)s,
+            %(reference)s,
+            %(checkout_payload)s::jsonb
+        )
+        RETURNING *;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "case_id": case_id,
+                "user_id": user_id,
+                "environment": environment,
+                "product_code": product_code,
+                "product_name": product_name,
+                "include_filing": include_filing,
+                "amount_cop": amount_cop,
+                "amount_in_cents": amount_in_cents,
+                "currency": currency,
+                "reference": reference,
+                "checkout_payload": _json(checkout_payload),
+            },
+        )
+        return cursor.fetchone()
+
+
+def get_payment_order_by_reference(reference: str) -> dict[str, Any] | None:
+    query = "SELECT * FROM payment_orders WHERE reference = %(reference)s;"
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"reference": reference})
+        return cursor.fetchone()
+
+
+def list_payment_orders_for_case(case_id: str) -> list[dict[str, Any]]:
+    query = """
+        SELECT *
+        FROM payment_orders
+        WHERE case_id = %(case_id)s
+        ORDER BY created_at DESC;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"case_id": case_id})
+        return cursor.fetchall()
+
+
+def update_payment_order_status(
+    reference: str,
+    *,
+    status: str,
+    provider_transaction_id: str | None = None,
+    provider_status: str | None = None,
+    webhook_payload: dict[str, Any] | None = None,
+    approved_at: datetime | None = None,
+) -> dict[str, Any] | None:
+    query = """
+        UPDATE payment_orders
+        SET status = %(status)s,
+            provider_transaction_id = COALESCE(%(provider_transaction_id)s, provider_transaction_id),
+            provider_status = COALESCE(%(provider_status)s, provider_status),
+            webhook_payload = CASE
+                WHEN %(webhook_payload)s IS NULL THEN webhook_payload
+                ELSE %(webhook_payload)s::jsonb
+            END,
+            approved_at = COALESCE(%(approved_at)s, approved_at),
+            updated_at = %(updated_at)s
+        WHERE reference = %(reference)s
+        RETURNING *;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "reference": reference,
+                "status": status,
+                "provider_transaction_id": provider_transaction_id,
+                "provider_status": provider_status,
+                "webhook_payload": _json(webhook_payload) if webhook_payload is not None else None,
+                "approved_at": approved_at,
+                "updated_at": datetime.now(timezone.utc),
+            },
+        )
+        return cursor.fetchone()
+
+
+def update_case_payment(case_id: str, payment_reference: str, payment_status: str = "pagado") -> dict[str, Any] | None:
+    next_state = "listo_para_envio" if payment_status == "pagado" else "pendiente_pago"
     query = """
         UPDATE casos
-        SET payment_status = 'pagado',
+        SET payment_status = %(payment_status)s,
             payment_reference = %(payment_reference)s,
-            estado = 'listo_para_envio',
+            estado = %(estado)s,
             updated_at = %(updated_at)s
         WHERE id = %(case_id)s
         RETURNING *;
@@ -416,7 +538,9 @@ def update_case_payment(case_id: str, payment_reference: str) -> dict[str, Any] 
             query,
             {
                 "case_id": case_id,
+                "payment_status": payment_status,
                 "payment_reference": payment_reference,
+                "estado": next_state,
                 "updated_at": datetime.now(timezone.utc),
             },
         )

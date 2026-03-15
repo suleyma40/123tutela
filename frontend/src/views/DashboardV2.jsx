@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Briefcase, CreditCard, FileText, HelpCircle, Layout, LogOut, Plus, Scale, Search, Shield, Upload } from "lucide-react";
 
 import { Badge, Button, Field, SessionCard, TextArea, TextInput } from "../ui";
@@ -40,6 +40,190 @@ const statusColors = {
 
 const shortDate = (value) => new Date(value).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
 const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const widgetScriptUrl = "https://checkout.wompi.co/widget.js";
+
+const normalizeAction = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPayment, onRefreshCase, loading }) {
+  const [includeFiling, setIncludeFiling] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState("");
+  const [selectedCode, setSelectedCode] = useState("");
+
+  const suggestedCode = useMemo(() => {
+    const action = normalizeAction(caseItem?.recommended_action);
+    const exact = {
+      "accion de tutela": "accion_tutela",
+      "derecho de peticion": "derecho_peticion",
+      "incidente de desacato": "incidente_desacato",
+      "impugnacion de tutela": "impugnacion_tutela",
+      "accion popular": "accion_popular",
+      "accion de cumplimiento": "accion_cumplimiento",
+      "habeas data": "habeas_data",
+      "recurso de reposicion o apelacion": "recurso_reposicion_apelacion",
+      "queja disciplinaria": "queja_disciplinaria",
+      "queja formal": "queja_formal",
+      "reclamo administrativo": "reclamo_administrativo",
+      "carta formal a entidad": "carta_formal",
+    };
+    return exact[action] || "";
+  }, [caseItem?.recommended_action]);
+
+  useEffect(() => {
+    setSelectedCode(suggestedCode || catalog[0]?.code || "");
+  }, [suggestedCode, catalog]);
+
+  const selectedProduct = useMemo(
+    () => catalog.find((item) => item.code === selectedCode) || null,
+    [catalog, selectedCode]
+  );
+
+  const launchWidget = (checkout) =>
+    new Promise((resolve, reject) => {
+      const start = () => {
+        if (!window.WidgetCheckout) {
+          reject(new Error("Widget de Wompi no disponible."));
+          return;
+        }
+        try {
+          const widget = new window.WidgetCheckout({
+            currency: checkout.currency,
+            amountInCents: checkout.amount_in_cents,
+            reference: checkout.reference,
+            publicKey: checkout.public_key,
+            redirectUrl: checkout["redirect-url"],
+            customerData: { email: checkout["customer-data:email"] },
+            signature: { integrity: checkout["signature:integrity"] },
+          });
+          widget.open((result) => resolve(result || {}));
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      if (window.WidgetCheckout) {
+        start();
+        return;
+      }
+
+      const existing = document.querySelector('script[data-wompi-widget="true"]');
+      if (existing) {
+        existing.addEventListener("load", start, { once: true });
+        existing.addEventListener("error", () => reject(new Error("No fue posible cargar el widget de Wompi.")), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = widgetScriptUrl;
+      script.async = true;
+      script.dataset.wompiWidget = "true";
+      script.onload = start;
+      script.onerror = () => reject(new Error("No fue posible cargar el widget de Wompi."));
+      document.body.appendChild(script);
+    });
+
+  const pollPayment = async (reference) => {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const order = await onGetPayment(reference);
+      if (order.status === "approved") {
+        await onRefreshCase(caseItem.id);
+        setPaymentMessage("Pago aprobado. Ya puedes generar el documento final.");
+        return;
+      }
+      if (["declined", "error", "voided"].includes(order.status)) {
+        await onRefreshCase(caseItem.id);
+        setPaymentMessage(`Pago ${order.status}. Puedes volver a intentarlo si hace falta.`);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    await onRefreshCase(caseItem.id);
+    setPaymentMessage("El pago quedó en validación. Refresca en unos segundos para ver el estado final.");
+  };
+
+  const startPayment = async () => {
+    if (!selectedProduct) {
+      setPaymentMessage("No hay producto seleccionado para cobrar.");
+      return;
+    }
+    setPaymentMessage("");
+    const session = await onCreateWompiSession(caseItem.id, {
+      product_code: selectedProduct.code,
+      include_filing: includeFiling,
+    });
+    await launchWidget(session.checkout);
+    setPaymentMessage("Pago iniciado. Esperando confirmación segura de Wompi.");
+    await pollPayment(session.order.reference);
+  };
+
+  if (!caseItem) {
+    return null;
+  }
+
+  const finalPrice = includeFiling ? selectedProduct?.price_with_filing_cop : selectedProduct?.price_cop;
+
+  return (
+    <SessionCard title={title} subtitle="El análisis es gratis. Pagas solo cuando decides generar el documento o el documento con radicación.">
+      <div style={{ display: "grid", gap: 14 }}>
+        <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
+          <div style={{ fontWeight: 800, color: C.text }}>{caseItem.recommended_action || "Producto sugerido"}</div>
+          <div style={{ color: C.textMuted, marginTop: 8 }}>
+            {caseItem.strategy_text || "La plataforma analiza tu caso gratis y luego te ofrece el documento correspondiente."}
+          </div>
+        </div>
+        <Field label="Producto a pagar">
+          <select
+            value={selectedCode}
+            onChange={(event) => setSelectedCode(event.target.value)}
+            style={{ width: "100%", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+          >
+            {catalog.map((item) => (
+              <option key={item.code} value={item.code}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {selectedProduct && (
+          <div className="glass-card" style={{ padding: 18 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <strong style={{ color: C.text }}>{selectedProduct.name}</strong>
+              <Badge color={C.primary}>
+                {(finalPrice || 0).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}
+              </Badge>
+            </div>
+            <div style={{ color: C.textMuted, marginTop: 10 }}>{selectedProduct.short_description}</div>
+            <div style={{ color: C.textMuted, marginTop: 10 }}>{selectedProduct.detailed_description}</div>
+            <div style={{ marginTop: 12, color: C.text, fontSize: 14 }}>
+              Incluye análisis gratis, informe del derecho vulnerado y documento completo después del pago.
+            </div>
+            <label style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 16, color: C.text }}>
+              <input type="checkbox" checked={includeFiling} onChange={(event) => setIncludeFiling(event.target.checked)} />
+              Agregar radicación por nosotros
+              <strong>+34.000 COP</strong>
+            </label>
+            <div style={{ color: C.textMuted, fontSize: 13, marginTop: 10 }}>
+              Si compras radicación, usamos la base operativa de juzgados y entidades en Colombia y te enviamos el comprobante al correo cuando aplique.
+            </div>
+            <div style={{ color: C.textMuted, fontSize: 13, marginTop: 8 }}>
+              Siguiente paso sugerido: {selectedProduct.next_step_hint}
+            </div>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <Button onClick={startPayment} disabled={loading || caseItem.payment_status === "pagado"} icon={CreditCard}>
+            {caseItem.payment_status === "pagado" ? "Pago confirmado" : "Pagar con Wompi"}
+          </Button>
+        </div>
+        {paymentMessage && <div style={{ color: C.textMuted }}>{paymentMessage}</div>}
+      </div>
+    </SessionCard>
+  );
+}
 
 function DetailPanel({ detail, onViewDocument }) {
   if (!detail) {
@@ -111,6 +295,7 @@ export default function DashboardV2(props) {
     session,
     cases,
     internalCases,
+    catalog,
     activeTab,
     setActiveTab,
     activeCaseDetail,
@@ -122,6 +307,9 @@ export default function DashboardV2(props) {
     onCreateCase,
     onOpenCase,
     onConfirmPayment,
+    onCreateWompiSession,
+    onGetPayment,
+    onRefreshCase,
     onGenerateDocument,
     onSubmitCase,
     onManualRadicado,
@@ -334,12 +522,15 @@ export default function DashboardV2(props) {
         )}
 
         {draftDetail && (
-          <SessionCard title="4. Pago y documento" subtitle="El cobro ocurre antes del documento final y la radicación.">
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Button onClick={() => onConfirmPayment(draftDetail.case.id, `PAGO-DEMO-${Date.now()}`)} icon={CreditCard}>Confirmar pago demo</Button>
-              <Button variant="secondary" onClick={() => onGenerateDocument(draftDetail.case.id)} disabled={draftDetail.case.payment_status !== "pagado"} icon={FileText}>Generar documento final</Button>
-            </div>
-          </SessionCard>
+          <PaymentCard
+            title="4. Pago real y documento"
+            caseItem={draftDetail.case}
+            catalog={catalog}
+            onCreateWompiSession={onCreateWompiSession}
+            onGetPayment={onGetPayment}
+            onRefreshCase={onRefreshCase}
+            loading={loading}
+          />
         )}
       </div>
     ),
@@ -371,31 +562,41 @@ export default function DashboardV2(props) {
       <div style={{ display: "grid", gap: 18 }}>
         <DetailPanel detail={activeCaseDetail} onViewDocument={setDocumentCase} />
         {activeCaseDetail && canOperateActiveCase && (
-          <SessionCard title="Acciones operativas" subtitle="Pago, documento, envío, radicado manual y evidencia del caso activo.">
-            <div style={{ display: "grid", gap: 14 }}>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Button onClick={() => onConfirmPayment(activeCaseDetail.case.id, `PAGO-DEMO-${Date.now()}`)} icon={CreditCard}>Confirmar pago</Button>
-                <Button variant="secondary" onClick={() => onGenerateDocument(activeCaseDetail.case.id)} disabled={activeCaseDetail.case.payment_status !== "pagado"} icon={FileText}>Generar documento</Button>
+          <>
+            <PaymentCard
+              title="Pago y activación del documento"
+              caseItem={activeCaseDetail.case}
+              catalog={catalog}
+              onCreateWompiSession={onCreateWompiSession}
+              onGetPayment={onGetPayment}
+              onRefreshCase={onRefreshCase}
+              loading={loading}
+            />
+            <SessionCard title="Acciones operativas" subtitle="Documento, envío, radicado manual y evidencia del caso activo.">
+              <div style={{ display: "grid", gap: 14 }}>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <Button variant="secondary" onClick={() => onGenerateDocument(activeCaseDetail.case.id)} disabled={activeCaseDetail.case.payment_status !== "pagado"} icon={FileText}>Generar documento</Button>
+                </div>
+                <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o contacto manual" />
+                <TextArea value={submissionNote} onChange={(event) => setSubmissionNote(event.target.value)} placeholder="Notas del envío o fallback" style={{ minHeight: 90 }} />
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: submissionNote })} disabled={!activeCaseDetail.case.generated_document}>Ejecutar envío automático</Button>
+                  <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: submissionNote })}>Usar contacto manual</Button>
+                  <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: submissionNote })}>Activar modo presencial</Button>
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <TextInput value={radicadoManual} onChange={(event) => setRadicadoManual(event.target.value)} placeholder="Número de radicado manual" />
+                  <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: radicadoNote })}>Registrar radicado manual</Button>
+                </div>
+                <TextArea value={radicadoNote} onChange={(event) => setRadicadoNote(event.target.value)} placeholder="Notas del radicado manual" style={{ minHeight: 80 }} />
+                <input id="evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <TextInput value={evidenceNote} onChange={(event) => setEvidenceNote(event.target.value)} placeholder="Nota sobre la evidencia" />
+                  <Button variant="outline" onClick={() => document.getElementById("evidence-upload").click()} icon={Upload}>Subir evidencia</Button>
+                </div>
               </div>
-              <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o contacto manual" />
-              <TextArea value={submissionNote} onChange={(event) => setSubmissionNote(event.target.value)} placeholder="Notas del envío o fallback" style={{ minHeight: 90 }} />
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: submissionNote })} disabled={!activeCaseDetail.case.generated_document}>Ejecutar envío automático</Button>
-                <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: submissionNote })}>Usar contacto manual</Button>
-                <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: submissionNote })}>Activar modo presencial</Button>
-              </div>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <TextInput value={radicadoManual} onChange={(event) => setRadicadoManual(event.target.value)} placeholder="Número de radicado manual" />
-                <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: radicadoNote })}>Registrar radicado manual</Button>
-              </div>
-              <TextArea value={radicadoNote} onChange={(event) => setRadicadoNote(event.target.value)} placeholder="Notas del radicado manual" style={{ minHeight: 80 }} />
-              <input id="evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <TextInput value={evidenceNote} onChange={(event) => setEvidenceNote(event.target.value)} placeholder="Nota sobre la evidencia" />
-                <Button variant="outline" onClick={() => document.getElementById("evidence-upload").click()} icon={Upload}>Subir evidencia</Button>
-              </div>
-            </div>
-          </SessionCard>
+            </SessionCard>
+          </>
         )}
       </div>
     ),
