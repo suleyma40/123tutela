@@ -114,7 +114,7 @@ Rutas sugeridas:
 - [x] Crear pantalla `pago/resultado`.
 - [x] Mostrar mensaje claro si la redireccion vuelve antes de que llegue el webhook.
 - [x] Bloquear generacion de documento final hasta que el backend confirme pago aprobado.
-- [ ] Mostrar referencia de pago al usuario.
+- [x] Mostrar referencia de pago al usuario.
 - [x] Mostrar informe gratis con derecho vulnerado, analisis y recomendacion antes del pago.
 - [x] Permitir elegir entre `Solo documento` y `Documento + radicacion` cuando el producto lo soporte.
 - [x] Mostrar siguientes pasos sugeridos segun el tipo de caso.
@@ -242,6 +242,7 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [ ] Definir validaciones minimas de longitud, claridad y completitud del relato.
 - [ ] Definir ayudas de redaccion para que el usuario describa hechos con calidad suficiente.
 - [ ] Definir cuando bloquear el avance por informacion insuficiente.
+- [x] Bloquear el guardado del expediente cuando la revision juridica inicial detecte datos criticos faltantes en tutela, derecho de peticion o habeas data.
 
 ## 15. Radicacion y canales
 

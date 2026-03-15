@@ -74,6 +74,63 @@ const buildContinuationOptions = (item) => {
   return ["Completar el paso actual para habilitar la siguiente etapa del caso."];
 };
 
+function IntakeReviewCard({ review }) {
+  if (!review || review.status === "not_scored") {
+    return null;
+  }
+
+  const blockingIssues = review.blocking_issues || [];
+  const warnings = review.warnings || [];
+  const canProceed = blockingIssues.length === 0;
+
+  return (
+    <div
+      className="glass-card"
+      style={{
+        padding: 18,
+        background: canProceed ? "#F8FAFD" : "#FFF7ED",
+        border: `1px solid ${canProceed ? C.border : "#FDBA74"}`,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>REVISION JURIDICA INICIAL</div>
+          <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+            {canProceed ? "La informacion base permite seguir con advertencias." : "Faltan datos criticos antes de guardar el expediente."}
+          </div>
+        </div>
+        <Badge color={canProceed ? C.primary : C.warning}>{review.status}</Badge>
+      </div>
+
+      {!!blockingIssues.length && (
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {blockingIssues.map((issue) => (
+            <div key={issue} style={{ color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", padding: 14, borderRadius: 14 }}>
+              {issue}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!!warnings.length && (
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {warnings.map((warning) => (
+            <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>
+              {warning}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: 14, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+        {canProceed
+          ? "Puedes guardar el expediente, pero conviene reforzar hechos, fechas y pretensiones para mejorar la calidad del documento final."
+          : "Vuelve al paso anterior y mejora el relato antes de continuar. La plataforma no deberia cobrar ni generar un documento con informacion debil."}
+      </div>
+    </div>
+  );
+}
+
 function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPayment, onRefreshCase, loading }) {
   const [includeFiling, setIncludeFiling] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
@@ -731,14 +788,18 @@ export default function DashboardV2(props) {
           </StepShell>
         )}
 
-        {wizardStep === 3 && (
+        {wizardStep === 3 && (() => {
+          const intakeReview = preview?.facts?.intake_review || null;
+          const hasBlockingIssues = !!(intakeReview?.blocking_issues || []).length;
+
+          return (
           <StepShell
             stepNumber={3}
             title="Preview gratis y expediente"
             subtitle="Se guarda antes del pago para que quede trazabilidad."
             onBack={() => setWizardStep(2)}
             onNext={() => setWizardStep(4)}
-            nextDisabled={!preview}
+            nextDisabled={!preview || hasBlockingIssues}
             nextLabel="Continuar al pago"
           >
             {!preview ? (
@@ -766,6 +827,7 @@ export default function DashboardV2(props) {
                     <div style={{ color: C.textMuted, marginTop: 6 }}>{preview.routing?.subject || "Sin asunto sugerido"}</div>
                   </div>
                 </div>
+                <IntakeReviewCard review={intakeReview} />
                 {preview.warnings?.map((warning) => <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>{warning}</div>)}
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <Button
@@ -774,7 +836,7 @@ export default function DashboardV2(props) {
                       setDraftDetail(detail);
                       setWizardStep(4);
                     }}
-                    disabled={!profileReady}
+                    disabled={!profileReady || hasBlockingIssues}
                   >
                     Guardar expediente
                   </Button>
@@ -783,7 +845,8 @@ export default function DashboardV2(props) {
               </>
             )}
           </StepShell>
-        )}
+          );
+        })()}
 
         {wizardStep === 4 && (
           <div style={{ display: "grid", gap: 16 }}>
