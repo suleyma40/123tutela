@@ -2,10 +2,27 @@ import React, { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 
 import { api, extractError, withAuth } from "./lib/api";
-import AuthView from "./views/AuthView";
+import AuthViewVision from "./views/AuthViewVision";
 import DashboardV2 from "./views/DashboardV2";
 import DocumentModal from "./views/DocumentModal";
-import Landing from "./views/Landing";
+import LandingVision from "./views/LandingVision";
+import PaymentResultView from "./views/PaymentResultView";
+
+const ROUTES = {
+  landing: "/",
+  login: "/login",
+  register: "/register",
+  dashboard: "/dashboard",
+  payment_result: "/pago/resultado",
+};
+
+const pathToView = (pathname) => {
+  if (pathname === ROUTES.login) return "login";
+  if (pathname === ROUTES.register) return "register";
+  if (pathname === ROUTES.dashboard) return "dashboard";
+  if (pathname === ROUTES.payment_result) return "payment_result";
+  return "landing";
+};
 
 const loadSession = () => {
   try {
@@ -25,7 +42,7 @@ const persistSession = (session) => {
 };
 
 export default function MainAppV2() {
-  const [view, setView] = useState("landing");
+  const [view, setView] = useState(() => pathToView(window.location.pathname));
   const [session, setSession] = useState(loadSession());
   const [cases, setCases] = useState([]);
   const [internalCases, setInternalCases] = useState([]);
@@ -41,6 +58,15 @@ export default function MainAppV2() {
   const syncSession = (nextSession) => {
     setSession(nextSession);
     persistSession(nextSession);
+  };
+
+  const navigate = (nextView, { replace = false } = {}) => {
+    const target = ROUTES[nextView] || ROUTES.landing;
+    if (window.location.pathname !== target) {
+      const method = replace ? "replaceState" : "pushState";
+      window.history[method]({}, "", target);
+    }
+    setView(nextView);
   };
 
   const loadCases = async (token) => {
@@ -63,6 +89,12 @@ export default function MainAppV2() {
     await loadCases(token);
     await loadInternalCases(token, role);
   };
+
+  useEffect(() => {
+    const onPopState = () => setView(pathToView(window.location.pathname));
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,12 +132,16 @@ export default function MainAppV2() {
         syncSession(nextSession);
         await refreshCollections(session.token, me.data.role);
         if (!cancelled) {
-          setView("dashboard");
+          navigate("dashboard", { replace: true });
         }
       } catch {
         if (!cancelled) {
           syncSession(null);
-          setView("landing");
+          if (window.location.pathname === ROUTES.dashboard) {
+            navigate("login", { replace: true });
+          } else {
+            setView(pathToView(window.location.pathname));
+          }
         }
       }
     };
@@ -123,7 +159,7 @@ export default function MainAppV2() {
       const response = await api.post(endpoint, payload);
       syncSession(response.data);
       await refreshCollections(response.data.token, response.data.user.role);
-      setView("dashboard");
+      navigate("dashboard", { replace: true });
     } catch (error) {
       setAuthError(extractError(error, "No fue posible procesar la sesión."));
     } finally {
@@ -276,7 +312,7 @@ export default function MainAppV2() {
     setInternalCases([]);
     setActiveCaseDetail(null);
     setDocumentCase(null);
-    setView("landing");
+    navigate("landing", { replace: true });
   };
 
   return (
@@ -284,13 +320,13 @@ export default function MainAppV2() {
       <AnimatePresence mode="wait">
         {view === "landing" && (
           <div key="landing">
-            <Landing onStart={() => setView("register")} onLogin={() => setView("login")} />
+            <LandingVision onStart={() => navigate("register")} onLogin={() => navigate("login")} />
           </div>
         )}
 
         {view === "login" && (
           <div key="login">
-            <AuthView
+            <AuthViewVision
               title="Iniciar sesión"
               subtitle="Accede a tu panel para gestionar expedientes, pagos y radicaciones."
               fields={[
@@ -300,8 +336,8 @@ export default function MainAppV2() {
               onSubmit={(data) => handleAuth("/auth/login", data)}
               secondaryText="¿No tienes cuenta?"
               secondaryLabel="Regístrate aquí"
-              secondaryAction={() => setView("register")}
-              onBack={() => setView("landing")}
+              secondaryAction={() => navigate("register")}
+              onBack={() => navigate("landing")}
               loading={authLoading}
               error={authError}
             />
@@ -310,7 +346,7 @@ export default function MainAppV2() {
 
         {view === "register" && (
           <div key="register">
-            <AuthView
+            <AuthViewVision
               title="Crear cuenta"
               subtitle="Primero activamos tu sesión. Luego completas el perfil jurídico obligatorio."
               fields={[
@@ -321,10 +357,21 @@ export default function MainAppV2() {
               onSubmit={(data) => handleAuth("/auth/register", data)}
               secondaryText="¿Ya tienes cuenta?"
               secondaryLabel="Inicia sesión"
-              secondaryAction={() => setView("login")}
-              onBack={() => setView("landing")}
+              secondaryAction={() => navigate("login")}
+              onBack={() => navigate("landing")}
               loading={authLoading}
               error={authError}
+            />
+          </div>
+        )}
+
+        {view === "payment_result" && (
+          <div key="payment_result">
+            <PaymentResultView
+              session={session}
+              onOpenDashboard={() => navigate("dashboard", { replace: true })}
+              onLogin={() => navigate("login", { replace: true })}
+              onBackHome={() => navigate("landing", { replace: true })}
             />
           </div>
         )}
