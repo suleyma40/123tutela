@@ -92,6 +92,106 @@ def _validate_habeas_data(description: str, facts: dict[str, Any], prior_actions
     }
 
 
+def _validate_laboral(description: str, facts: dict[str, Any], prior_actions: list[str]) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+
+    entities = facts.get("entidades_involucradas") or []
+    text = _lower(description)
+
+    if not entities:
+        problems.append("Falta identificar el empleador o la entidad contra la que se formula la solicitud.")
+    if not _has_any(text, ["relacion laboral", "contrato", "empleador", "cargo", "prestacion de servicios"]):
+        problems.append("Debe explicarse el tipo de relacion laboral o contractual del caso.")
+    if not _has_any(text, ["despido", "sancion", "salario", "liquidacion", "medida", "suspension", "acoso", "incapacidad"]):
+        problems.append("No se identifica con claridad la medida, incumplimiento o afectacion laboral principal.")
+    if not _has_any(text, ["minimo vital", "mÃ­nimo vital", "salud", "embarazo", "discapacidad", "fuero", "estabilidad reforzada"]):
+        warnings.append("Conviene precisar si existe afectacion al minimo vital o alguna condicion de estabilidad reforzada.")
+    if not prior_actions:
+        warnings.append("En laboral suele convenir dejar trazabilidad de reclamo previo al empleador salvo urgencia constitucional.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
+def _validate_bancos(description: str, facts: dict[str, Any], prior_actions: list[str]) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+
+    entities = facts.get("entidades_involucradas") or []
+    text = _lower(description)
+
+    if not entities:
+        problems.append("Falta identificar el banco, la fintech o la central de riesgo involucrada.")
+    if not _has_any(text, ["credito", "tarjeta", "cuenta", "nequi", "daviplata", "producto financiero"]):
+        problems.append("Debe identificarse el producto financiero o la relacion bancaria afectada.")
+    if not _has_any(text, ["cobro", "mora", "bloqueo", "reporte", "fraude", "debito", "suplantacion", "suplantaciÃ³n"]):
+        problems.append("No se identifica con claridad el cobro, reporte, bloqueo o hecho bancario controvertido.")
+    if not _has_any(text, ["valor", "monto", "$", "pesos"]):
+        warnings.append("Conviene indicar el monto, cuota o valor discutido para que el reclamo no quede vago.")
+    if not prior_actions:
+        warnings.append("En bancos y habeas data suele exigirse reclamacion previa antes de escalar a tutela.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
+def _validate_servicios(description: str, facts: dict[str, Any], prior_actions: list[str]) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+
+    entities = facts.get("entidades_involucradas") or []
+    text = _lower(description)
+
+    if not entities:
+        problems.append("Falta identificar la empresa de servicios o telecomunicaciones involucrada.")
+    if not _has_any(text, ["agua", "luz", "energia", "gas", "internet", "telefono", "telefonia", "servicio"]):
+        problems.append("Debe precisarse el servicio afectado para definir la ruta correcta.")
+    if not _has_any(text, ["corte", "suspension", "factura", "facturacion", "reconexion", "cobro", "cobro indebido"]):
+        problems.append("No se identifica con claridad el corte, la suspension o la facturacion discutida.")
+    if not _has_any(text, ["suscriptor", "contrato", "referencia", "cuenta"]):
+        warnings.append("Conviene incluir numero de suscriptor, contrato o referencia del servicio.")
+    if not prior_actions:
+        warnings.append("En servicios publicos conviene dejar constancia de reclamacion previa ante la empresa.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
+def _validate_consumidor(description: str, facts: dict[str, Any], prior_actions: list[str]) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+
+    entities = facts.get("entidades_involucradas") or []
+    text = _lower(description)
+
+    if not entities:
+        problems.append("Falta identificar el proveedor, comercio o plataforma involucrada.")
+    if not _has_any(text, ["producto", "servicio", "compra", "pedido", "garantia", "garantÃ­a", "devolucion", "devoluciÃ³n"]):
+        problems.append("Debe explicarse mejor el producto o servicio y la falla principal del caso.")
+    if not _has_any(text, ["cambio", "devolucion", "devoluciÃ³n", "reembolso", "cumplimiento", "garantia", "garantÃ­a"]):
+        problems.append("No se identifica con claridad el remedio que se exige al proveedor.")
+    if not _has_any(text, ["factura", "pedido", "orden", "compra", "fecha"]):
+        warnings.append("Conviene incluir fecha de compra, numero de pedido o soporte de la transaccion.")
+    if not prior_actions:
+        warnings.append("En consumo es mejor dejar trazabilidad de reclamacion directa antes de escalar el conflicto.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
 def validate_submission_readiness(
     *,
     category: str,
@@ -156,6 +256,14 @@ def validate_intake(
 
     if "tutela" in action or workflow_type == "tutela":
         return _validate_tutela(description, facts, prior_actions)
+    if category_lower == "laboral":
+        return _validate_laboral(description, facts, prior_actions)
+    if category_lower == "bancos":
+        return _validate_bancos(description, facts, prior_actions)
+    if category_lower == "servicios":
+        return _validate_servicios(description, facts, prior_actions)
+    if category_lower == "consumidor":
+        return _validate_consumidor(description, facts, prior_actions)
     if "peticion" in action:
         return _validate_derecho_peticion(description, facts)
     if "habeas" in action or category_lower == "datos":

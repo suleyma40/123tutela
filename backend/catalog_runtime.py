@@ -131,16 +131,27 @@ PRODUCT_MAP = {product.code: product for product in PRODUCTS}
 
 RECOMMENDED_ACTION_TO_PRODUCT = {
     "accion de tutela": "accion_tutela",
+    "accion de tutela por habeas data": "accion_tutela",
     "derecho de peticion": "derecho_peticion",
+    "derecho de peticion a eps": "derecho_peticion",
+    "derecho de peticion laboral": "derecho_peticion",
+    "derecho de peticion financiero": "derecho_peticion",
+    "derecho de peticion a empresa de servicios": "derecho_peticion",
+    "derecho de peticion al proveedor": "derecho_peticion",
     "incidente de desacato": "incidente_desacato",
     "impugnacion de tutela": "impugnacion_tutela",
     "accion popular": "accion_popular",
     "accion de cumplimiento": "accion_cumplimiento",
     "habeas data": "habeas_data",
+    "reclamacion de habeas data": "habeas_data",
     "recurso de reposicion o apelacion": "recurso_reposicion_apelacion",
     "queja disciplinaria": "queja_disciplinaria",
     "queja formal": "queja_formal",
     "reclamo administrativo": "reclamo_administrativo",
+    "reclamacion financiera": "reclamo_administrativo",
+    "reclamacion por servicios publicos": "reclamo_administrativo",
+    "reclamo de consumo": "reclamo_administrativo",
+    "queja o reclamo al proveedor": "queja_formal",
     "carta formal a entidad": "carta_formal",
 }
 

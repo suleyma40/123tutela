@@ -249,6 +249,8 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [x] Bloquear el guardado del expediente cuando la revision juridica inicial detecte datos criticos faltantes en tutela, derecho de peticion o habeas data.
 - [x] Aplicar una primera capa equivalente de enforcement en backend para no depender solo del frontend.
 - [x] Refinar una primera capa de recomendacion juridica por categoria en backend para Laboral, Bancos, Servicios y Consumidor.
+- [x] Endurecer la validacion backend para Laboral, Bancos, Servicios y Consumidor con reglas minimas por categoria.
+- [x] Implementar una segunda capa de preguntas dinamicas finas para Laboral, Bancos, Servicios y Consumidor.
 
 ## 15. Radicacion y canales
 

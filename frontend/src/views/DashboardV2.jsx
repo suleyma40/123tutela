@@ -40,16 +40,28 @@ const defaultIntakeFields = {
   disputed_data: "",
   requested_data_action: "corregir",
   labor_relation_type: "",
+  labor_employer_name: "",
+  labor_measure_date: "",
+  labor_salary_detail: "",
   dismissal_or_measure: "",
   minimum_vital_impact: "",
   reinforced_stability: "",
   bank_product_type: "",
+  bank_amount_involved: "",
+  bank_claim_goal: "",
+  bank_event_date: "",
   disputed_charge: "",
   report_or_block_reason: "",
   service_company_name: "",
+  service_type: "",
+  subscriber_reference: "",
+  invoice_period: "",
   service_impact: "",
   cutoff_or_billing_detail: "",
   provider_name: "",
+  purchase_date: "",
+  order_reference: "",
+  seller_response_detail: "",
   product_or_service_issue: "",
   guarantee_or_refund_request: "",
 };
@@ -138,16 +150,28 @@ const buildStructuredDescription = (form) => {
     form.category === "Datos" && form.disputed_data ? `Dato o reporte cuestionado: ${form.disputed_data}` : "",
     form.category === "Datos" && form.requested_data_action ? `Accion solicitada sobre el dato: ${form.requested_data_action}` : "",
     form.category === "Laboral" && form.labor_relation_type ? `Tipo de relacion laboral: ${form.labor_relation_type}` : "",
+    form.category === "Laboral" && form.labor_employer_name ? `Empleador o contratante: ${form.labor_employer_name}` : "",
+    form.category === "Laboral" && form.labor_measure_date ? `Fecha de la medida o despido: ${form.labor_measure_date}` : "",
+    form.category === "Laboral" && form.labor_salary_detail ? `Salario, honorarios o pagos pendientes: ${form.labor_salary_detail}` : "",
     form.category === "Laboral" && form.dismissal_or_measure ? `Despido, sancion o medida cuestionada: ${form.dismissal_or_measure}` : "",
     form.category === "Laboral" && form.minimum_vital_impact ? `Impacto en minimo vital: ${form.minimum_vital_impact}` : "",
     form.category === "Laboral" && form.reinforced_stability ? `Estabilidad reforzada o condicion especial: ${form.reinforced_stability}` : "",
     form.category === "Bancos" && form.bank_product_type ? `Producto financiero involucrado: ${form.bank_product_type}` : "",
+    form.category === "Bancos" && form.bank_amount_involved ? `Monto o valor discutido: ${form.bank_amount_involved}` : "",
+    form.category === "Bancos" && form.bank_claim_goal ? `Resultado esperado frente al banco: ${form.bank_claim_goal}` : "",
+    form.category === "Bancos" && form.bank_event_date ? `Fecha del cargo, bloqueo o reporte: ${form.bank_event_date}` : "",
     form.category === "Bancos" && form.disputed_charge ? `Cobro, mora o valor discutido: ${form.disputed_charge}` : "",
     form.category === "Bancos" && form.report_or_block_reason ? `Reporte, bloqueo o causa principal: ${form.report_or_block_reason}` : "",
     form.category === "Servicios" && form.service_company_name ? `Empresa de servicios: ${form.service_company_name}` : "",
+    form.category === "Servicios" && form.service_type ? `Tipo de servicio afectado: ${form.service_type}` : "",
+    form.category === "Servicios" && form.subscriber_reference ? `Numero de suscriptor o referencia: ${form.subscriber_reference}` : "",
+    form.category === "Servicios" && form.invoice_period ? `Factura o periodo discutido: ${form.invoice_period}` : "",
     form.category === "Servicios" && form.service_impact ? `Impacto del servicio o corte: ${form.service_impact}` : "",
     form.category === "Servicios" && form.cutoff_or_billing_detail ? `Detalle de corte o facturacion discutida: ${form.cutoff_or_billing_detail}` : "",
     form.category === "Consumidor" && form.provider_name ? `Proveedor o comercio: ${form.provider_name}` : "",
+    form.category === "Consumidor" && form.purchase_date ? `Fecha de compra o contratacion: ${form.purchase_date}` : "",
+    form.category === "Consumidor" && form.order_reference ? `Pedido, factura o referencia: ${form.order_reference}` : "",
+    form.category === "Consumidor" && form.seller_response_detail ? `Respuesta del proveedor: ${form.seller_response_detail}` : "",
     form.category === "Consumidor" && form.product_or_service_issue ? `Falla del producto o servicio: ${form.product_or_service_issue}` : "",
     form.category === "Consumidor" && form.guarantee_or_refund_request ? `Garantia, cambio o devolucion solicitada: ${form.guarantee_or_refund_request}` : "",
     form.description ? `Relato del usuario: ${form.description}` : "",
@@ -182,21 +206,29 @@ const getGuidedIntakeMissing = (form) => {
 
   if (form.category === "Laboral") {
     if (!form.labor_relation_type.trim()) missing.push("Tipo de relacion laboral");
+    if (!form.labor_employer_name.trim()) missing.push("Empleador o contratante");
+    if (!form.labor_measure_date.trim()) missing.push("Fecha de la medida o despido");
     if (!form.dismissal_or_measure.trim()) missing.push("Despido, sancion o medida cuestionada");
   }
 
   if (form.category === "Bancos") {
     if (!form.bank_product_type.trim()) missing.push("Producto financiero involucrado");
+    if (!form.bank_amount_involved.trim()) missing.push("Monto o valor discutido");
+    if (!form.bank_claim_goal.trim()) missing.push("Resultado esperado frente al banco");
     if (!form.report_or_block_reason.trim()) missing.push("Reporte, bloqueo o causa principal");
   }
 
   if (form.category === "Servicios") {
     if (!form.service_company_name.trim()) missing.push("Empresa de servicios");
+    if (!form.service_type.trim()) missing.push("Tipo de servicio afectado");
+    if (!form.subscriber_reference.trim()) missing.push("Numero de suscriptor o referencia");
     if (!form.cutoff_or_billing_detail.trim()) missing.push("Detalle de corte o facturacion");
   }
 
   if (form.category === "Consumidor") {
     if (!form.provider_name.trim()) missing.push("Proveedor o comercio");
+    if (!form.purchase_date.trim()) missing.push("Fecha de compra o contratacion");
+    if (!form.order_reference.trim()) missing.push("Pedido, factura o referencia");
     if (!form.product_or_service_issue.trim()) missing.push("Falla del producto o servicio");
   }
 
@@ -237,16 +269,32 @@ const getPreviewGateIssues = (form) => {
     issues.push("En laboral debes explicar mejor como afecta el minimo vital o la estabilidad del usuario.");
   }
 
+  if (form.category === "Laboral" && form.labor_salary_detail.trim().length < 10) {
+    issues.push("En laboral conviene precisar salarios, honorarios o pagos pendientes para reforzar la gravedad del caso.");
+  }
+
   if (form.category === "Bancos" && form.disputed_charge.trim().length < 10) {
     issues.push("En bancos debes precisar mejor el cobro, mora, bloqueo o reporte discutido.");
+  }
+
+  if (form.category === "Bancos" && form.bank_claim_goal.trim().length < 15) {
+    issues.push("En bancos debes decir con claridad si pides reverso, desbloqueo, correccion del reporte o respuesta de fondo.");
   }
 
   if (form.category === "Servicios" && form.service_impact.trim().length < 20) {
     issues.push("En servicios debes explicar con mas detalle el impacto del corte, cobro o incumplimiento.");
   }
 
+  if (form.category === "Servicios" && form.subscriber_reference.trim().length < 6) {
+    issues.push("En servicios conviene incluir numero de suscriptor, contrato o referencia del servicio.");
+  }
+
   if (form.category === "Consumidor" && form.guarantee_or_refund_request.trim().length < 15) {
     issues.push("En consumidor debes explicar con mas claridad la garantia, cambio o devolucion que solicitas.");
+  }
+
+  if (form.category === "Consumidor" && form.seller_response_detail.trim().length < 15) {
+    issues.push("En consumidor debes contar que respondio el proveedor o si guardo silencio frente a la reclamacion.");
   }
 
   return issues;
@@ -260,7 +308,7 @@ const getWritingAid = (category) => {
     return "Explica que dato esta mal, donde aparece, desde cuando lo conoces, si ya reclamaste y que accion exacta quieres: corregir, actualizar o suprimir.";
   }
   if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(category)) {
-    return "Escribe como un derecho de peticion fuerte: a quien va dirigido, que antecedentes existen, que solicitas exactamente y que respuesta esperas obtener.";
+    return "Escribe como una peticion o reclamacion seria: identifica a quien va dirigida, que paso, que soporte tienes, que exiges exactamente y por que eso te afecta hoy.";
   }
   return "Describe hechos concretos, fechas, entidad involucrada y una solicitud clara. Evita opiniones generales y enfocate en lo verificable.";
 };
@@ -470,11 +518,20 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
         <div className="glass-card" style={{ padding: 18, background: "#FFF7ED" }}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PREGUNTAS DINAMICAS PARA LABORAL</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 14 }}>
+            <Field label="Empleador o contratante">
+              <TextInput value={form.labor_employer_name} onChange={(event) => setField("labor_employer_name", event.target.value)} placeholder="Ej: Empresa X SAS / Alcaldia / Persona natural" />
+            </Field>
             <Field label="Tipo de relacion laboral">
               <TextInput value={form.labor_relation_type} onChange={(event) => setField("labor_relation_type", event.target.value)} placeholder="Ej: contrato laboral, prestacion de servicios, relacion de hecho" />
             </Field>
+            <Field label="Fecha de la medida o despido">
+              <TextInput value={form.labor_measure_date} onChange={(event) => setField("labor_measure_date", event.target.value)} placeholder="Ej: 5 de marzo de 2026" />
+            </Field>
             <Field label="Despido, sancion o medida cuestionada">
               <TextInput value={form.dismissal_or_measure} onChange={(event) => setField("dismissal_or_measure", event.target.value)} placeholder="Ej: despido sin justa causa, suspension, no pago de salarios" />
+            </Field>
+            <Field label="Salario, honorarios o pagos pendientes">
+              <TextInput value={form.labor_salary_detail} onChange={(event) => setField("labor_salary_detail", event.target.value)} placeholder="Ej: salario de 1.600.000, dos quincenas pendientes, honorarios de febrero" />
             </Field>
             <Field label="Impacto en minimo vital">
               <TextInput value={form.minimum_vital_impact} onChange={(event) => setField("minimum_vital_impact", event.target.value)} placeholder="Ej: no puedo pagar arriendo, alimentacion o medicamentos" />
@@ -493,11 +550,20 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
             <Field label="Producto financiero involucrado">
               <TextInput value={form.bank_product_type} onChange={(event) => setField("bank_product_type", event.target.value)} placeholder="Ej: tarjeta de credito, credito, cuenta de ahorros, Nequi" />
             </Field>
+            <Field label="Monto o valor discutido">
+              <TextInput value={form.bank_amount_involved} onChange={(event) => setField("bank_amount_involved", event.target.value)} placeholder="Ej: 450000 COP, cuota de marzo, cargo no reconocido" />
+            </Field>
             <Field label="Cobro, mora o valor discutido">
               <TextInput value={form.disputed_charge} onChange={(event) => setField("disputed_charge", event.target.value)} placeholder="Ej: cobro de 450.000, mora reportada, cuota no reconocida" />
             </Field>
             <Field label="Reporte, bloqueo o causa principal">
               <TextInput value={form.report_or_block_reason} onChange={(event) => setField("report_or_block_reason", event.target.value)} placeholder="Ej: bloqueo injustificado, reporte negativo, debito no autorizado" />
+            </Field>
+            <Field label="Fecha del cargo, bloqueo o reporte">
+              <TextInput value={form.bank_event_date} onChange={(event) => setField("bank_event_date", event.target.value)} placeholder="Ej: 11 de marzo de 2026" />
+            </Field>
+            <Field label="Que esperas que haga el banco">
+              <TextInput value={form.bank_claim_goal} onChange={(event) => setField("bank_claim_goal", event.target.value)} placeholder="Ej: reversar el cobro, desbloquear cuenta, corregir reporte" />
             </Field>
           </div>
         </div>
@@ -510,11 +576,20 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
             <Field label="Empresa de servicios">
               <TextInput value={form.service_company_name} onChange={(event) => setField("service_company_name", event.target.value)} placeholder="Ej: Enel, Acueducto, Vanti, Claro" />
             </Field>
+            <Field label="Tipo de servicio afectado">
+              <TextInput value={form.service_type} onChange={(event) => setField("service_type", event.target.value)} placeholder="Ej: energia, agua, gas, internet, telefonia" />
+            </Field>
+            <Field label="Numero de suscriptor o referencia">
+              <TextInput value={form.subscriber_reference} onChange={(event) => setField("subscriber_reference", event.target.value)} placeholder="Ej: NIC, contrato, cuenta o suscriptor" />
+            </Field>
             <Field label="Impacto del servicio o corte">
               <TextInput value={form.service_impact} onChange={(event) => setField("service_impact", event.target.value)} placeholder="Ej: corte total, suspension parcial, afectacion a salud o trabajo" />
             </Field>
             <Field label="Detalle de corte o facturacion discutida">
               <TextInput value={form.cutoff_or_billing_detail} onChange={(event) => setField("cutoff_or_billing_detail", event.target.value)} placeholder="Ej: factura excesiva, reconexion negada, corte sin aviso" />
+            </Field>
+            <Field label="Factura o periodo discutido">
+              <TextInput value={form.invoice_period} onChange={(event) => setField("invoice_period", event.target.value)} placeholder="Ej: factura de febrero 2026 / consumo de enero" />
             </Field>
           </div>
         </div>
@@ -527,11 +602,20 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
             <Field label="Proveedor o comercio">
               <TextInput value={form.provider_name} onChange={(event) => setField("provider_name", event.target.value)} placeholder="Ej: exito.com, tienda X, aerolinea, aseguradora" />
             </Field>
+            <Field label="Fecha de compra o contratacion">
+              <TextInput value={form.purchase_date} onChange={(event) => setField("purchase_date", event.target.value)} placeholder="Ej: 2 de marzo de 2026" />
+            </Field>
+            <Field label="Pedido, factura o referencia">
+              <TextInput value={form.order_reference} onChange={(event) => setField("order_reference", event.target.value)} placeholder="Ej: pedido 12345, factura FV-88, tiquete ABC" />
+            </Field>
             <Field label="Falla del producto o servicio">
               <TextInput value={form.product_or_service_issue} onChange={(event) => setField("product_or_service_issue", event.target.value)} placeholder="Ej: producto defectuoso, incumplimiento, publicidad engañosa" />
             </Field>
             <Field label="Garantia, cambio o devolucion solicitada">
               <TextInput value={form.guarantee_or_refund_request} onChange={(event) => setField("guarantee_or_refund_request", event.target.value)} placeholder="Ej: devolucion total, cambio del producto, cumplimiento de garantia" />
+            </Field>
+            <Field label="Que respondio el proveedor">
+              <TextInput value={form.seller_response_detail} onChange={(event) => setField("seller_response_detail", event.target.value)} placeholder="Ej: negaron la garantia, ofrecieron bono, no respondieron" />
             </Field>
           </div>
         </div>
