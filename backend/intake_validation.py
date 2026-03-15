@@ -192,6 +192,124 @@ def _validate_consumidor(description: str, facts: dict[str, Any], prior_actions:
     }
 
 
+def _validate_queja_formal(description: str) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+    text = _lower(description)
+
+    if not _has_any(text, ["motivo principal de la queja", "queja", "irregularidad", "mala atencion", "mala atención", "incumplimiento"]):
+        problems.append("La queja formal debe precisar la irregularidad o mala atencion denunciada.")
+    if not _has_any(text, ["respuesta o intervencion esperada", "respuesta o intervención esperada", "investigacion", "investigación", "correccion", "corrección", "traslado"]):
+        problems.append("La queja formal debe decir que intervencion o respuesta institucional se espera.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
+def _validate_reclamo_administrativo(description: str) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+    text = _lower(description)
+
+    if not _has_any(text, ["error administrativo cuestionado", "actuacion", "actuación", "cobro", "factura", "decision", "decisión", "respuesta"]):
+        problems.append("El reclamo administrativo debe identificar el error, cobro o actuacion que se controvierte.")
+    if not _has_any(text, ["correccion administrativa solicitada", "corrección administrativa solicitada", "anular", "corregir", "devolver", "responder de fondo", "levantar reporte"]):
+        problems.append("El reclamo administrativo debe concretar la correccion o solucion exigida.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
+def _validate_queja_disciplinaria(description: str) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+    text = _lower(description)
+
+    if not _has_any(text, ["funcionario o sujeto disciplinable", "funcionario", "servidor publico", "servidor público", "inspector", "secretario"]):
+        problems.append("La queja disciplinaria debe identificar a quien se denuncia.")
+    if not _has_any(text, ["cargo o rol del sujeto disciplinable", "cargo", "rol", "dependencia"]):
+        problems.append("La queja disciplinaria debe precisar el cargo o rol del sujeto denunciado.")
+    if not _has_any(text, ["conducta disciplinaria denunciada", "omision", "omisión", "abuso", "irregularidad", "retardo injustificado"]):
+        problems.append("La queja disciplinaria debe describir la conducta irregular denunciada.")
+    if not _has_any(text, ["fecha de la conducta o hecho disciplinario", "fecha"]):
+        warnings.append("Conviene precisar la fecha del hecho disciplinario para que la queja sea trazable.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
+def _validate_accion_cumplimiento(description: str) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+    text = _lower(description)
+
+    if not _has_any(text, ["norma o acto incumplido", "ley", "decreto", "resolucion", "resolución", "acto administrativo"]):
+        problems.append("La accion de cumplimiento debe identificar la norma o acto administrativo incumplido.")
+    if not _has_any(text, ["autoridad obligada a cumplir", "alcaldia", "gobernacion", "gobernación", "secretaria", "secretaría", "entidad"]):
+        problems.append("La accion de cumplimiento debe indicar la autoridad obligada a cumplir.")
+    if not _has_any(text, ["requerimiento previo realizado", "peticion", "petición", "requerimiento", "solicitud previa"]):
+        problems.append("La accion de cumplimiento debe dejar rastro del requerimiento previo realizado.")
+    if not _has_any(text, ["forma concreta del incumplimiento", "incumplimiento", "no ha cumplido", "se niega a cumplir"]):
+        problems.append("La accion de cumplimiento debe explicar concretamente como persiste el incumplimiento.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
+def _validate_impugnacion_tutela(description: str) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+    text = _lower(description)
+
+    if not _has_any(text, ["juzgado o despacho", "juzgado", "tribunal", "despacho"]):
+        problems.append("La impugnacion debe identificar el juzgado o despacho que decidio la tutela.")
+    if not _has_any(text, ["fecha del fallo o decision", "fecha del fallo", "decision de tutela", "decisión de tutela"]):
+        problems.append("La impugnacion debe identificar la fecha o la decision que se controvierte.")
+    if not _has_any(text, ["resultado de la decision de tutela", "negada", "improcedente", "parcialmente"]):
+        problems.append("La impugnacion debe indicar el resultado del fallo de tutela.")
+    if not _has_any(text, ["motivos de impugnacion", "motivos de impugnación", "error", "valoracion", "valoración", "omision", "omisión"]):
+        problems.append("La impugnacion debe exponer motivos concretos de desacuerdo con el fallo.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
+def _validate_incidente_desacato(description: str) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+    text = _lower(description)
+
+    if not _has_any(text, ["juzgado o despacho de tutela", "juzgado", "despacho"]):
+        problems.append("El desacato debe identificar el juzgado que emitio el fallo de tutela.")
+    if not _has_any(text, ["fecha del fallo de tutela", "fallo de tutela"]):
+        problems.append("El desacato debe identificar el fallo de tutela incumplido.")
+    if not _has_any(text, ["orden judicial incumplida", "orden", "autorizar", "entregar", "responder"]):
+        problems.append("El desacato debe describir la orden judicial incumplida.")
+    if not _has_any(text, ["detalle del incumplimiento", "incumplimiento", "no ha cumplido", "sigue sin cumplir"]):
+        problems.append("El desacato debe explicar con hechos concretos como persiste el incumplimiento.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
 def validate_submission_readiness(
     *,
     category: str,
@@ -254,6 +372,18 @@ def validate_intake(
     action = _lower(recommended_action)
     category_lower = _lower(category)
 
+    if "incidente de desacato" in action:
+        return _validate_incidente_desacato(description)
+    if "impugnacion de tutela" in action or "impugnación de tutela" in action:
+        return _validate_impugnacion_tutela(description)
+    if "accion de cumplimiento" in action or "acción de cumplimiento" in action:
+        return _validate_accion_cumplimiento(description)
+    if "queja disciplinaria" in action:
+        return _validate_queja_disciplinaria(description)
+    if "queja formal" in action:
+        return _validate_queja_formal(description)
+    if "reclamo administrativo" in action or "reclamacion financiera" in action or "reclamacion por servicios publicos" in action or "reclamo de consumo" in action:
+        return _validate_reclamo_administrativo(description)
     if "tutela" in action or workflow_type == "tutela":
         return _validate_tutela(description, facts, prior_actions)
     if category_lower == "laboral":

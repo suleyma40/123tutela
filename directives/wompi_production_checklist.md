@@ -251,6 +251,8 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [x] Refinar una primera capa de recomendacion juridica por categoria en backend para Laboral, Bancos, Servicios y Consumidor.
 - [x] Endurecer la validacion backend para Laboral, Bancos, Servicios y Consumidor con reglas minimas por categoria.
 - [x] Implementar una segunda capa de preguntas dinamicas finas para Laboral, Bancos, Servicios y Consumidor.
+- [x] Implementar preguntas dinamicas finas por producto para queja formal, reclamo administrativo, queja disciplinaria, accion de cumplimiento, impugnacion y desacato.
+- [x] Aplicar una primera capa equivalente de validacion backend por `recommended_action` para esos productos procesales.
 
 ## 15. Radicacion y canales
 

@@ -64,6 +64,24 @@ const defaultIntakeFields = {
   seller_response_detail: "",
   product_or_service_issue: "",
   guarantee_or_refund_request: "",
+  complaint_reason: "",
+  complaint_expected_response: "",
+  administrative_error_detail: "",
+  administrative_requested_fix: "",
+  disciplinary_subject_name: "",
+  disciplinary_subject_role: "",
+  disciplinary_conduct: "",
+  disciplinary_event_date: "",
+  compliance_norm_or_act: "",
+  compliance_authority: "",
+  compliance_prior_requirement: "",
+  compliance_breach_detail: "",
+  tutela_court_name: "",
+  tutela_ruling_date: "",
+  tutela_decision_result: "",
+  tutela_appeal_reason: "",
+  tutela_order_summary: "",
+  tutela_noncompliance_detail: "",
 };
 
 const statusLabels = {
@@ -174,6 +192,24 @@ const buildStructuredDescription = (form) => {
     form.category === "Consumidor" && form.seller_response_detail ? `Respuesta del proveedor: ${form.seller_response_detail}` : "",
     form.category === "Consumidor" && form.product_or_service_issue ? `Falla del producto o servicio: ${form.product_or_service_issue}` : "",
     form.category === "Consumidor" && form.guarantee_or_refund_request ? `Garantia, cambio o devolucion solicitada: ${form.guarantee_or_refund_request}` : "",
+    form.complaint_reason ? `Motivo principal de la queja: ${form.complaint_reason}` : "",
+    form.complaint_expected_response ? `Respuesta o intervencion esperada: ${form.complaint_expected_response}` : "",
+    form.administrative_error_detail ? `Error, cobro o actuacion administrativa cuestionada: ${form.administrative_error_detail}` : "",
+    form.administrative_requested_fix ? `Correccion administrativa solicitada: ${form.administrative_requested_fix}` : "",
+    form.disciplinary_subject_name ? `Funcionario o sujeto disciplinable: ${form.disciplinary_subject_name}` : "",
+    form.disciplinary_subject_role ? `Cargo o rol del sujeto disciplinable: ${form.disciplinary_subject_role}` : "",
+    form.disciplinary_conduct ? `Conducta disciplinaria denunciada: ${form.disciplinary_conduct}` : "",
+    form.disciplinary_event_date ? `Fecha de la conducta o hecho disciplinario: ${form.disciplinary_event_date}` : "",
+    form.compliance_norm_or_act ? `Norma o acto incumplido: ${form.compliance_norm_or_act}` : "",
+    form.compliance_authority ? `Autoridad obligada a cumplir: ${form.compliance_authority}` : "",
+    form.compliance_prior_requirement ? `Requerimiento previo realizado: ${form.compliance_prior_requirement}` : "",
+    form.compliance_breach_detail ? `Forma concreta del incumplimiento: ${form.compliance_breach_detail}` : "",
+    form.tutela_court_name ? `Juzgado o despacho de tutela: ${form.tutela_court_name}` : "",
+    form.tutela_ruling_date ? `Fecha del fallo o decision de tutela: ${form.tutela_ruling_date}` : "",
+    form.tutela_decision_result ? `Resultado de la decision de tutela: ${form.tutela_decision_result}` : "",
+    form.tutela_appeal_reason ? `Motivos de impugnacion: ${form.tutela_appeal_reason}` : "",
+    form.tutela_order_summary ? `Orden judicial incumplida: ${form.tutela_order_summary}` : "",
+    form.tutela_noncompliance_detail ? `Detalle del incumplimiento: ${form.tutela_noncompliance_detail}` : "",
     form.description ? `Relato del usuario: ${form.description}` : "",
   ].filter(Boolean);
 
@@ -312,6 +348,219 @@ const getWritingAid = (category) => {
   }
   return "Describe hechos concretos, fechas, entidad involucrada y una solicitud clara. Evita opiniones generales y enfocate en lo verificable.";
 };
+
+const getActionSpecificMissing = (recommendedAction, form) => {
+  const action = normalizeAction(recommendedAction);
+  const missing = [];
+
+  if (action === "queja formal") {
+    if (!form.complaint_reason.trim()) missing.push("Motivo principal de la queja");
+    if (!form.complaint_expected_response.trim()) missing.push("Respuesta o intervencion esperada");
+  }
+
+  if (action === "reclamo administrativo" || action === "reclamacion financiera" || action === "reclamacion por servicios publicos" || action === "reclamo de consumo") {
+    if (!form.administrative_error_detail.trim()) missing.push("Actuacion, cobro o error administrativo cuestionado");
+    if (!form.administrative_requested_fix.trim()) missing.push("Correccion administrativa solicitada");
+  }
+
+  if (action === "queja disciplinaria") {
+    if (!form.disciplinary_subject_name.trim()) missing.push("Funcionario o sujeto disciplinable");
+    if (!form.disciplinary_subject_role.trim()) missing.push("Cargo o rol del sujeto disciplinable");
+    if (!form.disciplinary_conduct.trim()) missing.push("Conducta disciplinaria denunciada");
+    if (!form.disciplinary_event_date.trim()) missing.push("Fecha de la conducta o hecho disciplinario");
+  }
+
+  if (action === "accion de cumplimiento" || action === "acción de cumplimiento") {
+    if (!form.compliance_norm_or_act.trim()) missing.push("Norma o acto incumplido");
+    if (!form.compliance_authority.trim()) missing.push("Autoridad obligada a cumplir");
+    if (!form.compliance_prior_requirement.trim()) missing.push("Requerimiento previo realizado");
+    if (!form.compliance_breach_detail.trim()) missing.push("Forma concreta del incumplimiento");
+  }
+
+  if (action === "impugnacion de tutela" || action === "impugnación de tutela") {
+    if (!form.tutela_court_name.trim()) missing.push("Juzgado o despacho que decidio la tutela");
+    if (!form.tutela_ruling_date.trim()) missing.push("Fecha del fallo o decision");
+    if (!form.tutela_decision_result.trim()) missing.push("Resultado de la decision de tutela");
+    if (!form.tutela_appeal_reason.trim()) missing.push("Motivos concretos de impugnacion");
+  }
+
+  if (action === "incidente de desacato") {
+    if (!form.tutela_court_name.trim()) missing.push("Juzgado o despacho de tutela");
+    if (!form.tutela_ruling_date.trim()) missing.push("Fecha del fallo de tutela");
+    if (!form.tutela_order_summary.trim()) missing.push("Orden judicial incumplida");
+    if (!form.tutela_noncompliance_detail.trim()) missing.push("Detalle del incumplimiento");
+  }
+
+  return missing;
+};
+
+const getActionSpecificIssues = (recommendedAction, form) => {
+  const action = normalizeAction(recommendedAction);
+  const issues = [];
+
+  if (action === "queja formal") {
+    if (form.complaint_reason.trim().length < 20) issues.push("La queja formal necesita una descripcion mas clara de la irregularidad o mala atencion.");
+    if (form.complaint_expected_response.trim().length < 15) issues.push("Debes decir que esperas: investigacion, respuesta formal, correccion o traslado.");
+  }
+
+  if (action === "reclamo administrativo" || action === "reclamacion financiera" || action === "reclamacion por servicios publicos" || action === "reclamo de consumo") {
+    if (form.administrative_error_detail.trim().length < 20) issues.push("El reclamo debe explicar mejor el error, cobro o decision administrativa controvertida.");
+    if (form.administrative_requested_fix.trim().length < 15) issues.push("Debes concretar la correccion administrativa que solicitas.");
+  }
+
+  if (action === "queja disciplinaria") {
+    if (form.disciplinary_conduct.trim().length < 20) issues.push("La queja disciplinaria debe narrar mejor la conducta irregular denunciada.");
+  }
+
+  if (action === "accion de cumplimiento" || action === "acción de cumplimiento") {
+    if (form.compliance_norm_or_act.trim().length < 12) issues.push("Debes identificar con mayor precision la ley, norma o acto administrativo incumplido.");
+    if (form.compliance_breach_detail.trim().length < 20) issues.push("Falta explicar con mas claridad como se esta incumpliendo la obligacion.");
+  }
+
+  if (action === "impugnacion de tutela" || action === "impugnación de tutela") {
+    if (form.tutela_appeal_reason.trim().length < 25) issues.push("La impugnacion necesita motivos concretos de desacuerdo con la decision de tutela.");
+  }
+
+  if (action === "incidente de desacato") {
+    if (form.tutela_noncompliance_detail.trim().length < 25) issues.push("El desacato necesita explicar con hechos concretos como se incumplio la orden del juez.");
+  }
+
+  return issues;
+};
+
+function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFields, issues }) {
+  const action = normalizeAction(recommendedAction);
+  const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+  if (!action) return null;
+
+  let title = "";
+  let fields = null;
+
+  if (action === "queja formal") {
+    title = "Preguntas finas para queja formal";
+    fields = (
+      <>
+        <Field label="Motivo principal de la queja">
+          <TextArea value={form.complaint_reason} onChange={(event) => setField("complaint_reason", event.target.value)} placeholder="Explica la irregularidad, mala atencion, omision o incumplimiento que quieres denunciar." style={{ minHeight: 90 }} />
+        </Field>
+        <Field label="Respuesta o intervencion esperada">
+          <TextInput value={form.complaint_expected_response} onChange={(event) => setField("complaint_expected_response", event.target.value)} placeholder="Ej: investigacion, respuesta formal, correccion, traslado al area competente" />
+        </Field>
+      </>
+    );
+  } else if (action === "reclamo administrativo" || action === "reclamacion financiera" || action === "reclamacion por servicios publicos" || action === "reclamo de consumo") {
+    title = "Preguntas finas para reclamo administrativo";
+    fields = (
+      <>
+        <Field label="Actuacion, cobro o error cuestionado">
+          <TextArea value={form.administrative_error_detail} onChange={(event) => setField("administrative_error_detail", event.target.value)} placeholder="Describe el cobro, respuesta, factura, decision o actuacion que debe corregirse." style={{ minHeight: 90 }} />
+        </Field>
+        <Field label="Correccion administrativa solicitada">
+          <TextInput value={form.administrative_requested_fix} onChange={(event) => setField("administrative_requested_fix", event.target.value)} placeholder="Ej: anular cobro, corregir factura, responder de fondo, levantar reporte, devolver dinero" />
+        </Field>
+      </>
+    );
+  } else if (action === "queja disciplinaria") {
+    title = "Preguntas finas para queja disciplinaria";
+    fields = (
+      <>
+        <Field label="Funcionario o sujeto disciplinable">
+          <TextInput value={form.disciplinary_subject_name} onChange={(event) => setField("disciplinary_subject_name", event.target.value)} placeholder="Nombre de la persona denunciada" />
+        </Field>
+        <Field label="Cargo o rol del sujeto disciplinable">
+          <TextInput value={form.disciplinary_subject_role} onChange={(event) => setField("disciplinary_subject_role", event.target.value)} placeholder="Ej: inspector, secretario, directivo, servidor publico" />
+        </Field>
+        <Field label="Fecha del hecho disciplinario">
+          <TextInput value={form.disciplinary_event_date} onChange={(event) => setField("disciplinary_event_date", event.target.value)} placeholder="Ej: 14 de marzo de 2026" />
+        </Field>
+        <Field label="Conducta disciplinaria denunciada">
+          <TextArea value={form.disciplinary_conduct} onChange={(event) => setField("disciplinary_conduct", event.target.value)} placeholder="Explica la conducta, omision o abuso que debe investigarse." style={{ minHeight: 90 }} />
+        </Field>
+      </>
+    );
+  } else if (action === "accion de cumplimiento" || action === "acción de cumplimiento") {
+    title = "Preguntas finas para accion de cumplimiento";
+    fields = (
+      <>
+        <Field label="Norma o acto incumplido">
+          <TextInput value={form.compliance_norm_or_act} onChange={(event) => setField("compliance_norm_or_act", event.target.value)} placeholder="Ley, decreto, resolucion o acto administrativo concreto" />
+        </Field>
+        <Field label="Autoridad obligada a cumplir">
+          <TextInput value={form.compliance_authority} onChange={(event) => setField("compliance_authority", event.target.value)} placeholder="Entidad o autoridad responsable" />
+        </Field>
+        <Field label="Requerimiento previo realizado">
+          <TextInput value={form.compliance_prior_requirement} onChange={(event) => setField("compliance_prior_requirement", event.target.value)} placeholder="Peticion, requerimiento o solicitud previa que ya hiciste" />
+        </Field>
+        <Field label="Forma concreta del incumplimiento">
+          <TextArea value={form.compliance_breach_detail} onChange={(event) => setField("compliance_breach_detail", event.target.value)} placeholder="Explica que debia cumplirse y como la autoridad sigue incumpliendolo." style={{ minHeight: 90 }} />
+        </Field>
+      </>
+    );
+  } else if (action === "impugnacion de tutela" || action === "impugnación de tutela") {
+    title = "Preguntas finas para impugnacion de tutela";
+    fields = (
+      <>
+        <Field label="Juzgado o despacho que decidio la tutela">
+          <TextInput value={form.tutela_court_name} onChange={(event) => setField("tutela_court_name", event.target.value)} placeholder="Juzgado o tribunal que emitio la decision" />
+        </Field>
+        <Field label="Fecha del fallo o decision">
+          <TextInput value={form.tutela_ruling_date} onChange={(event) => setField("tutela_ruling_date", event.target.value)} placeholder="Ej: 13 de marzo de 2026" />
+        </Field>
+        <Field label="Resultado de la decision de tutela">
+          <TextInput value={form.tutela_decision_result} onChange={(event) => setField("tutela_decision_result", event.target.value)} placeholder="Ej: negada, improcedente, concedida parcialmente" />
+        </Field>
+        <Field label="Motivos concretos de impugnacion">
+          <TextArea value={form.tutela_appeal_reason} onChange={(event) => setField("tutela_appeal_reason", event.target.value)} placeholder="Explica por que la decision esta equivocada o deja sin proteccion suficiente el derecho." style={{ minHeight: 90 }} />
+        </Field>
+      </>
+    );
+  } else if (action === "incidente de desacato") {
+    title = "Preguntas finas para incidente de desacato";
+    fields = (
+      <>
+        <Field label="Juzgado o despacho de tutela">
+          <TextInput value={form.tutela_court_name} onChange={(event) => setField("tutela_court_name", event.target.value)} placeholder="Juzgado que emitio el fallo de tutela" />
+        </Field>
+        <Field label="Fecha del fallo de tutela">
+          <TextInput value={form.tutela_ruling_date} onChange={(event) => setField("tutela_ruling_date", event.target.value)} placeholder="Ej: 10 de marzo de 2026" />
+        </Field>
+        <Field label="Orden judicial incumplida">
+          <TextInput value={form.tutela_order_summary} onChange={(event) => setField("tutela_order_summary", event.target.value)} placeholder="Ej: autorizar procedimiento, entregar medicamento, responder de fondo" />
+        </Field>
+        <Field label="Detalle del incumplimiento">
+          <TextArea value={form.tutela_noncompliance_detail} onChange={(event) => setField("tutela_noncompliance_detail", event.target.value)} placeholder="Explica como, desde cuando y con que evidencia se incumplio la orden del juez." style={{ minHeight: 90 }} />
+        </Field>
+      </>
+    );
+  }
+
+  if (!fields) return null;
+
+  return (
+    <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>AJUSTE FINO POR PRODUCTO</div>
+      <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{title}</div>
+      {!!missingFields.length && (
+        <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {missingFields.map((item) => <Badge key={item} color={C.warning}>Falta: {item}</Badge>)}
+        </div>
+      )}
+      {!!issues.length && (
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {issues.map((issue) => (
+            <div key={issue} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>
+              {issue}
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 16 }}>
+        {fields}
+      </div>
+    </div>
+  );
+}
 
 function PreviewGateCard({ issues }) {
   if (!issues.length) {
@@ -1350,6 +1599,9 @@ export default function DashboardV2(props) {
         {wizardStep === 3 && (() => {
           const intakeReview = preview?.facts?.intake_review || null;
           const hasBlockingIssues = !!(intakeReview?.blocking_issues || []).length;
+          const actionSpecificMissing = getActionSpecificMissing(preview?.recommended_action, form);
+          const actionSpecificIssues = getActionSpecificIssues(preview?.recommended_action, form);
+          const hasActionSpecificBlockers = actionSpecificMissing.length > 0 || actionSpecificIssues.length > 0;
 
           return (
           <StepShell
@@ -1358,7 +1610,7 @@ export default function DashboardV2(props) {
             subtitle="Se guarda antes del pago para que quede trazabilidad."
             onBack={() => setWizardStep(2)}
             onNext={() => setWizardStep(4)}
-            nextDisabled={!preview || hasBlockingIssues}
+            nextDisabled={!preview || hasBlockingIssues || hasActionSpecificBlockers}
             nextLabel="Continuar al pago"
           >
             {!preview ? (
@@ -1386,6 +1638,13 @@ export default function DashboardV2(props) {
                     <div style={{ color: C.textMuted, marginTop: 6 }}>{preview.routing?.subject || "Sin asunto sugerido"}</div>
                   </div>
                 </div>
+                <ActionSpecificQuestions
+                  recommendedAction={preview.recommended_action}
+                  form={form}
+                  setForm={setForm}
+                  missingFields={actionSpecificMissing}
+                  issues={actionSpecificIssues}
+                />
                 <IntakeReviewCard review={intakeReview} />
                 {preview.warnings?.map((warning) => <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>{warning}</div>)}
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -1395,7 +1654,7 @@ export default function DashboardV2(props) {
                       setDraftDetail(detail);
                       setWizardStep(4);
                     }}
-                    disabled={!profileReady || hasBlockingIssues}
+                    disabled={!profileReady || hasBlockingIssues || hasActionSpecificBlockers}
                   >
                     Guardar expediente
                   </Button>
