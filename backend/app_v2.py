@@ -69,6 +69,8 @@ analyzer = LegalAnalyzer(settings.knowledge_base_json)
 
 def _normalize_user(user: dict[str, Any]) -> UserResponse:
     safe_user = {key: value for key, value in user.items() if key != "password_hash"}
+    if safe_user.get("id") is not None:
+        safe_user["id"] = str(safe_user["id"])
     return UserResponse(**safe_user)
 
 
