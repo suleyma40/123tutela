@@ -487,16 +487,30 @@ export default function DashboardV2(props) {
   const content = {
     inicio: (
       <div style={{ display: "grid", gap: 24 }}>
-        <div style={{ background: "linear-gradient(135deg, #0B1628 0%, #111D32 100%)", borderRadius: 24, padding: "40px 34px", color: "#fff" }}>
-          <Badge color={C.accent}>123tutela MVP operativo</Badge>
-          <h2 style={{ fontSize: 38, margin: "18px 0 10px", fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>Expediente jurídico con pago y trazabilidad</h2>
-          <p style={{ maxWidth: 620, color: "rgba(255,255,255,0.72)", lineHeight: 1.7 }}>
-            El flujo cubre preview gratis, perfil obligatorio, pago antes del documento final, radicación automática cuando hay canal confiable y fallback manual cuando no lo hay.
+        <div style={{ background: "linear-gradient(135deg, #08172E 0%, #10264A 100%)", borderRadius: 24, padding: "40px 34px", color: "#fff" }}>
+          <Badge color={C.accent}>Panel del cliente</Badge>
+          <h2 style={{ fontSize: 42, margin: "18px 0 10px", fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>Todo tu caso, en un solo lugar.</h2>
+          <p style={{ maxWidth: 640, color: "rgba(255,255,255,0.74)", lineHeight: 1.75 }}>
+            Desde aquí puedes crear un trámite, pagar el documento, revisar si ya fue radicado y entender cuál es el siguiente paso sin salirte del flujo.
           </p>
-          <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 18, marginTop: 24 }}>
+            <div style={{ padding: 18, borderRadius: 18, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#8FD3FF" }}>QUÉ PUEDES HACER AHORA</div>
+              <div style={{ marginTop: 12, display: "grid", gap: 10, color: "rgba(255,255,255,0.84)" }}>
+                <div>1. Analizar un caso gratis y ver la recomendación.</div>
+                <div>2. Pagar solo cuando decidas activar el documento.</div>
+                <div>3. Seguir la radicación y los pasos posteriores desde el expediente.</div>
+              </div>
+            </div>
+            <div style={{ padding: 18, borderRadius: 18, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#8FD3FF" }}>PROMESA DEL SERVICIO</div>
+              <div style={{ marginTop: 12, fontSize: 24, fontWeight: 800 }}>Análisis gratis y radicación en menos de 5 minutos cuando el canal lo permite.</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
             <Button onClick={() => setActiveTab("nuevo")}>Crear nuevo trámite</Button>
             <Button variant="ghost" style={{ color: "#fff", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }} onClick={() => setActiveTab("tramites")}>
-              Ver expedientes
+              Ver mis expedientes
             </Button>
           </div>
         </div>
@@ -723,8 +737,17 @@ export default function DashboardV2(props) {
     ),
     tramites: cases.length ? (
       <div style={{ display: "grid", gap: 16 }}>
+        <div className="glass-card" style={{ padding: 24 }}>
+          <Badge color={C.primary}>Mis expedientes</Badge>
+          <h2 style={{ marginTop: 12, fontSize: 34, lineHeight: 1.08, color: C.text, fontFamily: "'Playfair Display', serif" }}>
+            Aquí ves qué ya está listo y qué falta en cada caso.
+          </h2>
+          <p style={{ marginTop: 10, color: C.textMuted, maxWidth: 700 }}>
+            Cada tarjeta resume el estado del pago, si el canal es automático o manual y te deja volver al expediente sin perder contexto.
+          </p>
+        </div>
         {cases.map((item) => (
-          <div key={item.id} className="glass-card" style={{ padding: 22, display: "grid", gap: 12 }}>
+          <div key={item.id} className="glass-card" style={{ padding: 22, display: "grid", gap: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
               <div>
                 <div style={{ fontWeight: 800, color: C.text }}>{item.recommended_action || item.workflow_type}</div>
@@ -737,6 +760,18 @@ export default function DashboardV2(props) {
               <Badge color={item.payment_status === "pagado" ? C.success : C.warning}>Pago: {item.payment_status}</Badge>
               <Badge color={item.routing?.automatable ? C.primary : C.danger}>{item.routing?.automatable ? "Canal automático" : "Fallback manual"}</Badge>
             </div>
+            <div style={{ padding: 14, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>SIGUIENTE MOVIMIENTO</div>
+              <div style={{ marginTop: 8, color: C.text, fontWeight: 700 }}>
+                {item.payment_status !== "pagado"
+                  ? "Completar el pago para activar el documento."
+                  : item.status === "radicado"
+                    ? "Revisar el radicado y los pasos posteriores del caso."
+                    : item.routing?.automatable
+                      ? "Abrir el expediente y ejecutar la radicación automática."
+                      : "Abrir el expediente y completar el canal manual."}
+              </div>
+            </div>
             <div style={{ display: "flex", gap: 10 }}>
               <Button variant="secondary" onClick={() => onOpenCase(item.id)}>Abrir expediente</Button>
               {item.generated_document && <Button variant="outline" onClick={() => setDocumentCase(item)}>Ver documento</Button>}
@@ -744,7 +779,7 @@ export default function DashboardV2(props) {
           </div>
         ))}
       </div>
-    ) : <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>Todavía no tienes expedientes guardados.</div>,
+    ) : <div className="glass-card" style={{ padding: 30, color: C.textMuted }}>Todavía no tienes expedientes guardados. Empieza con el análisis gratis y desde ahí creamos el primer caso.</div>,
     detalle: (
       <div style={{ display: "grid", gap: 18 }}>
         <DetailPanel detail={activeCaseDetail} onViewDocument={setDocumentCase} />
@@ -789,11 +824,18 @@ export default function DashboardV2(props) {
     ),
     ayuda: (
       <div style={{ display: "grid", gap: 12 }}>
+        <div className="glass-card" style={{ padding: 24 }}>
+          <Badge color={C.primary}>Ayuda rápida</Badge>
+          <h2 style={{ marginTop: 12, fontSize: 30, lineHeight: 1.1, color: C.text, fontFamily: "'Playfair Display', serif" }}>
+            Qué significa cada etapa del proceso.
+          </h2>
+        </div>
         {[
-          "Preview gratis antes del pago.",
-          "Pago obligatorio antes del documento final y la radicación.",
-          "Canal automático solo cuando existe contacto confiable en la base operativa.",
-          "Fallback manual o presencial cuando no hay canal digital verificado.",
+          "Análisis gratis: identificamos el derecho vulnerado y la acción recomendada antes de cobrar.",
+          "Pago: solo después del pago aprobado se activa el documento final.",
+          "Radicación automática: se usa cuando existe un canal confiable en la base operativa.",
+          "Fallback manual: si no hay canal digital seguro, te guiamos por contacto manual o presencial.",
+          "Seguimiento: después del radicado verás qué puede pasar y cuál sería el siguiente cobro por continuidad, si aplica.",
         ].map((item) => <div key={item} className="glass-card" style={{ padding: 18, color: C.text }}>{item}</div>)}
       </div>
     ),
