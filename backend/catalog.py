@@ -30,6 +30,14 @@ class Product:
 
 PRODUCTS: tuple[Product, ...] = (
     Product(
+        code="pago_prueba",
+        name="Pago de prueba",
+        price_cop=10_000,
+        short_description="Producto temporal para validar el flujo de pago en producción.",
+        detailed_description="Producto temporal de prueba para verificar checkout, webhook, cambio de estado del expediente y generación posterior del documento.",
+        next_step_hint="Una vez validado el pago, se elimina este producto del catálogo.",
+    ),
+    Product(
         code="carta_formal",
         name="Carta formal a entidad",
         price_cop=29_900,
