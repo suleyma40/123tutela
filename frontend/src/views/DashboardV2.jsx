@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Briefcase, CreditCard, FileText, HelpCircle, Layout, LogOut, Plus, Scale, Search, Shield, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Briefcase, CreditCard, FileText, HelpCircle, Layout, LogOut, Plus, Scale, Search, Shield, Upload } from "lucide-react";
 
 import { Badge, Button, Field, SessionCard, TextArea, TextInput } from "../ui";
 import { C, CATEGORIES } from "../theme";
@@ -291,6 +291,28 @@ function DetailPanel({ detail, onViewDocument }) {
   );
 }
 
+function StepShell({ stepNumber, title, subtitle, children, onBack, onNext, nextDisabled = false, nextLabel = "Siguiente" }) {
+  return (
+    <SessionCard title={`${stepNumber}. ${title}`} subtitle={subtitle}>
+      <div style={{ display: "grid", gap: 14 }}>
+        {children}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {onBack && (
+            <Button variant="outline" onClick={onBack} icon={ArrowLeft}>
+              Retroceder
+            </Button>
+          )}
+          {onNext && (
+            <Button onClick={onNext} disabled={nextDisabled} icon={ArrowRight}>
+              {nextLabel}
+            </Button>
+          )}
+        </div>
+      </div>
+    </SessionCard>
+  );
+}
+
 export default function DashboardV2(props) {
   const {
     session,
@@ -346,6 +368,7 @@ export default function DashboardV2(props) {
   const [evidenceNote, setEvidenceNote] = useState("");
   const [internalStatus, setInternalStatus] = useState("seguimiento");
   const [internalNote, setInternalNote] = useState("");
+  const [wizardStep, setWizardStep] = useState(1);
 
   const profileReady = useMemo(
     () => [profile.name, profile.document_number, profile.phone, profile.city, profile.department, profile.address].every((value) => value?.trim()),
@@ -372,12 +395,20 @@ export default function DashboardV2(props) {
 
   const selectedPriorActions = priorActionMap[form.category] || [];
   const canOperateActiveCase = !!activeCaseDetail?.case && activeCaseDetail.case.user_id === session.user.id;
+  const analysisReady = !!form.category && form.description.trim().length >= 20;
+  const wizardSteps = [
+    { id: 1, label: "Perfil", ready: profileReady },
+    { id: 2, label: "Análisis", ready: analysisReady || !!preview },
+    { id: 3, label: "Preview", ready: !!preview },
+    { id: 4, label: "Pago", ready: !!draftDetail },
+  ];
 
   const resetWizard = () => {
     setForm({ category: "", city: session.user.city || "Bogotá", department: session.user.department || "Cundinamarca", description: "", prior_actions: [] });
     setTempFiles([]);
     setPreview(null);
     setDraftDetail(null);
+    setWizardStep(1);
   };
 
   const uploadTemp = async (event) => {
@@ -423,115 +454,211 @@ export default function DashboardV2(props) {
     ),
     nuevo: (
       <div style={{ display: "grid", gap: 18 }}>
-        <SessionCard title="1. Perfil jurídico obligatorio" subtitle="Se usa en el documento, el asunto del correo y la radicación.">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-            {[
-              ["Nombre completo", "name"],
-              ["Cédula", "document_number"],
-              ["Celular", "phone"],
-              ["Ciudad", "city"],
-              ["Departamento", "department"],
-              ["Dirección", "address"],
-            ].map(([label, key]) => (
-              <Field key={key} label={label}>
-                <TextInput value={profile[key]} onChange={(event) => setProfile((current) => ({ ...current, [key]: event.target.value }))} />
-              </Field>
-            ))}
+        <div className="glass-card" style={{ padding: 24, display: "grid", gap: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "end", flexWrap: "wrap" }}>
+            <div>
+              <Badge color={C.accent}>Flujo guiado</Badge>
+              <h2 style={{ marginTop: 10, fontSize: 34, lineHeight: 1.1, color: C.text, fontFamily: "'Playfair Display', serif" }}>
+                Nuevo trámite, paso a paso.
+              </h2>
+              <p style={{ marginTop: 10, color: C.textMuted, maxWidth: 620 }}>
+                Ahora el cliente puede avanzar o retroceder con flechas visibles durante todo el proceso.
+              </p>
+            </div>
+            <Button variant="ghost" onClick={resetWizard}>Reiniciar flujo</Button>
           </div>
-          <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-            <Button onClick={() => onSaveProfile(profile)}>Guardar perfil</Button>
-            <Badge color={profileReady ? C.success : C.warning}>{profileReady ? "Perfil completo" : "Faltan datos"}</Badge>
-          </div>
-        </SessionCard>
-
-        <SessionCard title="2. Análisis del caso" subtitle="Combina IA jurídica con reglas operativas y destino sugerido.">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 18 }}>
-            {CATEGORIES.map((item) => (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+            {wizardSteps.map((step) => (
               <button
-                key={item.label}
-                onClick={() => setForm((current) => ({ ...current, category: item.label, prior_actions: [] }))}
-                style={{ textAlign: "left", padding: 16, borderRadius: 18, border: form.category === item.label ? `2px solid ${item.color}` : `1px solid ${C.border}`, background: form.category === item.label ? `${item.color}15` : C.card }}
+                key={step.id}
+                type="button"
+                onClick={() => setWizardStep(step.id)}
+                style={{
+                  textAlign: "left",
+                  padding: 16,
+                  borderRadius: 18,
+                  border: wizardStep === step.id ? `2px solid ${C.primary}` : `1px solid ${C.border}`,
+                  background: wizardStep === step.id ? "#EEF4FF" : "#fff",
+                  cursor: "pointer",
+                }}
               >
-                <div style={{ fontWeight: 800, color: C.text }}>{item.title}</div>
-                <div style={{ color: C.textMuted, marginTop: 6, fontSize: 14 }}>{item.desc}</div>
+                <div style={{ fontSize: 12, color: step.ready ? C.accent : C.textMuted, fontWeight: 800 }}>PASO {step.id}</div>
+                <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800, color: C.text }}>{step.label}</div>
+                <div style={{ marginTop: 6, color: C.textMuted, fontSize: 13 }}>{step.ready ? "Listo o en progreso" : "Pendiente"}</div>
               </button>
             ))}
           </div>
-          <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe hechos, fechas, respuestas previas y urgencia." />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 16 }}>
-            <Field label="Ciudad"><TextInput value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} /></Field>
-            <Field label="Departamento"><TextInput value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))} /></Field>
-          </div>
-          {!!selectedPriorActions.length && (
-            <div style={{ display: "grid", gap: 8, marginTop: 16 }}>
-              {selectedPriorActions.map((item) => (
-                <label key={item.id} style={{ display: "flex", gap: 10, alignItems: "center", color: C.text }}>
-                  <input
-                    type="checkbox"
-                    checked={form.prior_actions.includes(item.id)}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        prior_actions: event.target.checked ? [...current.prior_actions, item.id] : current.prior_actions.filter((value) => value !== item.id),
-                      }))
-                    }
-                  />
-                  {item.label}
-                </label>
+        </div>
+
+        {wizardStep === 1 && (
+          <StepShell
+            stepNumber={1}
+            title="Perfil jurídico obligatorio"
+            subtitle="Se usa en el documento, el asunto del correo y la radicación."
+            onNext={() => setWizardStep(2)}
+            nextDisabled={!profileReady}
+            nextLabel="Continuar al análisis"
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+              {[
+                ["Nombre completo", "name"],
+                ["Cédula", "document_number"],
+                ["Celular", "phone"],
+                ["Ciudad", "city"],
+                ["Departamento", "department"],
+                ["Dirección", "address"],
+              ].map(([label, key]) => (
+                <Field key={key} label={label}>
+                  <TextInput value={profile[key]} onChange={(event) => setProfile((current) => ({ ...current, [key]: event.target.value }))} />
+                </Field>
               ))}
             </div>
-          )}
-          <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <input id="wizard-upload" type="file" style={{ display: "none" }} onChange={uploadTemp} />
-            <Button variant="secondary" onClick={() => document.getElementById("wizard-upload").click()} icon={Upload}>Subir anexo</Button>
-            {tempFiles.map((item) => <Badge key={item.id} color={C.accent}>{item.original_name}</Badge>)}
-            <Button onClick={async () => setPreview(await onPreview(form))} disabled={!form.category || form.description.trim().length < 20 || loading} icon={Search}>
-              {loading ? "Analizando..." : "Generar preview"}
-            </Button>
-          </div>
-        </SessionCard>
-
-        {preview && (
-          <SessionCard title="3. Preview gratis y expediente" subtitle="Se guarda antes del pago para que quede trazabilidad.">
-            <div style={{ display: "grid", gap: 14 }}>
-              <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
-                <div style={{ fontWeight: 800, color: C.text }}>{preview.recommended_action}</div>
-                <div style={{ color: C.textMuted, marginTop: 8 }}>{preview.strategy}</div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-                <div className="glass-card" style={{ padding: 18 }}>
-                  <strong style={{ color: C.text }}>Prerequisitos</strong>
-                  <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-                    {preview.prerequisites.length ? preview.prerequisites.map((item) => (
-                      <Badge key={item.id} color={item.completed ? C.success : C.warning}>{item.completed ? "Cumplido" : "Pendiente"} · {item.label}</Badge>
-                    )) : <span style={{ color: C.textMuted }}>Sin vía previa obligatoria detectada.</span>}
-                  </div>
-                </div>
-                <div className="glass-card" style={{ padding: 18 }}>
-                  <strong style={{ color: C.text }}>Destino sugerido</strong>
-                  <div style={{ color: C.textMuted, marginTop: 12 }}>{preview.routing?.primary_target?.name || "Sin destino automático"}</div>
-                  <div style={{ color: C.textMuted, marginTop: 6 }}>{preview.routing?.subject || "Sin asunto sugerido"}</div>
-                </div>
-              </div>
-              {preview.warnings?.map((warning) => <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>{warning}</div>)}
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Button onClick={async () => { const detail = await onCreateCase({ ...form, attachment_ids: tempFiles.map((item) => item.id) }); setDraftDetail(detail); setActiveTab("detalle"); }} disabled={!profileReady}>Guardar expediente</Button>
-                <Button variant="outline" onClick={resetWizard}>Reiniciar</Button>
-              </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Button onClick={() => onSaveProfile(profile)}>Guardar perfil</Button>
+              <Badge color={profileReady ? C.success : C.warning}>{profileReady ? "Perfil completo" : "Faltan datos"}</Badge>
             </div>
-          </SessionCard>
+          </StepShell>
         )}
 
-        {draftDetail && (
-          <PaymentCard
-            title="4. Pago real y documento"
-            caseItem={draftDetail.case}
-            catalog={catalog}
-            onCreateWompiSession={onCreateWompiSession}
-            onGetPayment={onGetPayment}
-            onRefreshCase={onRefreshCase}
-            loading={loading}
-          />
+        {wizardStep === 2 && (
+          <StepShell
+            stepNumber={2}
+            title="Análisis del caso"
+            subtitle="Combina IA jurídica con reglas operativas y destino sugerido."
+            onBack={() => setWizardStep(1)}
+            onNext={() => setWizardStep(3)}
+            nextDisabled={!analysisReady}
+            nextLabel="Continuar al preview"
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+              {CATEGORIES.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => setForm((current) => ({ ...current, category: item.label, prior_actions: [] }))}
+                  style={{ textAlign: "left", padding: 16, borderRadius: 18, border: form.category === item.label ? `2px solid ${item.color}` : `1px solid ${C.border}`, background: form.category === item.label ? `${item.color}15` : C.card }}
+                >
+                  <div style={{ fontWeight: 800, color: C.text }}>{item.title}</div>
+                  <div style={{ color: C.textMuted, marginTop: 6, fontSize: 14 }}>{item.desc}</div>
+                </button>
+              ))}
+            </div>
+            <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe hechos, fechas, respuestas previas y urgencia." />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+              <Field label="Ciudad"><TextInput value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} /></Field>
+              <Field label="Departamento"><TextInput value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))} /></Field>
+            </div>
+            {!!selectedPriorActions.length && (
+              <div style={{ display: "grid", gap: 8 }}>
+                {selectedPriorActions.map((item) => (
+                  <label key={item.id} style={{ display: "flex", gap: 10, alignItems: "center", color: C.text }}>
+                    <input
+                      type="checkbox"
+                      checked={form.prior_actions.includes(item.id)}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          prior_actions: event.target.checked ? [...current.prior_actions, item.id] : current.prior_actions.filter((value) => value !== item.id),
+                        }))
+                      }
+                    />
+                    {item.label}
+                  </label>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <input id="wizard-upload" type="file" style={{ display: "none" }} onChange={uploadTemp} />
+              <Button variant="secondary" onClick={() => document.getElementById("wizard-upload").click()} icon={Upload}>Subir anexo</Button>
+              {tempFiles.map((item) => <Badge key={item.id} color={C.accent}>{item.original_name}</Badge>)}
+              <Button onClick={async () => setPreview(await onPreview(form))} disabled={!analysisReady || loading} icon={Search}>
+                {loading ? "Analizando..." : "Generar preview"}
+              </Button>
+            </div>
+          </StepShell>
+        )}
+
+        {wizardStep === 3 && (
+          <StepShell
+            stepNumber={3}
+            title="Preview gratis y expediente"
+            subtitle="Se guarda antes del pago para que quede trazabilidad."
+            onBack={() => setWizardStep(2)}
+            onNext={() => setWizardStep(4)}
+            nextDisabled={!preview}
+            nextLabel="Continuar al pago"
+          >
+            {!preview ? (
+              <div style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>
+                Primero genera el preview desde el paso anterior para ver recomendación, destino y advertencias.
+              </div>
+            ) : (
+              <>
+                <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
+                  <div style={{ fontWeight: 800, color: C.text }}>{preview.recommended_action}</div>
+                  <div style={{ color: C.textMuted, marginTop: 8 }}>{preview.strategy}</div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+                  <div className="glass-card" style={{ padding: 18 }}>
+                    <strong style={{ color: C.text }}>Prerequisitos</strong>
+                    <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                      {preview.prerequisites.length ? preview.prerequisites.map((item) => (
+                        <Badge key={item.id} color={item.completed ? C.success : C.warning}>{item.completed ? "Cumplido" : "Pendiente"} · {item.label}</Badge>
+                      )) : <span style={{ color: C.textMuted }}>Sin vía previa obligatoria detectada.</span>}
+                    </div>
+                  </div>
+                  <div className="glass-card" style={{ padding: 18 }}>
+                    <strong style={{ color: C.text }}>Destino sugerido</strong>
+                    <div style={{ color: C.textMuted, marginTop: 12 }}>{preview.routing?.primary_target?.name || "Sin destino automático"}</div>
+                    <div style={{ color: C.textMuted, marginTop: 6 }}>{preview.routing?.subject || "Sin asunto sugerido"}</div>
+                  </div>
+                </div>
+                {preview.warnings?.map((warning) => <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>{warning}</div>)}
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <Button
+                    onClick={async () => {
+                      const detail = await onCreateCase({ ...form, attachment_ids: tempFiles.map((item) => item.id) });
+                      setDraftDetail(detail);
+                      setWizardStep(4);
+                    }}
+                    disabled={!profileReady}
+                  >
+                    Guardar expediente
+                  </Button>
+                  <Button variant="outline" onClick={resetWizard}>Reiniciar</Button>
+                </div>
+              </>
+            )}
+          </StepShell>
+        )}
+
+        {wizardStep === 4 && (
+          <div style={{ display: "grid", gap: 16 }}>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Button variant="outline" onClick={() => setWizardStep(3)} icon={ArrowLeft}>
+                Volver al preview
+              </Button>
+              {draftDetail && (
+                <Button variant="ghost" onClick={() => setActiveTab("detalle")} icon={ArrowRight}>
+                  Ir al detalle del expediente
+                </Button>
+              )}
+            </div>
+            {draftDetail ? (
+              <PaymentCard
+                title="4. Pago real y documento"
+                caseItem={draftDetail.case}
+                catalog={catalog}
+                onCreateWompiSession={onCreateWompiSession}
+                onGetPayment={onGetPayment}
+                onRefreshCase={onRefreshCase}
+                loading={loading}
+              />
+            ) : (
+              <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>
+                Guarda primero el expediente en el paso 3 para habilitar el pago y la activación del documento.
+              </div>
+            )}
+          </div>
         )}
       </div>
     ),
