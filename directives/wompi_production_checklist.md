@@ -232,6 +232,7 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 
 ## 14. Intake del usuario
 
+- [x] Documentar un intake minimo inicial para tutela, derecho de peticion y habeas data.
 - [ ] Diseñar los formularios de entrada por categoria para pedir mejores hechos.
 - [ ] Definir preguntas dinamicas por tipo de caso.
 - [ ] Definir que campos deben ser texto libre y cuales deben ser estructurados.
