@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 
 from backend.catalog_runtime import get_product, list_catalog, suggest_product_code
 from backend.config import settings
-from backend.intake_validation import validate_intake
+from backend.intake_validation import validate_intake, validate_submission_readiness
 from backend.legal_service import LegalAnalyzer
 from backend.schemas_v2 import (
     AnalysisPreviewRequest,
@@ -329,8 +329,21 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
         facts=result["facts"],
         prior_actions=payload.prior_actions,
     )
+    preview_gate = validate_submission_readiness(
+        category=payload.category,
+        description=payload.description,
+        facts=result["facts"],
+        prior_actions=payload.prior_actions,
+    )
     result["facts"]["intake_review"] = intake_review
-    combined_warnings = workflow["warnings"] + intake_review.get("blocking_issues", []) + intake_review.get("warnings", [])
+    result["facts"]["preview_gate"] = preview_gate
+    combined_warnings = (
+        workflow["warnings"]
+        + intake_review.get("blocking_issues", [])
+        + intake_review.get("warnings", [])
+        + preview_gate.get("blocking_issues", [])
+        + preview_gate.get("warnings", [])
+    )
     return AnalysisPreviewResponse(
         facts=result["facts"],
         legal_analysis=result["legal_analysis"],
@@ -380,8 +393,31 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         facts=result["facts"],
         prior_actions=payload.prior_actions,
     )
+    preview_gate = validate_submission_readiness(
+        category=payload.category,
+        description=payload.description,
+        facts=result["facts"],
+        prior_actions=payload.prior_actions,
+    )
     result["facts"]["intake_review"] = intake_review
-    combined_warnings = workflow["warnings"] + intake_review.get("blocking_issues", []) + intake_review.get("warnings", [])
+    result["facts"]["preview_gate"] = preview_gate
+    combined_warnings = (
+        workflow["warnings"]
+        + intake_review.get("blocking_issues", [])
+        + intake_review.get("warnings", [])
+        + preview_gate.get("blocking_issues", [])
+        + preview_gate.get("warnings", [])
+    )
+    blocking_issues = list(
+        dict.fromkeys(
+            intake_review.get("blocking_issues", []) + preview_gate.get("blocking_issues", [])
+        )
+    )
+    if blocking_issues:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No es posible crear el expediente todavia. Corrige esto primero: " + " | ".join(blocking_issues),
+        )
 
     case = repository.create_case_record(
         user_id=str(current_user["id"]),

@@ -92,6 +92,56 @@ def _validate_habeas_data(description: str, facts: dict[str, Any], prior_actions
     }
 
 
+def validate_submission_readiness(
+    *,
+    category: str,
+    description: str,
+    facts: dict[str, Any],
+    prior_actions: list[str],
+) -> dict[str, Any]:
+    problems: list[str] = []
+    warnings: list[str] = []
+
+    text = _text(description)
+    lowered = _lower(description)
+    facts_text = _text(facts.get("hechos_principales"))
+    entities = facts.get("entidades_involucradas") or []
+    dates = facts.get("fechas_mencionadas") or []
+    category_lower = _lower(category)
+
+    if len(text) < 220:
+        problems.append("La descripcion consolidada todavia es demasiado corta para sostener un analisis juridico serio.")
+    if len(facts_text) < 80:
+        problems.append("Los hechos extraidos siguen siendo insuficientes o demasiado breves.")
+    if not entities:
+        problems.append("Falta una entidad, autoridad o destinatario claramente identificable.")
+    if not dates:
+        problems.append("Faltan fechas o referencias temporales minimas para ordenar la cronologia.")
+    if not _has_any(lowered, ["solicito", "pido", "requiero", "pretendo", "necesito", "ordenen", "respondan", "entreguen", "corrijan"]):
+        problems.append("No se identifica una solicitud concreta o pretension claramente formulada.")
+
+    if not _has_any(lowered, ["anexo", "soporte", "prueba", "adjunto", "historia clinica", "factura", "correo", "respuesta", "captura", "radicado", "documento"]):
+        warnings.append("Conviene describir mejor los soportes o pruebas disponibles para fortalecer el documento.")
+
+    if category_lower == "salud" and not _has_any(lowered, ["urgencia", "riesgo", "dolor", "agrav", "tratamiento", "medicamento", "cita", "cirugia", "procedimiento"]):
+        problems.append("En casos de salud falta explicar con mas fuerza la urgencia, el riesgo o el servicio requerido.")
+
+    if category_lower in {"laboral", "bancos", "servicios", "consumidor"} and not _has_any(lowered, ["1)", "1.", "primero", "segundo", "solicitudes numeradas", "responder", "entregar", "corregir"]):
+        warnings.append("En rutas de peticion conviene dejar mas claras las solicitudes numeradas o la respuesta esperada.")
+
+    if category_lower == "datos" and not _has_any(lowered, ["corregir", "actualizar", "suprimir", "eliminar", "rectificar"]):
+        problems.append("En habeas data debe quedar clara la accion exacta que se pide sobre el dato.")
+
+    if not prior_actions and category_lower in {"datos", "laboral", "bancos", "servicios", "consumidor"}:
+        warnings.append("No se reporta gestion previa. Revisa si primero debe agotarse peticion o reclamacion formal.")
+
+    return {
+        "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
+        "blocking_issues": problems,
+        "warnings": warnings,
+    }
+
+
 def validate_intake(
     *,
     category: str,

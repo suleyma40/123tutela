@@ -246,6 +246,7 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [x] Implementar una primera capa de ayudas de redaccion por categoria dentro del wizard.
 - [x] Bloquear el preview cuando la informacion base siga siendo insuficiente para un analisis juridico serio.
 - [x] Bloquear el guardado del expediente cuando la revision juridica inicial detecte datos criticos faltantes en tutela, derecho de peticion o habeas data.
+- [x] Aplicar una primera capa equivalente de enforcement en backend para no depender solo del frontend.
 
 ## 15. Radicacion y canales
 
