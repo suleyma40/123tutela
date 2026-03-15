@@ -16,6 +16,23 @@ const priorActionMap = {
   Datos: [{ id: "reclamo_fuente", label: "Ya reclamé ante la fuente o central de riesgo" }],
 };
 
+const defaultIntakeFields = {
+  target_entity: "",
+  event_date: "",
+  concrete_request: "",
+  current_harm: "",
+  previous_response: "",
+  response_channel: "",
+  case_reference: "",
+  eps_name: "",
+  ips_name: "",
+  diagnosis: "",
+  treatment_needed: "",
+  urgency_detail: "",
+  disputed_data: "",
+  requested_data_action: "corregir",
+};
+
 const statusLabels = {
   borrador: "Borrador",
   pendiente_pago: "Pendiente de pago",
@@ -74,6 +91,50 @@ const buildContinuationOptions = (item) => {
   return ["Completar el paso actual para habilitar la siguiente etapa del caso."];
 };
 
+const buildStructuredDescription = (form) => {
+  const sections = [
+    `Categoria: ${form.category || "Sin categoria definida"}`,
+    form.target_entity ? `Entidad o destinatario: ${form.target_entity}` : "",
+    form.event_date ? `Fecha o periodo relevante: ${form.event_date}` : "",
+    form.case_reference ? `Numero o referencia relacionada: ${form.case_reference}` : "",
+    form.concrete_request ? `Solicitud principal del usuario: ${form.concrete_request}` : "",
+    form.current_harm ? `Afectacion actual o riesgo: ${form.current_harm}` : "",
+    form.previous_response ? `Respuesta previa o antecedente: ${form.previous_response}` : "",
+    form.response_channel ? `Canal de respuesta deseado: ${form.response_channel}` : "",
+    form.category === "Salud" && form.eps_name ? `EPS involucrada: ${form.eps_name}` : "",
+    form.category === "Salud" && form.ips_name ? `IPS o clinica: ${form.ips_name}` : "",
+    form.category === "Salud" && form.diagnosis ? `Diagnostico o condicion medica: ${form.diagnosis}` : "",
+    form.category === "Salud" && form.treatment_needed ? `Tratamiento, orden o servicio requerido: ${form.treatment_needed}` : "",
+    form.category === "Salud" && form.urgency_detail ? `Urgencia o riesgo clinico: ${form.urgency_detail}` : "",
+    form.category === "Datos" && form.disputed_data ? `Dato o reporte cuestionado: ${form.disputed_data}` : "",
+    form.category === "Datos" && form.requested_data_action ? `Accion solicitada sobre el dato: ${form.requested_data_action}` : "",
+    form.description ? `Relato del usuario: ${form.description}` : "",
+  ].filter(Boolean);
+
+  return sections.join("\n");
+};
+
+const getGuidedIntakeMissing = (form) => {
+  const missing = [];
+
+  if (!form.target_entity.trim()) missing.push("Entidad o destinatario");
+  if (!form.event_date.trim()) missing.push("Fecha o periodo");
+  if (!form.concrete_request.trim()) missing.push("Solicitud concreta");
+
+  if (form.category === "Salud") {
+    if (!form.eps_name.trim()) missing.push("EPS");
+    if (!form.diagnosis.trim()) missing.push("Diagnostico o condicion medica");
+    if (!form.treatment_needed.trim()) missing.push("Tratamiento, orden o servicio requerido");
+  }
+
+  if (form.category === "Datos") {
+    if (!form.disputed_data.trim()) missing.push("Dato o reporte cuestionado");
+    if (!form.requested_data_action.trim()) missing.push("Accion solicitada sobre el dato");
+  }
+
+  return missing;
+};
+
 function IntakeReviewCard({ review }) {
   if (!review || review.status === "not_scored") {
     return null;
@@ -127,6 +188,103 @@ function IntakeReviewCard({ review }) {
           ? "Puedes guardar el expediente, pero conviene reforzar hechos, fechas y pretensiones para mejorar la calidad del documento final."
           : "Vuelve al paso anterior y mejora el relato antes de continuar. La plataforma no deberia cobrar ni generar un documento con informacion debil."}
       </div>
+    </div>
+  );
+}
+
+function GuidedIntakeFields({ form, setForm, missingFields }) {
+  const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>INTAKE GUIADO</div>
+        <div style={{ marginTop: 10, color: C.text, fontWeight: 700 }}>
+          La IA trabaja mejor si le entregas entidad, fechas, solicitud concreta y afectacion actual. No dependas solo de una caja de texto.
+        </div>
+        {!!missingFields.length && (
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {missingFields.map((item) => <Badge key={item} color={C.warning}>Falta: {item}</Badge>)}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        <Field label="Entidad o destinatario">
+          <TextInput value={form.target_entity} onChange={(event) => setField("target_entity", event.target.value)} placeholder="Ej: Nueva EPS, Datacredito, Alcaldia, Banco X" />
+        </Field>
+        <Field label="Fecha o periodo aproximado">
+          <TextInput value={form.event_date} onChange={(event) => setField("event_date", event.target.value)} placeholder="Ej: 12 de marzo de 2026 / desde enero de 2026" />
+        </Field>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        <Field label="Que solicitas exactamente">
+          <TextInput value={form.concrete_request} onChange={(event) => setField("concrete_request", event.target.value)} placeholder="Ej: entrega de medicamento, respuesta de fondo, correccion del reporte" />
+        </Field>
+        <Field label="Canal para recibir respuesta">
+          <TextInput value={form.response_channel} onChange={(event) => setField("response_channel", event.target.value)} placeholder="Ej: correo electronico, direccion fisica o ambos" />
+        </Field>
+      </div>
+
+      <Field label="Afectacion actual o riesgo concreto">
+        <TextArea value={form.current_harm} onChange={(event) => setField("current_harm", event.target.value)} placeholder="Explica por que esto te afecta hoy: salud, minimo vital, reporte negativo, corte de servicio, falta de respuesta, etc." style={{ minHeight: 110 }} />
+      </Field>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        <Field label="Respuesta previa o antecedente">
+          <TextArea value={form.previous_response} onChange={(event) => setField("previous_response", event.target.value)} placeholder="Que te respondio la entidad, o si guardo silencio." style={{ minHeight: 100 }} />
+        </Field>
+        <Field label="Numero o referencia relacionada">
+          <TextInput value={form.case_reference} onChange={(event) => setField("case_reference", event.target.value)} placeholder="Ej: numero de radicado, afiliacion, contrato o caso" />
+        </Field>
+      </div>
+
+      {form.category === "Salud" && (
+        <div className="glass-card" style={{ padding: 18, background: "#F5FAFF" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PREGUNTAS DINAMICAS PARA SALUD / EPS</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 14 }}>
+            <Field label="EPS">
+              <TextInput value={form.eps_name} onChange={(event) => setField("eps_name", event.target.value)} placeholder="Ej: Nueva EPS" />
+            </Field>
+            <Field label="IPS o clinica">
+              <TextInput value={form.ips_name} onChange={(event) => setField("ips_name", event.target.value)} placeholder="Ej: Clinica San Rafael" />
+            </Field>
+            <Field label="Diagnostico o condicion medica">
+              <TextInput value={form.diagnosis} onChange={(event) => setField("diagnosis", event.target.value)} placeholder="Ej: cancer, embarazo de alto riesgo, depresion severa" />
+            </Field>
+            <Field label="Tratamiento, orden o servicio requerido">
+              <TextInput value={form.treatment_needed} onChange={(event) => setField("treatment_needed", event.target.value)} placeholder="Ej: medicamento X, cita con especialista, procedimiento Y" />
+            </Field>
+          </div>
+          <Field label="Urgencia o riesgo clinico">
+            <TextArea value={form.urgency_detail} onChange={(event) => setField("urgency_detail", event.target.value)} placeholder="Describe si hay dolor, agravacion, riesgo vital, suspension de tratamiento o afectacion grave." style={{ minHeight: 100, marginTop: 16 }} />
+          </Field>
+        </div>
+      )}
+
+      {form.category === "Datos" && (
+        <div className="glass-card" style={{ padding: 18, background: "#F8FAFD" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PREGUNTAS DINAMICAS PARA HABEAS DATA</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 14 }}>
+            <Field label="Dato o reporte cuestionado">
+              <TextInput value={form.disputed_data} onChange={(event) => setField("disputed_data", event.target.value)} placeholder="Ej: reporte negativo por obligacion ya pagada" />
+            </Field>
+            <Field label="Accion solicitada sobre el dato">
+              <select
+                value={form.requested_data_action}
+                onChange={(event) => setField("requested_data_action", event.target.value)}
+                style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+              >
+                <option value="corregir">Corregir</option>
+                <option value="actualizar">Actualizar</option>
+                <option value="suprimir">Suprimir</option>
+                <option value="probar_autorizacion">Probar autorizacion</option>
+              </select>
+            </Field>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -547,6 +705,7 @@ export default function DashboardV2(props) {
     department: session.user.department || "Cundinamarca",
     description: "",
     prior_actions: [],
+    ...defaultIntakeFields,
   });
   const [tempFiles, setTempFiles] = useState([]);
   const [preview, setPreview] = useState(null);
@@ -585,7 +744,9 @@ export default function DashboardV2(props) {
 
   const selectedPriorActions = priorActionMap[form.category] || [];
   const canOperateActiveCase = !!activeCaseDetail?.case && activeCaseDetail.case.user_id === session.user.id;
-  const analysisReady = !!form.category && form.description.trim().length >= 20;
+  const guidedMissing = useMemo(() => getGuidedIntakeMissing(form), [form]);
+  const composedDescription = useMemo(() => buildStructuredDescription(form), [form]);
+  const analysisReady = !!form.category && (form.description.trim().length >= 20 || composedDescription.trim().length >= 120);
   const wizardSteps = [
     { id: 1, label: "Perfil", ready: profileReady },
     { id: 2, label: "Análisis", ready: analysisReady || !!preview },
@@ -594,7 +755,14 @@ export default function DashboardV2(props) {
   ];
 
   const resetWizard = () => {
-    setForm({ category: "", city: session.user.city || "Bogotá", department: session.user.department || "Cundinamarca", description: "", prior_actions: [] });
+    setForm({
+      category: "",
+      city: session.user.city || "Bogotá",
+      department: session.user.department || "Cundinamarca",
+      description: "",
+      prior_actions: [],
+      ...defaultIntakeFields,
+    });
     setTempFiles([]);
     setPreview(null);
     setDraftDetail(null);
@@ -754,6 +922,7 @@ export default function DashboardV2(props) {
               ))}
             </div>
             <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe hechos, fechas, respuestas previas y urgencia." />
+            <GuidedIntakeFields form={form} setForm={setForm} missingFields={guidedMissing} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
               <Field label="Ciudad"><TextInput value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} /></Field>
               <Field label="Departamento"><TextInput value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))} /></Field>
@@ -781,9 +950,12 @@ export default function DashboardV2(props) {
               <input id="wizard-upload" type="file" style={{ display: "none" }} onChange={uploadTemp} />
               <Button variant="secondary" onClick={() => document.getElementById("wizard-upload").click()} icon={Upload}>Subir anexo</Button>
               {tempFiles.map((item) => <Badge key={item.id} color={C.accent}>{item.original_name}</Badge>)}
-              <Button onClick={async () => setPreview(await onPreview(form))} disabled={!analysisReady || loading} icon={Search}>
+              <Button onClick={async () => setPreview(await onPreview({ ...form, description: composedDescription }))} disabled={!analysisReady || loading} icon={Search}>
                 {loading ? "Analizando..." : "Generar preview"}
               </Button>
+            </div>
+            <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+              La plataforma combinará tus respuestas estructuradas y tu relato libre para construir un análisis más sólido.
             </div>
           </StepShell>
         )}
@@ -832,7 +1004,7 @@ export default function DashboardV2(props) {
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <Button
                     onClick={async () => {
-                      const detail = await onCreateCase({ ...form, attachment_ids: tempFiles.map((item) => item.id) });
+                      const detail = await onCreateCase({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) });
                       setDraftDetail(detail);
                       setWizardStep(4);
                     }}
