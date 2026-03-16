@@ -119,7 +119,7 @@ Rutas sugeridas:
 - [x] Permitir elegir entre `Solo documento` y `Documento + radicacion` cuando el producto lo soporte.
 - [x] Mostrar siguientes pasos sugeridos segun el tipo de caso.
 - [x] Mostrar ofertas de continuidad: seguimiento, impugnacion, desacato y otros pasos posteriores.
-- [ ] Mostrar esos pasos tanto en panel como en correo.
+- [x] Mostrar esos pasos tanto en panel como en correo.
 - [x] Mostrar tiempos estimados, siguiente accion esperada y posibles escenarios del tramite.
 - [x] Mostrar descripcion clara del producto antes del pago.
 - [x] Mostrar que la plataforma cuenta con base de correos de juzgados y entidades para radicacion donde aplique.
@@ -279,7 +279,7 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
   - correo
   - panel
   - ambos
-- [ ] Diseñar correo post-radicado con continuidad del caso, tiempos esperados y siguiente paso sugerido.
+- [x] Diseñar una primera version del correo post-radicado con continuidad del caso, tiempos esperados y siguiente paso sugerido.
 - [x] Definir una primera estructura de post-radicado reutilizable para panel y correo.
 - [ ] Cerrar trazabilidad operativa completa: radicacion, correo enviado, comprobante y continuidad comercial.
 

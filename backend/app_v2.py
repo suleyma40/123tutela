@@ -13,6 +13,7 @@ from backend.document_quality import evaluate_generated_document
 from backend.document_rules import evaluate_document_rule
 from backend.intake_validation import validate_intake, validate_submission_readiness
 from backend.legal_service import LegalAnalyzer
+from backend.notifications import send_post_radicado_email
 from backend.schemas_v2 import (
     AnalysisPreviewRequest,
     AnalysisPreviewResponse,
@@ -739,12 +740,37 @@ def submit_case(
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible actualizar el trámite.")
 
+    guidance = (updated.get("submission_summary") or {}).get("guidance") or build_submission_guidance(
+        case=updated,
+        mode=payload.mode,
+        channel=channel,
+        radicado=radicado,
+    )
+    email_result = send_post_radicado_email(recipient=updated.get("usuario_email"), case=updated, guidance=guidance)
+    updated = repository.update_case_submission(
+        case_id,
+        status=updated.get("estado") or status_value,
+        manual_contact=updated.get("manual_contact") or manual_contact,
+        submission_summary={
+            **(updated.get("submission_summary") or {}),
+            "guidance": guidance,
+            "post_radicado_email": email_result,
+        },
+    ) or updated
+
     repository.create_event(
         case_id=case_id,
         event_type="submission_attempted",
         actor_type="user",
         actor_id=str(current_user["id"]),
         payload={"mode": payload.mode, "channel": channel, "radicado": radicado},
+    )
+    repository.create_event(
+        case_id=case_id,
+        event_type="post_radicado_email_processed",
+        actor_type="system",
+        actor_id=None,
+        payload=email_result,
     )
     return _snapshot_case_detail(updated)
 
@@ -783,12 +809,36 @@ def register_manual_radicado(
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible registrar el radicado.")
 
+    guidance = (updated.get("submission_summary") or {}).get("guidance") or build_submission_guidance(
+        case=updated,
+        mode="manual_contact",
+        channel="manual_record",
+        radicado=payload.radicado,
+    )
+    email_result = send_post_radicado_email(recipient=updated.get("usuario_email"), case=updated, guidance=guidance)
+    updated = repository.update_case_status(
+        case_id,
+        status=updated.get("estado") or "radicado",
+        submission_summary={
+            **(updated.get("submission_summary") or {}),
+            "guidance": guidance,
+            "post_radicado_email": email_result,
+        },
+    ) or updated
+
     repository.create_event(
         case_id=case_id,
         event_type="manual_radicado_recorded",
         actor_type="user",
         actor_id=str(current_user["id"]),
         payload={"radicado": payload.radicado, "notes": payload.notes},
+    )
+    repository.create_event(
+        case_id=case_id,
+        event_type="post_radicado_email_processed",
+        actor_type="system",
+        actor_id=None,
+        payload=email_result,
     )
     return _snapshot_case_detail(updated)
 

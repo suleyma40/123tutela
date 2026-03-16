@@ -36,6 +36,14 @@ class Settings:
     wompi_event_secret: str = os.getenv("WOMPI_EVENT_SECRET", "")
     wompi_payment_redirect_url: str = os.getenv("WOMPI_PAYMENT_REDIRECT_URL", "http://localhost:5173/pago/resultado")
     wompi_widget_url: str = os.getenv("WOMPI_WIDGET_URL", "https://checkout.wompi.co/widget.js")
+    notification_from_email: str = os.getenv("NOTIFICATION_FROM_EMAIL", "")
+    notification_reply_to: str = os.getenv("NOTIFICATION_REPLY_TO", "")
+    notification_smtp_host: str = os.getenv("NOTIFICATION_SMTP_HOST", "")
+    notification_smtp_port: int = int(os.getenv("NOTIFICATION_SMTP_PORT", "587"))
+    notification_smtp_user: str = os.getenv("NOTIFICATION_SMTP_USER", "")
+    notification_smtp_password: str = os.getenv("NOTIFICATION_SMTP_PASSWORD", "")
+    notification_smtp_use_ssl: bool = os.getenv("NOTIFICATION_SMTP_USE_SSL", "false").lower() == "true"
+    notification_smtp_use_starttls: bool = os.getenv("NOTIFICATION_SMTP_USE_STARTTLS", "true").lower() == "true"
     internal_admin_emails: list[str] = None  # type: ignore[assignment]
     cors_origins: list[str] = None  # type: ignore[assignment]
 
