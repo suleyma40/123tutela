@@ -194,6 +194,7 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [x] Integrar a la matriz base los requisitos del documento local `123tutela_Requisitos_Juridicos_Documentos_Calidad.docx`.
 - [x] Implementar una primera capa de validacion runtime para tutela, derecho de peticion y habeas data.
 - [ ] Definir los criterios juridicos minimos por tipo de documento: tutela, derecho de peticion, carta formal, reclamo, impugnacion, desacato, etc.
+- [x] Definir una primera capa operativa de criterios juridicos minimos por tipo de documento en backend.
 - [ ] Definir la estructura obligatoria por documento:
   - hechos
   - derechos vulnerados o interes juridico
@@ -217,6 +218,7 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [ ] Definir cuando sugerir derecho de peticion antes de tutela.
 - [ ] Definir cuando ofrecer impugnacion, desacato, seguimiento o nueva actuacion.
 - [ ] Crear plantillas base por tipo de producto con alta calidad juridica.
+- [x] Crear una primera capa de plantillas base por tipo de producto para la generacion del documento.
 - [ ] Revisar el grosor argumentativo de cada plantilla:
   - suficiencia constitucional o legal
   - conexidad entre hechos y pretensiones
@@ -228,6 +230,7 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
   - cuando citar y cuando no citar
   - no citar sin soporte verificable
 - [ ] Definir criterios de calidad minima antes de entregar un documento al cliente.
+- [x] Aplicar una primera capa de bloqueo antes de generar documento cuando falten elementos minimos del producto recomendado.
 - [ ] Crear evaluacion manual o semiautomatica de documentos generados.
 - [ ] Crear un set de casos de prueba reales o anonimizados para medir calidad de salida.
 - [ ] Validar que el documento final no se limite a sonar juridico; debe ser util, procedente y accionable.

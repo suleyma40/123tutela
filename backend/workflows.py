@@ -5,6 +5,7 @@ from typing import Any
 from uuid import uuid4
 
 from backend import repository_ext as repository
+from backend.document_templates import build_document as build_document_from_template
 
 
 CATEGORY_CONFIG: dict[str, dict[str, Any]] = {
@@ -337,6 +338,8 @@ def build_strategy_text(
 
 
 def build_document(case: dict[str, Any]) -> str:
+    return build_document_from_template(case)
+
     legal_analysis = case.get("legal_analysis") or {}
     routing = case.get("routing") or {}
     target = (routing.get("primary_target") or {}).get("name") or "la autoridad competente"

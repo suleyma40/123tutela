@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 
 from backend.catalog_runtime import get_product, list_catalog, suggest_product_code
 from backend.config import settings
+from backend.document_rules import evaluate_document_rule
 from backend.intake_validation import validate_intake, validate_submission_readiness
 from backend.legal_service import LegalAnalyzer
 from backend.schemas_v2 import (
@@ -335,14 +336,23 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
         facts=result["facts"],
         prior_actions=payload.prior_actions,
     )
+    document_rule_review = evaluate_document_rule(
+        recommended_action=workflow["recommended_action"],
+        workflow_type=workflow["workflow_type"],
+        description=payload.description,
+        facts=result["facts"],
+    )
     result["facts"]["intake_review"] = intake_review
     result["facts"]["preview_gate"] = preview_gate
+    result["facts"]["document_rule_review"] = document_rule_review
     combined_warnings = (
         workflow["warnings"]
         + intake_review.get("blocking_issues", [])
         + intake_review.get("warnings", [])
         + preview_gate.get("blocking_issues", [])
         + preview_gate.get("warnings", [])
+        + document_rule_review.get("blocking_issues", [])
+        + document_rule_review.get("warnings", [])
     )
     return AnalysisPreviewResponse(
         facts=result["facts"],
@@ -399,18 +409,29 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         facts=result["facts"],
         prior_actions=payload.prior_actions,
     )
+    document_rule_review = evaluate_document_rule(
+        recommended_action=workflow["recommended_action"],
+        workflow_type=workflow["workflow_type"],
+        description=payload.description,
+        facts=result["facts"],
+    )
     result["facts"]["intake_review"] = intake_review
     result["facts"]["preview_gate"] = preview_gate
+    result["facts"]["document_rule_review"] = document_rule_review
     combined_warnings = (
         workflow["warnings"]
         + intake_review.get("blocking_issues", [])
         + intake_review.get("warnings", [])
         + preview_gate.get("blocking_issues", [])
         + preview_gate.get("warnings", [])
+        + document_rule_review.get("blocking_issues", [])
+        + document_rule_review.get("warnings", [])
     )
     blocking_issues = list(
         dict.fromkeys(
-            intake_review.get("blocking_issues", []) + preview_gate.get("blocking_issues", [])
+            intake_review.get("blocking_issues", [])
+            + preview_gate.get("blocking_issues", [])
+            + document_rule_review.get("blocking_issues", [])
         )
     )
     if blocking_issues:
@@ -584,6 +605,19 @@ def generate_document(case_id: str, current_user: dict[str, Any] = Depends(get_c
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
     if case.get("payment_status") != "pagado":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debes registrar el pago antes de generar el documento.")
+
+    document_rule_review = evaluate_document_rule(
+        recommended_action=case.get("recommended_action"),
+        workflow_type=case.get("workflow_type"),
+        description=case.get("descripcion") or "",
+        facts=case.get("facts") or {},
+    )
+    if document_rule_review.get("blocking_issues"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Todavia faltan datos minimos para generar este documento: "
+            + " | ".join(document_rule_review["blocking_issues"]),
+        )
 
     document = build_document(case)
     updated = repository.update_case_document(case_id, document)
