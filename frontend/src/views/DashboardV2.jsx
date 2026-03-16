@@ -721,6 +721,131 @@ const getWritingAid = (category) => {
   return "Describe hechos concretos, fechas, entidad involucrada y una solicitud clara. Evita opiniones generales y enfocate en lo verificable.";
 };
 
+const buildGuidedIntakeInterviewSteps = (form) => {
+  const steps = [
+    {
+      id: "target_entity",
+      question: "¿Contra qué entidad, empresa o autoridad va dirigido este documento?",
+      placeholder: "Ej: Nueva EPS, Bancolombia, Alcaldia de Medellin, Datacredito",
+      multiline: false,
+      show: !form.target_entity.trim(),
+    },
+    {
+      id: "event_date",
+      question: "¿Desde cuándo ocurre el problema o cuál fue la fecha clave del primer hecho?",
+      placeholder: "Ej: desde enero de 2026 / el 12 de marzo de 2026",
+      multiline: false,
+      show: !form.event_date.trim(),
+    },
+    {
+      id: "concrete_request",
+      question: "¿Qué quieres que ordenen, corrijan, entreguen o respondan exactamente?",
+      placeholder: "Ej: entregar medicamento, corregir reporte, reversar cobro, responder de fondo",
+      multiline: true,
+      show: !form.concrete_request.trim(),
+    },
+    {
+      id: "current_harm",
+      question: "¿Cómo te afecta hoy este problema o qué riesgo existe si no responden?",
+      placeholder: "Ej: afectacion en salud, minimo vital, suspension del servicio, reporte negativo",
+      multiline: true,
+      show: !form.current_harm.trim(),
+    },
+    {
+      id: "evidence_summary",
+      question: "¿Qué pruebas tienes ya disponibles para respaldar el caso?",
+      placeholder: "Ej: PDF, fotos, capturas, chats, correos, orden medica, contrato, extractos",
+      multiline: true,
+      show: !form.evidence_summary.trim(),
+    },
+  ];
+
+  if (form.category === "Salud") {
+    steps.push(
+      {
+        id: "eps_name",
+        question: "¿Qué EPS, IPS o entidad de salud está involucrada?",
+        placeholder: "Ej: Nueva EPS, Sura, San Vicente Fundacion",
+        multiline: false,
+        show: !form.eps_name.trim(),
+      },
+      {
+        id: "diagnosis",
+        question: "¿Cuál es el diagnóstico o condición médica relevante?",
+        placeholder: "Ej: anemia falciforme, cáncer, insuficiencia renal, embarazo de alto riesgo",
+        multiline: false,
+        show: !form.diagnosis.trim(),
+      },
+      {
+        id: "treatment_needed",
+        question: "¿Qué medicamento, examen, cirugía o tratamiento necesitas exactamente?",
+        placeholder: "Ej: entrega de hidroxiurea 500 mg cada 8 horas por 6 meses",
+        multiline: true,
+        show: !form.treatment_needed.trim(),
+      }
+    );
+  }
+
+  if (form.category === "Bancos") {
+    steps.push(
+      {
+        id: "bank_product_type",
+        question: "¿Qué producto financiero está involucrado?",
+        placeholder: "Ej: tarjeta de credito, cuenta de ahorros, prestamo",
+        multiline: false,
+        show: !form.bank_product_type.trim(),
+      },
+      {
+        id: "bank_amount_involved",
+        question: "¿Qué valor, monto o cobro está en discusión?",
+        placeholder: "Ej: $38.500 mensuales / $154.000 acumulados",
+        multiline: false,
+        show: !form.bank_amount_involved.trim(),
+      }
+    );
+  }
+
+  if (form.category === "Laboral") {
+    steps.push(
+      {
+        id: "labor_employer_name",
+        question: "¿Quién es el empleador o contratante involucrado?",
+        placeholder: "Ej: Empresa X SAS, Alcaldia, persona natural",
+        multiline: false,
+        show: !form.labor_employer_name.trim(),
+      },
+      {
+        id: "dismissal_or_measure",
+        question: "¿Qué medida o incumplimiento laboral ocurrió exactamente?",
+        placeholder: "Ej: despido, no pago de salarios, suspension, negativa de reintegro",
+        multiline: true,
+        show: !form.dismissal_or_measure.trim(),
+      }
+    );
+  }
+
+  if (normalizeAction(form.recommended_action) === "accion de tutela") {
+    steps.push(
+      {
+        id: "tutela_other_means_detail",
+        question: "Para esta tutela, ¿por qué no basta otro trámite o por qué hay urgencia?",
+        placeholder: "Ej: la vulneracion sigue ocurriendo y no existe otro medio eficaz",
+        multiline: true,
+        show: !form.tutela_other_means_detail.trim(),
+      },
+      {
+        id: "tutela_immediacy_detail",
+        question: "¿Por qué se presenta la tutela ahora y no después?",
+        placeholder: "Ej: el daño es actual, el riesgo sigue vigente, la negativa es reciente",
+        multiline: true,
+        show: !form.tutela_immediacy_detail.trim(),
+      }
+    );
+  }
+
+  return steps.filter((step) => step.show);
+};
+
 const getActionSpecificMissing = (recommendedAction, form) => {
   const action = normalizeAction(recommendedAction);
   const missing = [];
@@ -1147,10 +1272,30 @@ function DocumentRuleReviewCard({ review }) {
   );
 }
 
-function GuidedIntakeFields({ form, setForm, missingFields }) {
+function GuidedIntakeFields({
+  form,
+  setForm,
+  missingFields,
+  entityLookupLoading = false,
+  entitySuggestions = [],
+  onApplyEntitySuggestion = () => {},
+}) {
   const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const writingAid = getWritingAid(form.category);
   const isPetitionTrack = ["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category);
+  const interviewSteps = buildGuidedIntakeInterviewSteps(form);
+  const activeInterviewStep = interviewSteps[0] || null;
+  const [assistantDraft, setAssistantDraft] = useState("");
+  const evidenceHints = evidenceTypeHints[form.category] || evidenceTypeHints.default;
+
+  const quickChannels = ["Correo electronico", "WhatsApp", "Direccion fisica", "Correo y WhatsApp"];
+  const quickRequestTypes = ["Interes particular", "Informacion", "Documentos", "Consulta"];
+
+  const answerInterviewStep = () => {
+    if (!activeInterviewStep || !assistantDraft.trim()) return;
+    setField(activeInterviewStep.id, assistantDraft.trim());
+    setAssistantDraft("");
+  };
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
@@ -1169,9 +1314,67 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
         </div>
       </div>
 
+      {!!activeInterviewStep && (
+        <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", display: "grid", gap: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>ASISTENTE DEL CASO</div>
+          <div style={{ color: C.text, fontWeight: 700, lineHeight: 1.6 }}>
+            {activeInterviewStep.question}
+          </div>
+          {activeInterviewStep.multiline ? (
+            <TextArea
+              value={assistantDraft}
+              onChange={(event) => setAssistantDraft(event.target.value)}
+              placeholder={activeInterviewStep.placeholder}
+              style={{ minHeight: 96 }}
+            />
+          ) : (
+            <TextInput
+              value={assistantDraft}
+              onChange={(event) => setAssistantDraft(event.target.value)}
+              placeholder={activeInterviewStep.placeholder}
+            />
+          )}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <Button variant="secondary" onClick={answerInterviewStep} disabled={!assistantDraft.trim()}>
+              Guardar respuesta y seguir
+            </Button>
+            <div style={{ color: C.textMuted, fontSize: 13 }}>
+              El asistente pregunta primero lo más importante para que el análisis y el documento salgan mejor.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
         <Field label="Entidad o destinatario">
-          <TextInput value={form.target_entity} onChange={(event) => setField("target_entity", event.target.value)} placeholder="Ej: Nueva EPS, Datacredito, Alcaldia, Banco X" />
+          <div style={{ position: "relative" }}>
+            <TextInput value={form.target_entity} onChange={(event) => setField("target_entity", event.target.value)} placeholder="Ej: Nueva EPS, Datacredito, Alcaldia, Banco X" />
+            {entityLookupLoading && <div style={{ marginTop: 8, fontSize: 12, color: C.textMuted }}>Buscando entidades...</div>}
+            {!entityLookupLoading && !!entitySuggestions.length && (
+              <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 20, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 16, boxShadow: "0 18px 40px rgba(15, 23, 42, 0.12)", overflow: "hidden" }}>
+                {entitySuggestions.map((entity, index) => (
+                  <button
+                    key={`${entity.name}-${entity.nit || entity.source || index}`}
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      onApplyEntitySuggestion(entity);
+                    }}
+                    onClick={() => onApplyEntitySuggestion(entity)}
+                    style={{ width: "100%", textAlign: "left", border: "none", background: "#fff", padding: "14px 16px", display: "grid", gap: 4, cursor: "pointer", borderBottom: index === entitySuggestions.length - 1 ? "none" : `1px solid ${C.border}` }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                      <strong style={{ color: C.text }}>{entity.name}</strong>
+                      <span style={{ fontSize: 12, color: C.textMuted }}>{entity.type || entity.source || "entidad"}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>
+                      {[entity.nit ? `NIT ${entity.nit}` : "", entity.superintendence || "", entity.pqrs_emails?.[0] || ""].filter(Boolean).join(" · ")}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </Field>
         <Field label="Fecha o periodo aproximado">
           <TextInput value={form.event_date} onChange={(event) => setField("event_date", event.target.value)} placeholder="Ej: 12 de marzo de 2026 / desde enero de 2026" />
@@ -1227,6 +1430,18 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
               <TextInput value={form.numbered_requests} onChange={(event) => setField("numbered_requests", event.target.value)} placeholder="Ej: 1) Responder de fondo 2) Entregar copia 3) Corregir cobro" />
             </Field>
           </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+            {quickRequestTypes.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setField("request_type", option.toLowerCase().replaceAll(" ", "_"))}
+                style={{ border: `1px solid ${C.border}`, background: "#fff", color: C.text, borderRadius: 999, padding: "8px 12px", cursor: "pointer", fontWeight: 700 }}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
           <div style={{ marginTop: 12, color: C.textMuted, fontSize: 13, lineHeight: 1.7 }}>
             Usa esta ruta cuando necesitas una respuesta formal de fondo, entrega de informacion, documentos o correccion de una actuacion de la entidad.
           </div>
@@ -1262,6 +1477,25 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
         <Field label="Documentos o anexos que deberian mencionarse">
           <TextArea value={form.supporting_documents} onChange={(event) => setField("supporting_documents", event.target.value)} placeholder="Ej: cedula, tutela previa, radicado, formula, capturas, certificado laboral" style={{ minHeight: 100 }} />
         </Field>
+      </div>
+
+      <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PRUEBAS QUE PUEDES SUBIR</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {evidenceHints.map((hint) => <Badge key={hint} color={C.primary}>{hint}</Badge>)}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {quickChannels.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setField("response_channel", option)}
+              style={{ border: `1px solid ${C.border}`, background: "#fff", color: C.text, borderRadius: 999, padding: "8px 12px", cursor: "pointer", fontWeight: 700 }}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
       </div>
 
       {form.category === "Laboral" && (
@@ -2272,6 +2506,8 @@ export default function DashboardV2(props) {
     prior_tutela_reason: "",
   });
   const [documentReviews, setDocumentReviews] = useState({});
+  const [wizardEntitySuggestions, setWizardEntitySuggestions] = useState([]);
+  const [wizardEntityLookupLoading, setWizardEntityLookupLoading] = useState(false);
   const [entitySuggestions, setEntitySuggestions] = useState([]);
   const [entityLookupLoading, setEntityLookupLoading] = useState(false);
   const [manualContact, setManualContact] = useState("");
@@ -2339,6 +2575,39 @@ export default function DashboardV2(props) {
   useEffect(() => {
     setDetailStepOverride(null);
   }, [activeCaseDetail?.case?.id]);
+
+  useEffect(() => {
+    const query = form.target_entity.trim();
+    if (query.length < 2) {
+      setWizardEntitySuggestions([]);
+      setWizardEntityLookupLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        setWizardEntityLookupLoading(true);
+        const response = await api.get("/catalog/entities", { params: { q: query, limit: 8 } });
+        if (!cancelled) {
+          setWizardEntitySuggestions(response.data || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setWizardEntitySuggestions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setWizardEntityLookupLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [form.target_entity]);
 
   useEffect(() => {
     const query = postPayForm.target_entity.trim();
@@ -2470,6 +2739,15 @@ export default function DashboardV2(props) {
       target_superintendence: entity.superintendence || current.target_superintendence,
     }));
     setEntitySuggestions([]);
+  };
+
+  const applyWizardEntitySuggestion = (entity) => {
+    setForm((current) => ({
+      ...current,
+      target_entity: entity.name || current.target_entity,
+      case_reference: current.case_reference || entity.nit || "",
+    }));
+    setWizardEntitySuggestions([]);
   };
 
   const jumpToNextStage = () => {
@@ -2625,7 +2903,14 @@ export default function DashboardV2(props) {
             <Field label="Explica el caso con detalle">
               <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Cuenta que paso, desde cuando, con quien, que pediste antes, que pruebas tienes y que solucion necesitas." />
             </Field>
-            <GuidedIntakeFields form={form} setForm={setForm} missingFields={guidedMissing} />
+            <GuidedIntakeFields
+              form={form}
+              setForm={setForm}
+              missingFields={guidedMissing}
+              entityLookupLoading={wizardEntityLookupLoading}
+              entitySuggestions={wizardEntitySuggestions}
+              onApplyEntitySuggestion={applyWizardEntitySuggestion}
+            />
             <PreviewGateCard issues={previewGateIssues} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
               <Field label="Ciudad"><TextInput value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} /></Field>
