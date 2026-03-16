@@ -196,6 +196,7 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [ ] Definir los criterios juridicos minimos por tipo de documento: tutela, derecho de peticion, carta formal, reclamo, impugnacion, desacato, etc.
 - [x] Definir una primera capa operativa de criterios juridicos minimos por tipo de documento en backend.
 - [ ] Endurecer reglas de procedencia y plazo por documento con base en `123tutela_Manual_Produccion_v1.docx`.
+- [x] Endurecer una primera capa de procedencia y plazo para tutela, derecho de peticion, impugnacion y desacato con base en `123tutela_Manual_Produccion_v1.docx`.
 - [ ] Bloquear tutela improcedente por subsidiariedad, inmediatez o falta de no temeridad.
 - [ ] Bloquear impugnacion fuera de termino o sin contraargumento real al fallo.
 - [ ] Bloquear desacato si no existe fallo identificable, notificacion y orden incumplida.

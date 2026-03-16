@@ -82,6 +82,15 @@ const defaultIntakeFields = {
   tutela_appeal_reason: "",
   tutela_order_summary: "",
   tutela_noncompliance_detail: "",
+  tutela_no_temperity_detail: "",
+  tutela_other_means_detail: "",
+  tutela_immediacy_detail: "",
+  tutela_special_protection_detail: "",
+  tutela_private_party_ground: "",
+  petition_target_nature: "publica",
+  petition_private_ground: "",
+  petition_previous_submission_date: "",
+  petition_sector_rule: "",
 };
 
 const statusLabels = {
@@ -210,6 +219,15 @@ const buildStructuredDescription = (form) => {
     form.tutela_appeal_reason ? `Motivos de impugnacion: ${form.tutela_appeal_reason}` : "",
     form.tutela_order_summary ? `Orden judicial incumplida: ${form.tutela_order_summary}` : "",
     form.tutela_noncompliance_detail ? `Detalle del incumplimiento: ${form.tutela_noncompliance_detail}` : "",
+    form.tutela_no_temperity_detail ? `No temeridad o tutela previa: ${form.tutela_no_temperity_detail}` : "",
+    form.tutela_other_means_detail ? `Subsidiariedad o ausencia de otro medio eficaz: ${form.tutela_other_means_detail}` : "",
+    form.tutela_immediacy_detail ? `Inmediatez o justificacion temporal: ${form.tutela_immediacy_detail}` : "",
+    form.tutela_special_protection_detail ? `Sujeto de especial proteccion: ${form.tutela_special_protection_detail}` : "",
+    form.tutela_private_party_ground ? `Fundamento contra particular: ${form.tutela_private_party_ground}` : "",
+    form.petition_target_nature ? `Naturaleza del destinatario de la peticion: ${form.petition_target_nature}` : "",
+    form.petition_private_ground ? `Fundamento para peticion a particular: ${form.petition_private_ground}` : "",
+    form.petition_previous_submission_date ? `Fecha de radicacion o gestion previa: ${form.petition_previous_submission_date}` : "",
+    form.petition_sector_rule ? `Norma sectorial o contexto especial: ${form.petition_sector_rule}` : "",
     form.description ? `Relato del usuario: ${form.description}` : "",
   ].filter(Boolean);
 
@@ -358,6 +376,18 @@ const getActionSpecificMissing = (recommendedAction, form) => {
     if (!form.complaint_expected_response.trim()) missing.push("Respuesta o intervencion esperada");
   }
 
+  if (action === "accion de tutela") {
+    if (!form.tutela_no_temperity_detail.trim()) missing.push("No temeridad o tutela previa");
+    if (!form.tutela_other_means_detail.trim()) missing.push("Subsidiariedad o ausencia de otro medio eficaz");
+    if (!form.tutela_immediacy_detail.trim()) missing.push("Inmediatez o justificacion temporal");
+  }
+
+  if (action === "derecho de peticion" || action === "derecho de peticion a eps" || action === "derecho de peticion laboral" || action === "derecho de peticion financiero" || action === "derecho de peticion a empresa de servicios" || action === "derecho de peticion al proveedor") {
+    if (!form.petition_target_nature.trim()) missing.push("Naturaleza del destinatario");
+    if (!form.petition_previous_submission_date.trim()) missing.push("Fecha de radicacion o gestion previa");
+    if (form.petition_target_nature === "privada" && !form.petition_private_ground.trim()) missing.push("Fundamento para peticion a particular");
+  }
+
   if (action === "reclamo administrativo" || action === "reclamacion financiera" || action === "reclamacion por servicios publicos" || action === "reclamo de consumo") {
     if (!form.administrative_error_detail.trim()) missing.push("Actuacion, cobro o error administrativo cuestionado");
     if (!form.administrative_requested_fix.trim()) missing.push("Correccion administrativa solicitada");
@@ -401,6 +431,20 @@ const getActionSpecificIssues = (recommendedAction, form) => {
   if (action === "queja formal") {
     if (form.complaint_reason.trim().length < 20) issues.push("La queja formal necesita una descripcion mas clara de la irregularidad o mala atencion.");
     if (form.complaint_expected_response.trim().length < 15) issues.push("Debes decir que esperas: investigacion, respuesta formal, correccion o traslado.");
+  }
+
+  if (action === "accion de tutela") {
+    if (form.tutela_no_temperity_detail.trim().length < 20) issues.push("La tutela debe aclarar bajo juramento si existe o no otra tutela por los mismos hechos y derechos.");
+    if (form.tutela_other_means_detail.trim().length < 25) issues.push("La tutela debe explicar mejor por que no existe otro medio judicial eficaz o por que hay perjuicio irremediable.");
+    if (form.tutela_immediacy_detail.trim().length < 20) issues.push("La tutela debe justificar la inmediatez o explicar por que se presenta ahora.");
+  }
+
+  if (action === "derecho de peticion" || action === "derecho de peticion a eps" || action === "derecho de peticion laboral" || action === "derecho de peticion financiero" || action === "derecho de peticion a empresa de servicios" || action === "derecho de peticion al proveedor") {
+    if (form.petition_previous_submission_date.trim().length < 8) issues.push("Conviene precisar la fecha de radicacion o el momento exacto de la solicitud para controlar el termino legal.");
+    if (form.request_type.trim().length < 5) issues.push("Debes precisar mejor la modalidad del derecho de peticion.");
+    if (form.petition_target_nature === "privada" && form.petition_private_ground.trim().length < 15) {
+      issues.push("Si la peticion va contra un privado, debes explicar por que ese particular esta obligado a responder.");
+    }
   }
 
   if (action === "reclamo administrativo" || action === "reclamacion financiera" || action === "reclamacion por servicios publicos" || action === "reclamo de consumo") {
@@ -447,6 +491,54 @@ function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFiel
         <Field label="Respuesta o intervencion esperada">
           <TextInput value={form.complaint_expected_response} onChange={(event) => setField("complaint_expected_response", event.target.value)} placeholder="Ej: investigacion, respuesta formal, correccion, traslado al area competente" />
         </Field>
+      </>
+    );
+  } else if (action === "accion de tutela") {
+    title = "Preguntas finas para accion de tutela";
+    fields = (
+      <>
+        <Field label="No temeridad o tutela previa">
+          <TextArea value={form.tutela_no_temperity_detail} onChange={(event) => setField("tutela_no_temperity_detail", event.target.value)} placeholder="Indica si ya presentaste otra tutela por los mismos hechos. Si no, dilo expresamente. Si si, explica que cambio." style={{ minHeight: 90 }} />
+        </Field>
+        <Field label="Subsidiariedad o ausencia de otro medio eficaz">
+          <TextArea value={form.tutela_other_means_detail} onChange={(event) => setField("tutela_other_means_detail", event.target.value)} placeholder="Explica por que la tutela si procede: no hay otro medio eficaz, o existe urgencia o perjuicio irremediable." style={{ minHeight: 90 }} />
+        </Field>
+        <Field label="Inmediatez o justificacion temporal">
+          <TextInput value={form.tutela_immediacy_detail} onChange={(event) => setField("tutela_immediacy_detail", event.target.value)} placeholder="Ej: la vulneracion sigue ocurriendo hoy / el hecho es reciente / el riesgo es actual" />
+        </Field>
+        <Field label="Sujeto de especial proteccion, si aplica">
+          <TextInput value={form.tutela_special_protection_detail} onChange={(event) => setField("tutela_special_protection_detail", event.target.value)} placeholder="Ej: menor, embarazada, adulto mayor, discapacidad, paciente de alto riesgo" />
+        </Field>
+        <Field label="Fundamento contra particular, si aplica">
+          <TextInput value={form.tutela_private_party_ground} onChange={(event) => setField("tutela_private_party_ground", event.target.value)} placeholder="Ej: prestador de servicio publico, indefension, subordinacion, habeas data" />
+        </Field>
+      </>
+    );
+  } else if (action === "derecho de peticion" || action === "derecho de peticion a eps" || action === "derecho de peticion laboral" || action === "derecho de peticion financiero" || action === "derecho de peticion a empresa de servicios" || action === "derecho de peticion al proveedor") {
+    title = "Preguntas finas para derecho de peticion";
+    fields = (
+      <>
+        <Field label="Naturaleza del destinatario">
+          <select
+            value={form.petition_target_nature}
+            onChange={(event) => setField("petition_target_nature", event.target.value)}
+            style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+          >
+            <option value="publica">Entidad publica</option>
+            <option value="privada">Particular obligado</option>
+          </select>
+        </Field>
+        <Field label="Fecha de radicacion o gestion previa">
+          <TextInput value={form.petition_previous_submission_date} onChange={(event) => setField("petition_previous_submission_date", event.target.value)} placeholder="Ej: 4 de marzo de 2026 / hoy se radica por primera vez" />
+        </Field>
+        <Field label="Norma sectorial o contexto especial">
+          <TextInput value={form.petition_sector_rule} onChange={(event) => setField("petition_sector_rule", event.target.value)} placeholder="Ej: salud, consumidor, servicios, financiero, datos personales" />
+        </Field>
+        {form.petition_target_nature === "privada" && (
+          <Field label="Fundamento para peticion a particular">
+            <TextArea value={form.petition_private_ground} onChange={(event) => setField("petition_private_ground", event.target.value)} placeholder="Explica por que ese particular esta obligado a responder: servicio publico, interes colectivo, posicion dominante, etc." style={{ minHeight: 90 }} />
+          </Field>
+        )}
       </>
     );
   } else if (action === "reclamo administrativo" || action === "reclamacion financiera" || action === "reclamacion por servicios publicos" || action === "reclamo de consumo") {
@@ -642,6 +734,61 @@ function IntakeReviewCard({ review }) {
           ? "Puedes guardar el expediente, pero conviene reforzar hechos, fechas y pretensiones para mejorar la calidad del documento final."
           : "Vuelve al paso anterior y mejora el relato antes de continuar. La plataforma no deberia cobrar ni generar un documento con informacion debil."}
       </div>
+    </div>
+  );
+}
+
+function DocumentRuleReviewCard({ review }) {
+  if (!review || !review.rule) {
+    return null;
+  }
+
+  const blockingIssues = review.blocking_issues || [];
+  const warnings = review.warnings || [];
+  const canProceed = blockingIssues.length === 0;
+
+  return (
+    <div
+      className="glass-card"
+      style={{
+        padding: 18,
+        background: canProceed ? "#F8FAFD" : "#FFF7ED",
+        border: `1px solid ${canProceed ? C.border : "#FDBA74"}`,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>REGLAS DEL PRODUCTO</div>
+          <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{review.rule.document_title}</div>
+          <div style={{ marginTop: 6, color: C.textMuted }}>{review.rule.goal}</div>
+        </div>
+        <Badge color={canProceed ? C.primary : C.warning}>{review.status}</Badge>
+      </div>
+
+      <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+        <div style={{ color: C.textMuted, fontSize: 13 }}>Secciones minimas: {review.rule.required_sections?.join(", ")}</div>
+        <div style={{ color: C.textMuted, fontSize: 13 }}>Foco juridico: {review.rule.quality_focus}</div>
+      </div>
+
+      {!!blockingIssues.length && (
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {blockingIssues.map((issue) => (
+            <div key={issue} style={{ color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", padding: 14, borderRadius: 14 }}>
+              {issue}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!!warnings.length && (
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {warnings.map((warning) => (
+            <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>
+              {warning}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1598,7 +1745,9 @@ export default function DashboardV2(props) {
 
         {wizardStep === 3 && (() => {
           const intakeReview = preview?.facts?.intake_review || null;
+          const documentRuleReview = preview?.facts?.document_rule_review || null;
           const hasBlockingIssues = !!(intakeReview?.blocking_issues || []).length;
+          const hasDocumentRuleBlockers = !!(documentRuleReview?.blocking_issues || []).length;
           const actionSpecificMissing = getActionSpecificMissing(preview?.recommended_action, form);
           const actionSpecificIssues = getActionSpecificIssues(preview?.recommended_action, form);
           const hasActionSpecificBlockers = actionSpecificMissing.length > 0 || actionSpecificIssues.length > 0;
@@ -1610,7 +1759,7 @@ export default function DashboardV2(props) {
             subtitle="Se guarda antes del pago para que quede trazabilidad."
             onBack={() => setWizardStep(2)}
             onNext={() => setWizardStep(4)}
-            nextDisabled={!preview || hasBlockingIssues || hasActionSpecificBlockers}
+            nextDisabled={!preview || hasBlockingIssues || hasActionSpecificBlockers || hasDocumentRuleBlockers}
             nextLabel="Continuar al pago"
           >
             {!preview ? (
@@ -1645,6 +1794,7 @@ export default function DashboardV2(props) {
                   missingFields={actionSpecificMissing}
                   issues={actionSpecificIssues}
                 />
+                <DocumentRuleReviewCard review={documentRuleReview} />
                 <IntakeReviewCard review={intakeReview} />
                 {preview.warnings?.map((warning) => <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>{warning}</div>)}
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -1654,7 +1804,7 @@ export default function DashboardV2(props) {
                       setDraftDetail(detail);
                       setWizardStep(4);
                     }}
-                    disabled={!profileReady || hasBlockingIssues || hasActionSpecificBlockers}
+                    disabled={!profileReady || hasBlockingIssues || hasActionSpecificBlockers || hasDocumentRuleBlockers}
                   >
                     Guardar expediente
                   </Button>

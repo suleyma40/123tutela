@@ -195,18 +195,34 @@ def evaluate_document_rule(
 
     action_key = rule["action_key"]
     if action_key == "accion de tutela":
+        if not any(word in full_text for word in ["no temeridad", "no he presentado otra tutela", "otra tutela", "juramento"]):
+            blocking_issues.append("La tutela debe incluir una declaracion de no temeridad o explicar si existio tutela previa.")
+        if not any(word in full_text for word in ["otro medio", "subsidiariedad", "perjuicio irremediable", "no existe otro medio eficaz"]):
+            blocking_issues.append("La tutela debe justificar subsidiariedad o perjuicio irremediable.")
+        if not any(word in full_text for word in ["inmediatez", "reciente", "actualmente", "hoy", "sigue ocurriendo"]):
+            warnings.append("Conviene reforzar la inmediatez con una explicacion temporal mas clara.")
         if not any(word in full_text for word in ["urgencia", "riesgo", "perjuicio", "vulneracion", "vulneración", "derecho fundamental"]):
             blocking_issues.append("La tutela necesita explicar urgencia, vulneracion o procedencia con mas fuerza.")
     elif action_key == "derecho de peticion":
+        if not any(word in full_text for word in ["15 dias", "15 días", "10 dias", "10 días", "30 dias", "30 días", "ley 1755"]):
+            warnings.append("Conviene incorporar el termino legal de respuesta o la referencia expresa a la Ley 1755 de 2015.")
+        if "privada" in full_text and not any(word in full_text for word in ["servicio publico", "servicio público", "interes colectivo", "posicion dominante", "posición dominante"]):
+            blocking_issues.append("Si el derecho de peticion va contra un privado, debe explicarse por que ese particular esta obligado a responder.")
         if not any(word in full_text for word in ["1)", "1.", "solicitudes numeradas", "respondan", "informen", "entreguen", "certifiquen"]):
             warnings.append("Conviene reforzar las solicitudes numeradas para que el derecho de peticion sea mas claro.")
     elif action_key == "accion de cumplimiento":
         if not any(word in full_text for word in ["ley", "decreto", "resolucion", "resolución", "acto administrativo"]):
             blocking_issues.append("La accion de cumplimiento exige identificar la norma o el acto incumplido.")
     elif action_key == "impugnacion de tutela":
+        if not any(word in full_text for word in ["3 dias", "3 días", "dentro del termino", "dentro del término", "notificacion", "notificación"]):
+            blocking_issues.append("La impugnacion debe justificar que se presenta dentro del termino de 3 dias habiles desde la notificacion.")
         if not any(word in full_text for word in ["fallo", "impugno", "segunda instancia", "error del juez", "decision negada"]):
             blocking_issues.append("La impugnacion necesita identificar el fallo y el desacuerdo juridico concreto.")
+        if not any(word in full_text for word in ["razon del juez", "razones del juez", "error de valoracion", "error de valoración", "improcedente", "prueba no valorada"]):
+            blocking_issues.append("La impugnacion debe contraargumentar al menos una razon concreta del fallo.")
     elif action_key == "incidente de desacato":
+        if not any(word in full_text for word in ["notificado", "notificacion", "notificación", "se notifico", "se notificó"]):
+            blocking_issues.append("El desacato debe explicar que el fallo fue notificado a la entidad o responsable.")
         if not any(word in full_text for word in ["incumplio", "incumplimiento", "orden judicial", "fallo de tutela"]):
             blocking_issues.append("El desacato requiere identificar la orden judicial incumplida y su incumplimiento.")
 
