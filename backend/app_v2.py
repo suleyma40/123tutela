@@ -19,8 +19,8 @@ from backend.case_architecture import (
 from backend.config import settings
 from backend.document_quality import evaluate_generated_document
 from backend.entity_directory import search_entity_directory
-from backend.document_rules import evaluate_document_rule
-from backend.intake_validation import validate_intake, validate_submission_readiness
+from backend.document_rules_v2 import evaluate_document_rule
+from backend.intake_validation_v2 import validate_intake, validate_submission_readiness
 from backend.legal_service import LegalAnalyzer
 from backend.legal_sources import (
     build_verified_legal_basis_text,

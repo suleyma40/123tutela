@@ -3085,6 +3085,17 @@ export default function DashboardV2(props) {
             Primero completas tus datos personales. Luego nos cuentas el caso con preguntas simples. Despues ves el analisis gratis, confirmas el expediente y solo al final decides si pagas el documento.
           </p>
         </div>
+        {(form.category === "Salud" || normalizeAction(form.recommended_action) === "accion de tutela") && (
+          <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>SI EL CASO ES DE TU HIJO O DE OTRA PERSONA</div>
+            <div style={{ marginTop: 8, color: C.text, lineHeight: 1.6 }}>
+              Mas abajo, en <strong>Preguntas finas para accion de tutela</strong>, cambia <strong>Calidad en que actuas</strong> a
+              {" "}
+              <strong>Madre o padre de menor de edad</strong>, <strong>acudiente</strong> o <strong>agente oficioso</strong>.
+              Ahi mismo se abren los datos del menor o del representado.
+            </div>
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {wizardSteps.map((item) => (
             <div
