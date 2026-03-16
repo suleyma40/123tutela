@@ -778,6 +778,7 @@ const getWritingAid = (category) => {
 };
 
 const buildGuidedIntakeInterviewSteps = (form) => {
+  const action = normalizeAction(form.recommended_action);
   const steps = [
     {
       id: "target_entity",
