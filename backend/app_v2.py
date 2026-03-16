@@ -35,6 +35,7 @@ from backend.schemas_v2 import (
     UserResponse,
     WompiCheckoutSessionRequest,
     WompiCheckoutSessionResponse,
+    WompiReconcileRequest,
     WompiWebhookResponse,
 )
 from backend.security import create_token, decode_token, hash_password, verify_password
@@ -47,6 +48,7 @@ from backend.wompi import (
     ensure_checkout_configured,
     ensure_webhook_configured,
     extract_transaction_from_event,
+    fetch_transaction,
     parse_approved_at,
     verify_event_signature,
 )
@@ -1011,6 +1013,52 @@ def _process_wompi_webhook(event_payload: dict[str, Any]) -> WompiWebhookRespons
     return WompiWebhookResponse(ok=True, processed=True, reference=str(reference), status=next_order_status)
 
 
+def _process_wompi_transaction_reconciliation(transaction: dict[str, Any], reference_hint: str | None = None) -> WompiWebhookResponse:
+    reference = str(transaction.get("reference") or reference_hint or "").strip()
+    provider_status = str(transaction.get("status") or "PENDING").upper()
+    if not reference:
+        return WompiWebhookResponse(ok=True, processed=False, status=_wompi_order_status(provider_status))
+
+    existing = repository.get_payment_order_by_reference(reference)
+    if not existing:
+        return WompiWebhookResponse(ok=True, processed=False, reference=reference, status=_wompi_order_status(provider_status))
+
+    next_order_status = _wompi_order_status(provider_status)
+    approved_at = parse_approved_at(transaction) if provider_status == "APPROVED" else None
+    updated_order = repository.update_payment_order_status(
+        reference,
+        status=next_order_status,
+        provider_transaction_id=str(transaction.get("id")) if transaction.get("id") else None,
+        provider_status=provider_status,
+        webhook_payload={"source": "reconciliation", "transaction": transaction},
+        approved_at=approved_at,
+    )
+    if not updated_order:
+        return WompiWebhookResponse(ok=True, processed=False, reference=reference, status=next_order_status)
+
+    case_record = repository.get_case_by_id(str(existing["case_id"]))
+    if case_record and (case_record.get("payment_status") != "pagado" or provider_status == "APPROVED"):
+        repository.update_case_payment(
+            str(existing["case_id"]),
+            reference,
+            payment_status=_wompi_case_payment_status(provider_status),
+        )
+        repository.create_event(
+            case_id=str(existing["case_id"]),
+            event_type="payment_reconciled",
+            actor_type="system",
+            actor_id=None,
+            payload={
+                "reference": reference,
+                "order_status": next_order_status,
+                "provider_status": provider_status,
+                "transaction_id": str(transaction.get("id")) if transaction.get("id") else None,
+            },
+        )
+
+    return WompiWebhookResponse(ok=True, processed=True, reference=reference, status=next_order_status)
+
+
 @app.post("/payments/wompi/webhook", response_model=WompiWebhookResponse)
 async def wompi_webhook(request: Request) -> WompiWebhookResponse:
     if settings.wompi_environment == "sandbox":
@@ -1025,6 +1073,23 @@ async def wompi_webhook_sandbox(request: Request) -> WompiWebhookResponse:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este entorno no está configurado como sandbox.")
     payload = await request.json()
     return _process_wompi_webhook(payload)
+
+
+@app.post("/payments/wompi/reconcile", response_model=WompiWebhookResponse)
+def wompi_reconcile_payment(
+    payload: WompiReconcileRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> WompiWebhookResponse:
+    transaction = fetch_transaction(payload.transaction_id)
+    reference = str(transaction.get("reference") or payload.reference or "").strip()
+    if not reference:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Wompi no devolvio una referencia valida.")
+    order = repository.get_payment_order_by_reference(reference)
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No existe una orden con esa referencia.")
+    if str(order["user_id"]) != str(current_user["id"]) and not _is_internal(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a este pago.")
+    return _process_wompi_transaction_reconciliation(transaction, reference)
 
 
 @app.get("/internal/cases", response_model=list[CaseResponse])

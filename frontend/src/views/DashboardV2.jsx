@@ -1066,7 +1066,7 @@ function GuidedIntakeFields({ form, setForm, missingFields }) {
   );
 }
 
-function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPayment, onRefreshCase, loading }) {
+function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPayment, onReconcilePayment, onRefreshCase, loading }) {
   const [includeFiling, setIncludeFiling] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
   const [selectedCode, setSelectedCode] = useState("");
@@ -1145,8 +1145,20 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
       document.body.appendChild(script);
     });
 
-  const pollPayment = async (reference) => {
+  const pollPayment = async (reference, transactionId) => {
     for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (transactionId && onReconcilePayment) {
+        try {
+          const reconciled = await onReconcilePayment({ transaction_id: transactionId, reference });
+          if (reconciled?.status === "approved") {
+            await onRefreshCase(caseItem.id);
+            setPaymentMessage("Pago aprobado. Ya puedes generar el documento final.");
+            return;
+          }
+        } catch {
+          // si la reconciliacion no aplica todavia, seguimos con el polling local
+        }
+      }
       const order = await onGetPayment(reference);
       if (order.status === "approved") {
         await onRefreshCase(caseItem.id);

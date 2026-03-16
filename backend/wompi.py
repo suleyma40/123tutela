@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import uuid
 from datetime import UTC, datetime
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from backend.config import settings
 
@@ -42,6 +45,10 @@ def amount_cop_to_cents(amount_cop: int) -> int:
 def build_integrity_signature(reference: str, amount_in_cents: int, currency: str) -> str:
     raw = f"{reference}{amount_in_cents}{currency}{settings.wompi_integrity_secret}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def get_api_base_url() -> str:
+    return "https://sandbox.wompi.co/v1" if settings.wompi_environment == "sandbox" else "https://production.wompi.co/v1"
 
 
 def normalize_event_environment(sandbox: bool) -> str:
@@ -95,6 +102,30 @@ def parse_approved_at(transaction: dict[str, Any]) -> datetime | None:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(UTC)
     except ValueError:
         return None
+
+
+def fetch_transaction(transaction_id: str) -> dict[str, Any]:
+    ensure_checkout_configured()
+    request = Request(
+        f"{get_api_base_url()}/transactions/{transaction_id}",
+        headers={
+            "Authorization": f"Bearer {settings.wompi_public_key}",
+            "Accept": "application/json",
+        },
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")
+        raise RuntimeError(f"Wompi respondio {exc.code}: {detail}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"No fue posible consultar Wompi: {exc}") from exc
+
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise RuntimeError("Wompi no devolvio una transaccion valida.")
+    return data
 
 
 def build_checkout_payload(

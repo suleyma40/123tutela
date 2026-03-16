@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock3, Scale, ShieldAlert, XCircle } from "lucide-react";
 
 import { Badge, Button } from "../ui";
@@ -43,14 +43,37 @@ const formatMoney = (value) => {
   return amount.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 };
 
-export default function PaymentResultView({ onOpenDashboard, onLogin, onBackHome }) {
+export default function PaymentResultView({ session, onReconcilePayment, onOpenDashboard, onLogin, onBackHome }) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const [syncMessage, setSyncMessage] = useState("");
   const status = (params.get("status") || "PENDING").toUpperCase();
   const reference = params.get("reference");
+  const transactionId = params.get("id") || params.get("transaction-id") || params.get("transaction_id");
   const amount = formatMoney(params.get("amount-in-cents") ? Number(params.get("amount-in-cents")) / 100 : null);
   const merchant = params.get("merchant_name") || "123tutela";
   const detail = STATUS_COPY[status] || STATUS_COPY.PENDING;
   const Icon = detail.icon;
+
+  useEffect(() => {
+    let cancelled = false;
+    const reconcile = async () => {
+      if (!session?.token || !transactionId || !onReconcilePayment) return;
+      try {
+        const result = await onReconcilePayment({ transaction_id: transactionId, reference });
+        if (!cancelled && result?.status === "approved") {
+          setSyncMessage("El pago ya fue sincronizado con tu expediente.");
+        }
+      } catch {
+        if (!cancelled) {
+          setSyncMessage("No fue posible sincronizar el pago automaticamente todavia. Revisa tu panel en unos segundos.");
+        }
+      }
+    };
+    reconcile();
+    return () => {
+      cancelled = true;
+    };
+  }, [session, transactionId, reference, onReconcilePayment]);
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, #F4F7FB 0%, #EAF0F9 100%)", padding: 24 }}>
@@ -135,6 +158,7 @@ export default function PaymentResultView({ onOpenDashboard, onLogin, onBackHome
               <p style={{ marginTop: 16, color: C.textMuted, fontSize: 13 }}>
                 Si acabas de pagar, el estado del expediente puede tardar unos segundos en reflejarse mientras llega la confirmacion segura del webhook.
               </p>
+              {syncMessage && <p style={{ marginTop: 10, color: C.primary, fontSize: 13 }}>{syncMessage}</p>}
             </div>
           </div>
         </div>

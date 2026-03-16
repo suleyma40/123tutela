@@ -253,6 +253,13 @@ export default function MainAppV2() {
       return response.data;
     }, "No fue posible consultar el estado del pago.");
 
+  const handleReconcilePayment = (payload) =>
+    withAction(async () => {
+      const response = await api.post("/payments/wompi/reconcile", payload, withAuth(session.token));
+      await refreshCollections(session.token, session.user.role);
+      return response.data;
+    }, "No fue posible reconciliar el pago con Wompi.");
+
   const handleRefreshCase = async (caseId, scope = "citizen") => {
     const endpoint = scope === "internal" ? `/internal/cases/${caseId}` : `/cases/${caseId}`;
     const response = await api.get(endpoint, withAuth(session.token));
@@ -380,6 +387,7 @@ export default function MainAppV2() {
           <div key="payment_result">
             <PaymentResultView
               session={session}
+              onReconcilePayment={handleReconcilePayment}
               onOpenDashboard={() => navigate("dashboard", { replace: true })}
               onLogin={() => navigate("login", { replace: true })}
               onBackHome={() => navigate("landing", { replace: true })}
@@ -413,6 +421,7 @@ export default function MainAppV2() {
               onConfirmPayment={handleConfirmPayment}
               onCreateWompiSession={handleCreateWompiSession}
               onGetPayment={handleGetPayment}
+              onReconcilePayment={handleReconcilePayment}
               onRefreshCase={handleRefreshCase}
               onGenerateDocument={handleGenerateDocument}
               onSubmitCase={handleSubmitCase}

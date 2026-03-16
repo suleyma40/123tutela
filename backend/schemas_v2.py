@@ -147,6 +147,11 @@ class WompiWebhookResponse(BaseModel):
     status: str | None = None
 
 
+class WompiReconcileRequest(BaseModel):
+    transaction_id: str = Field(min_length=3, max_length=120)
+    reference: str | None = Field(default=None, min_length=3, max_length=120)
+
+
 class CaseSubmitRequest(BaseModel):
     mode: str = Field(pattern="^(auto|manual_contact|presencial)$")
     manual_contact: str | None = Field(default=None, max_length=180)
