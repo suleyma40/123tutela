@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from backend.catalog_runtime import get_product, list_catalog, suggest_product_code
 from backend.config import settings
 from backend.document_quality import evaluate_generated_document
+from backend.entity_directory import search_entity_directory
 from backend.document_rules import evaluate_document_rule
 from backend.intake_validation import validate_intake, validate_submission_readiness
 from backend.legal_service import LegalAnalyzer
@@ -19,6 +20,7 @@ from backend.schemas_v2 import (
     AnalysisPreviewResponse,
     AuthResponse,
     CatalogProductResponse,
+    EntityAutocompleteResponse,
     CaseCreateRequest,
     CaseDetailResponse,
     CaseDocumentResponse,
@@ -317,6 +319,14 @@ def healthcheck() -> dict[str, str]:
 @app.get("/catalog/products", response_model=list[CatalogProductResponse])
 def get_catalog_products() -> list[CatalogProductResponse]:
     return [CatalogProductResponse(**product) for product in list_catalog()]
+
+
+@app.get("/catalog/entities", response_model=list[EntityAutocompleteResponse])
+def get_catalog_entities(q: str, limit: int = 8) -> list[EntityAutocompleteResponse]:
+    if len(q.strip()) < 2:
+        return []
+    entities = search_entity_directory(q, limit=max(1, min(limit, 12)))
+    return [EntityAutocompleteResponse(**entity) for entity in entities]
 
 
 @app.post("/auth/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)

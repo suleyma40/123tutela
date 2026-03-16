@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Briefcase, CreditCard, FileText, HelpCircle, Layout, LogOut, Plus, Scale, Search, Shield, Upload } from "lucide-react";
 
+import { api } from "../lib/api";
 import { Badge, Button, Field, SessionCard, TextArea, TextInput } from "../ui";
 import { C, CATEGORIES } from "../theme";
 
@@ -124,6 +125,9 @@ const buildPostPayDescription = (form, caseItem) => {
     form.target_identifier ? `Identificacion de la entidad: ${form.target_identifier}.` : "",
     form.target_address ? `Direccion de la entidad: ${form.target_address}.` : "",
     form.legal_representative ? `Representante legal conocido: ${form.legal_representative}.` : "",
+    form.target_pqrs_email ? `Correo PQRS sugerido: ${form.target_pqrs_email}.` : "",
+    form.target_phone ? `Telefono de contacto de la entidad: ${form.target_phone}.` : "",
+    form.target_superintendence ? `Entidad de control relacionada: ${form.target_superintendence}.` : "",
     form.case_story ? `Relato detallado: ${form.case_story}` : "",
     form.key_dates ? `Fechas importantes: ${form.key_dates}.` : "",
     form.prior_claim ? `Gestion previa: ${form.prior_claim_result || "Si reclamo antes."}` : "Gestion previa: No ha reclamado directamente ante la entidad.",
@@ -1559,12 +1563,46 @@ function DetailPanel({
                     <Field label="Correo electronico"><TextInput value={postPayForm.copy_email} onChange={(event) => setPostPayForm((current) => ({ ...current, copy_email: event.target.value }))} placeholder="Para recibir copia del documento" /></Field>
                   </div>
                   <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18, display: "grid", gap: 16 }}>
-                    <Field label="Entidad contra la que reclamas *"><TextInput value={postPayForm.target_entity} onChange={(event) => setPostPayForm((current) => ({ ...current, target_entity: event.target.value }))} placeholder="Ej: Bancolombia, EPS Sura, Claro" /></Field>
+                    <Field label="Entidad contra la que reclamas *">
+                      <div style={{ position: "relative" }}>
+                        <TextInput value={postPayForm.target_entity} onChange={(event) => setPostPayForm((current) => ({ ...current, target_entity: event.target.value }))} placeholder="Ej: Bancolombia, EPS Sura, Claro" />
+                        {entityLookupLoading && <div style={{ marginTop: 8, fontSize: 12, color: C.textMuted }}>Buscando entidades...</div>}
+                        {!entityLookupLoading && !!entitySuggestions.length && (
+                          <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 20, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 16, boxShadow: "0 18px 40px rgba(15, 23, 42, 0.12)", overflow: "hidden" }}>
+                            {entitySuggestions.map((entity, index) => (
+                              <button
+                                key={`${entity.name}-${entity.nit || entity.source || index}`}
+                                type="button"
+                                onClick={() => applyEntitySuggestion(entity)}
+                                style={{ width: "100%", textAlign: "left", border: "none", background: "#fff", padding: "14px 16px", display: "grid", gap: 4, cursor: "pointer", borderBottom: index === entitySuggestions.length - 1 ? "none" : `1px solid ${C.border}` }}
+                              >
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                                  <strong style={{ color: C.text }}>{entity.name}</strong>
+                                  <span style={{ fontSize: 12, color: C.textMuted }}>{entity.type || entity.source || "entidad"}</span>
+                                </div>
+                                <div style={{ fontSize: 12, color: C.textMuted }}>
+                                  {[entity.nit ? `NIT ${entity.nit}` : "", entity.superintendence || "", entity.pqrs_emails?.[0] || ""].filter(Boolean).join(" · ")}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Field>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
                       <Field label="NIT o identificacion"><TextInput value={postPayForm.target_identifier} onChange={(event) => setPostPayForm((current) => ({ ...current, target_identifier: event.target.value }))} /></Field>
                       <Field label="Direccion de la entidad"><TextInput value={postPayForm.target_address} onChange={(event) => setPostPayForm((current) => ({ ...current, target_address: event.target.value }))} /></Field>
                       <Field label="Representante legal"><TextInput value={postPayForm.legal_representative} onChange={(event) => setPostPayForm((current) => ({ ...current, legal_representative: event.target.value }))} /></Field>
                     </div>
+                    {(postPayForm.target_pqrs_email || postPayForm.target_phone || postPayForm.target_superintendence || postPayForm.target_website) && (
+                      <div style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 8 }}>
+                        <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>DATOS PRECARGADOS PARA DOCUMENTO Y RADICACION</div>
+                        {postPayForm.target_pqrs_email && <div style={{ color: C.textMuted }}>Correo PQRS: <strong style={{ color: C.text }}>{postPayForm.target_pqrs_email}</strong></div>}
+                        {postPayForm.target_phone && <div style={{ color: C.textMuted }}>Telefono: <strong style={{ color: C.text }}>{postPayForm.target_phone}</strong></div>}
+                        {postPayForm.target_superintendence && <div style={{ color: C.textMuted }}>Entidad de control: <strong style={{ color: C.text }}>{postPayForm.target_superintendence}</strong></div>}
+                        {postPayForm.target_website && <div style={{ color: C.textMuted }}>Portal: <strong style={{ color: C.text }}>{postPayForm.target_website}</strong></div>}
+                      </div>
+                    )}
                   </div>
                   <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18, display: "grid", gap: 16 }}>
                     <Field label="Cuenta con detalle que paso *">
@@ -1805,6 +1843,11 @@ export default function DashboardV2(props) {
     target_identifier: "",
     target_address: "",
     legal_representative: "",
+    target_pqrs_email: "",
+    target_notification_email: "",
+    target_phone: "",
+    target_website: "",
+    target_superintendence: "",
     case_story: "",
     key_dates: "",
     prior_claim: "no",
@@ -1814,6 +1857,8 @@ export default function DashboardV2(props) {
     prior_tutela_reason: "",
   });
   const [documentReviews, setDocumentReviews] = useState({});
+  const [entitySuggestions, setEntitySuggestions] = useState([]);
+  const [entityLookupLoading, setEntityLookupLoading] = useState(false);
   const [manualContact, setManualContact] = useState("");
   const [submissionNote, setSubmissionNote] = useState("");
   const [radicadoManual, setRadicadoManual] = useState("");
@@ -1842,6 +1887,11 @@ export default function DashboardV2(props) {
       target_identifier: intakeForm.target_identifier || "",
       target_address: intakeForm.target_address || "",
       legal_representative: intakeForm.legal_representative || "",
+      target_pqrs_email: intakeForm.target_pqrs_email || "",
+      target_notification_email: intakeForm.target_notification_email || "",
+      target_phone: intakeForm.target_phone || "",
+      target_website: intakeForm.target_website || "",
+      target_superintendence: intakeForm.target_superintendence || "",
       case_story: intakeForm.case_story || activeCaseDetail.case.description || "",
       key_dates: intakeForm.key_dates || normalizeMentionedDates(activeCaseDetail.case.facts?.fechas_mencionadas) || "",
       prior_claim: intakeForm.prior_claim || "no",
@@ -1851,6 +1901,39 @@ export default function DashboardV2(props) {
       prior_tutela_reason: intakeForm.prior_tutela_reason || "",
     });
   }, [activeCaseDetail, session.user]);
+
+  useEffect(() => {
+    const query = postPayForm.target_entity.trim();
+    if (query.length < 2) {
+      setEntitySuggestions([]);
+      setEntityLookupLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        setEntityLookupLoading(true);
+        const response = await api.get("/catalog/entities", { params: { q: query, limit: 8 } });
+        if (!cancelled) {
+          setEntitySuggestions(response.data || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setEntitySuggestions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setEntityLookupLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [postPayForm.target_entity]);
 
   const stats = useMemo(
     () => [
@@ -1930,6 +2013,22 @@ export default function DashboardV2(props) {
   const openCaseAndFocusDetail = async (caseId, scope = "citizen") => {
     await onOpenCase(caseId, scope);
     setActiveTab("detalle");
+  };
+
+  const applyEntitySuggestion = (entity) => {
+    setPostPayForm((current) => ({
+      ...current,
+      target_entity: entity.name || current.target_entity,
+      target_identifier: entity.nit || current.target_identifier,
+      target_address: entity.address || current.target_address,
+      legal_representative: entity.legal_representative || current.legal_representative,
+      target_pqrs_email: entity.pqrs_emails?.[0] || current.target_pqrs_email,
+      target_notification_email: entity.notification_emails?.[0] || current.target_notification_email,
+      target_phone: entity.phone || entity.phones?.[0] || current.target_phone,
+      target_website: entity.website || current.target_website,
+      target_superintendence: entity.superintendence || current.target_superintendence,
+    }));
+    setEntitySuggestions([]);
   };
 
   const jumpToNextStage = () => {

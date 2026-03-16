@@ -819,6 +819,20 @@ def search_entities(category: str, entity_names: list[str]) -> list[dict[str, An
         return cursor.fetchall()
 
 
+def search_entity_directory(query_text: str, limit: int = 12) -> list[dict[str, Any]]:
+    pattern = f"%{query_text.strip().lower()}%"
+    query = """
+        SELECT *
+        FROM entidades
+        WHERE LOWER(nombre_entidad) LIKE %(pattern)s
+        ORDER BY prioridad ASC NULLS LAST, created_at ASC
+        LIMIT %(limit)s;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"pattern": pattern, "limit": limit})
+        return cursor.fetchall()
+
+
 def list_business_rules() -> list[dict[str, Any]]:
     query = "SELECT * FROM business_rules ORDER BY created_at ASC;"
     with get_connection() as connection, connection.cursor() as cursor:

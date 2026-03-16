@@ -113,6 +113,35 @@ class CatalogProductResponse(BaseModel):
     supports_filing: bool = True
 
 
+class EntityRoutingChannelResponse(BaseModel):
+    channel: str | None = None
+    contact: str | None = None
+    automatable: bool = False
+    genera_radicado: bool = False
+    response_window: str | None = None
+    notes: str | None = None
+
+
+class EntityAutocompleteResponse(BaseModel):
+    name: str
+    type: str | None = None
+    sector: str | None = None
+    nit: str | None = None
+    address: str | None = None
+    city: str | None = None
+    department: str | None = None
+    phone: str | None = None
+    phones: list[str] = Field(default_factory=list)
+    pqrs_emails: list[str] = Field(default_factory=list)
+    notification_emails: list[str] = Field(default_factory=list)
+    website: str | None = None
+    legal_representative: str | None = None
+    superintendence: str | None = None
+    source: str | None = None
+    verified: bool = False
+    routing_channels: list[EntityRoutingChannelResponse] = Field(default_factory=list)
+
+
 class WompiCheckoutSessionRequest(BaseModel):
     product_code: str | None = Field(default=None, min_length=3, max_length=80)
     include_filing: bool = False
