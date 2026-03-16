@@ -124,6 +124,15 @@ const evidenceTypeHints = {
   default: ["PDF", "Fotos o capturas", "Chats exportados", "Correos", "Word o documentos escaneados"],
 };
 
+const summarizeUploadedEvidence = (files = []) =>
+  files
+    .map((item) => item?.original_name || item?.name || "")
+    .filter(Boolean)
+    .join(", ");
+
+const hasEvidenceAvailable = (form, files = []) =>
+  Boolean(form.evidence_summary.trim() || (files || []).length);
+
 const buildPostPayDescription = (form, caseItem) => {
   const parts = [
     caseItem?.recommended_action ? `Documento esperado: ${caseItem.recommended_action}.` : "",
@@ -589,14 +598,14 @@ const buildStructuredDescription = (form) => {
   return sections.join("\n");
 };
 
-const getGuidedIntakeMissing = (form) => {
+const getGuidedIntakeMissing = (form, files = []) => {
   const missing = [];
 
   if (!form.target_entity.trim()) missing.push("Entidad o destinatario");
   if (!form.event_date.trim()) missing.push("Fecha o periodo");
   if (!form.concrete_request.trim()) missing.push("Solicitud concreta");
   if (!form.response_channel.trim()) missing.push("Canal de respuesta");
-  if (!form.evidence_summary.trim()) missing.push("Pruebas o soportes disponibles");
+  if (!hasEvidenceAvailable(form, files)) missing.push("Pruebas o soportes disponibles");
 
   if (form.category === "Salud") {
     if (!form.eps_name.trim()) missing.push("EPS");
@@ -659,11 +668,13 @@ const getGuidedIntakeMissing = (form) => {
   return missing;
 };
 
-const getPreviewGateIssues = (form) => {
+const getPreviewGateIssues = (form, files = []) => {
   const issues = [];
   const descriptionLength = form.description.trim().length;
   const harmLength = form.current_harm.trim().length;
   const evidenceLength = form.evidence_summary.trim().length;
+  const evidenceSummaryFromFiles = summarizeUploadedEvidence(files);
+  const effectiveEvidenceLength = evidenceLength || evidenceSummaryFromFiles.length;
 
   if (descriptionLength < 60) {
     issues.push("El relato libre todavia es muy corto. Describe mejor que paso, en que orden y con que fechas.");
@@ -673,7 +684,7 @@ const getPreviewGateIssues = (form) => {
     issues.push("Debes explicar mejor la afectacion actual o el riesgo concreto que justifica el documento.");
   }
 
-  if (evidenceLength < 20) {
+  if (effectiveEvidenceLength < 20) {
     issues.push("Falta explicar que pruebas, soportes o documentos tienes disponibles.");
   }
 
@@ -2793,8 +2804,8 @@ export default function DashboardV2(props) {
 
   const selectedPriorActions = priorActionMap[form.category] || [];
   const canOperateActiveCase = !!activeCaseDetail?.case && activeCaseDetail.case.user_id === session.user.id;
-  const guidedMissing = useMemo(() => getGuidedIntakeMissing(form), [form]);
-  const previewGateIssues = useMemo(() => getPreviewGateIssues(form), [form]);
+  const guidedMissing = useMemo(() => getGuidedIntakeMissing(form, tempFiles), [form, tempFiles]);
+  const previewGateIssues = useMemo(() => getPreviewGateIssues(form, tempFiles), [form, tempFiles]);
   const composedDescription = useMemo(() => buildStructuredDescription(form), [form]);
   const analysisReady =
     !!form.category &&
@@ -2829,6 +2840,21 @@ export default function DashboardV2(props) {
     if (!file) return;
     const uploaded = await onTempUpload(file);
     setTempFiles((current) => [...current, uploaded]);
+    const uploadedName = uploaded?.original_name || uploaded?.name || "";
+    if (uploadedName) {
+      setForm((current) => {
+        if ((current.evidence_summary || "").toLowerCase().includes(uploadedName.toLowerCase())) {
+          return current;
+        }
+        const mergedEvidence = current.evidence_summary?.trim() ? `${current.evidence_summary}, ${uploadedName}` : uploadedName;
+        const mergedSupporting = current.supporting_documents?.trim() ? `${current.supporting_documents}, ${uploadedName}` : uploadedName;
+        return {
+          ...current,
+          evidence_summary: mergedEvidence,
+          supporting_documents: mergedSupporting,
+        };
+      });
+    }
   };
 
   const uploadEvidence = async (event) => {
