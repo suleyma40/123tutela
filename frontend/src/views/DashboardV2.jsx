@@ -142,6 +142,11 @@ const buildPostPayDescription = (form, caseItem) => {
     form.bank_event_date ? `Fecha del primer cobro o hecho relevante: ${form.bank_event_date}.` : "",
     form.bank_account_reference ? `Referencia del producto financiero: ${form.bank_account_reference}.` : "",
     form.refund_destination ? `Destino solicitado para la devolucion: ${form.refund_destination}.` : "",
+    form.tutela_no_temperity_detail ? `No temeridad o tutela previa: ${form.tutela_no_temperity_detail}.` : "",
+    form.tutela_other_means_detail ? `Subsidiariedad o ausencia de otro medio eficaz: ${form.tutela_other_means_detail}.` : "",
+    form.tutela_immediacy_detail ? `Inmediatez o justificacion temporal: ${form.tutela_immediacy_detail}.` : "",
+    form.tutela_special_protection_detail ? `Condicion de especial proteccion: ${form.tutela_special_protection_detail}.` : "",
+    form.tutela_private_party_ground ? `Fundamento contra particular: ${form.tutela_private_party_ground}.` : "",
     form.prior_claim ? `Gestion previa: ${form.prior_claim_result || "Si reclamo antes."}` : "Gestion previa: No ha reclamado directamente ante la entidad.",
     form.prior_claim_date ? `Fecha del reclamo previo: ${form.prior_claim_date}.` : "",
     form.entity_response ? `Respuesta recibida: ${form.entity_response}` : "",
@@ -198,6 +203,7 @@ const getPostPayQuestionPrompts = (form, caseItem) => {
 
 const buildPostPayInterviewSteps = (form, caseItem) => {
   const category = (caseItem?.category || "").toLowerCase();
+  const action = normalizeAction(caseItem?.recommended_action || caseItem?.workflow_type || "");
   const steps = [
     {
       id: "case_story",
@@ -291,6 +297,48 @@ const buildPostPayInterviewSteps = (form, caseItem) => {
           show: !form.prior_claim_result?.trim(),
         }
       );
+    }
+  }
+
+  if (action === "accion de tutela") {
+    steps.push(
+      {
+        id: "tutela_no_temperity_detail",
+        question: "Para la tutela, necesito saber si ya presentaste otra tutela por los mismos hechos y derechos.",
+        placeholder: "Ej: no he presentado otra tutela por estos mismos hechos y derechos / ya hubo una tutela, pero ahora cambiaron los hechos...",
+        multiline: true,
+        show: !form.tutela_no_temperity_detail?.trim(),
+      },
+      {
+        id: "tutela_other_means_detail",
+        question: "¿Por qué la tutela sí procede en este caso y no basta con otro trámite?",
+        placeholder: "Ej: no existe otro medio eficaz o el daño sigue ocurriendo y necesito protección urgente",
+        multiline: true,
+        show: !form.tutela_other_means_detail?.trim(),
+      },
+      {
+        id: "tutela_immediacy_detail",
+        question: "¿Por qué presentas la tutela ahora? Necesito la explicación de inmediatez.",
+        placeholder: "Ej: el hecho es reciente / la vulneración sigue ocurriendo / el riesgo es actual",
+        multiline: true,
+        show: !form.tutela_immediacy_detail?.trim(),
+      },
+      {
+        id: "tutela_special_protection_detail",
+        question: "¿Existe alguna condición de especial protección que deba resaltarse?",
+        placeholder: "Ej: menor de edad, adulto mayor, embarazo, discapacidad, enfermedad grave",
+        multiline: false,
+        show: !form.tutela_special_protection_detail?.trim(),
+      }
+    );
+    if (String(form.target_entity || "").trim()) {
+      steps.push({
+        id: "tutela_private_party_ground",
+        question: "Si la tutela va contra un particular o empresa privada, ¿por qué jurídicamente procede?",
+        placeholder: "Ej: presta servicio público, existe indefensión, subordinación o habeas data",
+        multiline: true,
+        show: !form.tutela_private_party_ground?.trim(),
+      });
     }
   }
 
@@ -1623,6 +1671,11 @@ function DetailPanel({
     disputed_charge: "",
     bank_account_reference: "",
     refund_destination: "",
+    tutela_no_temperity_detail: "",
+    tutela_other_means_detail: "",
+    tutela_immediacy_detail: "",
+    tutela_special_protection_detail: "",
+    tutela_private_party_ground: "",
     prior_claim: "no",
     prior_claim_date: "",
     prior_claim_result: "",
@@ -2177,6 +2230,11 @@ export default function DashboardV2(props) {
     disputed_charge: "",
     bank_account_reference: "",
     refund_destination: "",
+    tutela_no_temperity_detail: "",
+    tutela_other_means_detail: "",
+    tutela_immediacy_detail: "",
+    tutela_special_protection_detail: "",
+    tutela_private_party_ground: "",
     prior_claim: "no",
     prior_claim_date: "",
     prior_claim_result: "",
@@ -2232,6 +2290,11 @@ export default function DashboardV2(props) {
       disputed_charge: intakeForm.disputed_charge || "",
       bank_account_reference: intakeForm.bank_account_reference || "",
       refund_destination: intakeForm.refund_destination || "",
+      tutela_no_temperity_detail: intakeForm.tutela_no_temperity_detail || "",
+      tutela_other_means_detail: intakeForm.tutela_other_means_detail || "",
+      tutela_immediacy_detail: intakeForm.tutela_immediacy_detail || "",
+      tutela_special_protection_detail: intakeForm.tutela_special_protection_detail || "",
+      tutela_private_party_ground: intakeForm.tutela_private_party_ground || "",
       prior_claim: intakeForm.prior_claim || "no",
       prior_claim_date: intakeForm.prior_claim_date || "",
       prior_claim_result: intakeForm.prior_claim_result || "",
