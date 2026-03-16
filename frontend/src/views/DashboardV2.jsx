@@ -2920,6 +2920,8 @@ export default function DashboardV2(props) {
     guidedMissing.length === 0 &&
     previewGateIssues.length === 0;
   const writingGuide = buildWritingGuide(form.category);
+  const wizardAction = normalizeAction(form.recommended_action);
+  const showRepresentedPersonCard = form.category === "Salud" || wizardAction === "accion de tutela";
   const wizardSteps = [
     { id: 1, label: "Perfil", ready: profileReady },
     { id: 2, label: "Análisis", ready: analysisReady || !!preview },
@@ -3154,6 +3156,41 @@ export default function DashboardV2(props) {
             <Field label="Explica el caso con detalle">
               <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Cuenta que paso, desde cuando, con quien, que pediste antes, que pruebas tienes y que solucion necesitas." />
             </Field>
+            {showRepresentedPersonCard && (
+              <div className="glass-card" style={{ padding: 18, background: "#FFF7ED", display: "grid", gap: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>SI EL CASO ES DE TU HIJO O DE OTRA PERSONA, LLENALO AQUI</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+                  <Field label="Quien presenta el caso">
+                    <select
+                      value={form.acting_capacity}
+                      onChange={(event) => setForm((current) => ({ ...current, acting_capacity: event.target.value }))}
+                      style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+                    >
+                      <option value="nombre_propio">La persona afectada directamente</option>
+                      <option value="madre_padre_menor">Madre o padre de menor</option>
+                      <option value="acudiente">Acudiente o cuidador</option>
+                      <option value="agente_oficioso">Agente oficioso</option>
+                      <option value="representante_legal">Representante legal</option>
+                    </select>
+                  </Field>
+                  <Field label="Nombre del menor o representado">
+                    <TextInput value={form.represented_person_name} onChange={(event) => setForm((current) => ({ ...current, represented_person_name: event.target.value }))} placeholder="Ej: Jeronimo Perez Lopez" />
+                  </Field>
+                  <Field label="Documento del menor o representado">
+                    <TextInput value={form.represented_person_document} onChange={(event) => setForm((current) => ({ ...current, represented_person_document: event.target.value }))} placeholder="Ej: Registro civil, TI o NUIP" />
+                  </Field>
+                  <Field label="Edad o fecha de nacimiento">
+                    <TextInput value={form.represented_person_age} onChange={(event) => setForm((current) => ({ ...current, represented_person_age: event.target.value }))} placeholder="Ej: 10 años / 12 de abril de 2016" />
+                  </Field>
+                  <Field label="Condicion relevante del menor o paciente">
+                    <TextInput value={form.represented_person_condition} onChange={(event) => setForm((current) => ({ ...current, represented_person_condition: event.target.value }))} placeholder="Ej: menor con anemia de celulas falciformes tipo SS" />
+                  </Field>
+                </div>
+                <div style={{ color: C.textMuted, fontSize: 13 }}>
+                  Si el caso es de tu hijo, no esperes a que la IA te lo pregunte abajo. Pon aqui el nombre, edad y condicion del menor.
+                </div>
+              </div>
+            )}
             <GuidedIntakeFields
               form={form}
               setForm={setForm}
@@ -3190,10 +3227,23 @@ export default function DashboardV2(props) {
               <input id="wizard-upload" type="file" style={{ display: "none" }} onChange={uploadTemp} />
               <Button variant="secondary" onClick={() => document.getElementById("wizard-upload").click()} icon={Upload}>Subir anexo</Button>
               {tempFiles.map((item) => <Badge key={item.id} color={C.accent}>{item.original_name}</Badge>)}
-              <Button onClick={async () => setPreview(await onPreview({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) }))} disabled={!analysisReady || loading} icon={Search}>
+              <Button
+                onClick={async () => {
+                  const previewResult = await onPreview({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) });
+                  setPreview(previewResult);
+                  setWizardStep(3);
+                }}
+                disabled={!analysisReady || loading}
+                icon={Search}
+              >
                 {loading ? "Analizando..." : "Generar preview"}
               </Button>
             </div>
+            {actionError && (
+              <div style={{ color: C.danger, background: "#FEF2F2", border: "1px solid #FECACA", padding: 14, borderRadius: 14 }}>
+                {actionError}
+              </div>
+            )}
             <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
               El sistema usa tus datos del paso 1 y tu relato del paso 2 para construir el analisis. Si faltan datos, te lo dira antes de avanzar.
             </div>
