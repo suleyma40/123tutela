@@ -572,6 +572,15 @@ const buildRouteSteps = (preview) => {
   return steps.filter(Boolean).slice(0, 3);
 };
 
+const summarizeCaseCard = (item) => {
+  const details = [];
+  const routingName = item?.routing?.primary_target?.name;
+  if (routingName) details.push(`Entidad: ${routingName}`);
+  if (item?.recommended_action) details.push(`Ruta: ${item.recommended_action}`);
+  if (item?.payment_status === "pagado") details.push("Pago confirmado");
+  return details.slice(0, 3).join(" · ");
+};
+
 const summarizePreviewFixes = ({
   intakeReview,
   documentRuleReview,
@@ -3942,27 +3951,99 @@ export default function DashboardV2(props) {
   ) : <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>Abre un expediente del cliente desde Mis expedientes para continuar el flujo.</div>;
   content.tramites = cases.length ? (
     <div style={{ display: "grid", gap: 16 }}>
-      <div className="glass-card" style={{ padding: 24 }}>
-        <Badge color={C.primary}>Mis expedientes</Badge>
-        <h2 style={{ marginTop: 12, fontSize: 34, lineHeight: 1.08, color: C.text, fontFamily: "'Playfair Display', serif" }}>
-          Aqui ves en que punto va cada caso.
-        </h2>
-        <p style={{ marginTop: 10, color: C.textMuted, maxWidth: 700 }}>
-          Sin lenguaje tecnico. Solo que ya hiciste, que falta y cual es la siguiente accion clara.
-        </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1.35fr 0.85fr", gap: 18 }}>
+        <div
+          className="glass-card"
+          style={{
+            padding: 28,
+            background: "linear-gradient(135deg, #0F172A 0%, #13203A 60%, #183153 100%)",
+            border: "1px solid #1E3A5F",
+            color: "#F8FAFC",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ position: "absolute", inset: "auto -40px -50px auto", width: 180, height: 180, borderRadius: "50%", background: "rgba(59,130,246,0.14)" }} />
+          <Badge color="#93C5FD">Mis expedientes</Badge>
+          <h2 style={{ marginTop: 16, fontSize: 42, lineHeight: 1.02, color: "#F8FAFC", fontFamily: "'Playfair Display', serif", maxWidth: 760 }}>
+            Aqui ves que ya avanzaste y que sigue en cada caso.
+          </h2>
+          <p style={{ marginTop: 14, color: "#CBD5E1", maxWidth: 720, fontSize: 18, lineHeight: 1.7 }}>
+            Sin lenguaje tecnico. Solo el estado real, la siguiente accion clara y el acceso rapido a cada expediente.
+          </p>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 18 }}>
+            <div style={{ padding: "10px 14px", borderRadius: 999, background: "rgba(16,185,129,0.16)", border: "1px solid rgba(16,185,129,0.34)", color: "#A7F3D0", fontWeight: 700 }}>
+              {cases.length} expediente{cases.length === 1 ? "" : "s"} activo{cases.length === 1 ? "" : "s"}
+            </div>
+            <div style={{ padding: "10px 14px", borderRadius: 999, background: "rgba(59,130,246,0.14)", border: "1px solid rgba(147,197,253,0.3)", color: "#DBEAFE", fontWeight: 700 }}>
+              {cases.filter((item) => item.payment_status === "pagado").length} pago{cases.filter((item) => item.payment_status === "pagado").length === 1 ? "" : "s"} confirmado{cases.filter((item) => item.payment_status === "pagado").length === 1 ? "" : "s"}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="glass-card"
+          style={{
+            padding: 24,
+            background: "linear-gradient(180deg, #F8FBFF 0%, #EEF4FF 100%)",
+            border: "1px solid #C7D7FE",
+            display: "grid",
+            gap: 14,
+            alignContent: "start",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>DATOS DE TU CUENTA</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 18, background: C.primary, color: "#fff", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 20 }}>
+              {session.user.name.slice(0, 2).toUpperCase()}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 800, color: C.text, fontSize: 18 }}>{session.user.name}</div>
+              <div style={{ color: C.textMuted, fontSize: 14, wordBreak: "break-word" }}>{session.user.email}</div>
+            </div>
+          </div>
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ padding: 12, borderRadius: 14, background: "#fff", border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>Documento</div>
+              <div style={{ marginTop: 4, color: C.text, fontWeight: 700 }}>{session.user.document_number || "Falta completar"}</div>
+            </div>
+            <div style={{ padding: 12, borderRadius: 14, background: "#fff", border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>Celular</div>
+              <div style={{ marginTop: 4, color: C.text, fontWeight: 700 }}>{session.user.phone || "Falta completar"}</div>
+            </div>
+            <div style={{ padding: 12, borderRadius: 14, background: "#fff", border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>Ciudad</div>
+              <div style={{ marginTop: 4, color: C.text, fontWeight: 700 }}>
+                {[session.user.city, session.user.department].filter(Boolean).join(", ") || "Falta completar"}
+              </div>
+            </div>
+          </div>
+          <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+            Estos son los datos que la app usa para prellenar tus tramites y documentos.
+          </div>
+        </div>
       </div>
       {cases.map((item) => (
-        <div key={item.id} className="glass-card" style={{ padding: 22, display: "grid", gap: 14 }}>
+        <div key={item.id} className="glass-card" style={{ padding: 22, display: "grid", gap: 16, background: "#FFFFFF", border: `1px solid ${C.border}`, boxShadow: "0 20px 50px rgba(15,23,42,0.06)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start" }}>
             <div>
-              <div style={{ fontWeight: 800, color: C.text }}>{item.recommended_action || item.workflow_type}</div>
-              <div style={{ color: C.textMuted, marginTop: 4 }}>{item.category} · {item.user_city}, {item.user_department}</div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ width: 46, height: 46, borderRadius: 16, background: item.status === "radicado" ? "#DCFCE7" : item.generated_document ? "#DBEAFE" : item.payment_status === "pagado" ? "#E0E7FF" : "#FEF3C7", display: "grid", placeItems: "center", color: item.status === "radicado" ? "#166534" : item.generated_document ? "#1D4ED8" : item.payment_status === "pagado" ? "#4338CA" : "#B45309", fontWeight: 800 }}>
+                  {(item.category || "?").slice(0, 1).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, color: C.text, fontSize: 22 }}>{item.recommended_action || item.workflow_type}</div>
+                  <div style={{ color: C.textMuted, marginTop: 4 }}>{item.category} · {item.user_city}, {item.user_department}</div>
+                </div>
+              </div>
             </div>
             <Badge color={item.status === "radicado" ? C.success : item.generated_document ? C.primary : item.payment_status === "pagado" ? C.primary : C.warning}>
               {item.status === "radicado" ? "Radicado" : item.generated_document ? "Documento listo" : item.payment_status === "pagado" ? "Completa datos" : "Pago pendiente"}
             </Badge>
           </div>
-          <div style={{ color: C.textMuted }}>{item.description}</div>
+          <div style={{ color: C.textMuted, lineHeight: 1.7 }}>
+            {summarizeCaseCard(item) || "La plataforma ya organizo este expediente y te muestra el siguiente movimiento claro."}
+          </div>
           <div style={{ padding: 16, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>SIGUIENTE PASO</div>
             <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
@@ -3974,6 +4055,11 @@ export default function DashboardV2(props) {
                     : "Revisa el documento y elige como radicarlo."
                   : "Completa tus datos para generar el documento final."}
             </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Badge color={item.payment_status === "pagado" ? C.success : C.warning}>Pago: {item.payment_status}</Badge>
+            <Badge color={item.routing?.automatable ? C.primary : C.textMuted}>{item.routing?.automatable ? "Canal automatico" : "Revision manual"}</Badge>
+            {item.routing?.primary_target?.name && <Badge color={C.accent}>{item.routing.primary_target.name}</Badge>}
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <Button variant="secondary" onClick={() => openCaseAndFocusDetail(item.id)}>Abrir expediente</Button>
