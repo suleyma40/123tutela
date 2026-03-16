@@ -1186,17 +1186,14 @@ function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFiel
         <Field label="Declaracion bajo juramento de no temeridad">
           <TextArea value={form.tutela_oath_statement} onChange={(event) => setField("tutela_oath_statement", event.target.value)} placeholder="Ej: Bajo la gravedad del juramento manifiesto que no he presentado otra accion de tutela por los mismos hechos, derechos y pretensiones." style={{ minHeight: 90 }} />
         </Field>
-        <Field label="Subsidiariedad o ausencia de otro medio eficaz">
-          <TextArea value={form.tutela_other_means_detail} onChange={(event) => setField("tutela_other_means_detail", event.target.value)} placeholder="Explica por que la tutela si procede: no hay otro medio eficaz, o existe urgencia o perjuicio irremediable." style={{ minHeight: 90 }} />
+        <Field label="Que tramites hiciste antes y por que hoy necesitas ayuda urgente">
+          <TextArea value={form.tutela_other_means_detail} onChange={(event) => setField("tutela_other_means_detail", event.target.value)} placeholder="Ej: fui a la EPS, a la farmacia y a atencion al usuario, pero no solucionaron; mi hijo sigue sin medicamento y el riesgo continua." style={{ minHeight: 90 }} />
         </Field>
-        <Field label="Inmediatez o justificacion temporal">
-          <TextInput value={form.tutela_immediacy_detail} onChange={(event) => setField("tutela_immediacy_detail", event.target.value)} placeholder="Ej: la vulneracion sigue ocurriendo hoy / el hecho es reciente / el riesgo es actual" />
+        <Field label="Por que presentas la tutela ahora">
+          <TextInput value={form.tutela_immediacy_detail} onChange={(event) => setField("tutela_immediacy_detail", event.target.value)} placeholder="Ej: el medicamento sigue sin entregarse hoy, el riesgo es actual y ya hubo urgencias recientes" />
         </Field>
         <Field label="Sujeto de especial proteccion, si aplica">
           <TextInput value={form.tutela_special_protection_detail} onChange={(event) => setField("tutela_special_protection_detail", event.target.value)} placeholder="Ej: menor, embarazada, adulto mayor, discapacidad, paciente de alto riesgo" />
-        </Field>
-        <Field label="Fundamento contra particular, si aplica">
-          <TextInput value={form.tutela_private_party_ground} onChange={(event) => setField("tutela_private_party_ground", event.target.value)} placeholder="Ej: prestador de servicio publico, indefension, subordinacion, habeas data" />
         </Field>
       </>
     );
@@ -3215,41 +3212,6 @@ export default function DashboardV2(props) {
             <Field label="Explica el caso con detalle">
               <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Cuenta que paso, desde cuando, con quien, que pediste antes, que pruebas tienes y que solucion necesitas." />
             </Field>
-            {showRepresentedPersonCard && (
-              <div className="glass-card" style={{ padding: 18, background: "#FFF7ED", display: "grid", gap: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>SI EL CASO ES DE TU HIJO O DE OTRA PERSONA, LLENALO AQUI</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-                  <Field label="Quien presenta el caso">
-                    <select
-                      value={form.acting_capacity}
-                      onChange={(event) => setForm((current) => ({ ...current, acting_capacity: event.target.value }))}
-                      style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
-                    >
-                      <option value="nombre_propio">La persona afectada directamente</option>
-                      <option value="madre_padre_menor">Madre o padre de menor</option>
-                      <option value="acudiente">Acudiente o cuidador</option>
-                      <option value="agente_oficioso">Agente oficioso</option>
-                      <option value="representante_legal">Representante legal</option>
-                    </select>
-                  </Field>
-                  <Field label="Nombre del menor o representado">
-                    <TextInput value={form.represented_person_name} onChange={(event) => setForm((current) => ({ ...current, represented_person_name: event.target.value }))} placeholder="Ej: Jeronimo Perez Lopez" />
-                  </Field>
-                  <Field label="Documento del menor o representado">
-                    <TextInput value={form.represented_person_document} onChange={(event) => setForm((current) => ({ ...current, represented_person_document: event.target.value }))} placeholder="Ej: Registro civil, TI o NUIP" />
-                  </Field>
-                  <Field label="Edad o fecha de nacimiento">
-                    <TextInput value={form.represented_person_age} onChange={(event) => setForm((current) => ({ ...current, represented_person_age: event.target.value }))} placeholder="Ej: 10 años / 12 de abril de 2016" />
-                  </Field>
-                  <Field label="Condicion relevante del menor o paciente">
-                    <TextInput value={form.represented_person_condition} onChange={(event) => setForm((current) => ({ ...current, represented_person_condition: event.target.value }))} placeholder="Ej: menor con anemia de celulas falciformes tipo SS" />
-                  </Field>
-                </div>
-                <div style={{ color: C.textMuted, fontSize: 13 }}>
-                  Si el caso es de tu hijo, no esperes a que la IA te lo pregunte abajo. Pon aqui el nombre, edad y condicion del menor.
-                </div>
-              </div>
-            )}
             <GuidedIntakeFields
               form={form}
               setForm={setForm}

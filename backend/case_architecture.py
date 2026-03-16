@@ -471,7 +471,7 @@ def collect_pending_questions(
             questions.append(
                 _build_question(
                     question_id="subsidiariedad",
-                    prompt="Que gestion previa hiciste y por que no existe otro medio eficaz para protegerte?",
+                    prompt="Que tramites, reclamos o gestiones hiciste antes y por que el problema sigue necesitando una solucion urgente hoy?",
                     reason="La tutela necesita justificar subsidiariedad.",
                     priority="alta",
                     field="subsidiarity_support",
@@ -482,7 +482,7 @@ def collect_pending_questions(
             questions.append(
                 _build_question(
                     question_id="temeridad",
-                    prompt="Ya presentaste otra tutela por los mismos hechos? Si si, explica que paso.",
+                    prompt="Ya presentaste otra tutela, peticion, incidente o medida por estos mismos hechos? Si si, explica que paso.",
                     reason="Debemos descartar temeridad antes de redactar.",
                     priority="alta",
                     field="prior_tutela_reason",
@@ -493,7 +493,7 @@ def collect_pending_questions(
             questions.append(
                 _build_question(
                     question_id="inmediatez",
-                    prompt="Por que el problema sigue ocurriendo hoy o por que la tutela sigue siendo urgente?",
+                    prompt="Por que el problema sigue ocurriendo hoy o por que tu necesidad de proteccion sigue siendo urgente en este momento?",
                     reason="La inmediatez constitucional aun no queda fuerte.",
                     priority="alta",
                     field="ongoing_harm",
