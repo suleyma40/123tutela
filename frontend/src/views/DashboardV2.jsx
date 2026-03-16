@@ -140,6 +140,8 @@ const buildPostPayDescription = (form, caseItem) => {
     form.disputed_charge ? `Cobro o concepto discutido: ${form.disputed_charge}.` : "",
     form.bank_amount_involved ? `Valor o monto discutido: ${form.bank_amount_involved}.` : "",
     form.bank_event_date ? `Fecha del primer cobro o hecho relevante: ${form.bank_event_date}.` : "",
+    form.bank_account_reference ? `Referencia del producto financiero: ${form.bank_account_reference}.` : "",
+    form.refund_destination ? `Destino solicitado para la devolucion: ${form.refund_destination}.` : "",
     form.prior_claim ? `Gestion previa: ${form.prior_claim_result || "Si reclamo antes."}` : "Gestion previa: No ha reclamado directamente ante la entidad.",
     form.prior_claim_date ? `Fecha del reclamo previo: ${form.prior_claim_date}.` : "",
     form.entity_response ? `Respuesta recibida: ${form.entity_response}` : "",
@@ -192,6 +194,107 @@ const getPostPayQuestionPrompts = (form, caseItem) => {
     if (form.prior_claim === "si" && !form.prior_claim_result?.trim()) prompts.push("Que respondio el banco o que paso despues de tu reclamo?");
   }
   return prompts;
+};
+
+const buildPostPayInterviewSteps = (form, caseItem) => {
+  const category = (caseItem?.category || "").toLowerCase();
+  const steps = [
+    {
+      id: "case_story",
+      question: "Cuéntame brevemente qué pasó, en qué orden y cómo te afecta hoy.",
+      placeholder: "Ej: saqué la tarjeta en octubre, luego empezaron a cobrar un seguro que nunca autoricé...",
+      multiline: true,
+      show: !form.case_story.trim(),
+    },
+    {
+      id: "key_dates",
+      question: "¿Qué fechas exactas o aproximadas recuerdas de los hechos?",
+      placeholder: "Ej: octubre de 2025 apertura, noviembre de 2025 primer cobro, enero de 2026 reclamo",
+      multiline: false,
+      show: !form.key_dates.trim(),
+    },
+    {
+      id: "concrete_request",
+      question: "¿Qué quieres exactamente que ordene, corrija o responda la entidad?",
+      placeholder: "Ej: eliminar el seguro, devolver los cobros y responder de fondo",
+      multiline: true,
+      show: !form.concrete_request.trim(),
+    },
+    {
+      id: "evidence_summary",
+      question: "¿Qué pruebas tienes hoy disponibles?",
+      placeholder: "Ej: extractos PDF, capturas, chat, correo, contrato, audio, radicado",
+      multiline: true,
+      show: !form.evidence_summary?.trim(),
+    },
+  ];
+
+  if (category === "bancos") {
+    steps.push(
+      {
+        id: "bank_product_type",
+        question: "¿Qué producto financiero está involucrado?",
+        placeholder: "Ej: tarjeta de crédito Visa, cuenta de ahorros, préstamo",
+        multiline: false,
+        show: !form.bank_product_type?.trim(),
+      },
+      {
+        id: "disputed_charge",
+        question: "¿Cuál es exactamente el cobro o concepto discutido?",
+        placeholder: "Ej: seguro de desempleo, cuota de manejo, interés o cargo no reconocido",
+        multiline: false,
+        show: !form.disputed_charge?.trim(),
+      },
+      {
+        id: "bank_amount_involved",
+        question: "¿Por qué valor te están cobrando ese concepto o cuánto te han cobrado en total?",
+        placeholder: "Ej: $38.500 mensuales o $154.000 acumulados",
+        multiline: false,
+        show: !form.bank_amount_involved?.trim(),
+      },
+      {
+        id: "bank_event_date",
+        question: "¿Desde qué fecha viste el primer cobro o el primer hecho relevante?",
+        placeholder: "Ej: 12 de octubre de 2025",
+        multiline: false,
+        show: !form.bank_event_date?.trim(),
+      },
+      {
+        id: "bank_account_reference",
+        question: "¿Qué referencia del producto puedes compartir sin exponer todo el dato?",
+        placeholder: "Ej: tarjeta terminada en 4821 o cuenta de ahorros terminada en 9912",
+        multiline: false,
+        show: !form.bank_account_reference?.trim(),
+      },
+      {
+        id: "refund_destination",
+        question: "Si pides devolución, ¿a qué cuenta, tarjeta o medio deben abonarte los valores?",
+        placeholder: "Ej: a la misma tarjeta terminada en 4821 o a la cuenta de ahorros Bancolombia",
+        multiline: false,
+        show: !form.refund_destination?.trim(),
+      }
+    );
+    if (form.prior_claim === "si") {
+      steps.push(
+        {
+          id: "prior_claim_date",
+          question: "¿En qué fecha reclamaste al banco y por qué canal lo hiciste?",
+          placeholder: "Ej: 14 de enero de 2026 por PQRS web y llamada",
+          multiline: false,
+          show: !form.prior_claim_date?.trim(),
+        },
+        {
+          id: "prior_claim_result",
+          question: "¿Qué te respondió el banco o qué ocurrió después del reclamo?",
+          placeholder: "Ej: dijeron que el seguro estaba activo, pero no enviaron autorización ni soporte",
+          multiline: true,
+          show: !form.prior_claim_result?.trim(),
+        }
+      );
+    }
+  }
+
+  return steps.filter((step) => step.show);
 };
 
 const buildDocumentChecklist = (item, review, files) => {
@@ -1518,6 +1621,8 @@ function DetailPanel({
     bank_amount_involved: "",
     bank_event_date: "",
     disputed_charge: "",
+    bank_account_reference: "",
+    refund_destination: "",
     prior_claim: "no",
     prior_claim_date: "",
     prior_claim_result: "",
@@ -1546,6 +1651,7 @@ function DetailPanel({
   const [radicadoManual, setRadicadoManual] = useState("");
   const [radicadoNote, setRadicadoNote] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
+  const [interviewDraft, setInterviewDraft] = useState("");
 
   if (!detail) {
     return <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>Abre un expediente para continuar el wizard del caso activo.</div>;
@@ -1560,6 +1666,8 @@ function DetailPanel({
   const flowStep = getActiveFlowStep(item);
   const missingFields = getPostPayMissingFields(postPayForm, item);
   const missingQuestions = getPostPayQuestionPrompts(postPayForm, item);
+  const interviewSteps = buildPostPayInterviewSteps(postPayForm, item);
+  const activeInterviewStep = interviewSteps[0] || null;
   const checklist = buildDocumentChecklist(item, review, files);
   const whatsappCopy = postPayForm.phone || item.user_phone || "";
   const evidenceHints = evidenceTypeHints[item.category] || evidenceTypeHints.default;
@@ -1575,6 +1683,12 @@ function DetailPanel({
     if (!file) return;
     await onUploadEvidence(file, evidenceNote);
     setEvidenceNote("");
+  };
+
+  const answerInterviewStep = () => {
+    if (!activeInterviewStep || !interviewDraft.trim()) return;
+    setPostPayForm((current) => ({ ...current, [activeInterviewStep.id]: interviewDraft.trim() }));
+    setInterviewDraft("");
   };
 
   return (
@@ -1713,6 +1827,34 @@ function DetailPanel({
                     )}
                   </div>
                   <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18, display: "grid", gap: 16 }}>
+                    {!!activeInterviewStep && (
+                      <div style={{ padding: 18, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", display: "grid", gap: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: C.primary }}>ASISTENTE DEL CASO</div>
+                        <div style={{ color: C.text, fontWeight: 700, lineHeight: 1.6 }}>{activeInterviewStep.question}</div>
+                        {activeInterviewStep.multiline ? (
+                          <TextArea
+                            value={interviewDraft}
+                            onChange={(event) => setInterviewDraft(event.target.value)}
+                            style={{ minHeight: 90 }}
+                            placeholder={activeInterviewStep.placeholder}
+                          />
+                        ) : (
+                          <TextInput
+                            value={interviewDraft}
+                            onChange={(event) => setInterviewDraft(event.target.value)}
+                            placeholder={activeInterviewStep.placeholder}
+                          />
+                        )}
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          <Button variant="secondary" onClick={answerInterviewStep} disabled={!interviewDraft.trim()}>
+                            Guardar respuesta y seguir
+                          </Button>
+                          <div style={{ color: C.textMuted, fontSize: 13, alignSelf: "center" }}>
+                            La app te pregunta lo que falta para que el documento quede completo antes de redactarlo.
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <Field label="Cuenta con detalle que paso *">
                       <TextArea value={postPayForm.case_story} onChange={(event) => setPostPayForm((current) => ({ ...current, case_story: event.target.value }))} style={{ minHeight: 140 }} placeholder="Fechas, que te negaron, que respuesta te dieron, como te afecta." />
                     </Field>
@@ -1738,6 +1880,12 @@ function DetailPanel({
                         </Field>
                         <Field label="Fecha del primer cobro o hecho *">
                           <TextInput value={postPayForm.bank_event_date} onChange={(event) => setPostPayForm((current) => ({ ...current, bank_event_date: event.target.value }))} placeholder="Ej: 12 de octubre de 2025" />
+                        </Field>
+                        <Field label="Referencia de tarjeta o cuenta">
+                          <TextInput value={postPayForm.bank_account_reference} onChange={(event) => setPostPayForm((current) => ({ ...current, bank_account_reference: event.target.value }))} placeholder="Ej: tarjeta terminada en 4821 o cuenta terminada en 9912" />
+                        </Field>
+                        <Field label="A donde deben devolver el dinero">
+                          <TextInput value={postPayForm.refund_destination} onChange={(event) => setPostPayForm((current) => ({ ...current, refund_destination: event.target.value }))} placeholder="Ej: a la misma tarjeta, a mi cuenta Bancolombia o consignacion a..." />
                         </Field>
                       </div>
                     )}
@@ -2027,6 +2175,8 @@ export default function DashboardV2(props) {
     bank_amount_involved: "",
     bank_event_date: "",
     disputed_charge: "",
+    bank_account_reference: "",
+    refund_destination: "",
     prior_claim: "no",
     prior_claim_date: "",
     prior_claim_result: "",
@@ -2080,6 +2230,8 @@ export default function DashboardV2(props) {
       bank_amount_involved: intakeForm.bank_amount_involved || "",
       bank_event_date: intakeForm.bank_event_date || "",
       disputed_charge: intakeForm.disputed_charge || "",
+      bank_account_reference: intakeForm.bank_account_reference || "",
+      refund_destination: intakeForm.refund_destination || "",
       prior_claim: intakeForm.prior_claim || "no",
       prior_claim_date: intakeForm.prior_claim_date || "",
       prior_claim_result: intakeForm.prior_claim_result || "",
