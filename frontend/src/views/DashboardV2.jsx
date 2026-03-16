@@ -1489,6 +1489,10 @@ function DetailPanel({
   entityLookupLoading = false,
   entitySuggestions = [],
   onApplyEntitySuggestion = () => {},
+  regenerationReason = "",
+  setRegenerationReason = () => {},
+  regenerationContext = "",
+  setRegenerationContext = () => {},
   loading,
   onViewDocument,
   onGenerateFromFlow,
@@ -2578,6 +2582,10 @@ export default function DashboardV2(props) {
         entityLookupLoading={entityLookupLoading}
         entitySuggestions={entitySuggestions}
         onApplyEntitySuggestion={applyEntitySuggestion}
+        regenerationReason={regenerationReason}
+        setRegenerationReason={setRegenerationReason}
+        regenerationContext={regenerationContext}
+        setRegenerationContext={setRegenerationContext}
         loading={loading}
         onViewDocument={setDocumentCase}
         onGenerateFromFlow={async () => {
