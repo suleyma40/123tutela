@@ -401,6 +401,54 @@ def get_case_by_id(case_id: str) -> dict[str, Any] | None:
         return cursor.fetchone()
 
 
+def update_case_intake(
+    case_id: str,
+    *,
+    workflow_type: str,
+    description: str,
+    facts: dict[str, Any],
+    legal_analysis: dict[str, Any],
+    routing: dict[str, Any],
+    prerequisites: list[dict[str, Any]],
+    warnings: list[str],
+    recommended_action: str,
+    strategy_text: str,
+) -> dict[str, Any] | None:
+    query = """
+        UPDATE casos
+        SET workflow_type = %(workflow_type)s,
+            descripcion = %(description)s,
+            facts = %(facts)s::jsonb,
+            legal_analysis = %(legal_analysis)s::jsonb,
+            routing = %(routing)s::jsonb,
+            prerequisites = %(prerequisites)s::jsonb,
+            warnings = %(warnings)s::jsonb,
+            recommended_action = %(recommended_action)s,
+            strategy_text = %(strategy_text)s,
+            updated_at = %(updated_at)s
+        WHERE id = %(case_id)s
+        RETURNING *;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "case_id": case_id,
+                "workflow_type": workflow_type,
+                "description": description,
+                "facts": _json(facts),
+                "legal_analysis": _json(legal_analysis),
+                "routing": _json(routing),
+                "prerequisites": _json(prerequisites),
+                "warnings": _json(warnings),
+                "recommended_action": recommended_action,
+                "strategy_text": strategy_text,
+                "updated_at": datetime.now(timezone.utc),
+            },
+        )
+        return cursor.fetchone()
+
+
 def create_payment_order(
     *,
     case_id: str,

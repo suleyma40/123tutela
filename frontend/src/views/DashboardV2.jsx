@@ -115,6 +115,65 @@ const statusColors = {
   requiere_accion_manual: C.danger,
 };
 
+const specialProtectionOptions = ["Menor de edad", "Adulto mayor", "Embarazada", "Discapacidad", "Otro", "No aplica"];
+
+const buildPostPayDescription = (form, caseItem) => {
+  const parts = [
+    caseItem?.recommended_action ? `Documento esperado: ${caseItem.recommended_action}.` : "",
+    form.target_entity ? `Entidad reclamada: ${form.target_entity}.` : "",
+    form.target_identifier ? `Identificacion de la entidad: ${form.target_identifier}.` : "",
+    form.target_address ? `Direccion de la entidad: ${form.target_address}.` : "",
+    form.legal_representative ? `Representante legal conocido: ${form.legal_representative}.` : "",
+    form.case_story ? `Relato detallado: ${form.case_story}` : "",
+    form.key_dates ? `Fechas importantes: ${form.key_dates}.` : "",
+    form.prior_claim ? `Gestion previa: ${form.prior_claim_result || "Si reclamo antes."}` : "Gestion previa: No ha reclamado directamente ante la entidad.",
+    form.entity_response ? `Respuesta recibida: ${form.entity_response}` : "",
+    form.special_protection && form.special_protection !== "No aplica" ? `Sujeto de especial proteccion: ${form.special_protection}.` : "",
+    form.prior_tutela === "si" ? `Ya hubo tutela previa. Diferencia relevante: ${form.prior_tutela_reason || "Sin detalle adicional."}` : "",
+    form.copy_email ? `Enviar copia adicional a: ${form.copy_email}.` : "",
+  ].filter(Boolean);
+
+  return parts.join("\n");
+};
+
+const getPostPayMissingFields = (form, caseItem) => {
+  const missing = [];
+  if (!form.full_name.trim()) missing.push("Nombre completo");
+  if (!form.document_number.trim()) missing.push("Cedula");
+  if (!form.address.trim()) missing.push("Direccion");
+  if (!form.phone.trim()) missing.push("WhatsApp / celular");
+  if (!form.target_entity.trim()) missing.push("Entidad contra la que reclamas");
+  if (!form.case_story.trim()) missing.push("Cuenta con detalle que paso");
+  if (!form.key_dates.trim()) missing.push("Fechas importantes");
+  if (!form.special_protection.trim()) missing.push("Proteccion especial");
+  if (!form.prior_tutela.trim()) missing.push("Tutela previa");
+  if ((caseItem?.recommended_action || "").toLowerCase().includes("tutela") && form.prior_tutela === "si" && !form.prior_tutela_reason.trim()) {
+    missing.push("Por que esta tutela es diferente");
+  }
+  return missing;
+};
+
+const buildDocumentChecklist = (item, review, files) => {
+  const explicit = review?.strengths?.slice(0, 4) || [];
+  const rights = item.legal_analysis?.derechos_vulnerados || [];
+  const rules = item.legal_analysis?.normas_relevantes || [];
+  const base = [
+    rights.length ? `${rights.length} derechos identificados` : "",
+    rules.length ? `${rules.length} normas base usadas` : "",
+    files.length ? `${files.length} pruebas adjuntas revisadas` : "Puedes seguir agregando pruebas si luego las necesitas",
+    review?.passed ? "Paso control automatico de calidad" : "",
+  ].filter(Boolean);
+  return [...explicit, ...base].slice(0, 6);
+};
+
+const getActiveFlowStep = (item) => {
+  if (!item) return 1;
+  if (item.status === "radicado") return 4;
+  if (item.generated_document) return 3;
+  if (item.payment_status === "pagado") return 2;
+  return 1;
+};
+
 const buildWritingGuide = (category) => {
   const base = {
     title: "Que debes contar para que el documento salga bien",
@@ -1358,258 +1417,302 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
   );
 }
 
-function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
+function DetailPanel({
+  detail,
+  postPayForm,
+  setPostPayForm,
+  documentReview,
+  loading,
+  onViewDocument,
+  onGenerateFromFlow,
+  onSubmitCase,
+  onManualRadicado,
+  onUploadEvidence,
+}) {
+  const [manualContact, setManualContact] = useState("");
+  const [submissionNote, setSubmissionNote] = useState("");
+  const [radicadoManual, setRadicadoManual] = useState("");
+  const [radicadoNote, setRadicadoNote] = useState("");
+  const [evidenceNote, setEvidenceNote] = useState("");
+
   if (!detail) {
-    return <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>Abre un expediente para ver timeline, archivos y trazabilidad.</div>;
+    return <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>Abre un expediente para continuar el wizard del caso activo.</div>;
   }
 
-  const { case: item, files, submission_attempts: attempts, timeline } = detail;
+  const { case: item, files } = detail;
   const submissionSummary = item.submission_summary || {};
   const guidance = submissionSummary.guidance || {};
-  const emailStatus = submissionSummary.post_radicado_email || {};
-  const routingSnapshot = guidance.routing_snapshot || {};
-  const proofDeliveryChannels = guidance.proof_delivery_channels || [];
-  const continuityOffers = guidance.continuity_offers || [];
-  const nextStep =
-    guidance.next_step_suggestion ||
-    (item.payment_status !== "pagado"
-      ? "Completar el pago para activar el documento final."
-      : !item.generated_document
-        ? "Generar el documento final desde acciones operativas."
-        : item.status === "radicado"
-          ? "Revisar el comprobante y continuar con seguimiento si aplica."
-          : item.routing?.automatable
-            ? "Ejecutar la radicacion automatica o revisar el ultimo intento."
-            : "Completar el envio manual o presencial y registrar el radicado.");
-  const estimatedTime =
-    guidance.estimated_response_window ||
-    (item.payment_status !== "pagado"
-      ? "Pendiente de pago"
-      : item.status === "radicado"
-        ? "Radicado emitido"
-        : item.routing?.automatable
-          ? "Menos de 5 minutos cuando el canal responde"
-          : "Depende del canal manual elegido");
-  const continuationOptions = buildContinuationOptions(item);
-  const postRadicadoStatusLabel =
-    emailStatus.status === "sent"
-      ? "Enviado"
-      : emailStatus.status === "pending_configuration"
-        ? "Pendiente de configurar"
-        : emailStatus.status === "error"
-          ? "Error"
-          : "Aun no procesado";
-  const postRadicadoStatusColor =
-    emailStatus.status === "sent"
-      ? C.success
-      : emailStatus.status === "pending_configuration"
-        ? C.warning
-        : emailStatus.status === "error"
-          ? C.danger
-          : C.textMuted;
-  const emailStatusDetails =
-    emailStatus.reason === "smtp_not_configured"
-      ? "Falta configurar SMTP en produccion para que este correo salga automaticamente."
-      : emailStatus.reason === "missing_recipient"
-        ? "El expediente no tiene correo del cliente para enviar la notificacion."
-        : emailStatus.reason
-          ? `Detalle tecnico: ${emailStatus.reason}`
-          : guidance.post_radicado_copy?.body || "El cliente vera el siguiente paso y los tiempos esperados desde el panel y el correo.";
+  const review = documentReview || submissionSummary.document_quality || null;
+  const rights = item.legal_analysis?.derechos_vulnerados || [];
+  const rules = item.legal_analysis?.normas_relevantes || [];
+  const flowStep = getActiveFlowStep(item);
+  const missingFields = getPostPayMissingFields(postPayForm, item);
+  const checklist = buildDocumentChecklist(item, review, files);
+  const whatsappCopy = postPayForm.phone || item.user_phone || "";
+  const progressSteps = [
+    { id: 1, label: "Diagnostico" },
+    { id: 2, label: "Completa datos" },
+    { id: 3, label: "Documento listo" },
+    { id: 4, label: "Radicacion" },
+  ];
+
+  const uploadEvidence = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await onUploadEvidence(file, evidenceNote);
+    setEvidenceNote("");
+  };
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
-      <SessionCard title="Expediente activo" subtitle={`${item.category} - ${item.workflow_type.replaceAll("_", " ")}`}>
-        <div style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Badge color={statusColors[item.status] || C.primary}>{statusLabels[item.status] || item.status}</Badge>
-            <Badge color={item.payment_status === "pagado" ? C.success : C.warning}>Pago: {item.payment_status}</Badge>
-            <Badge color={item.routing?.automatable ? C.primary : C.danger}>{item.routing?.automatable ? "Canal automatico" : "Fallback manual"}</Badge>
-          </div>
-          <div style={{ color: C.text }}>{item.description}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 14 }}>
-            <div style={{ padding: 18, borderRadius: 18, background: "#08172E", color: "#fff" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#8FD3FF" }}>SIGUIENTE PASO</div>
-              <div style={{ marginTop: 10, fontSize: 24, lineHeight: 1.2, fontWeight: 800 }}>{nextStep}</div>
-              <div style={{ marginTop: 12, color: "rgba(255,255,255,0.72)" }}>
-                Tiempo estimado: {estimatedTime}
+      <div className="glass-card" style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "240px 1fr" }}>
+          <div style={{ padding: 26, borderRight: `1px solid ${C.border}`, background: "#F4F7FB", display: "grid", alignContent: "space-between", minHeight: 720 }}>
+            <div style={{ display: "grid", gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>EXPEDIENTE</div>
+                <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{item.id.slice(0, 18)}</div>
+              </div>
+              <div style={{ padding: 16, borderRadius: 18, background: "#111827", color: "#fff" }}>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>Estado actual</div>
+                <div style={{ marginTop: 8, fontSize: 22, lineHeight: 1.15, fontWeight: 800 }}>
+                  {flowStep === 1 ? "Diagnostico listo" : flowStep === 2 ? "Faltan tus datos" : flowStep === 3 ? "Documento listo" : "Radicado"}
+                </div>
               </div>
             </div>
-            <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>RESUMEN DEL CASO</div>
-              <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Analisis</span>
-                  <strong style={{ color: C.success }}>Listo</strong>
+            <div style={{ padding: 14, borderRadius: 16, background: "#0F172A", color: "#fff" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: C.primary, display: "grid", placeItems: "center", fontWeight: 800 }}>
+                  {(item.user_name || "U").slice(0, 2).toUpperCase()}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Pago</span>
-                  <strong style={{ color: item.payment_status === "pagado" ? C.success : C.warning }}>
-                    {item.payment_status === "pagado" ? "Confirmado" : "Pendiente"}
-                  </strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Documento</span>
-                  <strong style={{ color: item.generated_document ? C.success : C.textMuted }}>
-                    {item.generated_document ? "Disponible" : "Aun no generado"}
-                  </strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Radicacion</span>
-                  <strong style={{ color: item.status === "radicado" ? C.success : C.textMuted }}>
-                    {item.status === "radicado" ? "Completada" : "Pendiente"}
-                  </strong>
+                <div>
+                  <div style={{ fontWeight: 800 }}>{item.user_name}</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{item.user_phone || "Sin telefono"}</div>
                 </div>
               </div>
             </div>
           </div>
-          <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
-            <div style={{ fontWeight: 800, color: C.text }}>{item.routing?.primary_target?.name || "Sin destino"}</div>
-            <div style={{ color: C.textMuted, marginTop: 6 }}>{item.routing?.subject || "Sin asunto sugerido"}</div>
-          </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {item.generated_document && <Button variant="outline" onClick={() => onViewDocument(item)} style={{ width: "fit-content" }}>Abrir documento</Button>}
-            <Button variant="ghost" style={{ background: "#EEF4FF", color: C.primary }} onClick={onGoNextStage}>
-              Ver siguiente etapa
-            </Button>
-          </div>
-        </div>
-      </SessionCard>
 
-      <SessionCard title="Continuidad del caso" subtitle="Esto es lo siguiente que puede necesitar tu tramite despues del estado actual.">
-        <div style={{ display: "grid", gap: 12 }}>
-          {continuationOptions.map((option) => (
-            <div key={option} className="glass-card" style={{ padding: 16, background: "#FCFDFF" }}>
-              <div style={{ color: C.text, fontWeight: 700 }}>{option}</div>
+          <div style={{ padding: 28, display: "grid", gap: 22 }}>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ color: C.textMuted, fontSize: 13, fontWeight: 700 }}>{item.recommended_action || item.workflow_type}</div>
+                  <h2 style={{ marginTop: 6, fontSize: 38, lineHeight: 1.05, color: C.text, fontFamily: "'Playfair Display', serif" }}>{item.category}</h2>
+                </div>
+                <Badge color={flowStep >= 3 ? C.success : item.payment_status === "pagado" ? C.primary : C.warning}>
+                  {flowStep >= 3 ? "Documento listo" : item.payment_status === "pagado" ? "Pago confirmado" : "Pago pendiente"}
+                </Badge>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 18 }}>
+                {progressSteps.map((step) => {
+                  const active = step.id === flowStep;
+                  const completed = step.id < flowStep;
+                  return (
+                    <div key={step.id} style={{ display: "grid", gap: 8 }}>
+                      <div style={{ height: 6, borderRadius: 999, background: completed || active ? (step.id === 3 ? "#84CC16" : C.primary) : "#D5DCE8" }} />
+                      <div style={{ color: completed || active ? C.text : C.textMuted, fontWeight: active ? 800 : 700, fontSize: 14 }}>{`${step.id}. ${step.label}`}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          ))}
-          <div style={{ color: C.textMuted, fontSize: 14 }}>
-            Cuando una continuidad implique nuevo cobro, lo veras claramente dentro del panel y tambien en las notificaciones del caso.
-          </div>
-        </div>
-      </SessionCard>
 
-      <SessionCard title="Trazabilidad post-radicado" subtitle="Comprobante, estado del correo al cliente y siguiente paso operativo.">
-        <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 14 }}>
-          <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>COMPROBANTE Y CANAL</div>
-            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ color: C.textMuted }}>Tipo de soporte</span>
-                <strong style={{ color: C.text }}>{guidance.proof_type || "Pendiente"}</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ color: C.textMuted }}>Radicado o comprobante</span>
-                <strong style={{ color: item.status === "radicado" ? C.success : C.text }}>
-                  {submissionSummary.radicado || routingSnapshot.radicado || "Pendiente"}
-                </strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ color: C.textMuted }}>Canal usado</span>
-                <strong style={{ color: C.text }}>{submissionSummary.last_channel || guidance.channel || "Pendiente"}</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ color: C.textMuted }}>Destino</span>
-                <strong style={{ color: C.text }}>{submissionSummary.last_destination || routingSnapshot.destination_name || "Pendiente"}</strong>
-              </div>
-              <div style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>
-                {proofDeliveryChannels.length
-                  ? `Recibiras o podras validar este soporte por: ${proofDeliveryChannels.join(", ")}.`
-                  : "Cuando el canal responda, el comprobante quedara visible tambien en este panel."}
-              </div>
-            </div>
-          </div>
-          <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>NOTIFICACION AL CLIENTE</div>
-              <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Correo post-radicado</span>
-                  <strong style={{ color: postRadicadoStatusColor }}>{postRadicadoStatusLabel}</strong>
+            <div style={{ padding: 22, borderRadius: 22, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
+              {flowStep === 1 && (
+                <div style={{ display: "grid", gap: 16 }}>
+                  <div style={{ color: C.text, fontSize: 24, fontWeight: 800 }}>Tu diagnostico ya esta listo</div>
+                  <div style={{ color: C.textMuted, lineHeight: 1.7 }}>{item.strategy_text}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+                    <div style={{ padding: 16, borderRadius: 18, background: "#EEF4FF" }}>
+                      <div style={{ fontSize: 12, color: C.primary, fontWeight: 800 }}>DERECHOS IDENTIFICADOS</div>
+                      <div style={{ marginTop: 10, color: C.text, fontWeight: 700 }}>{rights.length ? rights.join(", ") : "Se consolidan con los datos del expediente."}</div>
+                    </div>
+                    <div style={{ padding: 16, borderRadius: 18, background: "#F7F8FA" }}>
+                      <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>NORMAS BASE</div>
+                      <div style={{ marginTop: 10, color: C.text, fontWeight: 700 }}>{rules.length ? rules.join(", ") : "Base normativa general cargada."}</div>
+                    </div>
+                  </div>
+                  <div style={{ padding: 16, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FED7AA", color: "#9A3412" }}>
+                    Para avanzar al formulario necesitas confirmar el pago del documento.
+                  </div>
                 </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ color: C.textMuted }}>Se envia a</span>
-                <strong style={{ color: C.text }}>{item.usuario_email || "Sin correo"}</strong>
-              </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Tiempo estimado de respuesta</span>
-                  <strong style={{ color: C.text }}>{estimatedTime}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Asunto</span>
-                  <strong style={{ color: C.text, textAlign: "right" }}>{emailStatus.subject || "Pendiente"}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Ultimo intento</span>
-                  <strong style={{ color: C.text }}>{emailStatus.attempted_at ? shortDate(emailStatus.attempted_at) : "Pendiente"}</strong>
-                </div>
-                <div style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>
-                  {emailStatusDetails}
-                </div>
-              </div>
-            </div>
-        </div>
-        <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", marginTop: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>SIGUIENTE PASO OPERATIVO</div>
-          <div style={{ marginTop: 10, fontSize: 20, lineHeight: 1.3, fontWeight: 800, color: C.text }}>{nextStep}</div>
-          {!!continuityOffers.length && (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-              {continuityOffers.map((offer) => (
-                <Badge key={offer} color={C.primary}>{offer}</Badge>
-              ))}
-            </div>
-          )}
-        </div>
-      </SessionCard>
+              )}
 
-      <SessionCard title="Soportes y trazabilidad tecnica" subtitle="Solo abre estas secciones cuando necesites revisar detalle operativo o evidencia.">
-        <div style={{ display: "grid", gap: 12 }}>
-          <details style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: "#FCFDFF", padding: 16 }}>
-            <summary style={{ cursor: "pointer", fontWeight: 800, color: C.text }}>Archivos y evidencias</summary>
-            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-              {files.length ? files.map((file) => (
-                <div key={file.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
+              {flowStep === 2 && (
+                <div style={{ display: "grid", gap: 18 }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: C.text }}>{file.original_name}</div>
-                    <div style={{ color: C.textMuted, fontSize: 13 }}>{file.file_kind} - {Math.round(file.file_size / 1024)} KB</div>
+                    <div style={{ color: C.text, fontSize: 24, fontWeight: 800 }}>Completa los datos de tu caso</div>
+                    <div style={{ marginTop: 6, color: C.textMuted }}>Necesitamos esta informacion para generar un documento solido con fundamentos legales.</div>
                   </div>
-                  <a href={`${apiBase}/files/${file.id}`} target="_blank" rel="noreferrer" style={{ color: C.primary, textDecoration: "none", fontWeight: 700 }}>Abrir</a>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+                    <Field label="Tu nombre completo *"><TextInput value={postPayForm.full_name} onChange={(event) => setPostPayForm((current) => ({ ...current, full_name: event.target.value }))} /></Field>
+                    <Field label="Cedula de ciudadania *"><TextInput value={postPayForm.document_number} onChange={(event) => setPostPayForm((current) => ({ ...current, document_number: event.target.value }))} /></Field>
+                    <Field label="Direccion de residencia *"><TextInput value={postPayForm.address} onChange={(event) => setPostPayForm((current) => ({ ...current, address: event.target.value }))} /></Field>
+                    <Field label="WhatsApp / celular *"><TextInput value={postPayForm.phone} onChange={(event) => setPostPayForm((current) => ({ ...current, phone: event.target.value }))} /></Field>
+                    <Field label="Correo electronico"><TextInput value={postPayForm.copy_email} onChange={(event) => setPostPayForm((current) => ({ ...current, copy_email: event.target.value }))} placeholder="Para recibir copia del documento" /></Field>
+                  </div>
+                  <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18, display: "grid", gap: 16 }}>
+                    <Field label="Entidad contra la que reclamas *"><TextInput value={postPayForm.target_entity} onChange={(event) => setPostPayForm((current) => ({ ...current, target_entity: event.target.value }))} placeholder="Ej: Bancolombia, EPS Sura, Claro" /></Field>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+                      <Field label="NIT o identificacion"><TextInput value={postPayForm.target_identifier} onChange={(event) => setPostPayForm((current) => ({ ...current, target_identifier: event.target.value }))} /></Field>
+                      <Field label="Direccion de la entidad"><TextInput value={postPayForm.target_address} onChange={(event) => setPostPayForm((current) => ({ ...current, target_address: event.target.value }))} /></Field>
+                      <Field label="Representante legal"><TextInput value={postPayForm.legal_representative} onChange={(event) => setPostPayForm((current) => ({ ...current, legal_representative: event.target.value }))} /></Field>
+                    </div>
+                  </div>
+                  <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18, display: "grid", gap: 16 }}>
+                    <Field label="Cuenta con detalle que paso *">
+                      <TextArea value={postPayForm.case_story} onChange={(event) => setPostPayForm((current) => ({ ...current, case_story: event.target.value }))} style={{ minHeight: 140 }} placeholder="Fechas, que te negaron, que respuesta te dieron, como te afecta." />
+                    </Field>
+                    <Field label="Fechas importantes *"><TextInput value={postPayForm.key_dates} onChange={(event) => setPostPayForm((current) => ({ ...current, key_dates: event.target.value }))} placeholder="Cuando paso, cuando reclamaste y cuando respondieron" /></Field>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Ya reclamaste directamente ante la entidad? *</div>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        {[["si", "Si, reclame"], ["no", "No, aun no"]].map(([value, label]) => (
+                          <button key={value} onClick={() => setPostPayForm((current) => ({ ...current, prior_claim: value }))} style={{ border: `1px solid ${postPayForm.prior_claim === value ? C.primary : C.border}`, background: postPayForm.prior_claim === value ? C.primaryLight : "#fff", color: postPayForm.prior_claim === value ? C.primary : C.text, borderRadius: 14, padding: "10px 16px", fontWeight: 700, cursor: "pointer" }}>{label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {postPayForm.prior_claim === "si" && (
+                      <Field label="Que respuesta te dieron?">
+                        <TextArea value={postPayForm.prior_claim_result} onChange={(event) => setPostPayForm((current) => ({ ...current, prior_claim_result: event.target.value }))} style={{ minHeight: 90 }} />
+                      </Field>
+                    )}
+                    <Field label="Sujeto de especial proteccion *">
+                      <select value={postPayForm.special_protection} onChange={(event) => setPostPayForm((current) => ({ ...current, special_protection: event.target.value }))} style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}>
+                        {specialProtectionOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                      </select>
+                    </Field>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Has presentado tutela antes por esto? *</div>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        {[["no", "No"], ["si", "Si"]].map(([value, label]) => (
+                          <button key={value} onClick={() => setPostPayForm((current) => ({ ...current, prior_tutela: value }))} style={{ border: `1px solid ${postPayForm.prior_tutela === value ? C.primary : C.border}`, background: postPayForm.prior_tutela === value ? C.primaryLight : "#fff", color: postPayForm.prior_tutela === value ? C.primary : C.text, borderRadius: 14, padding: "10px 16px", fontWeight: 700, cursor: "pointer" }}>{label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {postPayForm.prior_tutela === "si" && (
+                      <Field label="Si si, por que es diferente?">
+                        <TextArea value={postPayForm.prior_tutela_reason} onChange={(event) => setPostPayForm((current) => ({ ...current, prior_tutela_reason: event.target.value }))} style={{ minHeight: 90 }} />
+                      </Field>
+                    )}
+                  </div>
+                  <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18, display: "grid", gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Sube tus pruebas</div>
+                      <div style={{ color: C.textMuted, marginTop: 4 }}>PDF, imagen o Word. Maximo 10MB por archivo.</div>
+                    </div>
+                    <input id="postpay-evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
+                    <div style={{ border: `1px dashed ${C.border}`, borderRadius: 18, padding: 24, background: "#F8FAFD", display: "grid", gap: 12, justifyItems: "center" }}>
+                      <TextInput value={evidenceNote} onChange={(event) => setEvidenceNote(event.target.value)} placeholder="Descripcion del archivo" style={{ maxWidth: 420 }} />
+                      <Button variant="secondary" onClick={() => document.getElementById("postpay-evidence-upload").click()} icon={Upload}>Arrastra archivos o haz clic</Button>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {files.map((file) => <Badge key={file.id} color={C.accent}>{file.original_name}</Badge>)}
+                    </div>
+                  </div>
+                  {!!missingFields.length && (
+                    <div style={{ padding: 14, borderRadius: 16, background: "#FFF7ED", border: "1px solid #FED7AA", color: "#9A3412" }}>
+                      Faltan estos campos antes de generar el documento: {missingFields.join(", ")}.
+                    </div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ color: C.textMuted, fontSize: 13 }}>* Campos obligatorios</div>
+                    <Button onClick={onGenerateFromFlow} disabled={loading || !!missingFields.length} icon={ArrowRight}>
+                      {loading ? "Generando..." : "Generar mi documento"}
+                    </Button>
+                  </div>
                 </div>
-              )) : <div style={{ color: C.textMuted }}>Sin archivos asociados.</div>}
-            </div>
-          </details>
+              )}
 
-          <details style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: "#FCFDFF", padding: 16 }}>
-            <summary style={{ cursor: "pointer", fontWeight: 800, color: C.text }}>Intentos de envio</summary>
-            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-              {attempts.length ? attempts.map((attempt) => (
-                <div key={attempt.id} style={{ padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                    <strong style={{ color: C.text }}>{attempt.channel}</strong>
-                    <Badge color={attempt.radicado ? C.success : C.primary}>{attempt.status}</Badge>
+              {flowStep === 3 && (
+                <div style={{ display: "grid", gap: 18 }}>
+                  <div style={{ padding: 18, borderRadius: 18, background: "#14532D", color: "#ECFDF5" }}>
+                    <div style={{ fontSize: 28, fontWeight: 800 }}>Tu documento esta listo</div>
+                    <div style={{ marginTop: 8, fontSize: 18 }}>{item.recommended_action} generado el {item.updated_at ? shortDate(item.updated_at) : "hace unos minutos"}</div>
                   </div>
-                  <div style={{ color: C.textMuted, marginTop: 8 }}>{attempt.destination_name || "Destino manual"}</div>
-                  <div style={{ color: C.textMuted }}>{attempt.destination_contact || "Sin contacto"}</div>
-                  {attempt.radicado && <div style={{ marginTop: 8, color: C.success, fontWeight: 700 }}>Radicado: {attempt.radicado}</div>}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+                    <div style={{ padding: 18, borderRadius: 18, background: "#111827", color: "#fff" }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#86EFAC" }}>CALIDAD DEL DOCUMENTO</div>
+                      <div style={{ marginTop: 10, fontSize: 48, lineHeight: 1, fontWeight: 900 }}>{review?.score || "--"}/100</div>
+                      <div style={{ marginTop: 8, color: "rgba(255,255,255,0.75)" }}>{review?.passed ? "Aprobado, buena fundamentacion" : "Pendiente de validacion"}</div>
+                    </div>
+                    <div style={{ padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted }}>DERECHOS IDENTIFICADOS</div>
+                      <div style={{ marginTop: 10, color: C.text, fontWeight: 800, fontSize: 24 }}>{rights.length ? rights.join(" · ") : "Se consolidaron los derechos base del caso."}</div>
+                    </div>
+                  </div>
+                  <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Tu documento incluye</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginTop: 14 }}>
+                      {checklist.map((line) => <div key={line} style={{ color: C.textMuted }}>{`✓ ${line}`}</div>)}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <Button onClick={() => onViewDocument(item)}>Ver documento completo</Button>
+                    <Button variant="outline" onClick={() => onViewDocument(item)}>Descargar PDF</Button>
+                    <Button variant="ghost" style={{ background: "#EEF4FF", color: C.primary }} onClick={() => onViewDocument(item)}>Ver en lenguaje simple</Button>
+                  </div>
+                  <div style={{ padding: 16, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
+                    El PDF ya fue enviado a tu WhatsApp {whatsappCopy || "registrado"}.
+                  </div>
                 </div>
-              )) : <div style={{ color: C.textMuted }}>No hay envios registrados.</div>}
-            </div>
-          </details>
+              )}
 
-          <details style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: "#FCFDFF", padding: 16 }}>
-            <summary style={{ cursor: "pointer", fontWeight: 800, color: C.text }}>Timeline tecnico</summary>
-            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-              {timeline.length ? timeline.map((event) => (
-                <div key={event.id} style={{ padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                    <strong style={{ color: C.text }}>{event.event_type}</strong>
-                    <span style={{ color: C.textMuted, fontSize: 13 }}>{shortDate(event.created_at)}</span>
+              {flowStep === 4 && (
+                <div style={{ display: "grid", gap: 18 }}>
+                  <div style={{ padding: 18, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE" }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: C.text }}>Tu documento fue radicado</div>
+                    <div style={{ marginTop: 8, color: C.textMuted }}>
+                      {submissionSummary.radicado ? `Comprobante ${submissionSummary.radicado} disponible para este expediente.` : "Ya registramos el cierre operativo de la radicacion."}
+                    </div>
                   </div>
-                  <pre style={{ margin: "8px 0 0", whiteSpace: "pre-wrap", color: C.textMuted, fontFamily: "'DM Sans', sans-serif" }}>{JSON.stringify(event.payload || {}, null, 2)}</pre>
+                  <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted }}>SIGUIENTE PASO</div>
+                    <div style={{ marginTop: 8, color: C.text, fontWeight: 800, fontSize: 24 }}>{guidance.next_step_suggestion || "Haz seguimiento a la respuesta de la entidad."}</div>
+                    <div style={{ marginTop: 8, color: C.textMuted }}>{guidance.estimated_response_window || "Te avisaremos si hay novedades importantes."}</div>
+                  </div>
                 </div>
-              )) : <div style={{ color: C.textMuted }}>Sin eventos todavia.</div>}
+              )}
             </div>
-          </details>
+
+            {flowStep === 3 && (
+              <div style={{ padding: 22, borderRadius: 22, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: C.text }}>Siguiente paso: radicacion</div>
+                <div style={{ marginTop: 8, color: C.textMuted }}>Puedes radicar tu mismo, pedir la guia o dejar que nosotros lo hagamos por ti.</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 18 }}>
+                  <Button onClick={() => onSubmitCase({ mode: "auto", notes: submissionNote })}>Radicar por mi (+$34.000)</Button>
+                  <Button variant="outline" onClick={() => onSubmitCase({ mode: "manual_contact", manual_contact: manualContact, notes: submissionNote })}>Dame la guia (+$17.000)</Button>
+                  <Button variant="ghost" style={{ background: "#F8FAFD", border: `1px solid ${C.border}` }} onClick={() => onManualRadicado({ radicado: radicadoManual || `AUTO-${Date.now()}`, notes: radicadoNote || "Usuario decidio radicar por su cuenta." })}>Yo lo radico por mi cuenta</Button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
+                  <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o canal para la guia" />
+                  <TextInput value={submissionNote} onChange={(event) => setSubmissionNote(event.target.value)} placeholder="Notas para la radicacion" />
+                  <TextInput value={radicadoManual} onChange={(event) => setRadicadoManual(event.target.value)} placeholder="Radicado manual si lo haces tu" />
+                  <TextInput value={radicadoNote} onChange={(event) => setRadicadoNote(event.target.value)} placeholder="Notas del cierre manual" />
+                </div>
+              </div>
+            )}
+
+            {flowStep >= 4 && (
+              <div style={{ padding: 22, borderRadius: 22, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Comprobante y seguimiento</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginTop: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RADICADO</div>
+                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{submissionSummary.radicado || "Pendiente de confirmacion"}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>DESTINO</div>
+                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{(guidance.routing_snapshot || {}).destination_name || item.routing?.primary_target?.name || "Entidad"}</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 14, color: C.textMuted }}>{guidance.post_radicado_copy?.body || "Tu haces el seguimiento de la respuesta con este comprobante."}</div>
+              </div>
+            )}
+          </div>
         </div>
-      </SessionCard>
+      </div>
     </div>
   );
 }
@@ -1652,6 +1755,7 @@ export default function DashboardV2(props) {
     onTempUpload,
     onCreateCase,
     onOpenCase,
+    onUpdateCaseIntake,
     onConfirmPayment,
     onCreateWompiSession,
     onGetPayment,
@@ -1685,6 +1789,25 @@ export default function DashboardV2(props) {
   const [tempFiles, setTempFiles] = useState([]);
   const [preview, setPreview] = useState(null);
   const [draftDetail, setDraftDetail] = useState(null);
+  const [postPayForm, setPostPayForm] = useState({
+    full_name: session.user.name || "",
+    document_number: session.user.document_number || "",
+    phone: session.user.phone || "",
+    address: session.user.address || "",
+    copy_email: session.user.email || "",
+    target_entity: "",
+    target_identifier: "",
+    target_address: "",
+    legal_representative: "",
+    case_story: "",
+    key_dates: "",
+    prior_claim: "no",
+    prior_claim_result: "",
+    special_protection: "No aplica",
+    prior_tutela: "no",
+    prior_tutela_reason: "",
+  });
+  const [documentReviews, setDocumentReviews] = useState({});
   const [manualContact, setManualContact] = useState("");
   const [submissionNote, setSubmissionNote] = useState("");
   const [radicadoManual, setRadicadoManual] = useState("");
@@ -1698,6 +1821,30 @@ export default function DashboardV2(props) {
     () => [profile.name, profile.document_number, profile.phone, profile.city, profile.department, profile.address].every((value) => value?.trim()),
     [profile]
   );
+  const activeDocumentReview = activeCaseDetail?.case?.id ? documentReviews[activeCaseDetail.case.id] : null;
+
+  useEffect(() => {
+    if (!activeCaseDetail?.case) return;
+    const intakeForm = activeCaseDetail.case.facts?.intake_form || {};
+    setPostPayForm({
+      full_name: intakeForm.full_name || activeCaseDetail.case.user_name || session.user.name || "",
+      document_number: intakeForm.document_number || activeCaseDetail.case.user_document || session.user.document_number || "",
+      phone: intakeForm.phone || activeCaseDetail.case.user_phone || session.user.phone || "",
+      address: intakeForm.address || activeCaseDetail.case.user_address || session.user.address || "",
+      copy_email: intakeForm.copy_email || activeCaseDetail.case.user_email || session.user.email || "",
+      target_entity: intakeForm.target_entity || "",
+      target_identifier: intakeForm.target_identifier || "",
+      target_address: intakeForm.target_address || "",
+      legal_representative: intakeForm.legal_representative || "",
+      case_story: intakeForm.case_story || activeCaseDetail.case.description || "",
+      key_dates: intakeForm.key_dates || activeCaseDetail.case.facts?.fechas_mencionadas?.join(", ") || "",
+      prior_claim: intakeForm.prior_claim || "no",
+      prior_claim_result: intakeForm.prior_claim_result || "",
+      special_protection: intakeForm.special_protection || "No aplica",
+      prior_tutela: intakeForm.prior_tutela || "no",
+      prior_tutela_reason: intakeForm.prior_tutela_reason || "",
+    });
+  }, [activeCaseDetail, session.user]);
 
   const stats = useMemo(
     () => [
@@ -1715,6 +1862,16 @@ export default function DashboardV2(props) {
     { id: "detalle", label: "Detalle activo", icon: FileText },
     { id: "ayuda", label: "Ayuda", icon: HelpCircle },
   ];
+  if (!isInternal) {
+    sideItems.splice(
+      0,
+      sideItems.length,
+      { id: "tramites", label: "Mis expedientes", icon: Briefcase },
+      { id: "detalle", label: "Expediente activo", icon: FileText },
+      { id: "nuevo", label: "Nuevo tramite", icon: Plus },
+      { id: "ayuda", label: "Ayuda", icon: HelpCircle }
+    );
+  }
   if (isInternal) sideItems.push({ id: "interno", label: "Backoffice", icon: Shield });
 
   const selectedPriorActions = priorActionMap[form.category] || [];
@@ -2205,6 +2362,94 @@ export default function DashboardV2(props) {
       </div>
     ),
   };
+
+  content.detalle = canOperateActiveCase ? (
+    <div style={{ display: "grid", gap: 18 }}>
+      <DetailPanel
+        detail={activeCaseDetail}
+        postPayForm={postPayForm}
+        setPostPayForm={setPostPayForm}
+        documentReview={activeDocumentReview}
+        loading={loading}
+        onViewDocument={setDocumentCase}
+        onGenerateFromFlow={async () => {
+          if (!activeCaseDetail?.case?.id) return;
+          const nextProfile = {
+            ...profile,
+            name: postPayForm.full_name,
+            document_number: postPayForm.document_number,
+            phone: postPayForm.phone,
+            address: postPayForm.address,
+          };
+          setProfile(nextProfile);
+          await onSaveProfile(nextProfile);
+          await onUpdateCaseIntake(activeCaseDetail.case.id, {
+            description: buildPostPayDescription(postPayForm, activeCaseDetail.case),
+            form_data: postPayForm,
+          });
+          const generated = await onGenerateDocument(activeCaseDetail.case.id);
+          setDocumentReviews((current) => ({ ...current, [activeCaseDetail.case.id]: generated?.quality_review || null }));
+        }}
+        onSubmitCase={(payload) => onSubmitCase(activeCaseDetail.case.id, payload)}
+        onManualRadicado={(payload) => onManualRadicado(activeCaseDetail.case.id, payload)}
+        onUploadEvidence={(file, note) => onUploadEvidence(activeCaseDetail.case.id, file, note)}
+      />
+      {activeCaseDetail?.case?.payment_status !== "pagado" && (
+        <PaymentCard
+          title="Pago y activacion del documento"
+          caseItem={activeCaseDetail.case}
+          catalog={catalog}
+          onCreateWompiSession={onCreateWompiSession}
+          onGetPayment={onGetPayment}
+          onRefreshCase={onRefreshCase}
+          loading={loading}
+        />
+      )}
+    </div>
+  ) : <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>Abre un expediente del cliente desde Mis expedientes para continuar el flujo.</div>;
+  content.tramites = cases.length ? (
+    <div style={{ display: "grid", gap: 16 }}>
+      <div className="glass-card" style={{ padding: 24 }}>
+        <Badge color={C.primary}>Mis expedientes</Badge>
+        <h2 style={{ marginTop: 12, fontSize: 34, lineHeight: 1.08, color: C.text, fontFamily: "'Playfair Display', serif" }}>
+          Aqui ves en que punto va cada caso.
+        </h2>
+        <p style={{ marginTop: 10, color: C.textMuted, maxWidth: 700 }}>
+          Sin lenguaje tecnico. Solo que ya hiciste, que falta y cual es la siguiente accion clara.
+        </p>
+      </div>
+      {cases.map((item) => (
+        <div key={item.id} className="glass-card" style={{ padding: 22, display: "grid", gap: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start" }}>
+            <div>
+              <div style={{ fontWeight: 800, color: C.text }}>{item.recommended_action || item.workflow_type}</div>
+              <div style={{ color: C.textMuted, marginTop: 4 }}>{item.category} · {item.user_city}, {item.user_department}</div>
+            </div>
+            <Badge color={item.status === "radicado" ? C.success : item.generated_document ? C.primary : item.payment_status === "pagado" ? C.primary : C.warning}>
+              {item.status === "radicado" ? "Radicado" : item.generated_document ? "Documento listo" : item.payment_status === "pagado" ? "Completa datos" : "Pago pendiente"}
+            </Badge>
+          </div>
+          <div style={{ color: C.textMuted }}>{item.description}</div>
+          <div style={{ padding: 16, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>SIGUIENTE PASO</div>
+            <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+              {item.payment_status !== "pagado"
+                ? "Confirma el pago para desbloquear el formulario."
+                : item.generated_document
+                  ? item.status === "radicado"
+                    ? "Revisa el comprobante y haz seguimiento a la respuesta."
+                    : "Revisa el documento y elige como radicarlo."
+                  : "Completa tus datos para generar el documento final."}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Button variant="secondary" onClick={() => openCaseAndFocusDetail(item.id)}>Abrir expediente</Button>
+            {item.generated_document && <Button variant="outline" onClick={() => setDocumentCase(item)}>Ver documento</Button>}
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : <div className="glass-card" style={{ padding: 30, color: C.textMuted }}>Todavia no tienes expedientes guardados.</div>;
 
   return (
     <div style={{ minHeight: "100vh", background: "#111827", display: "flex", color: "#fff" }}>

@@ -54,7 +54,7 @@ export default function MainAppV2() {
   const [cases, setCases] = useState([]);
   const [internalCases, setInternalCases] = useState([]);
   const [catalog, setCatalog] = useState([]);
-  const [activeTab, setActiveTab] = useState("inicio");
+  const [activeTab, setActiveTab] = useState("tramites");
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -231,6 +231,14 @@ export default function MainAppV2() {
       setActiveCaseDetail(response.data);
       return response.data;
     }, "No fue posible abrir el expediente.");
+
+  const handleUpdateCaseIntake = (caseId, payload) =>
+    withAction(async () => {
+      const response = await api.patch(`/cases/${caseId}/intake`, payload, withAuth(session.token));
+      await refreshCollections(session.token, session.user.role);
+      setActiveCaseDetail(response.data);
+      return response.data;
+    }, "No fue posible guardar los datos del expediente.");
 
   const handleConfirmPayment = (caseId, reference) =>
     withAction(async () => {
@@ -418,6 +426,7 @@ export default function MainAppV2() {
               onTempUpload={handleTempUpload}
               onCreateCase={handleCreateCase}
               onOpenCase={handleOpenCase}
+              onUpdateCaseIntake={handleUpdateCaseIntake}
               onConfirmPayment={handleConfirmPayment}
               onCreateWompiSession={handleCreateWompiSession}
               onGetPayment={handleGetPayment}

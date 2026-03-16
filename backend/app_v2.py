@@ -22,6 +22,7 @@ from backend.schemas_v2 import (
     CaseCreateRequest,
     CaseDetailResponse,
     CaseDocumentResponse,
+    CaseIntakeUpdateRequest,
     CaseResponse,
     CaseSubmitRequest,
     InternalStatusUpdateRequest,
@@ -111,6 +112,8 @@ def _normalize_case(case: dict[str, Any]) -> CaseResponse:
         description=case["descripcion"],
         recommended_action=case.get("recommended_action"),
         strategy_text=case.get("strategy_text"),
+        facts=case.get("facts") or {},
+        legal_analysis=case.get("legal_analysis") or {},
         routing=case.get("routing") or {},
         prerequisites=case.get("prerequisites") or [],
         warnings=case.get("warnings") or [],
@@ -575,6 +578,101 @@ def get_case(case_id: str, current_user: dict[str, Any] = Depends(get_current_us
     return _snapshot_case_detail(case)
 
 
+@app.patch("/cases/{case_id}/intake", response_model=CaseDetailResponse)
+def update_case_intake(
+    case_id: str,
+    payload: CaseIntakeUpdateRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> CaseDetailResponse:
+    case = repository.get_case_for_user(case_id, str(current_user["id"]))
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
+
+    category = case.get("categoria") or case.get("category")
+    prior_actions = [item["id"] for item in (case.get("prerequisites") or []) if item.get("completed")]
+    result = analyzer.full_analysis(payload.description, category=category)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
+
+    workflow = infer_workflow(
+        category=category,
+        description=payload.description,
+        facts=result["facts"],
+        legal_analysis=result["legal_analysis"],
+        prior_actions=prior_actions,
+    )
+    routing = build_routing(
+        category=category,
+        city=case.get("usuario_ciudad") or current_user.get("city") or "",
+        department=case.get("usuario_departamento") or current_user.get("department") or "",
+        facts=result["facts"],
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+    )
+    strategy = build_strategy_text(
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        legal_analysis=result["legal_analysis"],
+        warnings=workflow["warnings"],
+    )
+    intake_review = validate_intake(
+        category=category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        description=payload.description,
+        facts=result["facts"],
+        prior_actions=prior_actions,
+    )
+    preview_gate = validate_submission_readiness(
+        category=category,
+        description=payload.description,
+        facts=result["facts"],
+        prior_actions=prior_actions,
+    )
+    document_rule_review = evaluate_document_rule(
+        recommended_action=workflow["recommended_action"],
+        workflow_type=workflow["workflow_type"],
+        description=payload.description,
+        facts=result["facts"],
+    )
+    result["facts"]["intake_review"] = intake_review
+    result["facts"]["preview_gate"] = preview_gate
+    result["facts"]["document_rule_review"] = document_rule_review
+    result["facts"]["intake_form"] = payload.form_data or {}
+    combined_warnings = (
+        workflow["warnings"]
+        + intake_review.get("blocking_issues", [])
+        + intake_review.get("warnings", [])
+        + preview_gate.get("blocking_issues", [])
+        + preview_gate.get("warnings", [])
+        + document_rule_review.get("blocking_issues", [])
+        + document_rule_review.get("warnings", [])
+    )
+    updated = repository.update_case_intake(
+        case_id,
+        workflow_type=workflow["workflow_type"],
+        description=payload.description,
+        facts=result["facts"],
+        legal_analysis=result["legal_analysis"],
+        routing=routing,
+        prerequisites=workflow["prerequisites"],
+        warnings=list(dict.fromkeys(combined_warnings)),
+        recommended_action=workflow["recommended_action"],
+        strategy_text=strategy,
+    )
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible actualizar el expediente.")
+
+    repository.create_event(
+        case_id=case_id,
+        event_type="case_intake_updated",
+        actor_type="user",
+        actor_id=str(current_user["id"]),
+        payload={"description_length": len(payload.description), "fields": sorted((payload.form_data or {}).keys())},
+    )
+    return _snapshot_case_detail(updated)
+
+
 @app.get("/cases/{case_id}/timeline", response_model=CaseDetailResponse)
 def get_case_timeline(case_id: str, current_user: dict[str, Any] = Depends(get_current_user)) -> CaseDetailResponse:
     case = repository.get_case_for_user(case_id, str(current_user["id"]))
@@ -725,6 +823,14 @@ def generate_document(case_id: str, current_user: dict[str, Any] = Depends(get_c
     updated = repository.update_case_document(case_id, document)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible generar el documento.")
+    updated = repository.update_case_status(
+        case_id,
+        status=updated.get("estado") or "listo_para_envio",
+        submission_summary={
+            **(updated.get("submission_summary") or {}),
+            "document_quality": quality_review,
+        },
+    ) or updated
 
     repository.create_event(
         case_id=case_id,

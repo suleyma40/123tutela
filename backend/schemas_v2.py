@@ -92,6 +92,11 @@ class CaseCreateRequest(AnalysisPreviewRequest):
     attachment_ids: list[str] = Field(default_factory=list)
 
 
+class CaseIntakeUpdateRequest(BaseModel):
+    description: str = Field(min_length=20, max_length=8000)
+    form_data: dict[str, Any] = Field(default_factory=dict)
+
+
 class PaymentConfirmationRequest(BaseModel):
     reference: str = Field(min_length=3, max_length=80)
 
@@ -207,6 +212,8 @@ class CaseResponse(BaseModel):
     description: str
     recommended_action: str | None = None
     strategy_text: str | None = None
+    facts: dict[str, Any] = Field(default_factory=dict)
+    legal_analysis: dict[str, Any] = Field(default_factory=dict)
     routing: dict[str, Any] = Field(default_factory=dict)
     prerequisites: list[dict[str, Any]] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
