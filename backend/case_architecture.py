@@ -594,9 +594,15 @@ def build_final_validation(
     source_policy = facts.get("source_validation_policy") or {}
     if not _list(source_policy.get("verified_sources")) and _has_any(recommended_action, ["tutela", "impugnacion", "desacato", "cumplimiento"]):
         warnings.append("No hay fuentes verificadas cargadas todavia; el sustento jurisprudencial debe mantenerse conservador.")
+    if source_policy.get("unresolved_precedents"):
+        warnings.append(
+            "Existen referencias jurisprudenciales no verificadas automaticamente y fueron excluidas como sustento principal."
+        )
 
     if _has_any(lowered, ["ganaras seguro", "resultado garantizado", "ganara el proceso", "exito asegurado"]):
         blocking_issues.append("El documento promete resultados o contiene afirmaciones impropias.")
+    if _has_any(lowered, ["t-760", "t-025", "su-", "c-"]) and not _list(source_policy.get("verified_precedents")):
+        blocking_issues.append("El documento menciona jurisprudencia sin soporte verificado suficiente.")
 
     if quality_review.get("blocking_issues"):
         blocking_issues.extend(quality_review["blocking_issues"])

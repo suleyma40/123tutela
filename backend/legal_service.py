@@ -80,7 +80,6 @@ class LegalAnalyzer:
         if "salud" in problem or "eps" in problem:
             rights.append("Derecho fundamental a la salud")
             rules.extend(["Constitución Política Art. 49", "Ley 1751 de 2015"])
-            precedents.append("T-760 de 2008")
         if "datos" in problem or "habeas" in problem:
             rights.append("Habeas Data")
             rules.append("Constitución Política Art. 15")
@@ -94,9 +93,6 @@ class LegalAnalyzer:
                 rights.append(article["derecho"])
                 rules.append(f"Constitución Política Art. {article['id']}")
                 break
-
-        if not precedents and kb.get("jurisprudencia_hito"):
-            precedents = list(kb["jurisprudencia_hito"].keys())[:1]
 
         return {
             "derechos_vulnerados": rights,

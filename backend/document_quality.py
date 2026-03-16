@@ -170,6 +170,7 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
     factual_score = 20
     remedies_score = 20
     operability_score = 10
+    source_policy = (case.get("facts") or {}).get("source_validation_policy") or {}
 
     missing_sections = [section for section in rule["required_sections"] if section.lower() not in lowered]
     if missing_sections:
@@ -208,6 +209,12 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
     if not _contains_any(lowered, ["notificaciones", "correo", "telefono"]):
         operability_score -= 4
         warnings.append("Conviene reforzar el bloque de notificaciones del accionante.")
+
+    if _contains_any(lowered, ["t-760", "t-025", "su-", "c-"]) and not (source_policy.get("verified_precedents") or []):
+        legal_score -= 10
+        blocking_issues.append("Se menciona jurisprudencia sin soporte oficial verificado dentro del expediente.")
+    elif (source_policy.get("verified_sources") or []) and _contains_any(lowered, ["suin-juriscol", "funcion publica", "decreto 2591", "articulo 86", "ley 1755"]):
+        strengths.append("El documento se apoya en fuentes juridicas verificadas o conservadoras.")
 
     action_key = rule["action_key"]
     if action_key == "accion de tutela":

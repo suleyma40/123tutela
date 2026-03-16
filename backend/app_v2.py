@@ -22,6 +22,11 @@ from backend.entity_directory import search_entity_directory
 from backend.document_rules import evaluate_document_rule
 from backend.intake_validation import validate_intake, validate_submission_readiness
 from backend.legal_service import LegalAnalyzer
+from backend.legal_sources import (
+    build_verified_legal_basis_text,
+    resolve_verified_legal_support,
+    sanitize_legal_analysis,
+)
 from backend.notifications import send_post_radicado_email
 from backend.schemas_v2 import (
     AnalysisPreviewRequest,
@@ -289,6 +294,17 @@ def _enrich_architecture_outputs(
     final_validation: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     source_validation_policy = facts.get("source_validation_policy") or build_source_validation_policy()
+    resolved_support = resolve_verified_legal_support(
+        recommended_action=workflow["recommended_action"],
+        workflow_type=workflow["workflow_type"],
+        category=category,
+        legal_analysis=legal_analysis,
+    )
+    source_validation_policy = {
+        **source_validation_policy,
+        **resolved_support,
+    }
+    source_validation_policy["legal_basis_verified_summary"] = build_verified_legal_basis_text(source_validation_policy)
     tutela_procedencia = (
         evaluate_tutela_procedencia(description=description, facts=facts, prior_actions=prior_actions)
         if workflow["workflow_type"] == "tutela"
@@ -328,8 +344,13 @@ def _enrich_architecture_outputs(
     enriched_facts["layer_outputs"] = layer_outputs
 
     enriched_legal_analysis = dict(legal_analysis or {})
+    enriched_legal_analysis = sanitize_legal_analysis(
+        legal_analysis=enriched_legal_analysis,
+        source_validation_policy=source_validation_policy,
+    )
     if tutela_procedencia:
         enriched_legal_analysis["tutela_procedencia_preliminar"] = tutela_procedencia
+    enriched_legal_analysis["legal_basis_verified_summary"] = source_validation_policy["legal_basis_verified_summary"]
 
     enriched_routing = dict(routing or {})
     enriched_routing["case_route"] = dx_result.get("route")

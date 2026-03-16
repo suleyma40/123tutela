@@ -133,18 +133,20 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     city = case.get("usuario_ciudad") or ""
     department = case.get("usuario_departamento") or ""
     rights_text = _join_list(legal_analysis.get("derechos_vulnerados"), fallback="proteccion del consumidor financiero y debido proceso contractual")
-    rules_text = _join_list(
-        legal_analysis.get("normas_relevantes"),
-        fallback="Ley 1328 de 2009, Ley 1480 de 2011 y demas normas de proteccion al consumidor financiero",
-    )
+    verified_basis = str(
+        legal_analysis.get("legal_basis_verified_summary")
+        or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
+    ).strip()
     product_type = str(intake.get("bank_product_type") or "producto financiero").strip()
     subject = f"Reclamacion financiera por irregularidades relacionadas con {product_type}"
     chronology = _generic_facts(case)
     failures = _generic_failures(case)
     pretensions = _generic_pretensions(case, rule["action_key"])
     legal_basis = str(insights.get("legal_basis_summary") or "").strip() or (
-        f"El presente reclamo se fundamenta en la necesidad de proteger {rights_text}, con apoyo, entre otras, en las siguientes bases normativas: {rules_text}."
+        f"El presente reclamo se fundamenta en la necesidad de proteger {rights_text}."
     )
+    if verified_basis:
+        legal_basis = f"{legal_basis} {verified_basis}".strip()
     evidence_text = _join_list(rule.get("suggested_evidence"), fallback="extractos, capturas, contrato y comunicaciones previas")
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
@@ -212,10 +214,15 @@ def _build_generic_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     chronology = _generic_facts(case)
     failures = _generic_failures(case)
     pretensions = _generic_pretensions(case, rule["action_key"])
+    verified_basis = str(
+        legal_analysis.get("legal_basis_verified_summary")
+        or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
+    ).strip()
     legal_basis = str(insights.get("legal_basis_summary") or "").strip() or (
-        f"El caso se sustenta en los siguientes derechos o intereses comprometidos: {_join_list(legal_analysis.get('derechos_vulnerados'))}. "
-        f"Como apoyo normativo base se identifican: {_join_list(legal_analysis.get('normas_relevantes'))}."
+        f"El caso se sustenta en los siguientes derechos o intereses comprometidos: {_join_list(legal_analysis.get('derechos_vulnerados'))}."
     )
+    if verified_basis:
+        legal_basis = f"{legal_basis} {verified_basis}".strip()
     evidence_text = _join_list(rule.get("suggested_evidence"))
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
