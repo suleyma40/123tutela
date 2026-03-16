@@ -1764,6 +1764,9 @@ function DetailPanel({
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button onClick={() => onViewDocument(item)}>Ver documento completo</Button>
                     <Button variant="outline" onClick={() => onViewDocument(item)}>Descargar PDF</Button>
+                    <Button variant="secondary" onClick={onGenerateFromFlow} disabled={loading} icon={FileText}>
+                      {loading ? "Regenerando..." : "Regenerar documento"}
+                    </Button>
                     <Button variant="ghost" style={{ background: "#EEF4FF", color: C.primary }} onClick={() => onViewDocument(item)}>Ver en lenguaje simple</Button>
                   </div>
                   <div style={{ padding: 16, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
