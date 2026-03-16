@@ -256,6 +256,35 @@ const normalizeMentionedDates = (value) => {
   return "";
 };
 
+class DashboardErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error("Dashboard render error", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="glass-card" style={{ padding: 28, color: C.text }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.danger }}>No pudimos cargar este panel.</div>
+          <div style={{ marginTop: 8, color: C.textMuted }}>
+            Recarga la pagina. Si un bloque falla, ya no debe tumbar todo el dashboard.
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const normalizeAction = (value) =>
   String(value || "")
     .normalize("NFD")
@@ -1429,15 +1458,40 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
 
 function DetailPanel({
   detail,
-  postPayForm,
-  setPostPayForm,
+  postPayForm = {
+    full_name: "",
+    document_number: "",
+    phone: "",
+    address: "",
+    copy_email: "",
+    target_entity: "",
+    target_identifier: "",
+    target_address: "",
+    legal_representative: "",
+    target_pqrs_email: "",
+    target_notification_email: "",
+    target_phone: "",
+    target_website: "",
+    target_superintendence: "",
+    case_story: "",
+    key_dates: "",
+    prior_claim: "no",
+    prior_claim_result: "",
+    special_protection: "No aplica",
+    prior_tutela: "no",
+    prior_tutela_reason: "",
+  },
+  setPostPayForm = () => {},
   documentReview,
+  entityLookupLoading = false,
+  entitySuggestions = [],
+  onApplyEntitySuggestion = () => {},
   loading,
   onViewDocument,
   onGenerateFromFlow,
   onSubmitCase,
   onManualRadicado,
-  onUploadEvidence,
+  onUploadEvidence = async () => {},
 }) {
   const [manualContact, setManualContact] = useState("");
   const [submissionNote, setSubmissionNote] = useState("");
@@ -1573,7 +1627,7 @@ function DetailPanel({
                               <button
                                 key={`${entity.name}-${entity.nit || entity.source || index}`}
                                 type="button"
-                                onClick={() => applyEntitySuggestion(entity)}
+                                onClick={() => onApplyEntitySuggestion(entity)}
                                 style={{ width: "100%", textAlign: "left", border: "none", background: "#fff", padding: "14px 16px", display: "grid", gap: 4, cursor: "pointer", borderBottom: index === entitySuggestions.length - 1 ? "none" : `1px solid ${C.border}` }}
                               >
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
@@ -2475,6 +2529,9 @@ export default function DashboardV2(props) {
         postPayForm={postPayForm}
         setPostPayForm={setPostPayForm}
         documentReview={activeDocumentReview}
+        entityLookupLoading={entityLookupLoading}
+        entitySuggestions={entitySuggestions}
+        onApplyEntitySuggestion={applyEntitySuggestion}
         loading={loading}
         onViewDocument={setDocumentCase}
         onGenerateFromFlow={async () => {
@@ -2583,7 +2640,7 @@ export default function DashboardV2(props) {
       </aside>
 
       <main style={{ flex: 1, padding: 34, background: C.bg, overflowY: "auto" }}>
-        {content[activeTab]}
+        <DashboardErrorBoundary>{content[activeTab]}</DashboardErrorBoundary>
         {actionError && <div style={{ marginTop: 16, color: C.danger }}>{actionError}</div>}
       </main>
     </div>
