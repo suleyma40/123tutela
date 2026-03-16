@@ -230,8 +230,8 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
   - conexidad entre hechos y pretensiones
   - peticiones medibles y ejecutables
   - anexos esperados
-- [ ] Crear prompts de produccion separados por tipo de documento.
-- [ ] Conectar la generacion final a prompts especializados por producto.
+- [x] Crear una primera capa de prompts o briefs de produccion separados por tipo de documento.
+- [x] Conectar una primera capa de generacion final a briefs especializados por producto.
 - [ ] Definir una politica estricta para citas:
   - normas permitidas
   - jurisprudencia permitida
@@ -240,9 +240,9 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [ ] Definir criterios de calidad minima antes de entregar un documento al cliente.
 - [x] Aplicar una primera capa de bloqueo antes de generar documento cuando falten elementos minimos del producto recomendado.
 - [ ] Crear evaluacion manual o semiautomatica de documentos generados.
-- [ ] Implementar QA automatico con score para el documento generado antes de entregarlo.
-- [ ] Definir umbral de aprobacion y politica de regeneracion por falencias.
-- [ ] Impedir entrega silenciosa de documentos con score juridico insuficiente.
+- [x] Implementar una primera capa de QA automatico con score para el documento generado antes de entregarlo.
+- [x] Definir un primer umbral de aprobacion automatica y bloquear entrega silenciosa si no se alcanza.
+- [x] Impedir entrega silenciosa de documentos con score juridico insuficiente.
 - [ ] Crear un set de casos de prueba reales o anonimizados para medir calidad de salida.
 - [ ] Validar que el documento final no se limite a sonar juridico; debe ser util, procedente y accionable.
 

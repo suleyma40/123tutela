@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 
 from backend.catalog_runtime import get_product, list_catalog, suggest_product_code
 from backend.config import settings
+from backend.document_quality import evaluate_generated_document
 from backend.document_rules import evaluate_document_rule
 from backend.intake_validation import validate_intake, validate_submission_readiness
 from backend.legal_service import LegalAnalyzer
@@ -620,6 +621,30 @@ def generate_document(case_id: str, current_user: dict[str, Any] = Depends(get_c
         )
 
     document = build_document(case)
+    quality_review = evaluate_generated_document(case, document)
+    if not quality_review.get("passed"):
+        repository.create_event(
+            case_id=case_id,
+            event_type="document_generation_blocked",
+            actor_type="system",
+            actor_id=None,
+            payload={
+                "score": quality_review.get("score"),
+                "threshold": quality_review.get("threshold"),
+                "blocking_issues": quality_review.get("blocking_issues"),
+                "warnings": quality_review.get("warnings"),
+            },
+        )
+        detail_parts = quality_review.get("blocking_issues") or quality_review.get("warnings") or [
+            "El borrador no alcanzo la calidad juridica minima.",
+        ]
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"El borrador no alcanza el umbral minimo de calidad ({quality_review.get('score')}/"
+                f"{quality_review.get('threshold')}). " + " | ".join(detail_parts)
+            ),
+        )
     updated = repository.update_case_document(case_id, document)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible generar el documento.")
@@ -629,9 +654,9 @@ def generate_document(case_id: str, current_user: dict[str, Any] = Depends(get_c
         event_type="document_generated",
         actor_type="system",
         actor_id=None,
-        payload={"length": len(document)},
+        payload={"length": len(document), "score": quality_review.get("score"), "threshold": quality_review.get("threshold")},
     )
-    return CaseDocumentResponse(case=_normalize_case(updated), document=document)
+    return CaseDocumentResponse(case=_normalize_case(updated), document=document, quality_review=quality_review)
 
 
 @app.post("/cases/{case_id}/submit", response_model=CaseDetailResponse)

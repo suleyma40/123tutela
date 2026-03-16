@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from backend.document_quality import get_generation_brief
 from backend.document_rules import get_document_rule
 
 
@@ -110,6 +111,7 @@ def _pretension_lines(case: dict[str, Any], action_key: str) -> list[str]:
 
 def build_document(case: dict[str, Any]) -> str:
     rule = get_document_rule(case.get("recommended_action"), case.get("workflow_type"))
+    brief = get_generation_brief(case.get("recommended_action"), case.get("workflow_type"))
     legal_analysis = case.get("legal_analysis") or {}
     routing = case.get("routing") or {}
     target = (routing.get("primary_target") or {}).get("name") or "la autoridad competente"
@@ -128,14 +130,18 @@ def build_document(case: dict[str, Any]) -> str:
     facts_text = _numbered_lines(_facts_lines(case))
     pretensions_text = _numbered_lines(_pretension_lines(case, rule["action_key"]))
     quality_focus = rule.get("quality_focus") or "claridad, precision y peticiones ejecutables"
+    focus_text = _numbered_lines([str(item) for item in brief.get("narrative_focus", [])])
+    must_include_text = _numbered_lines([str(item) for item in brief.get("must_include", [])])
+    section_text = _numbered_lines([str(item) for item in brief.get("required_sections", [])])
+    tone_text = brief.get("tone") or "claro, serio y accionable"
 
-    return f"""Señores
+    return f"""Senores
 {target}
 Canal sugerido: {contact}
 
 Referencia: {rule['document_title']}
 
-Yo, {user_name}, identificado(a) con cédula {user_doc}, con correo {user_email}, teléfono {user_phone} y residencia en {address}, {city}, {department}, presento el siguiente escrito.
+Yo, {user_name}, identificado(a) con cedula {user_doc}, con correo {user_email}, telefono {user_phone} y residencia en {address}, {city}, {department}, presento el siguiente escrito.
 
 1. Objeto del documento
 {rule['goal']}
@@ -143,20 +149,31 @@ Yo, {user_name}, identificado(a) con cédula {user_doc}, con correo {user_email}
 2. Hechos relevantes
 {facts_text}
 
-3. Derechos, interés jurídico o fundamento principal
+3. Derechos, interes juridico o fundamento principal
 Derechos o intereses comprometidos: {rights_text}.
 Soporte normativo principal: {rules_text}.
 
-4. Pretensiones o solicitudes
+4. Pretensiones o solicitudes concretas
 {pretensions_text}
 
 5. Pruebas y anexos sugeridos
 {evidence_text}.
 
-6. Enfoque de calidad exigido para este documento
+6. Tecnica narrativa y juridica exigida
+Tono exigido: {tone_text}.
+Enfoques que debe sostener el escrito:
+{focus_text}
+
+7. Controles minimos antes de entregar
+{must_include_text}
+
+8. Estructura obligatoria del documento final
+{section_text}
+
+9. Enfoque de calidad exigido para este documento
 {quality_focus}.
 
-7. Notificaciones
+10. Notificaciones
 Solicito que cualquier respuesta o decision sea comunicada al correo {user_email} y al telefono {user_phone}.
 
 Constancia de generacion: {generated_at}

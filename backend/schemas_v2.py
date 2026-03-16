@@ -225,3 +225,4 @@ class CaseDetailResponse(BaseModel):
 class CaseDocumentResponse(BaseModel):
     case: CaseResponse
     document: str
+    quality_review: dict[str, Any] | None = None
