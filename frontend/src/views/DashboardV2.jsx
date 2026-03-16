@@ -1668,6 +1668,11 @@ export default function DashboardV2(props) {
     setEvidenceNote("");
   };
 
+  const openCaseAndFocusDetail = async (caseId, scope = "citizen") => {
+    await onOpenCase(caseId, scope);
+    setActiveTab("detalle");
+  };
+
   const jumpToNextStage = () => {
     const target = document.getElementById("case-next-stage");
     if (target) {
@@ -1988,7 +1993,7 @@ export default function DashboardV2(props) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <Button variant="secondary" onClick={() => onOpenCase(item.id)}>Abrir expediente</Button>
+              <Button variant="secondary" onClick={() => openCaseAndFocusDetail(item.id)}>Abrir expediente</Button>
               {item.generated_document && <Button variant="outline" onClick={() => setDocumentCase(item)}>Ver documento</Button>}
             </div>
           </div>
@@ -2066,7 +2071,7 @@ export default function DashboardV2(props) {
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <Badge color={statusColors[item.status] || C.primary}>{statusLabels[item.status] || item.status}</Badge>
-              <Button variant="secondary" onClick={() => onOpenCase(item.id, "internal")}>Abrir</Button>
+              <Button variant="secondary" onClick={() => openCaseAndFocusDetail(item.id, "internal")}>Abrir</Button>
             </div>
           </div>
         ))}
