@@ -893,22 +893,29 @@ def generate_document(
     updated = repository.update_case_document(case_id, document)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible generar el documento.")
-    updated = repository.update_case_status(
-        case_id,
-        status=updated.get("estado") or "listo_para_envio",
-        submission_summary={
-            **(updated.get("submission_summary") or {}),
-            "document_quality": quality_review,
-        },
-    ) or updated
+    merged_submission_summary = {
+        **(updated.get("submission_summary") or {}),
+        "document_quality": quality_review,
+    }
+    try:
+        updated = repository.update_case_status(
+            case_id,
+            status=updated.get("estado") or "listo_para_envio",
+            submission_summary=merged_submission_summary,
+        ) or updated
+    except Exception:
+        updated["submission_summary"] = merged_submission_summary
 
-    repository.create_event(
-        case_id=case_id,
-        event_type="document_generated",
-        actor_type="system",
-        actor_id=None,
-        payload={"length": len(document), "score": quality_review.get("score"), "threshold": quality_review.get("threshold")},
-    )
+    try:
+        repository.create_event(
+            case_id=case_id,
+            event_type="document_generated",
+            actor_type="system",
+            actor_id=None,
+            payload={"length": len(document), "score": quality_review.get("score"), "threshold": quality_review.get("threshold")},
+        )
+    except Exception:
+        pass
     return CaseDocumentResponse(case=_normalize_case(updated), document=document, quality_review=quality_review)
 
 
