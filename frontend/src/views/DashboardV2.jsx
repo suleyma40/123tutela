@@ -2033,6 +2033,9 @@ export default function DashboardV2(props) {
     );
   }
   if (isInternal) sideItems.push({ id: "interno", label: "Backoffice", icon: Shield });
+  const activeTabIndex = sideItems.findIndex((item) => item.id === activeTab);
+  const previousTab = activeTabIndex > 0 ? sideItems[activeTabIndex - 1] : null;
+  const nextTab = activeTabIndex >= 0 && activeTabIndex < sideItems.length - 1 ? sideItems[activeTabIndex + 1] : null;
 
   const selectedPriorActions = priorActionMap[form.category] || [];
   const canOperateActiveCase = !!activeCaseDetail?.case && activeCaseDetail.case.user_id === session.user.id;
@@ -2657,6 +2660,14 @@ export default function DashboardV2(props) {
       </aside>
 
       <main style={{ flex: 1, padding: 34, background: C.bg, overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+          <Button variant="outline" onClick={() => previousTab && setActiveTab(previousTab.id)} disabled={!previousTab} icon={ArrowLeft}>
+            {previousTab ? `Volver a ${previousTab.label}` : "Sin anterior"}
+          </Button>
+          <Button variant="outline" onClick={() => nextTab && setActiveTab(nextTab.id)} disabled={!nextTab} icon={ArrowRight}>
+            {nextTab ? `Ir a ${nextTab.label}` : "Sin siguiente"}
+          </Button>
+        </div>
         <DashboardErrorBoundary>{content[activeTab]}</DashboardErrorBoundary>
         {actionError && <div style={{ marginTop: 16, color: C.danger }}>{actionError}</div>}
       </main>

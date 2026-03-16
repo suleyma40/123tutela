@@ -5,7 +5,7 @@ from typing import Any
 from uuid import uuid4
 
 from backend import repository_ext as repository
-from backend.document_templates import build_document as build_document_from_template
+from backend.document_writer import build_document as build_document_from_template
 
 
 CATEGORY_CONFIG: dict[str, dict[str, Any]] = {

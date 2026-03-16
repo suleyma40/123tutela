@@ -112,6 +112,71 @@ class LegalAnalyzer:
             "Ahora podemos generar un borrador con hechos, fundamentos y destinatario sugerido."
         )
 
+    def _formalize_text(self, value: str | None) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        text = re.sub(r"\s+", " ", text)
+        text = text[:1].upper() + text[1:]
+        if text[-1] not in ".;:":
+            text += "."
+        return text
+
+    def _document_insights_fallback(
+        self,
+        *,
+        description: str,
+        category: str | None,
+        facts: dict[str, Any],
+        legal_analysis: dict[str, Any],
+        intake_form: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        intake_form = intake_form or {}
+        chronology: list[str] = []
+        case_story = self._formalize_text(intake_form.get("case_story") or facts.get("hechos_principales") or description)
+        if case_story:
+            chronology.append(case_story)
+        key_dates = self._formalize_text(intake_form.get("key_dates") or facts.get("fechas_mencionadas"))
+        if key_dates:
+            chronology.append(f"Las referencias temporales relevantes del caso son las siguientes: {key_dates}")
+
+        prior_claim = str(intake_form.get("prior_claim") or "").strip()
+        prior_claim_result = self._formalize_text(intake_form.get("prior_claim_result"))
+        if prior_claim == "si" and prior_claim_result:
+            chronology.append(f"Con anterioridad, la persona usuaria promovio reclamacion directa y recibio la siguiente respuesta: {prior_claim_result}")
+        elif prior_claim == "no":
+            chronology.append("A la fecha no se evidencia una solucion efectiva de fondo por parte de la entidad involucrada.")
+
+        failures: list[str] = []
+        lowered = f"{description} {case_story}".lower()
+        if any(token in lowered for token in ["no autorice", "no autoricé", "sin autorizacion", "sin autorización"]):
+            failures.append("La entidad registra o cobra conceptos sin que exista autorizacion clara, previa e informada del titular.")
+        if any(token in lowered for token in ["cobro", "cuota", "seguro", "cargo", "debito"]):
+            failures.append("La entidad no explica de forma suficiente el origen, soporte contractual y trazabilidad de los cobros cuestionados.")
+        if any(token in lowered for token in ["no responde", "sin respuesta", "no contest", "no resuelve"]):
+            failures.append("La entidad omite suministrar una respuesta completa, verificable y oportuna frente a la situacion reclamada.")
+        if not failures:
+            failures.append("Se advierte una actuacion presuntamente irregular de la entidad que exige verificacion, correccion y respuesta de fondo.")
+
+        pretensions: list[str] = []
+        concrete_request = self._formalize_text(intake_form.get("concrete_request") or facts.get("pretension_concreta"))
+        if concrete_request:
+            pretensions.append(concrete_request)
+        pretensions.append("Que la entidad emita respuesta integral, motivada y verificable frente a cada uno de los puntos reclamados.")
+
+        rights = legal_analysis.get("derechos_vulnerados") or []
+        rules = legal_analysis.get("normas_relevantes") or []
+        legal_basis_summary = (
+            f"El caso compromete principalmente {', '.join(rights) if rights else 'garantias del usuario'} y puede sustentarse, entre otras, en las siguientes bases: {', '.join(rules) if rules else 'normativa general aplicable'}."
+        )
+        return {
+            "chronology": chronology,
+            "entity_failures": failures,
+            "pretensions": pretensions,
+            "legal_basis_summary": legal_basis_summary,
+            "narrative_summary": self._formalize_text(facts.get("problema_central") or category or description),
+        }
+
     def _ask_json(self, prompt: str) -> dict[str, Any]:
         if not self.client:
             raise RuntimeError("OpenAI no está configurado en este entorno.")
@@ -194,3 +259,59 @@ class LegalAnalyzer:
             }
         except Exception as exc:
             return {"success": False, "error": str(exc)}
+
+    def compose_document_insights(
+        self,
+        *,
+        description: str,
+        category: str | None,
+        facts: dict[str, Any],
+        legal_analysis: dict[str, Any],
+        intake_form: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        fallback = self._document_insights_fallback(
+            description=description,
+            category=category,
+            facts=facts,
+            legal_analysis=legal_analysis,
+            intake_form=intake_form,
+        )
+        if not self.client:
+            return fallback
+
+        prompt = f"""
+        Actua como abogado litigante en Colombia. Convierte la narracion del cliente en insumos juridicos formales para un documento presentable.
+        Responde solo JSON con estas llaves:
+        chronology, entity_failures, pretensions, legal_basis_summary, narrative_summary.
+
+        Reglas:
+        - chronology: lista de 3 a 6 hechos en orden cronologico, redactados de manera formal y objetiva.
+        - entity_failures: lista de 2 a 5 fallas concretas atribuibles a la entidad.
+        - pretensions: lista de 2 a 5 pretensiones juridicas claras, medibles y ejecutables.
+        - legal_basis_summary: un parrafo breve y formal con sustento juridico.
+        - narrative_summary: un parrafo corto que sintetice el conflicto sin repetir literalmente al cliente.
+
+        Categoria: {category or 'No indicada'}
+        Descripcion original del cliente:
+        {description}
+
+        Hechos estructurados:
+        {json.dumps(facts, ensure_ascii=False)}
+
+        Analisis legal:
+        {json.dumps(legal_analysis, ensure_ascii=False)}
+
+        Intake:
+        {json.dumps(intake_form or {}, ensure_ascii=False)}
+        """
+        try:
+            result = self._ask_json(prompt)
+            return {
+                "chronology": result.get("chronology") or fallback["chronology"],
+                "entity_failures": result.get("entity_failures") or fallback["entity_failures"],
+                "pretensions": result.get("pretensions") or fallback["pretensions"],
+                "legal_basis_summary": result.get("legal_basis_summary") or fallback["legal_basis_summary"],
+                "narrative_summary": result.get("narrative_summary") or fallback["narrative_summary"],
+            }
+        except Exception:
+            return fallback

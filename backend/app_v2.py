@@ -843,6 +843,15 @@ def generate_document(case_id: str, current_user: dict[str, Any] = Depends(get_c
             + " | ".join(document_rule_review["blocking_issues"]),
         )
 
+    facts = dict(case.get("facts") or {})
+    facts["document_insights"] = analyzer.compose_document_insights(
+        description=case.get("descripcion") or "",
+        category=case.get("categoria") or case.get("category"),
+        facts=facts,
+        legal_analysis=case.get("legal_analysis") or {},
+        intake_form=facts.get("intake_form") or {},
+    )
+    case["facts"] = facts
     document = build_document(case)
     quality_review = evaluate_generated_document(case, document)
     if not quality_review.get("passed"):
