@@ -289,6 +289,9 @@ class LegalAnalyzer:
             legal_analysis=legal_analysis,
             intake_form=intake_form,
         )
+        intake_form = intake_form or {}
+        if intake_form.get("regeneration_reason") or intake_form.get("regeneration_additional_context"):
+            return fallback
         if not self.client:
             return fallback
 
