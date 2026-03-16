@@ -3,6 +3,7 @@ from __future__ import annotations
 import smtplib
 import ssl
 from email.message import EmailMessage
+from datetime import datetime, timezone
 from typing import Any
 
 from backend.config import settings
@@ -70,10 +71,18 @@ Panel del cliente:
 
 
 def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], guidance: dict[str, Any]) -> dict[str, Any]:
+    attempted_at = datetime.now(timezone.utc).isoformat()
+    base_result = {
+        "provider": "smtp",
+        "attempted_at": attempted_at,
+        "recipient": recipient,
+        "from_email": settings.notification_from_email,
+        "reply_to": settings.notification_reply_to,
+    }
     if not recipient:
-        return {"status": "skipped", "reason": "missing_recipient"}
+        return {**base_result, "status": "skipped", "reason": "missing_recipient"}
     if not _is_email_configured():
-        return {"status": "pending_configuration", "reason": "smtp_not_configured"}
+        return {**base_result, "status": "pending_configuration", "reason": "smtp_not_configured"}
 
     content = build_post_radicado_email(case, guidance)
     message = EmailMessage()
@@ -109,6 +118,15 @@ def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], gui
                     server.login(settings.notification_smtp_user, settings.notification_smtp_password)
                 server.send_message(message)
     except Exception as exc:  # pragma: no cover
-        return {"status": "error", "reason": str(exc), "subject": content["subject"]}
+        return {
+            **base_result,
+            "status": "error",
+            "reason": str(exc),
+            "subject": content["subject"],
+        }
 
-    return {"status": "sent", "subject": content["subject"]}
+    return {
+        **base_result,
+        "status": "sent",
+        "subject": content["subject"],
+    }

@@ -125,6 +125,37 @@ def _normalize_case(case: dict[str, Any]) -> CaseResponse:
     )
 
 
+def _apply_post_radicado_email_result(
+    *,
+    case_id: str,
+    base_case: dict[str, Any],
+    current_status: str,
+    manual_contact: dict[str, Any] | None = None,
+    guidance: dict[str, Any],
+    email_result: dict[str, Any],
+) -> dict[str, Any]:
+    updater = repository.update_case_submission if manual_contact is not None else repository.update_case_status
+    update_kwargs: dict[str, Any] = {
+        "status": current_status,
+        "submission_summary": {
+            **(base_case.get("submission_summary") or {}),
+            "guidance": guidance,
+            "post_radicado_email": email_result,
+        },
+    }
+    if manual_contact is not None:
+        update_kwargs["manual_contact"] = manual_contact
+    updated = updater(case_id, **update_kwargs) or base_case
+    repository.create_event(
+        case_id=case_id,
+        event_type=f"post_radicado_email_{email_result.get('status') or 'processed'}",
+        actor_type="system",
+        actor_id=None,
+        payload=email_result,
+    )
+    return updated
+
+
 def _normalize_timeline(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         {
@@ -791,16 +822,14 @@ def submit_case(
         radicado=radicado,
     )
     email_result = send_post_radicado_email(recipient=updated.get("usuario_email"), case=updated, guidance=guidance)
-    updated = repository.update_case_submission(
-        case_id,
-        status=updated.get("estado") or status_value,
+    updated = _apply_post_radicado_email_result(
+        case_id=case_id,
+        base_case=updated,
+        current_status=updated.get("estado") or status_value,
         manual_contact=updated.get("manual_contact") or manual_contact,
-        submission_summary={
-            **(updated.get("submission_summary") or {}),
-            "guidance": guidance,
-            "post_radicado_email": email_result,
-        },
-    ) or updated
+        guidance=guidance,
+        email_result=email_result,
+    )
 
     repository.create_event(
         case_id=case_id,
@@ -808,13 +837,6 @@ def submit_case(
         actor_type="user",
         actor_id=str(current_user["id"]),
         payload={"mode": payload.mode, "channel": channel, "radicado": radicado},
-    )
-    repository.create_event(
-        case_id=case_id,
-        event_type="post_radicado_email_processed",
-        actor_type="system",
-        actor_id=None,
-        payload=email_result,
     )
     return _snapshot_case_detail(updated)
 
@@ -860,15 +882,13 @@ def register_manual_radicado(
         radicado=payload.radicado,
     )
     email_result = send_post_radicado_email(recipient=updated.get("usuario_email"), case=updated, guidance=guidance)
-    updated = repository.update_case_status(
-        case_id,
-        status=updated.get("estado") or "radicado",
-        submission_summary={
-            **(updated.get("submission_summary") or {}),
-            "guidance": guidance,
-            "post_radicado_email": email_result,
-        },
-    ) or updated
+    updated = _apply_post_radicado_email_result(
+        case_id=case_id,
+        base_case=updated,
+        current_status=updated.get("estado") or "radicado",
+        guidance=guidance,
+        email_result=email_result,
+    )
 
     repository.create_event(
         case_id=case_id,
@@ -876,13 +896,6 @@ def register_manual_radicado(
         actor_type="user",
         actor_id=str(current_user["id"]),
         payload={"radicado": payload.radicado, "notes": payload.notes},
-    )
-    repository.create_event(
-        case_id=case_id,
-        event_type="post_radicado_email_processed",
-        actor_type="system",
-        actor_id=None,
-        payload=email_result,
     )
     return _snapshot_case_detail(updated)
 

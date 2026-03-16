@@ -1339,6 +1339,14 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
         : emailStatus.status === "error"
           ? C.danger
           : C.textMuted;
+  const emailStatusDetails =
+    emailStatus.reason === "smtp_not_configured"
+      ? "Falta configurar SMTP en produccion para que este correo salga automaticamente."
+      : emailStatus.reason === "missing_recipient"
+        ? "El expediente no tiene correo del cliente para enviar la notificacion."
+        : emailStatus.reason
+          ? `Detalle tecnico: ${emailStatus.reason}`
+          : guidance.post_radicado_copy?.body || "El cliente vera el siguiente paso y los tiempos esperados desde el panel y el correo.";
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
@@ -1444,26 +1452,32 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
           </div>
           <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>NOTIFICACION AL CLIENTE</div>
-            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ color: C.textMuted }}>Correo post-radicado</span>
-                <strong style={{ color: postRadicadoStatusColor }}>{postRadicadoStatusLabel}</strong>
-              </div>
+              <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: C.textMuted }}>Correo post-radicado</span>
+                  <strong style={{ color: postRadicadoStatusColor }}>{postRadicadoStatusLabel}</strong>
+                </div>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                 <span style={{ color: C.textMuted }}>Se envia a</span>
                 <strong style={{ color: C.text }}>{item.usuario_email || "Sin correo"}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ color: C.textMuted }}>Tiempo estimado de respuesta</span>
-                <strong style={{ color: C.text }}>{estimatedTime}</strong>
-              </div>
-              <div style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>
-                {emailStatus.reason === "smtp_not_configured"
-                  ? "Falta configurar SMTP en produccion para que este correo salga automaticamente."
-                  : guidance.post_radicado_copy?.body || "El cliente vera el siguiente paso y los tiempos esperados desde el panel y el correo."}
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: C.textMuted }}>Tiempo estimado de respuesta</span>
+                  <strong style={{ color: C.text }}>{estimatedTime}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: C.textMuted }}>Asunto</span>
+                  <strong style={{ color: C.text, textAlign: "right" }}>{emailStatus.subject || "Pendiente"}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: C.textMuted }}>Ultimo intento</span>
+                  <strong style={{ color: C.text }}>{emailStatus.attempted_at ? shortDate(emailStatus.attempted_at) : "Pendiente"}</strong>
+                </div>
+                <div style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>
+                  {emailStatusDetails}
+                </div>
               </div>
             </div>
-          </div>
         </div>
         <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", marginTop: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>SIGUIENTE PASO OPERATIVO</div>
