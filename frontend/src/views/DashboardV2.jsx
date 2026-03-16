@@ -2921,7 +2921,7 @@ export default function DashboardV2(props) {
     previewGateIssues.length === 0;
   const writingGuide = buildWritingGuide(form.category);
   const wizardAction = normalizeAction(form.recommended_action);
-  const showRepresentedPersonCard = form.category === "Salud" || wizardAction === "accion de tutela";
+  const showRepresentedPersonCard = true;
   const wizardSteps = [
     { id: 1, label: "Perfil", ready: profileReady },
     { id: 2, label: "Análisis", ready: analysisReady || !!preview },
@@ -3133,6 +3133,41 @@ export default function DashboardV2(props) {
               <div style={{ fontWeight: 800, color: C.text }}>Procedimiento simple</div>
               <div style={{ color: C.textMuted }}>1. Elige el tipo de problema. 2. Explica que paso. 3. Responde solo las preguntas que aparezcan. 4. Genera el analisis gratis.</div>
             </div>
+            {showRepresentedPersonCard && (
+              <div className="glass-card" style={{ padding: 18, background: "#FFF7ED", display: "grid", gap: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>DATOS DEL HIJO O TERCERO AFECTADO</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+                  <Field label="Quien presenta el caso">
+                    <select
+                      value={form.acting_capacity}
+                      onChange={(event) => setForm((current) => ({ ...current, acting_capacity: event.target.value }))}
+                      style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+                    >
+                      <option value="nombre_propio">La persona afectada directamente</option>
+                      <option value="madre_padre_menor">Madre o padre de menor</option>
+                      <option value="acudiente">Acudiente o cuidador</option>
+                      <option value="agente_oficioso">Agente oficioso</option>
+                      <option value="representante_legal">Representante legal</option>
+                    </select>
+                  </Field>
+                  <Field label="Nombre del menor o representado">
+                    <TextInput value={form.represented_person_name} onChange={(event) => setForm((current) => ({ ...current, represented_person_name: event.target.value }))} placeholder="Ej: Jeronimo Perez Lopez" />
+                  </Field>
+                  <Field label="Documento del menor o representado">
+                    <TextInput value={form.represented_person_document} onChange={(event) => setForm((current) => ({ ...current, represented_person_document: event.target.value }))} placeholder="Ej: Registro civil, TI o NUIP" />
+                  </Field>
+                  <Field label="Edad o fecha de nacimiento">
+                    <TextInput value={form.represented_person_age} onChange={(event) => setForm((current) => ({ ...current, represented_person_age: event.target.value }))} placeholder="Ej: 10 años / 12 de abril de 2016" />
+                  </Field>
+                  <Field label="Condicion relevante del menor o paciente">
+                    <TextInput value={form.represented_person_condition} onChange={(event) => setForm((current) => ({ ...current, represented_person_condition: event.target.value }))} placeholder="Ej: menor con anemia de celulas falciformes tipo SS" />
+                  </Field>
+                </div>
+                <div style={{ color: C.textMuted, fontSize: 13 }}>
+                  Si el caso es de tu hijo o de otra persona, llena estos datos antes de seguir.
+                </div>
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
               {CATEGORIES.map((item) => (
                 <button
@@ -3229,9 +3264,13 @@ export default function DashboardV2(props) {
               {tempFiles.map((item) => <Badge key={item.id} color={C.accent}>{item.original_name}</Badge>)}
               <Button
                 onClick={async () => {
-                  const previewResult = await onPreview({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) });
-                  setPreview(previewResult);
-                  setWizardStep(3);
+                  try {
+                    const previewResult = await onPreview({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) });
+                    setPreview(previewResult);
+                    setWizardStep(3);
+                  } catch (error) {
+                    // The visible banner uses actionError from MainAppV2.
+                  }
                 }}
                 disabled={!analysisReady || loading}
                 icon={Search}
