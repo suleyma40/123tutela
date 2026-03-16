@@ -195,6 +195,11 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [x] Implementar una primera capa de validacion runtime para tutela, derecho de peticion y habeas data.
 - [ ] Definir los criterios juridicos minimos por tipo de documento: tutela, derecho de peticion, carta formal, reclamo, impugnacion, desacato, etc.
 - [x] Definir una primera capa operativa de criterios juridicos minimos por tipo de documento en backend.
+- [ ] Endurecer reglas de procedencia y plazo por documento con base en `123tutela_Manual_Produccion_v1.docx`.
+- [ ] Bloquear tutela improcedente por subsidiariedad, inmediatez o falta de no temeridad.
+- [ ] Bloquear impugnacion fuera de termino o sin contraargumento real al fallo.
+- [ ] Bloquear desacato si no existe fallo identificable, notificacion y orden incumplida.
+- [ ] Endurecer habeas data, consumidor, financiero y servicios con control real de reclamacion previa.
 - [ ] Definir la estructura obligatoria por documento:
   - hechos
   - derechos vulnerados o interes juridico
@@ -224,6 +229,8 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
   - conexidad entre hechos y pretensiones
   - peticiones medibles y ejecutables
   - anexos esperados
+- [ ] Crear prompts de produccion separados por tipo de documento.
+- [ ] Conectar la generacion final a prompts especializados por producto.
 - [ ] Definir una politica estricta para citas:
   - normas permitidas
   - jurisprudencia permitida
@@ -232,6 +239,9 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [ ] Definir criterios de calidad minima antes de entregar un documento al cliente.
 - [x] Aplicar una primera capa de bloqueo antes de generar documento cuando falten elementos minimos del producto recomendado.
 - [ ] Crear evaluacion manual o semiautomatica de documentos generados.
+- [ ] Implementar QA automatico con score para el documento generado antes de entregarlo.
+- [ ] Definir umbral de aprobacion y politica de regeneracion por falencias.
+- [ ] Impedir entrega silenciosa de documentos con score juridico insuficiente.
 - [ ] Crear un set de casos de prueba reales o anonimizados para medir calidad de salida.
 - [ ] Validar que el documento final no se limite a sonar juridico; debe ser util, procedente y accionable.
 
@@ -266,6 +276,15 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
   - correo
   - panel
   - ambos
+- [ ] Diseñar correo post-radicado con continuidad del caso, tiempos esperados y siguiente paso sugerido.
+- [ ] Cerrar trazabilidad operativa completa: radicacion, correo enviado, comprobante y continuidad comercial.
+
+## 16. QA, sandbox y politicas
+
+- [ ] Crear sandbox formal con casos de prueba por producto.
+- [ ] Definir protocolo de pruebas formales de produccion antes de abrir trafico real.
+- [ ] Cerrar politica de reembolso.
+- [ ] Ajustar textos legales finos con base en flujo real de pago, generacion y radicacion.
 - [ ] Definir que evidencia se guarda de cada envio.
 - [ ] Definir como registrar errores de entrega, rebotes o rechazo del canal.
 - [ ] Definir fallback cuando no exista canal digital confiable.
