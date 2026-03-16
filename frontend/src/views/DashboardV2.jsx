@@ -2392,6 +2392,14 @@ function DetailPanel({
   const checklist = buildDocumentChecklist(item, review, files);
   const whatsappCopy = postPayForm.phone || item.user_phone || "";
   const evidenceHints = evidenceTypeHints[item.category] || evidenceTypeHints.default;
+  const detailRights = item.legal_analysis?.derechos_vulnerados || [];
+  const detailNorms = item.legal_analysis?.normas_relevantes || [];
+  const detailDx = item.dx_result || {};
+  const detailViability = getViabilityConfig(detailDx);
+  const detailRouteSteps = [
+    ...((item.prerequisites || []).slice(0, 2).map((step) => shortenRouteLabel(step.label))),
+    shortenRouteLabel(item.recommended_action || item.workflow_type, "Documento"),
+  ].filter(Boolean).slice(0, 3);
   const progressSteps = [
     { id: 1, label: "Diagnostico" },
     { id: 2, label: "Completa datos" },
@@ -2415,21 +2423,57 @@ function DetailPanel({
   return (
     <div style={{ display: "grid", gap: 18 }}>
       <div className="glass-card" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "240px 1fr" }}>
-          <div style={{ padding: 26, borderRight: `1px solid ${C.border}`, background: "#F4F7FB", display: "grid", alignContent: "space-between", minHeight: 720 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr" }}>
+          <div style={{ padding: 22, borderRight: `1px solid ${C.border}`, background: "linear-gradient(180deg, #F4F7FB 0%, #EDF3FB 100%)", display: "grid", alignContent: "space-between", minHeight: 720 }}>
             <div style={{ display: "grid", gap: 14 }}>
               <div>
                 <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>EXPEDIENTE</div>
                 <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{item.id.slice(0, 18)}</div>
               </div>
-              <div style={{ padding: 16, borderRadius: 18, background: "#111827", color: "#fff" }}>
+              <div style={{ padding: 18, borderRadius: 20, background: "linear-gradient(180deg, #101827 0%, #182338 100%)", color: "#fff", boxShadow: "0 18px 30px rgba(15,23,42,0.18)" }}>
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>Estado actual</div>
                 <div style={{ marginTop: 8, fontSize: 22, lineHeight: 1.15, fontWeight: 800 }}>
                   {flowStep === 1 ? "Diagnostico listo" : flowStep === 2 ? "Faltan tus datos" : flowStep === 3 ? "Documento listo" : "Radicado"}
                 </div>
+                <div style={{ marginTop: 12, fontSize: 13, color: "rgba(255,255,255,0.72)", lineHeight: 1.6 }}>
+                  {baseFlowStep >= 3
+                    ? "Ya puedes revisar el documento y elegir como radicarlo."
+                    : item.payment_status === "pagado"
+                      ? "El pago ya esta confirmado y solo falta completar el caso."
+                      : "Primero validas el diagnostico y luego decides si pagas."}
+                </div>
+              </div>
+              <div style={{ padding: 16, borderRadius: 18, background: "#FFFFFF", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+                <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RESUMEN RAPIDO</div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                  <span style={{ color: C.textMuted, fontSize: 13 }}>Pago</span>
+                  <Badge color={item.payment_status === "pagado" ? C.success : C.warning}>
+                    {item.payment_status === "pagado" ? "Confirmado" : "Pendiente"}
+                  </Badge>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                  <span style={{ color: C.textMuted, fontSize: 13 }}>Ruta</span>
+                  <span style={{ color: C.text, fontWeight: 700, textAlign: "right" }}>{item.recommended_action || item.workflow_type}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                  <span style={{ color: C.textMuted, fontSize: 13 }}>Viabilidad</span>
+                  <span style={{ color: detailViability.color, fontWeight: 800 }}>{detailViability.label}</span>
+                </div>
+              </div>
+              <div style={{ padding: 16, borderRadius: 18, background: "#FFFFFF", border: `1px solid ${C.border}`, display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>SIGUIENTE ACCION</div>
+                <div style={{ color: C.text, fontWeight: 800, lineHeight: 1.45 }}>
+                  {flowStep === 1
+                    ? "Revisar el diagnostico y decidir si continúas al pago."
+                    : flowStep === 2
+                      ? "Completar los datos y soportes del caso."
+                      : flowStep === 3
+                        ? "Ver el documento y escoger la radicacion."
+                        : "Guardar el comprobante y hacer seguimiento."}
+                </div>
               </div>
             </div>
-            <div style={{ padding: 14, borderRadius: 16, background: "#0F172A", color: "#fff" }}>
+            <div style={{ padding: 14, borderRadius: 18, background: "#0F172A", color: "#fff", boxShadow: "0 12px 24px rgba(15,23,42,0.16)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: C.primary, display: "grid", placeItems: "center", fontWeight: 800 }}>
                   {(item.user_name || "U").slice(0, 2).toUpperCase()}
@@ -2470,20 +2514,70 @@ function DetailPanel({
             <div style={{ padding: 22, borderRadius: 22, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
               {flowStep === 1 && (
                 <div style={{ display: "grid", gap: 16 }}>
-                  <div style={{ color: C.text, fontSize: 24, fontWeight: 800 }}>Tu diagnostico ya esta listo</div>
-                  <div style={{ color: C.textMuted, lineHeight: 1.7 }}>{item.strategy_text}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
-                    <div style={{ padding: 16, borderRadius: 18, background: "#EEF4FF" }}>
-                      <div style={{ fontSize: 12, color: C.primary, fontWeight: 800 }}>DERECHOS IDENTIFICADOS</div>
-                      <div style={{ marginTop: 10, color: C.text, fontWeight: 700 }}>{rights.length ? rights.join(", ") : "Se consolidan con los datos del expediente."}</div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ color: C.textMuted, fontSize: 13, fontWeight: 700 }}>{item.recommended_action || item.workflow_type}</div>
+                    <div style={{ color: C.text, fontSize: 40, fontWeight: 800, fontFamily: "'Playfair Display', serif", lineHeight: 1.02 }}>{item.category}</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 16 }}>
+                    <div style={{ padding: 20, borderRadius: 22, background: "linear-gradient(180deg, #101827 0%, #17233A 100%)", color: "#fff", display: "grid", gap: 14 }}>
+                      <div style={{ fontSize: 12, color: "#93C5FD", fontWeight: 800, letterSpacing: 0.4 }}>DIAGNOSTICO GRATIS</div>
+                      <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.08 }}>Tu diagnostico ya esta listo</div>
+                      <div style={{ color: "rgba(255,255,255,0.78)", lineHeight: 1.7 }}>{item.strategy_text}</div>
+                      <div style={{ marginTop: 4 }}>
+                        <div style={{ fontWeight: 800 }}>Viabilidad del caso</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 10 }}>
+                          {detailViability.segments.map((active, index) => (
+                            <div
+                              key={`${detailViability.label}-${index}`}
+                              style={{
+                                height: 8,
+                                borderRadius: 999,
+                                background: active ? detailViability.color : "rgba(148,163,184,0.28)",
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <div style={{ marginTop: 10, color: detailViability.color, fontWeight: 800 }}>
+                          {detailViability.label} — {detailViability.note}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        {detailRouteSteps.map((step, index) => (
+                          <React.Fragment key={`${step}-${index}`}>
+                            <div style={{ padding: "8px 12px", borderRadius: 999, background: index === 0 ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.06)", border: "1px solid rgba(148,163,184,0.24)", fontWeight: 700 }}>
+                              {index + 1}. {step}
+                            </div>
+                            {index < detailRouteSteps.length - 1 && <div style={{ alignSelf: "center", color: "rgba(255,255,255,0.55)" }}>→</div>}
+                          </React.Fragment>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{ padding: 16, borderRadius: 18, background: "#F7F8FA" }}>
-                      <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>NORMAS BASE</div>
-                      <div style={{ marginTop: 10, color: C.text, fontWeight: 700 }}>{rules.length ? rules.join(", ") : "Base normativa general cargada."}</div>
+                    <div style={{ display: "grid", gap: 14 }}>
+                      <div style={{ padding: 16, borderRadius: 18, background: "#FCE7F3", border: "1px solid #F9A8D4" }}>
+                        <div style={{ fontSize: 12, color: "#BE185D", fontWeight: 800 }}>DERECHOS IDENTIFICADOS</div>
+                        <div style={{ marginTop: 10, color: C.text, fontWeight: 800, lineHeight: 1.45 }}>
+                          {detailRights.length ? detailRights.join(", ") : "Se consolidan con los datos del expediente."}
+                        </div>
+                      </div>
+                      <div style={{ padding: 16, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE" }}>
+                        <div style={{ fontSize: 12, color: C.primary, fontWeight: 800 }}>NORMAS BASE</div>
+                        <div style={{ marginTop: 10, color: C.text, fontWeight: 800, lineHeight: 1.5 }}>
+                          {detailNorms.length ? detailNorms.join(", ") : "Base normativa general cargada."}
+                        </div>
+                      </div>
+                      <div style={{ padding: 16, borderRadius: 18, background: "#18181B", border: "1px solid #3F3F46", color: "#fff" }}>
+                        <div style={{ fontSize: 12, color: "#FCA5A5", fontWeight: 800 }}>SE DESBLOQUEA AL PAGAR</div>
+                        <div style={{ display: "grid", gap: 8, marginTop: 10, color: "#E4E4E7" }}>
+                          <div>🔒 Argumentacion juridica completa</div>
+                          <div>🔒 Documento final listo para radicar</div>
+                          <div>🔒 Paso a paso de pruebas y radicacion</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ padding: 16, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FED7AA", color: "#9A3412" }}>
-                    Para avanzar al formulario necesitas confirmar el pago del documento.
+                  <div style={{ padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FED7AA", color: "#9A3412", display: "grid", gap: 8 }}>
+                    <div style={{ fontWeight: 800 }}>Que sigue ahora</div>
+                    <div>Si este diagnostico te hace sentido, ya puedes pagar para activar el documento final y luego probar la radicacion.</div>
                   </div>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button variant="secondary" onClick={() => onSetDetailStep(2)}>
