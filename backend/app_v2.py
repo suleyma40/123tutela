@@ -181,7 +181,49 @@ def _normalize_payment_order(order: dict[str, Any]) -> PaymentOrderResponse:
     )
 
 
+def _reconcile_case_payment(case: dict[str, Any]) -> dict[str, Any]:
+    case_id = str(case["id"])
+    orders = repository.list_payment_orders_for_case(case_id)
+    if not orders:
+        return case
+
+    latest = orders[0]
+    order_status = str(latest.get("status") or "pending").lower()
+    desired_case_status = {
+        "approved": "pagado",
+        "declined": "rechazado",
+        "error": "error",
+        "voided": "anulado",
+        "pending": "pendiente",
+    }.get(order_status)
+    if not desired_case_status:
+        return case
+
+    current_status = case.get("payment_status") or "pendiente"
+    current_reference = case.get("payment_reference")
+    latest_reference = latest.get("reference")
+
+    should_update = (
+        desired_case_status == "pagado" and current_status != "pagado"
+    ) or (
+        current_status == "pendiente" and desired_case_status != current_status
+    ) or (
+        latest_reference and current_reference != latest_reference and desired_case_status == current_status
+    )
+
+    if not should_update:
+        return case
+
+    updated = repository.update_case_payment(
+        case_id,
+        str(latest_reference or current_reference or ""),
+        payment_status=desired_case_status,
+    )
+    return updated or case
+
+
 def _snapshot_case_detail(case: dict[str, Any]) -> CaseDetailResponse:
+    case = _reconcile_case_payment(case)
     files = repository.list_files_for_case(str(case["id"]))
     attempts = repository.list_submission_attempts(str(case["id"]))
     events = repository.list_case_events(str(case["id"]))
@@ -489,7 +531,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
 @app.get("/cases", response_model=list[CaseResponse])
 def list_cases(current_user: dict[str, Any] = Depends(get_current_user)) -> list[CaseResponse]:
     cases = repository.list_cases_for_user(str(current_user["id"]))
-    return [_normalize_case(case) for case in cases]
+    return [_normalize_case(_reconcile_case_payment(case)) for case in cases]
 
 
 @app.get("/cases/{case_id}", response_model=CaseDetailResponse)
@@ -993,7 +1035,7 @@ def list_internal_cases(
     _: dict[str, Any] = Depends(get_internal_user),
 ) -> list[CaseResponse]:
     cases = repository.list_internal_cases(status=status_filter, workflow_type=workflow_type, category=category)
-    return [_normalize_case(case) for case in cases]
+    return [_normalize_case(_reconcile_case_payment(case)) for case in cases]
 
 
 @app.get("/internal/cases/{case_id}", response_model=CaseDetailResponse)
