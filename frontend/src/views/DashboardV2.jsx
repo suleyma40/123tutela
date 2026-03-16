@@ -849,7 +849,7 @@ const buildGuidedIntakeInterviewSteps = (form) => {
     );
   }
 
-  if (category === "salud" || action === "accion de tutela") {
+  if (form.category === "Salud" || action === "accion de tutela") {
     steps.push(
       {
         id: "acting_capacity",
