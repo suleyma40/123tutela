@@ -1478,42 +1478,55 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
         </div>
       </SessionCard>
 
-      <SessionCard title="Archivos" subtitle="Anexos iniciales y evidencias del expediente.">
-        {files.length ? files.map((file) => (
-          <div key={file.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 14, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 10 }}>
-            <div>
-              <div style={{ fontWeight: 700, color: C.text }}>{file.original_name}</div>
-              <div style={{ color: C.textMuted, fontSize: 13 }}>{file.file_kind} - {Math.round(file.file_size / 1024)} KB</div>
+      <SessionCard title="Soportes y trazabilidad tecnica" subtitle="Solo abre estas secciones cuando necesites revisar detalle operativo o evidencia.">
+        <div style={{ display: "grid", gap: 12 }}>
+          <details style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: "#FCFDFF", padding: 16 }}>
+            <summary style={{ cursor: "pointer", fontWeight: 800, color: C.text }}>Archivos y evidencias</summary>
+            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+              {files.length ? files.map((file) => (
+                <div key={file.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: C.text }}>{file.original_name}</div>
+                    <div style={{ color: C.textMuted, fontSize: 13 }}>{file.file_kind} - {Math.round(file.file_size / 1024)} KB</div>
+                  </div>
+                  <a href={`${apiBase}/files/${file.id}`} target="_blank" rel="noreferrer" style={{ color: C.primary, textDecoration: "none", fontWeight: 700 }}>Abrir</a>
+                </div>
+              )) : <div style={{ color: C.textMuted }}>Sin archivos asociados.</div>}
             </div>
-            <a href={`${apiBase}/files/${file.id}`} target="_blank" rel="noreferrer" style={{ color: C.primary, textDecoration: "none", fontWeight: 700 }}>Abrir</a>
-          </div>
-        )) : <div style={{ color: C.textMuted }}>Sin archivos asociados.</div>}
-      </SessionCard>
+          </details>
 
-      <SessionCard title="Intentos de envio" subtitle="Trazabilidad de canal, contacto y radicado.">
-        {attempts.length ? attempts.map((attempt) => (
-          <div key={attempt.id} style={{ padding: 14, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <strong style={{ color: C.text }}>{attempt.channel}</strong>
-              <Badge color={attempt.radicado ? C.success : C.primary}>{attempt.status}</Badge>
+          <details style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: "#FCFDFF", padding: 16 }}>
+            <summary style={{ cursor: "pointer", fontWeight: 800, color: C.text }}>Intentos de envio</summary>
+            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+              {attempts.length ? attempts.map((attempt) => (
+                <div key={attempt.id} style={{ padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <strong style={{ color: C.text }}>{attempt.channel}</strong>
+                    <Badge color={attempt.radicado ? C.success : C.primary}>{attempt.status}</Badge>
+                  </div>
+                  <div style={{ color: C.textMuted, marginTop: 8 }}>{attempt.destination_name || "Destino manual"}</div>
+                  <div style={{ color: C.textMuted }}>{attempt.destination_contact || "Sin contacto"}</div>
+                  {attempt.radicado && <div style={{ marginTop: 8, color: C.success, fontWeight: 700 }}>Radicado: {attempt.radicado}</div>}
+                </div>
+              )) : <div style={{ color: C.textMuted }}>No hay envios registrados.</div>}
             </div>
-            <div style={{ color: C.textMuted, marginTop: 8 }}>{attempt.destination_name || "Destino manual"}</div>
-            <div style={{ color: C.textMuted }}>{attempt.destination_contact || "Sin contacto"}</div>
-            {attempt.radicado && <div style={{ marginTop: 8, color: C.success, fontWeight: 700 }}>Radicado: {attempt.radicado}</div>}
-          </div>
-        )) : <div style={{ color: C.textMuted }}>No hay envios registrados.</div>}
-      </SessionCard>
+          </details>
 
-      <SessionCard title="Timeline" subtitle="Eventos del expediente.">
-        {timeline.length ? timeline.map((event) => (
-          <div key={event.id} style={{ padding: 14, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <strong style={{ color: C.text }}>{event.event_type}</strong>
-              <span style={{ color: C.textMuted, fontSize: 13 }}>{shortDate(event.created_at)}</span>
+          <details style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: "#FCFDFF", padding: 16 }}>
+            <summary style={{ cursor: "pointer", fontWeight: 800, color: C.text }}>Timeline tecnico</summary>
+            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+              {timeline.length ? timeline.map((event) => (
+                <div key={event.id} style={{ padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <strong style={{ color: C.text }}>{event.event_type}</strong>
+                    <span style={{ color: C.textMuted, fontSize: 13 }}>{shortDate(event.created_at)}</span>
+                  </div>
+                  <pre style={{ margin: "8px 0 0", whiteSpace: "pre-wrap", color: C.textMuted, fontFamily: "'DM Sans', sans-serif" }}>{JSON.stringify(event.payload || {}, null, 2)}</pre>
+                </div>
+              )) : <div style={{ color: C.textMuted }}>Sin eventos todavia.</div>}
             </div>
-            <pre style={{ margin: "8px 0 0", whiteSpace: "pre-wrap", color: C.textMuted, fontFamily: "'DM Sans', sans-serif" }}>{JSON.stringify(event.payload || {}, null, 2)}</pre>
-          </div>
-        )) : <div style={{ color: C.textMuted }}>Sin eventos todavia.</div>}
+          </details>
+        </div>
       </SessionCard>
     </div>
   );
@@ -2015,30 +2028,40 @@ export default function DashboardV2(props) {
               loading={loading}
             />
             <div id="case-next-stage">
-            <SessionCard title="Acciones operativas" subtitle="Documento, envío, radicado manual y evidencia del caso activo.">
-              <div style={{ display: "grid", gap: 14 }}>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <Button variant="secondary" onClick={() => onGenerateDocument(activeCaseDetail.case.id)} disabled={activeCaseDetail.case.payment_status !== "pagado"} icon={FileText}>Generar documento</Button>
+              <SessionCard title="Acciones operativas" subtitle="Solo ves las acciones del siguiente paso: documento, envio y radicado.">
+                <div style={{ display: "grid", gap: 18 }}>
+                  <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.textMuted }}>DOCUMENTO</div>
+                    <div style={{ color: C.textMuted }}>Genera el escrito final cuando el pago ya este confirmado.</div>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <Button variant="secondary" onClick={() => onGenerateDocument(activeCaseDetail.case.id)} disabled={activeCaseDetail.case.payment_status !== "pagado"} icon={FileText}>Generar documento</Button>
+                    </div>
+                  </div>
+                  <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.textMuted }}>ENVIO O RADICACION</div>
+                    <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o contacto manual" />
+                    <TextArea value={submissionNote} onChange={(event) => setSubmissionNote(event.target.value)} placeholder="Notas del envio o fallback" style={{ minHeight: 90 }} />
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: submissionNote })} disabled={!activeCaseDetail.case.generated_document}>Ejecutar envio automatico</Button>
+                      <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: submissionNote })}>Usar contacto manual</Button>
+                      <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: submissionNote })}>Activar modo presencial</Button>
+                    </div>
+                  </div>
+                  <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.textMuted }}>RADICADO MANUAL Y EVIDENCIA</div>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <TextInput value={radicadoManual} onChange={(event) => setRadicadoManual(event.target.value)} placeholder="Numero de radicado manual" />
+                      <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: radicadoNote })}>Registrar radicado manual</Button>
+                    </div>
+                    <TextArea value={radicadoNote} onChange={(event) => setRadicadoNote(event.target.value)} placeholder="Notas del radicado manual" style={{ minHeight: 80 }} />
+                    <input id="evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <TextInput value={evidenceNote} onChange={(event) => setEvidenceNote(event.target.value)} placeholder="Nota sobre la evidencia" />
+                      <Button variant="outline" onClick={() => document.getElementById("evidence-upload").click()} icon={Upload}>Subir evidencia</Button>
+                    </div>
+                  </div>
                 </div>
-                <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o contacto manual" />
-                <TextArea value={submissionNote} onChange={(event) => setSubmissionNote(event.target.value)} placeholder="Notas del envío o fallback" style={{ minHeight: 90 }} />
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: submissionNote })} disabled={!activeCaseDetail.case.generated_document}>Ejecutar envío automático</Button>
-                  <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: submissionNote })}>Usar contacto manual</Button>
-                  <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: submissionNote })}>Activar modo presencial</Button>
-                </div>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <TextInput value={radicadoManual} onChange={(event) => setRadicadoManual(event.target.value)} placeholder="Número de radicado manual" />
-                  <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: radicadoNote })}>Registrar radicado manual</Button>
-                </div>
-                <TextArea value={radicadoNote} onChange={(event) => setRadicadoNote(event.target.value)} placeholder="Notas del radicado manual" style={{ minHeight: 80 }} />
-                <input id="evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <TextInput value={evidenceNote} onChange={(event) => setEvidenceNote(event.target.value)} placeholder="Nota sobre la evidencia" />
-                  <Button variant="outline" onClick={() => document.getElementById("evidence-upload").click()} icon={Upload}>Subir evidencia</Button>
-                </div>
-              </div>
-            </SessionCard>
+              </SessionCard>
             </div>
           </>
         )}
