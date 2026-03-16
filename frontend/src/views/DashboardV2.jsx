@@ -1404,8 +1404,12 @@ function IntakeReviewCard({ review }) {
     return null;
   }
 
-  const blockingIssues = review.blocking_issues || [];
-  const warnings = review.warnings || [];
+  const originalBlockingIssues = review.blocking_issues || [];
+  const originalWarnings = review.warnings || [];
+  const aiOwnedBlockingIssues = originalBlockingIssues.filter(isAiOwnedReviewIssue);
+  const blockingIssues = originalBlockingIssues.filter((issue) => !isAiOwnedReviewIssue(issue));
+  const aiOwnedWarnings = originalWarnings.filter(isAiOwnedReviewIssue);
+  const warnings = originalWarnings.filter((issue) => !isAiOwnedReviewIssue(issue));
   const canProceed = blockingIssues.length === 0;
 
   return (
@@ -1437,6 +1441,16 @@ function IntakeReviewCard({ review }) {
         </div>
       )}
 
+      {!!aiOwnedBlockingIssues.length && (
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {aiOwnedBlockingIssues.map((issue) => (
+            <div key={issue} style={{ color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", padding: 14, borderRadius: 14 }}>
+              {humanizeAiOwnedIssue(issue)}
+            </div>
+          ))}
+        </div>
+      )}
+
       {!!warnings.length && (
         <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
           {warnings.map((warning) => (
@@ -1447,9 +1461,19 @@ function IntakeReviewCard({ review }) {
         </div>
       )}
 
+      {!!aiOwnedWarnings.length && (
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {aiOwnedWarnings.map((warning) => (
+            <div key={warning} style={{ color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", padding: 14, borderRadius: 14 }}>
+              {humanizeAiOwnedIssue(warning)}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ marginTop: 14, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
         {canProceed
-          ? "Puedes guardar el expediente, pero conviene reforzar hechos, fechas y pretensiones para mejorar la calidad del documento final."
+          ? "La IA ya puede continuar con el expediente. Si quieres, luego afinas hechos o soportes para mejorar aun mas la calidad final."
           : "Vuelve al paso anterior y mejora el relato antes de continuar. La plataforma no deberia cobrar ni generar un documento con informacion debil."}
       </div>
     </div>
@@ -1464,7 +1488,9 @@ function DocumentRuleReviewCard({ review }) {
   const originalBlockingIssues = review.blocking_issues || [];
   const aiOwnedIssues = originalBlockingIssues.filter(isAiOwnedReviewIssue);
   const blockingIssues = originalBlockingIssues.filter((issue) => !isAiOwnedReviewIssue(issue));
-  const warnings = review.warnings || [];
+  const originalWarnings = review.warnings || [];
+  const aiOwnedWarnings = originalWarnings.filter(isAiOwnedReviewIssue);
+  const warnings = originalWarnings.filter((issue) => !isAiOwnedReviewIssue(issue));
   const canProceed = blockingIssues.length === 0;
 
   return (
@@ -1485,9 +1511,8 @@ function DocumentRuleReviewCard({ review }) {
         <Badge color={canProceed ? C.primary : C.warning}>{review.status}</Badge>
       </div>
 
-      <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
-        <div style={{ color: C.textMuted, fontSize: 13 }}>Secciones minimas: {review.rule.required_sections?.join(", ")}</div>
-        <div style={{ color: C.textMuted, fontSize: 13 }}>Foco juridico: {review.rule.quality_focus}</div>
+      <div style={{ marginTop: 14, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+        La plataforma ya evalua internamente la estructura del documento, la procedencia y el nivel de soporte requerido para esta ruta.
       </div>
 
       {!!blockingIssues.length && (
@@ -1515,6 +1540,16 @@ function DocumentRuleReviewCard({ review }) {
           {warnings.map((warning) => (
             <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>
               {warning}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!!aiOwnedWarnings.length && (
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {aiOwnedWarnings.map((warning) => (
+            <div key={warning} style={{ color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", padding: 14, borderRadius: 14 }}>
+              {humanizeAiOwnedIssue(warning)}
             </div>
           ))}
         </div>
@@ -3349,12 +3384,9 @@ export default function DashboardV2(props) {
           return (
             <StepShell
               stepNumber={3}
-              title="Analisis gratis y revision"
-              subtitle="Aqui te mostramos la ruta sugerida antes de crear el expediente."
+              title="Analisis gratis y siguiente paso"
+              subtitle="Aqui revisas la ruta sugerida y, si todo esta bien, guardas el expediente para pasar al pago."
               onBack={() => setWizardStep(2)}
-              onNext={() => setWizardStep(4)}
-              nextDisabled={!preview || hasBlockingIssues || hasActionSpecificBlockers || hasDocumentRuleBlockers}
-              nextLabel="Continuar al pago"
             >
               {!preview ? (
                 <div style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>
@@ -3362,6 +3394,15 @@ export default function DashboardV2(props) {
                 </div>
               ) : (
                 <>
+                  <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>QUE SIGUE</div>
+                    <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                      Si esta informacion se ve correcta, pulsa <span style={{ color: C.primary }}>Guardar expediente y abrir pago</span>.
+                    </div>
+                    <div style={{ marginTop: 10, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                      Aun no ves el documento final porque este paso solo muestra el analisis gratis. El documento se activa despues del pago aprobado.
+                    </div>
+                  </div>
                   <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
                     <div style={{ fontWeight: 800, color: C.text }}>{preview.recommended_action}</div>
                     <div style={{ color: C.textMuted, marginTop: 8 }}>{preview.strategy}</div>
@@ -3405,7 +3446,7 @@ export default function DashboardV2(props) {
                       }}
                       disabled={!profileReady || hasBlockingIssues || hasActionSpecificBlockers || hasDocumentRuleBlockers}
                     >
-                      Guardar expediente
+                      Guardar expediente y abrir pago
                     </Button>
                     <Button variant="outline" onClick={resetWizard}>Reiniciar</Button>
                   </div>
