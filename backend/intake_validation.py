@@ -326,6 +326,7 @@ def validate_submission_readiness(
     entities = facts.get("entidades_involucradas") or []
     dates = facts.get("fechas_mencionadas") or []
     category_lower = _lower(category)
+    intake = facts.get("intake_form") or {}
 
     if len(text) < 220:
         problems.append("La descripcion consolidada todavia es demasiado corta para sostener un analisis juridico serio.")
@@ -343,12 +344,43 @@ def validate_submission_readiness(
 
     if category_lower == "salud" and not _has_any(lowered, ["urgencia", "riesgo", "dolor", "agrav", "tratamiento", "medicamento", "cita", "cirugia", "procedimiento"]):
         problems.append("En casos de salud falta explicar con mas fuerza la urgencia, el riesgo o el servicio requerido.")
+    if category_lower == "salud":
+        if not _text(intake.get("diagnosis")):
+            problems.append("En salud falta el diagnostico o condicion medica principal.")
+        if not _text(intake.get("treatment_needed")):
+            problems.append("En salud falta el tratamiento, medicamento o servicio concreto requerido.")
+        if not _text(intake.get("target_entity")) and not _text(intake.get("eps_name")):
+            problems.append("En salud debe quedar clara la EPS, IPS o entidad accionada.")
 
     if category_lower in {"laboral", "bancos", "servicios", "consumidor"} and not _has_any(lowered, ["1)", "1.", "primero", "segundo", "solicitudes numeradas", "responder", "entregar", "corregir"]):
         warnings.append("En rutas de peticion conviene dejar mas claras las solicitudes numeradas o la respuesta esperada.")
 
     if category_lower == "datos" and not _has_any(lowered, ["corregir", "actualizar", "suprimir", "eliminar", "rectificar"]):
         problems.append("En habeas data debe quedar clara la accion exacta que se pide sobre el dato.")
+    if category_lower == "datos":
+        if not _text(intake.get("disputed_data")):
+            problems.append("En habeas data debe identificarse el dato o reporte cuestionado.")
+        if not _text(intake.get("requested_data_action")):
+            problems.append("En habeas data debe definirse si se pide corregir, actualizar o suprimir la informacion.")
+    if category_lower == "bancos":
+        if not _text(intake.get("bank_product_type")):
+            problems.append("En bancos debe identificarse el producto financiero afectado.")
+        if not _text(intake.get("disputed_charge")):
+            problems.append("En bancos debe identificarse el cobro, seguro o cargo discutido.")
+        if not _text(intake.get("concrete_request")):
+            problems.append("En bancos debe quedar clara la devolucion, reverso, cancelacion o correccion solicitada.")
+    if "derecho de peticion" in _lower(str((facts.get("dx_result") or {}).get("recommended_document") or "")):
+        if not _text(intake.get("numbered_requests")):
+            problems.append("El derecho de peticion necesita solicitudes numeradas y verificables.")
+        if not _text(intake.get("response_channel")) and not _text(intake.get("copy_email")):
+            warnings.append("Conviene definir un canal de respuesta expreso para el derecho de peticion.")
+    if "accion de tutela" in _lower(str((facts.get("dx_result") or {}).get("recommended_document") or "")):
+        if not _text(intake.get("tutela_other_means_detail")):
+            problems.append("La tutela necesita justificar subsidiariedad o explicar por que no existe otro medio eficaz.")
+        if not _text(intake.get("tutela_immediacy_detail")):
+            problems.append("La tutela necesita explicar por que la vulneracion es actual o reciente.")
+        if not _text(intake.get("tutela_no_temperity_detail")):
+            problems.append("La tutela necesita declaracion de no temeridad o aclaracion sobre tutela previa.")
 
     if not prior_actions and category_lower in {"datos", "laboral", "bancos", "servicios", "consumidor"}:
         warnings.append("No se reporta gestion previa. Revisa si primero debe agotarse peticion o reclamacion formal.")

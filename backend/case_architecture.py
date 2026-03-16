@@ -676,11 +676,15 @@ def build_final_validation(
     quality_review: dict[str, Any],
 ) -> dict[str, Any]:
     facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
     legal_analysis = case.get("legal_analysis") or {}
     recommended_action = _lower(case.get("recommended_action"))
     lowered = _lower(document)
     blocking_issues: list[str] = []
     warnings: list[str] = []
+    pending_questions = facts.get("pending_questions") or []
+    high_priority_questions = [item for item in pending_questions if item.get("priority") == "alta"]
+    route = ((case.get("routing") or {}).get("case_route") or (facts.get("dx_result") or {}).get("route") or "").strip()
 
     if not _text(case.get("recommended_action")):
         blocking_issues.append("No esta claramente definido el tipo de accion o documento.")
@@ -690,6 +694,10 @@ def build_final_validation(
 
     if not _text(facts.get("pretension_concreta")) and not _has_any(lowered, ["solicito", "pretension", "solicitudes"]):
         blocking_issues.append("Las pretensiones no corresponden claramente al caso o siguen siendo vagas.")
+    if route and route != "A":
+        blocking_issues.append("El expediente aun no esta en ruta automatizable. Debe completar preguntas o pasar revision previa antes de entregar.")
+    if high_priority_questions:
+        blocking_issues.append("Faltan datos criticos del caso antes de entregar el documento final.")
 
     if not _text(facts.get("fechas_mencionadas")):
         warnings.append("La cronologia sigue debil porque faltan fechas o periodos claros.")
@@ -706,6 +714,46 @@ def build_final_validation(
         blocking_issues.append("El documento promete resultados o contiene afirmaciones impropias.")
     if _has_any(lowered, ["t-760", "t-025", "su-", "c-"]) and not _list(source_policy.get("verified_precedents")):
         blocking_issues.append("El documento menciona jurisprudencia sin soporte verificado suficiente.")
+
+    if "accion de tutela" in recommended_action:
+        if not _text(intake.get("tutela_other_means_detail")):
+            blocking_issues.append("La tutela debe justificar subsidiariedad o la insuficiencia de otros medios.")
+        if not _text(intake.get("tutela_immediacy_detail")):
+            blocking_issues.append("La tutela debe justificar la inmediatez con hechos concretos.")
+        if not _text(intake.get("tutela_no_temperity_detail")):
+            blocking_issues.append("La tutela debe contener una declaracion clara sobre no temeridad o tutela previa.")
+        if _lower(case.get("categoria")) == "salud":
+            if not _text(intake.get("target_entity")):
+                blocking_issues.append("En tutela de salud debe quedar claramente identificada la EPS o IPS accionada.")
+            if not _text(intake.get("diagnosis")):
+                blocking_issues.append("En tutela de salud falta el diagnostico o condicion medica principal.")
+            if not _text(intake.get("treatment_needed")):
+                blocking_issues.append("En tutela de salud falta el medicamento, examen o servicio concreto requerido.")
+            if not _text(intake.get("urgency_detail")):
+                blocking_issues.append("En tutela de salud falta explicar la urgencia o el riesgo clinico actual.")
+    if "derecho de peticion" in recommended_action:
+        if not _text(intake.get("numbered_requests")):
+            blocking_issues.append("El derecho de peticion debe dejar solicitudes numeradas y verificables.")
+        if not _text(intake.get("response_channel")) and not _text(intake.get("copy_email")):
+            blocking_issues.append("El derecho de peticion debe indicar un canal de notificacion claro.")
+        if _lower(intake.get("petition_target_nature")) == "privada" and not _text(intake.get("petition_private_ground")):
+            blocking_issues.append("Si la peticion se dirige a un particular, debe explicarse el fundamento juridico para exigir respuesta.")
+    if "reclamacion financiera" in recommended_action:
+        if not _text(intake.get("bank_product_type")):
+            blocking_issues.append("La reclamacion financiera debe identificar el producto bancario o financiero afectado.")
+        if not _text(intake.get("disputed_charge")):
+            blocking_issues.append("La reclamacion financiera debe identificar el cobro, seguro o cargo discutido.")
+        if not _text(intake.get("bank_amount_involved")):
+            warnings.append("Conviene precisar el monto discutido para fortalecer la devolucion o reverso solicitado.")
+        if _lower(intake.get("prior_claim")) not in {"si", "sÃ­", "reclame", "reclamo"} and not _text(intake.get("prior_claim_result")):
+            blocking_issues.append("Antes de entregar una reclamacion financiera debe quedar documentado el reclamo previo o su justificacion.")
+    if "habeas data" in recommended_action:
+        if not _text(intake.get("disputed_data")):
+            blocking_issues.append("En habeas data debe identificarse el dato, reporte o registro cuestionado.")
+        if not _text(intake.get("requested_data_action")):
+            blocking_issues.append("En habeas data debe quedar clara la accion solicitada sobre el dato.")
+        if not _text(intake.get("prior_claim_result")):
+            warnings.append("Conviene dejar trazabilidad del reclamo previo a la fuente o central de riesgo.")
 
     if quality_review.get("blocking_issues"):
         blocking_issues.extend(quality_review["blocking_issues"])

@@ -1387,9 +1387,15 @@ function GuidedIntakeFields({
   const activeInterviewStep = interviewSteps[0] || null;
   const [assistantDraft, setAssistantDraft] = useState("");
   const evidenceHints = evidenceTypeHints[form.category] || evidenceTypeHints.default;
+  const assistantProgress = interviewSteps.length ? `1 de ${interviewSteps.length}` : null;
 
   const quickChannels = ["Correo electronico", "WhatsApp", "Direccion fisica", "Correo y WhatsApp"];
   const quickRequestTypes = ["Interes particular", "Informacion", "Documentos", "Consulta"];
+  const applyEvidenceHint = (hint) => {
+    const current = String(form.evidence_summary || "").trim();
+    if (current.toLowerCase().includes(hint.toLowerCase())) return;
+    setField("evidence_summary", current ? `${current}, ${hint}` : hint);
+  };
 
   const answerInterviewStep = () => {
     if (!activeInterviewStep || !assistantDraft.trim()) return;
@@ -1416,7 +1422,10 @@ function GuidedIntakeFields({
 
       {!!activeInterviewStep && (
         <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", display: "grid", gap: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>ASISTENTE DEL CASO</div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>ASISTENTE DEL CASO</div>
+            {assistantProgress && <Badge color={C.primary}>Pregunta {assistantProgress}</Badge>}
+          </div>
           <div style={{ color: C.text, fontWeight: 700, lineHeight: 1.6 }}>
             {activeInterviewStep.question}
           </div>
@@ -1582,7 +1591,16 @@ function GuidedIntakeFields({
       <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PRUEBAS QUE PUEDES SUBIR</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {evidenceHints.map((hint) => <Badge key={hint} color={C.primary}>{hint}</Badge>)}
+          {evidenceHints.map((hint) => (
+            <button
+              key={hint}
+              type="button"
+              onClick={() => applyEvidenceHint(hint)}
+              style={{ border: `1px solid ${C.border}`, background: "#fff", color: C.text, borderRadius: 999, padding: "8px 12px", cursor: "pointer", fontWeight: 700 }}
+            >
+              + {hint}
+            </button>
+          ))}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {quickChannels.map((option) => (
