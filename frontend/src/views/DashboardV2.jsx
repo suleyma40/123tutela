@@ -88,6 +88,11 @@ const defaultIntakeFields = {
   tutela_immediacy_detail: "",
   tutela_special_protection_detail: "",
   tutela_private_party_ground: "",
+  acting_capacity: "nombre_propio",
+  represented_person_name: "",
+  represented_person_document: "",
+  represented_person_age: "",
+  represented_person_condition: "",
   petition_target_nature: "publica",
   petition_private_ground: "",
   petition_previous_submission_date: "",
@@ -588,6 +593,11 @@ const buildStructuredDescription = (form) => {
     form.tutela_immediacy_detail ? `Inmediatez o justificacion temporal: ${form.tutela_immediacy_detail}` : "",
     form.tutela_special_protection_detail ? `Sujeto de especial proteccion: ${form.tutela_special_protection_detail}` : "",
     form.tutela_private_party_ground ? `Fundamento contra particular: ${form.tutela_private_party_ground}` : "",
+    form.acting_capacity ? `Calidad en que actua quien presenta el caso: ${form.acting_capacity}` : "",
+    form.represented_person_name ? `Persona representada o afectada principal: ${form.represented_person_name}` : "",
+    form.represented_person_document ? `Documento de la persona representada: ${form.represented_person_document}` : "",
+    form.represented_person_age ? `Edad o fecha de nacimiento de la persona representada: ${form.represented_person_age}` : "",
+    form.represented_person_condition ? `Condicion relevante de la persona representada: ${form.represented_person_condition}` : "",
     form.petition_target_nature ? `Naturaleza del destinatario de la peticion: ${form.petition_target_nature}` : "",
     form.petition_private_ground ? `Fundamento para peticion a particular: ${form.petition_private_ground}` : "",
     form.petition_previous_submission_date ? `Fecha de radicacion o gestion previa: ${form.petition_previous_submission_date}` : "",
@@ -612,6 +622,10 @@ const getGuidedIntakeMissing = (form, files = []) => {
     if (!form.diagnosis.trim()) missing.push("Diagnostico o condicion medica");
     if (!form.treatment_needed.trim()) missing.push("Tratamiento, orden o servicio requerido");
     if (!form.urgency_detail.trim()) missing.push("Urgencia o riesgo actual");
+    if (form.acting_capacity !== "nombre_propio") {
+      if (!form.represented_person_name.trim()) missing.push("Nombre del menor o paciente representado");
+      if (!form.represented_person_age.trim()) missing.push("Edad o fecha de nacimiento del paciente representado");
+    }
   }
 
   if (form.category === "Datos") {
@@ -657,6 +671,10 @@ const getGuidedIntakeMissing = (form, files = []) => {
     if (!form.tutela_no_temperity_detail.trim()) missing.push("No temeridad o tutela previa");
     if (!form.tutela_other_means_detail.trim()) missing.push("Subsidiariedad o ausencia de otro medio eficaz");
     if (!form.tutela_immediacy_detail.trim()) missing.push("Inmediatez o justificacion temporal");
+    if (form.acting_capacity !== "nombre_propio") {
+      if (!form.represented_person_name.trim()) missing.push("Nombre de la persona representada");
+      if (!form.represented_person_age.trim()) missing.push("Edad o fecha de nacimiento de la persona representada");
+    }
   }
 
   if (normalizedAction.includes("derecho de peticion")) {
@@ -827,6 +845,36 @@ const buildGuidedIntakeInterviewSteps = (form) => {
         placeholder: "Ej: empeora la enfermedad, dolor intenso, suspension del tratamiento, riesgo de recaida o complicacion",
         multiline: true,
         show: !form.urgency_detail.trim(),
+      }
+    );
+  }
+
+  if (category === "salud" || action === "accion de tutela") {
+    steps.push(
+      {
+        id: "acting_capacity",
+        question: "¿Actúas en nombre propio o en representación de otra persona?",
+        placeholder: "Ej: madre del menor, padre, acudiente, agente oficioso, nombre propio",
+        multiline: false,
+        show: !form.acting_capacity?.trim() || form.acting_capacity === "nombre_propio",
+      },
+      {
+        id: "represented_person_name",
+        question: "¿Cuál es el nombre del menor o de la persona afectada principal?",
+        placeholder: "Ej: Jeronimo Perez Lopez",
+        multiline: false,
+        show:
+          form.acting_capacity !== "nombre_propio" &&
+          !form.represented_person_name?.trim(),
+      },
+      {
+        id: "represented_person_age",
+        question: "¿Qué edad tiene o cuál es la fecha de nacimiento de la persona representada?",
+        placeholder: "Ej: 7 años / 12 de abril de 2018",
+        multiline: false,
+        show:
+          form.acting_capacity !== "nombre_propio" &&
+          !form.represented_person_age?.trim(),
       }
     );
   }
@@ -1087,6 +1135,35 @@ function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFiel
     title = "Preguntas finas para accion de tutela";
     fields = (
       <>
+        <Field label="Calidad en que actuas">
+          <select
+            value={form.acting_capacity}
+            onChange={(event) => setField("acting_capacity", event.target.value)}
+            style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+          >
+            <option value="nombre_propio">En nombre propio</option>
+            <option value="madre_padre_menor">Madre o padre de menor de edad</option>
+            <option value="acudiente">Acudiente o cuidador</option>
+            <option value="agente_oficioso">Agente oficioso</option>
+            <option value="representante_legal">Representante legal</option>
+          </select>
+        </Field>
+        {form.acting_capacity !== "nombre_propio" && (
+          <>
+            <Field label="Nombre del menor o persona representada">
+              <TextInput value={form.represented_person_name} onChange={(event) => setField("represented_person_name", event.target.value)} placeholder="Ej: Jeronimo Perez Lopez" />
+            </Field>
+            <Field label="Documento del menor o persona representada">
+              <TextInput value={form.represented_person_document} onChange={(event) => setField("represented_person_document", event.target.value)} placeholder="Ej: registro civil, TI, NUIP o sin documento aun" />
+            </Field>
+            <Field label="Edad o fecha de nacimiento">
+              <TextInput value={form.represented_person_age} onChange={(event) => setField("represented_person_age", event.target.value)} placeholder="Ej: 7 años / 12 de abril de 2018" />
+            </Field>
+            <Field label="Condicion relevante de la persona representada">
+              <TextInput value={form.represented_person_condition} onChange={(event) => setField("represented_person_condition", event.target.value)} placeholder="Ej: menor con anemia falciforme, paciente de alto riesgo, discapacidad" />
+            </Field>
+          </>
+        )}
         <Field label="No temeridad o tutela previa">
           <TextArea value={form.tutela_no_temperity_detail} onChange={(event) => setField("tutela_no_temperity_detail", event.target.value)} placeholder="Indica si ya presentaste otra tutela por los mismos hechos. Si no, dilo expresamente. Si si, explica que cambio." style={{ minHeight: 90 }} />
         </Field>
@@ -1738,12 +1815,41 @@ function GuidedIntakeFields({
         <div className="glass-card" style={{ padding: 18, background: "#F5FAFF" }}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PREGUNTAS DINAMICAS PARA SALUD / EPS</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 14 }}>
+            <Field label="Quien presenta el caso">
+              <select
+                value={form.acting_capacity}
+                onChange={(event) => setField("acting_capacity", event.target.value)}
+                style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+              >
+                <option value="nombre_propio">El mismo paciente</option>
+                <option value="madre_padre_menor">Madre o padre de menor</option>
+                <option value="acudiente">Acudiente o cuidador</option>
+                <option value="agente_oficioso">Agente oficioso</option>
+                <option value="representante_legal">Representante legal</option>
+              </select>
+            </Field>
             <Field label="EPS">
               <TextInput value={form.eps_name} onChange={(event) => setField("eps_name", event.target.value)} placeholder="Ej: Nueva EPS" />
             </Field>
             <Field label="IPS o clinica">
               <TextInput value={form.ips_name} onChange={(event) => setField("ips_name", event.target.value)} placeholder="Ej: Clinica San Rafael" />
             </Field>
+            {form.acting_capacity !== "nombre_propio" && (
+              <>
+                <Field label="Nombre del menor o paciente representado">
+                  <TextInput value={form.represented_person_name} onChange={(event) => setField("represented_person_name", event.target.value)} placeholder="Ej: Jeronimo Perez Lopez" />
+                </Field>
+                <Field label="Documento del menor o paciente">
+                  <TextInput value={form.represented_person_document} onChange={(event) => setField("represented_person_document", event.target.value)} placeholder="Ej: Registro civil, TI o NUIP" />
+                </Field>
+                <Field label="Edad o fecha de nacimiento">
+                  <TextInput value={form.represented_person_age} onChange={(event) => setField("represented_person_age", event.target.value)} placeholder="Ej: 7 años / 12 de abril de 2018" />
+                </Field>
+                <Field label="Condicion relevante del paciente">
+                  <TextInput value={form.represented_person_condition} onChange={(event) => setField("represented_person_condition", event.target.value)} placeholder="Ej: menor con anemia falciforme" />
+                </Field>
+              </>
+            )}
             <Field label="Diagnostico o condicion medica">
               <TextInput value={form.diagnosis} onChange={(event) => setField("diagnosis", event.target.value)} placeholder="Ej: cancer, embarazo de alto riesgo, depresion severa" />
             </Field>
@@ -3017,8 +3123,8 @@ export default function DashboardV2(props) {
             subtitle="Usa tus palabras. La plataforma te ayuda con preguntas guiadas."
             onBack={() => setWizardStep(1)}
             onNext={() => setWizardStep(3)}
-            nextDisabled={!analysisReady}
-            nextLabel="Continuar al preview"
+            nextDisabled={!analysisReady || !preview}
+            nextLabel={preview ? "Continuar al preview" : "Primero genera el preview"}
           >
             <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 10 }}>
               <div style={{ fontWeight: 800, color: C.text }}>Procedimiento simple</div>
@@ -3083,7 +3189,7 @@ export default function DashboardV2(props) {
               <input id="wizard-upload" type="file" style={{ display: "none" }} onChange={uploadTemp} />
               <Button variant="secondary" onClick={() => document.getElementById("wizard-upload").click()} icon={Upload}>Subir anexo</Button>
               {tempFiles.map((item) => <Badge key={item.id} color={C.accent}>{item.original_name}</Badge>)}
-              <Button onClick={async () => setPreview(await onPreview({ ...form, description: composedDescription }))} disabled={!analysisReady || loading} icon={Search}>
+              <Button onClick={async () => setPreview(await onPreview({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) }))} disabled={!analysisReady || loading} icon={Search}>
                 {loading ? "Analizando..." : "Generar preview"}
               </Button>
             </div>

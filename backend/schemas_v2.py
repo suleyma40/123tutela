@@ -51,6 +51,7 @@ class AnalysisPreviewRequest(BaseModel):
     city: str = Field(min_length=2, max_length=80)
     description: str = Field(min_length=20, max_length=6000)
     prior_actions: list[str] = Field(default_factory=list)
+    attachment_ids: list[str] = Field(default_factory=list)
 
 
 class RoutingTargetResponse(BaseModel):

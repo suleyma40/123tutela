@@ -716,6 +716,11 @@ def build_final_validation(
         blocking_issues.append("El documento menciona jurisprudencia sin soporte verificado suficiente.")
 
     if "accion de tutela" in recommended_action:
+        if _text(intake.get("acting_capacity")) and _lower(intake.get("acting_capacity")) != "nombre_propio":
+            if not _text(intake.get("represented_person_name")):
+                blocking_issues.append("La tutela debe identificar con claridad a la persona representada o al menor afectado.")
+            if not _text(intake.get("represented_person_age")):
+                blocking_issues.append("La tutela debe indicar la edad o fecha de nacimiento de la persona representada.")
         if not _text(intake.get("tutela_other_means_detail")):
             blocking_issues.append("La tutela debe justificar subsidiariedad o la insuficiencia de otros medios.")
         if not _text(intake.get("tutela_immediacy_detail")):

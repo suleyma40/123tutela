@@ -381,6 +381,11 @@ def validate_submission_readiness(
             problems.append("La tutela necesita explicar por que la vulneracion es actual o reciente.")
         if not _text(intake.get("tutela_no_temperity_detail")):
             problems.append("La tutela necesita declaracion de no temeridad o aclaracion sobre tutela previa.")
+        if _text(intake.get("acting_capacity")) and _lower(intake.get("acting_capacity")) != "nombre_propio":
+            if not _text(intake.get("represented_person_name")):
+                problems.append("Si actuas por otra persona, debes identificar el nombre del menor o representado.")
+            if not _text(intake.get("represented_person_age")):
+                problems.append("Si actuas por otra persona, debes indicar edad o fecha de nacimiento del representado.")
 
     if not prior_actions and category_lower in {"datos", "laboral", "bancos", "servicios", "consumidor"}:
         warnings.append("No se reporta gestion previa. Revisa si primero debe agotarse peticion o reclamacion formal.")

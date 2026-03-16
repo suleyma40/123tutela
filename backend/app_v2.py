@@ -57,6 +57,7 @@ from backend.schemas_v2 import (
 )
 from backend.security import create_token, decode_token, hash_password, verify_password
 from backend.storage import absolute_path, move_relative_path, save_upload
+from backend.attachment_intelligence import build_attachment_context, enrich_description_with_attachment_context
 from backend import repository_ext as repository
 from backend.wompi import (
     amount_cop_to_cents,
@@ -527,8 +528,23 @@ async def upload_temp_file(
 
 
 @app.post("/analysis/preview", response_model=AnalysisPreviewResponse)
-def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse:
-    result = analyzer.full_analysis(payload.description, category=payload.category)
+def analysis_preview(
+    payload: AnalysisPreviewRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> AnalysisPreviewResponse:
+    attachment_records: list[dict[str, Any]] = []
+    for file_id in payload.attachment_ids:
+        file_record = repository.get_file_by_id(file_id)
+        if not file_record:
+            continue
+        if str(file_record.get("uploaded_by")) != str(current_user["id"]):
+            continue
+        attachment_records.append(file_record)
+
+    attachment_context = build_attachment_context(attachment_records)
+    enriched_description = enrich_description_with_attachment_context(payload.description, attachment_context)
+
+    result = analyzer.full_analysis(enriched_description, category=payload.category)
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
 
@@ -570,7 +586,7 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
     document_rule_review = evaluate_document_rule(
         recommended_action=workflow["recommended_action"],
         workflow_type=workflow["workflow_type"],
-        description=payload.description,
+        description=enriched_description,
         facts=result["facts"],
     )
     result["facts"]["intake_review"] = intake_review
@@ -578,7 +594,7 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
     result["facts"]["document_rule_review"] = document_rule_review
     result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
         category=payload.category,
-        description=payload.description,
+        description=enriched_description,
         workflow=workflow,
         facts=result["facts"],
         legal_analysis=result["legal_analysis"],
@@ -621,13 +637,25 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
 def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depends(get_current_user)) -> CaseDetailResponse:
     _require_profile(current_user)
 
-    result = analyzer.full_analysis(payload.description, category=payload.category)
+    attachment_records: list[dict[str, Any]] = []
+    for file_id in payload.attachment_ids:
+        file_record = repository.get_file_by_id(file_id)
+        if not file_record:
+            continue
+        if str(file_record.get("uploaded_by")) != str(current_user["id"]):
+            continue
+        attachment_records.append(file_record)
+
+    attachment_context = build_attachment_context(attachment_records)
+    enriched_description = enrich_description_with_attachment_context(payload.description, attachment_context)
+
+    result = analyzer.full_analysis(enriched_description, category=payload.category)
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
 
     workflow = infer_workflow(
         category=payload.category,
-        description=payload.description,
+        description=enriched_description,
         facts=result["facts"],
         legal_analysis=result["legal_analysis"],
         prior_actions=payload.prior_actions,
@@ -650,28 +678,29 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         category=payload.category,
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
-        description=payload.description,
+        description=enriched_description,
         facts=result["facts"],
         prior_actions=payload.prior_actions,
     )
     preview_gate = validate_submission_readiness(
         category=payload.category,
-        description=payload.description,
+        description=enriched_description,
         facts=result["facts"],
         prior_actions=payload.prior_actions,
     )
     document_rule_review = evaluate_document_rule(
         recommended_action=workflow["recommended_action"],
         workflow_type=workflow["workflow_type"],
-        description=payload.description,
+        description=enriched_description,
         facts=result["facts"],
     )
     result["facts"]["intake_review"] = intake_review
     result["facts"]["preview_gate"] = preview_gate
     result["facts"]["document_rule_review"] = document_rule_review
+    result["facts"]["attachment_intelligence"] = attachment_context
     result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
         category=payload.category,
-        description=payload.description,
+        description=enriched_description,
         workflow=workflow,
         facts=result["facts"],
         legal_analysis=result["legal_analysis"],
@@ -716,7 +745,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         address=current_user["address"],
         workflow_type=workflow["workflow_type"],
         category=payload.category,
-        description=payload.description,
+        description=enriched_description,
         recommended_action=workflow["recommended_action"],
         strategy_text=strategy,
         facts=result["facts"],

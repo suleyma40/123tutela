@@ -203,7 +203,7 @@ export default function MainAppV2() {
 
   const handlePreview = (payload) =>
     withAction(async () => {
-      const response = await api.post("/analysis/preview", payload);
+      const response = await api.post("/analysis/preview", payload, withAuth(session.token));
       return response.data;
     }, "No fue posible analizar el caso.");
 
