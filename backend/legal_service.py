@@ -22,7 +22,13 @@ class LegalAnalyzer:
 
         api_key = os.getenv("OPENAI_API_KEY", "")
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o")
-        self.client = OpenAI(api_key=api_key) if api_key and OpenAI else None
+        timeout_seconds = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "18"))
+        max_retries = int(os.getenv("OPENAI_MAX_RETRIES", "1"))
+        self.client = (
+            OpenAI(api_key=api_key, timeout=timeout_seconds, max_retries=max_retries)
+            if api_key and OpenAI
+            else None
+        )
 
     def _extract_entities(self, user_description: str) -> list[str]:
         patterns = [
