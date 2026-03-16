@@ -246,6 +246,12 @@ const shortDate = (value) => new Date(value).toLocaleString("es-CO", { dateStyle
 const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const widgetScriptUrl = "https://checkout.wompi.co/widget.js";
 
+const normalizeMentionedDates = (value) => {
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "string") return value;
+  return "";
+};
+
 const normalizeAction = (value) =>
   String(value || "")
     .normalize("NFD")
@@ -1837,7 +1843,7 @@ export default function DashboardV2(props) {
       target_address: intakeForm.target_address || "",
       legal_representative: intakeForm.legal_representative || "",
       case_story: intakeForm.case_story || activeCaseDetail.case.description || "",
-      key_dates: intakeForm.key_dates || activeCaseDetail.case.facts?.fechas_mencionadas?.join(", ") || "",
+      key_dates: intakeForm.key_dates || normalizeMentionedDates(activeCaseDetail.case.facts?.fechas_mencionadas) || "",
       prior_claim: intakeForm.prior_claim || "no",
       prior_claim_result: intakeForm.prior_claim_result || "",
       special_protection: intakeForm.special_protection || "No aplica",
