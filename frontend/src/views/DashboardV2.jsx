@@ -117,6 +117,11 @@ const statusColors = {
 };
 
 const specialProtectionOptions = ["Menor de edad", "Adulto mayor", "Embarazada", "Discapacidad", "Otro", "No aplica"];
+const evidenceTypeHints = {
+  Bancos: ["Extractos bancarios PDF", "Capturas del cobro o movimiento", "Chat o correo con el banco", "Contrato o reglamento del producto", "Radicado o respuesta previa"],
+  Salud: ["Orden medica o formula", "Historia clinica PDF", "Capturas de autorizaciones", "Respuesta de EPS", "Facturas o soportes de pago"],
+  default: ["PDF", "Fotos o capturas", "Chats exportados", "Correos", "Word o documentos escaneados"],
+};
 
 const buildPostPayDescription = (form, caseItem) => {
   const parts = [
@@ -131,8 +136,14 @@ const buildPostPayDescription = (form, caseItem) => {
     form.case_story ? `Relato detallado: ${form.case_story}` : "",
     form.concrete_request ? `Solicito expresamente: ${form.concrete_request}.` : "",
     form.key_dates ? `Fechas importantes: ${form.key_dates}.` : "",
+    form.bank_product_type ? `Producto financiero: ${form.bank_product_type}.` : "",
+    form.disputed_charge ? `Cobro o concepto discutido: ${form.disputed_charge}.` : "",
+    form.bank_amount_involved ? `Valor o monto discutido: ${form.bank_amount_involved}.` : "",
+    form.bank_event_date ? `Fecha del primer cobro o hecho relevante: ${form.bank_event_date}.` : "",
     form.prior_claim ? `Gestion previa: ${form.prior_claim_result || "Si reclamo antes."}` : "Gestion previa: No ha reclamado directamente ante la entidad.",
+    form.prior_claim_date ? `Fecha del reclamo previo: ${form.prior_claim_date}.` : "",
     form.entity_response ? `Respuesta recibida: ${form.entity_response}` : "",
+    form.evidence_summary ? `Pruebas o soportes disponibles: ${form.evidence_summary}.` : "",
     form.special_protection && form.special_protection !== "No aplica" ? `Sujeto de especial proteccion: ${form.special_protection}.` : "",
     form.prior_tutela === "si" ? `Ya hubo tutela previa. Diferencia relevante: ${form.prior_tutela_reason || "Sin detalle adicional."}` : "",
     form.copy_email ? `Enviar copia adicional a: ${form.copy_email}.` : "",
@@ -151,12 +162,36 @@ const getPostPayMissingFields = (form, caseItem) => {
   if (!form.case_story.trim()) missing.push("Cuenta con detalle que paso");
   if (!form.concrete_request.trim()) missing.push("Que quieres que ordenen o solucionen");
   if (!form.key_dates.trim()) missing.push("Fechas importantes");
+  if (!form.evidence_summary?.trim()) missing.push("Pruebas o soportes disponibles");
   if (!form.special_protection.trim()) missing.push("Proteccion especial");
   if (!form.prior_tutela.trim()) missing.push("Tutela previa");
+  if ((caseItem?.category || "").toLowerCase() === "bancos") {
+    if (!form.bank_product_type?.trim()) missing.push("Producto financiero");
+    if (!form.disputed_charge?.trim()) missing.push("Cobro o concepto discutido");
+    if (!form.bank_amount_involved?.trim()) missing.push("Valor o monto cobrado");
+    if (!form.bank_event_date?.trim()) missing.push("Fecha del primer cobro o hecho");
+    if (form.prior_claim === "si" && !form.prior_claim_date?.trim()) missing.push("Fecha del reclamo previo");
+  }
   if ((caseItem?.recommended_action || "").toLowerCase().includes("tutela") && form.prior_tutela === "si" && !form.prior_tutela_reason.trim()) {
     missing.push("Por que esta tutela es diferente");
   }
   return missing;
+};
+
+const getPostPayQuestionPrompts = (form, caseItem) => {
+  const prompts = [];
+  const category = (caseItem?.category || "").toLowerCase();
+  if (!form.key_dates.trim()) prompts.push("Que fecha exacta o aproximada tuvo el primer hecho relevante?");
+  if (!form.evidence_summary?.trim()) prompts.push("Que pruebas tienes hoy: extracto, chat, correo, captura, PDF, audio o contrato?");
+  if (category === "bancos") {
+    if (!form.bank_product_type?.trim()) prompts.push("Que producto financiero esta involucrado: tarjeta de credito, cuenta, prestamo, Nequi u otro?");
+    if (!form.disputed_charge?.trim()) prompts.push("Cual es exactamente el cobro discutido: seguro, cuota de manejo, interes, reporte o bloqueo?");
+    if (!form.bank_amount_involved?.trim()) prompts.push("Por que valor o monto te estan cobrando ese concepto?");
+    if (!form.bank_event_date?.trim()) prompts.push("Desde que fecha comenzaron los cobros o desde cuando viste el cargo por primera vez?");
+    if (form.prior_claim === "si" && !form.prior_claim_date?.trim()) prompts.push("En que fecha reclamaste al banco y por que canal lo hiciste?");
+    if (form.prior_claim === "si" && !form.prior_claim_result?.trim()) prompts.push("Que respondio el banco o que paso despues de tu reclamo?");
+  }
+  return prompts;
 };
 
 const buildDocumentChecklist = (item, review, files) => {
@@ -1478,7 +1513,13 @@ function DetailPanel({
     case_story: "",
     concrete_request: "",
     key_dates: "",
+    evidence_summary: "",
+    bank_product_type: "",
+    bank_amount_involved: "",
+    bank_event_date: "",
+    disputed_charge: "",
     prior_claim: "no",
+    prior_claim_date: "",
     prior_claim_result: "",
     special_protection: "No aplica",
     prior_tutela: "no",
@@ -1518,8 +1559,10 @@ function DetailPanel({
   const rules = item.legal_analysis?.normas_relevantes || [];
   const flowStep = getActiveFlowStep(item);
   const missingFields = getPostPayMissingFields(postPayForm, item);
+  const missingQuestions = getPostPayQuestionPrompts(postPayForm, item);
   const checklist = buildDocumentChecklist(item, review, files);
   const whatsappCopy = postPayForm.phone || item.user_phone || "";
+  const evidenceHints = evidenceTypeHints[item.category] || evidenceTypeHints.default;
   const progressSteps = [
     { id: 1, label: "Diagnostico" },
     { id: 2, label: "Completa datos" },
@@ -1682,6 +1725,22 @@ function DetailPanel({
                       />
                     </Field>
                     <Field label="Fechas importantes *"><TextInput value={postPayForm.key_dates} onChange={(event) => setPostPayForm((current) => ({ ...current, key_dates: event.target.value }))} placeholder="Cuando paso, cuando reclamaste y cuando respondieron" /></Field>
+                    {item.category === "Bancos" && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
+                        <Field label="Producto financiero *">
+                          <TextInput value={postPayForm.bank_product_type} onChange={(event) => setPostPayForm((current) => ({ ...current, bank_product_type: event.target.value }))} placeholder="Ej: tarjeta de credito, cuenta de ahorros, prestamo" />
+                        </Field>
+                        <Field label="Cobro o concepto discutido *">
+                          <TextInput value={postPayForm.disputed_charge} onChange={(event) => setPostPayForm((current) => ({ ...current, disputed_charge: event.target.value }))} placeholder="Ej: seguro, cuota de manejo, interes, reporte" />
+                        </Field>
+                        <Field label="Valor o monto cobrado *">
+                          <TextInput value={postPayForm.bank_amount_involved} onChange={(event) => setPostPayForm((current) => ({ ...current, bank_amount_involved: event.target.value }))} placeholder="Ej: $38.500 mensuales o $154.000 acumulados" />
+                        </Field>
+                        <Field label="Fecha del primer cobro o hecho *">
+                          <TextInput value={postPayForm.bank_event_date} onChange={(event) => setPostPayForm((current) => ({ ...current, bank_event_date: event.target.value }))} placeholder="Ej: 12 de octubre de 2025" />
+                        </Field>
+                      </div>
+                    )}
                     <div style={{ display: "grid", gap: 10 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Ya reclamaste directamente ante la entidad? *</div>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1691,10 +1750,18 @@ function DetailPanel({
                       </div>
                     </div>
                     {postPayForm.prior_claim === "si" && (
-                      <Field label="Que respuesta te dieron?">
-                        <TextArea value={postPayForm.prior_claim_result} onChange={(event) => setPostPayForm((current) => ({ ...current, prior_claim_result: event.target.value }))} style={{ minHeight: 90 }} />
-                      </Field>
+                      <div style={{ display: "grid", gap: 14 }}>
+                        <Field label="Fecha del reclamo previo *">
+                          <TextInput value={postPayForm.prior_claim_date} onChange={(event) => setPostPayForm((current) => ({ ...current, prior_claim_date: event.target.value }))} placeholder="Ej: 14 de enero de 2026 por PQRS web o llamada" />
+                        </Field>
+                        <Field label="Que respuesta te dieron? *">
+                          <TextArea value={postPayForm.prior_claim_result} onChange={(event) => setPostPayForm((current) => ({ ...current, prior_claim_result: event.target.value }))} style={{ minHeight: 90 }} placeholder="Ej: el banco dijo que el seguro estaba activo, pero no envio autorizacion ni soporte." />
+                        </Field>
+                      </div>
                     )}
+                    <Field label="Que pruebas tienes disponibles *">
+                      <TextArea value={postPayForm.evidence_summary} onChange={(event) => setPostPayForm((current) => ({ ...current, evidence_summary: event.target.value }))} style={{ minHeight: 96 }} placeholder="Ej: extractos, capturas, chats, correo de respuesta, PDF del contrato o audio del asesor." />
+                    </Field>
                     <Field label="Sujeto de especial proteccion *">
                       <select value={postPayForm.special_protection} onChange={(event) => setPostPayForm((current) => ({ ...current, special_protection: event.target.value }))} style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}>
                         {specialProtectionOptions.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -1718,6 +1785,9 @@ function DetailPanel({
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Sube tus pruebas</div>
                       <div style={{ color: C.textMuted, marginTop: 4 }}>PDF, imagen o Word. Maximo 10MB por archivo.</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                        {evidenceHints.map((hint) => <Badge key={hint} color={C.primary}>{hint}</Badge>)}
+                      </div>
                     </div>
                     <input id="postpay-evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
                     <div style={{ border: `1px dashed ${C.border}`, borderRadius: 18, padding: 24, background: "#F8FAFD", display: "grid", gap: 12, justifyItems: "center" }}>
@@ -1731,6 +1801,12 @@ function DetailPanel({
                   {!!missingFields.length && (
                     <div style={{ padding: 14, borderRadius: 16, background: "#FFF7ED", border: "1px solid #FED7AA", color: "#9A3412" }}>
                       Faltan estos campos antes de generar el documento: {missingFields.join(", ")}.
+                    </div>
+                  )}
+                  {!!missingQuestions.length && (
+                    <div style={{ padding: 14, borderRadius: 16, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text, display: "grid", gap: 8 }}>
+                      <div style={{ fontWeight: 800 }}>Antes de redactar un documento serio, la app necesita estas respuestas:</div>
+                      {missingQuestions.map((question) => <div key={question}>{`• ${question}`}</div>)}
                     </div>
                   )}
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -1946,7 +2022,13 @@ export default function DashboardV2(props) {
     case_story: "",
     concrete_request: "",
     key_dates: "",
+    evidence_summary: "",
+    bank_product_type: "",
+    bank_amount_involved: "",
+    bank_event_date: "",
+    disputed_charge: "",
     prior_claim: "no",
+    prior_claim_date: "",
     prior_claim_result: "",
     special_protection: "No aplica",
     prior_tutela: "no",
@@ -1993,7 +2075,13 @@ export default function DashboardV2(props) {
       case_story: intakeForm.case_story || activeCaseDetail.case.description || "",
       concrete_request: intakeForm.concrete_request || "",
       key_dates: intakeForm.key_dates || normalizeMentionedDates(activeCaseDetail.case.facts?.fechas_mencionadas) || "",
+      evidence_summary: intakeForm.evidence_summary || "",
+      bank_product_type: intakeForm.bank_product_type || "",
+      bank_amount_involved: intakeForm.bank_amount_involved || "",
+      bank_event_date: intakeForm.bank_event_date || "",
+      disputed_charge: intakeForm.disputed_charge || "",
       prior_claim: intakeForm.prior_claim || "no",
+      prior_claim_date: intakeForm.prior_claim_date || "",
       prior_claim_result: intakeForm.prior_claim_result || "",
       special_protection: intakeForm.special_protection || "No aplica",
       prior_tutela: intakeForm.prior_tutela || "no",

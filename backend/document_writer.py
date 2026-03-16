@@ -22,6 +22,13 @@ def _numbered_lines(items: list[str]) -> str:
     return "\n".join(f"{index}. {item}" for index, item in enumerate(items, start=1))
 
 
+def _paragraph_lines(items: list[str], fallback: str = "Sin informacion adicional registrada.") -> str:
+    items = [str(item).strip() for item in items if str(item).strip()]
+    if not items:
+        return fallback
+    return "\n\n".join(items)
+
+
 def _sentence(value: str | None, fallback: str = "No informado.") -> str:
     text = str(value or "").strip()
     if not text:
@@ -149,7 +156,7 @@ Asunto: {subject}
 
 Yo, {user_name}, identificado(a) con cédula {user_doc}, con domicilio en {address}, {city}, {department}, correo electrónico {user_email} y teléfono {user_phone}, actuando en calidad de consumidor(a) financiero(a), presento la siguiente reclamación:
 
-1. Destinatario
+DESTINATARIO
 La presente reclamación se dirige a {entity_name}, entidad que administra el producto o servicio financiero objeto de controversia.
 
 2. Identificación del consumidor financiero
@@ -159,22 +166,22 @@ Correo: {user_email}
 Teléfono: {user_phone}
 Dirección: {address}, {city}, {department}
 
-3. Hechos y contexto
-{_numbered_lines(chronology)}
+HECHOS Y CONTEXTO
+{_paragraph_lines(chronology)}
 
-4. Fallas atribuidas a la entidad
-{_numbered_lines(failures)}
+IRREGULARIDADES ATRIBUIDAS A LA ENTIDAD
+{_paragraph_lines(failures)}
 
-5. Fundamento del reclamo
+FUNDAMENTO DEL RECLAMO
 {legal_basis}
 
-6. Solicitudes numeradas
+SOLICITUDES
 {_numbered_lines(pretensions)}
 
-7. Pruebas y anexos
+PRUEBAS Y ANEXOS
 Como soportes del presente reclamo se aportan o se anuncian los siguientes elementos: {evidence_text}.
 
-8. Notificaciones
+NOTIFICACIONES
 Solicito que toda respuesta o decision relacionada con esta reclamación sea remitida al correo {user_email} y al teléfono {user_phone}.
 
 Constancia de generación: {generated_at}
@@ -220,25 +227,25 @@ Referencia: {rule['document_title']}
 
 Yo, {user_name}, identificado(a) con cédula {user_doc}, con correo {user_email}, teléfono {user_phone} y residencia en {address}, {city}, {department}, presento el siguiente escrito:
 
-1. Destinatario
+DESTINATARIO
 El presente documento se dirige a {target}, como autoridad o entidad llamada a responder por los hechos aquí descritos.
 
-2. Hechos y cronologia
-{_numbered_lines(chronology)}
+HECHOS Y CRONOLOGIA
+{_paragraph_lines(chronology)}
 
-3. Fallas o vulneraciones atribuidas
-{_numbered_lines(failures)}
+FALLAS O VULNERACIONES ATRIBUIDAS
+{_paragraph_lines(failures)}
 
-4. Fundamento juridico
+FUNDAMENTO JURIDICO
 {legal_basis}
 
-5. Pretensiones o solicitudes concretas
+PRETENSIONES O SOLICITUDES CONCRETAS
 {_numbered_lines(pretensions)}
 
-6. Pruebas y anexos
+PRUEBAS Y ANEXOS
 Como soportes del presente escrito se anuncian o aportan los siguientes elementos: {evidence_text}.
 
-7. Notificaciones
+NOTIFICACIONES
 Solicito que toda respuesta o decision relacionada con este asunto sea comunicada al correo {user_email} y al teléfono {user_phone}.
 
 Constancia de generación: {generated_at}

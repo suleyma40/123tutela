@@ -128,6 +128,34 @@ class LegalAnalyzer:
             text += "."
         return text
 
+    def _financial_case_summary(self, intake_form: dict[str, Any], facts: dict[str, Any], description: str) -> str:
+        entity = str(intake_form.get("target_entity") or "la entidad financiera").strip()
+        product = str(intake_form.get("bank_product_type") or "un producto financiero").strip()
+        charge = str(intake_form.get("disputed_charge") or "un cobro no autorizado").strip()
+        amount = str(intake_form.get("bank_amount_involved") or "").strip()
+        event_date = str(intake_form.get("bank_event_date") or intake_form.get("key_dates") or "").strip()
+        story = str(intake_form.get("case_story") or facts.get("hechos_principales") or description or "").lower()
+
+        if "seguro" in story or "seguro" in charge.lower():
+            summary = (
+                f"La persona usuaria manifiesta que {entity} viene facturando en {product} "
+                f"cobros asociados a {charge}, sin que exista autorizacion previa, expresa e informada de su parte"
+            )
+        else:
+            summary = (
+                f"La persona usuaria reporta inconsistencias frente a {product} administrado por {entity}, "
+                f"particularmente respecto de {charge}"
+            )
+
+        details: list[str] = []
+        if event_date:
+            details.append(f"hechos advertidos desde {event_date}")
+        if amount:
+            details.append(f"por un valor aproximado de {amount}")
+        if details:
+            summary += ", " + ", ".join(details)
+        return self._formalize_text(summary)
+
     def _document_insights_fallback(
         self,
         *,
@@ -139,26 +167,29 @@ class LegalAnalyzer:
     ) -> dict[str, Any]:
         intake_form = intake_form or {}
         chronology: list[str] = []
-        case_story = self._formalize_text(intake_form.get("case_story") or facts.get("hechos_principales") or description)
+        case_story = (
+            self._financial_case_summary(intake_form, facts, description)
+            if str(category or "").lower() == "bancos"
+            else self._formalize_text(intake_form.get("case_story") or facts.get("hechos_principales") or description)
+        )
         if case_story:
             chronology.append(case_story)
         key_dates = self._formalize_text(intake_form.get("key_dates") or facts.get("fechas_mencionadas"))
         if key_dates:
-            chronology.append(f"Las referencias temporales relevantes del caso son las siguientes: {key_dates}")
+            chronology.append(f"Los hitos temporales informados para este caso se resumen asi: {key_dates}")
 
         prior_claim = str(intake_form.get("prior_claim") or "").strip()
+        prior_claim_date = self._formalize_text(intake_form.get("prior_claim_date"))
         prior_claim_result = self._formalize_text(intake_form.get("prior_claim_result"))
+        if prior_claim == "si" and prior_claim_date:
+            chronology.append(f"Con anterioridad, la persona usuaria presento reclamacion directa ante la entidad en fecha {prior_claim_date}")
         if prior_claim == "si" and prior_claim_result:
-            chronology.append(f"Con anterioridad, la persona usuaria promovio reclamacion directa y recibio la siguiente respuesta: {prior_claim_result}")
+            chronology.append(f"Frente a dicha gestion previa, la entidad emitio la siguiente respuesta o actuacion: {prior_claim_result}")
         elif prior_claim == "no":
             chronology.append("A la fecha no se evidencia una solucion efectiva de fondo por parte de la entidad involucrada.")
 
         regeneration_reason = self._formalize_text(intake_form.get("regeneration_reason"))
         regeneration_context = self._formalize_text(intake_form.get("regeneration_additional_context"))
-        if regeneration_reason:
-            chronology.append(f"En esta nueva revision, la persona usuaria precisa que el documento anterior requiere mejora por la siguiente razon: {regeneration_reason}")
-        if regeneration_context:
-            chronology.append(f"Como informacion adicional relevante para la presente redaccion se incorpora lo siguiente: {regeneration_context}")
 
         failures: list[str] = []
         lowered = f"{description} {case_story}".lower()
@@ -170,11 +201,15 @@ class LegalAnalyzer:
             failures.append("La entidad omite suministrar una respuesta completa, verificable y oportuna frente a la situacion reclamada.")
         if not failures:
             failures.append("Se advierte una actuacion presuntamente irregular de la entidad que exige verificacion, correccion y respuesta de fondo.")
+        if regeneration_reason or regeneration_context:
+            failures.append("El caso requiere una respuesta de fondo que incluya la devolucion integral de los valores discutidos y una explicacion documentada sobre el origen del cobro.")
 
         pretensions: list[str] = []
         concrete_request = self._formalize_text(intake_form.get("concrete_request") or facts.get("pretension_concreta"))
         if concrete_request:
             pretensions.append(concrete_request)
+        if regeneration_reason or regeneration_context:
+            pretensions.append("Que la entidad reintegre los valores cobrados por conceptos no autorizados, junto con los ajustes a que haya lugar, y remita soporte verificable de la correccion aplicada.")
         pretensions.append("Que la entidad emita respuesta integral, motivada y verificable frente a cada uno de los puntos reclamados.")
 
         rights = legal_analysis.get("derechos_vulnerados") or []
