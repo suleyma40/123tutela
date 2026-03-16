@@ -45,6 +45,15 @@ def _facts_lines(case: dict[str, Any]) -> list[str]:
 
 
 def _pretension_lines(case: dict[str, Any], action_key: str) -> list[str]:
+    facts = case.get("facts") or {}
+    intake_form = facts.get("intake_form") or {}
+    concrete_request = str(intake_form.get("concrete_request") or facts.get("pretension_concreta") or "").strip()
+    if concrete_request:
+        return [
+            concrete_request,
+            "Dar respuesta formal y oportuna a cada solicitud presentada por la persona usuaria.",
+        ]
+
     description = str(case.get("descripcion") or "")
     lowered = description.lower()
 

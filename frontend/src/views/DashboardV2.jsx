@@ -129,6 +129,7 @@ const buildPostPayDescription = (form, caseItem) => {
     form.target_phone ? `Telefono de contacto de la entidad: ${form.target_phone}.` : "",
     form.target_superintendence ? `Entidad de control relacionada: ${form.target_superintendence}.` : "",
     form.case_story ? `Relato detallado: ${form.case_story}` : "",
+    form.concrete_request ? `Solicito expresamente: ${form.concrete_request}.` : "",
     form.key_dates ? `Fechas importantes: ${form.key_dates}.` : "",
     form.prior_claim ? `Gestion previa: ${form.prior_claim_result || "Si reclamo antes."}` : "Gestion previa: No ha reclamado directamente ante la entidad.",
     form.entity_response ? `Respuesta recibida: ${form.entity_response}` : "",
@@ -148,6 +149,7 @@ const getPostPayMissingFields = (form, caseItem) => {
   if (!form.phone.trim()) missing.push("WhatsApp / celular");
   if (!form.target_entity.trim()) missing.push("Entidad contra la que reclamas");
   if (!form.case_story.trim()) missing.push("Cuenta con detalle que paso");
+  if (!form.concrete_request.trim()) missing.push("Que quieres que ordenen o solucionen");
   if (!form.key_dates.trim()) missing.push("Fechas importantes");
   if (!form.special_protection.trim()) missing.push("Proteccion especial");
   if (!form.prior_tutela.trim()) missing.push("Tutela previa");
@@ -1474,6 +1476,7 @@ function DetailPanel({
     target_website: "",
     target_superintendence: "",
     case_story: "",
+    concrete_request: "",
     key_dates: "",
     prior_claim: "no",
     prior_claim_result: "",
@@ -1627,6 +1630,10 @@ function DetailPanel({
                               <button
                                 key={`${entity.name}-${entity.nit || entity.source || index}`}
                                 type="button"
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  onApplyEntitySuggestion(entity);
+                                }}
                                 onClick={() => onApplyEntitySuggestion(entity)}
                                 style={{ width: "100%", textAlign: "left", border: "none", background: "#fff", padding: "14px 16px", display: "grid", gap: 4, cursor: "pointer", borderBottom: index === entitySuggestions.length - 1 ? "none" : `1px solid ${C.border}` }}
                               >
@@ -1661,6 +1668,14 @@ function DetailPanel({
                   <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18, display: "grid", gap: 16 }}>
                     <Field label="Cuenta con detalle que paso *">
                       <TextArea value={postPayForm.case_story} onChange={(event) => setPostPayForm((current) => ({ ...current, case_story: event.target.value }))} style={{ minHeight: 140 }} placeholder="Fechas, que te negaron, que respuesta te dieron, como te afecta." />
+                    </Field>
+                    <Field label="Que quieres que ordenen o solucionen *">
+                      <TextArea
+                        value={postPayForm.concrete_request}
+                        onChange={(event) => setPostPayForm((current) => ({ ...current, concrete_request: event.target.value }))}
+                        style={{ minHeight: 96 }}
+                        placeholder="Ej: Solicito que Bancolombia elimine el cobro del seguro no autorizado, devuelva los valores cobrados y responda formalmente mi reclamacion."
+                      />
                     </Field>
                     <Field label="Fechas importantes *"><TextInput value={postPayForm.key_dates} onChange={(event) => setPostPayForm((current) => ({ ...current, key_dates: event.target.value }))} placeholder="Cuando paso, cuando reclamaste y cuando respondieron" /></Field>
                     <div style={{ display: "grid", gap: 10 }}>
@@ -1903,6 +1918,7 @@ export default function DashboardV2(props) {
     target_website: "",
     target_superintendence: "",
     case_story: "",
+    concrete_request: "",
     key_dates: "",
     prior_claim: "no",
     prior_claim_result: "",
@@ -1947,6 +1963,7 @@ export default function DashboardV2(props) {
       target_website: intakeForm.target_website || "",
       target_superintendence: intakeForm.target_superintendence || "",
       case_story: intakeForm.case_story || activeCaseDetail.case.description || "",
+      concrete_request: intakeForm.concrete_request || "",
       key_dates: intakeForm.key_dates || normalizeMentionedDates(activeCaseDetail.case.facts?.fechas_mencionadas) || "",
       prior_claim: intakeForm.prior_claim || "no",
       prior_claim_result: intakeForm.prior_claim_result || "",

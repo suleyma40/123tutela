@@ -244,6 +244,10 @@ def _merge_intake_into_facts(
     elif description.strip():
         facts["hechos_principales"] = description.strip()
 
+    concrete_request = str(form_data.get("concrete_request") or "").strip()
+    if concrete_request:
+        facts["pretension_concreta"] = concrete_request
+
     if category and not facts.get("problema_central"):
         facts["problema_central"] = category
 
