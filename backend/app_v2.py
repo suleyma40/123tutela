@@ -219,6 +219,38 @@ def _normalize_payment_order(order: dict[str, Any]) -> PaymentOrderResponse:
     )
 
 
+def _merge_intake_into_facts(
+    *,
+    existing_facts: dict[str, Any],
+    form_data: dict[str, Any],
+    description: str,
+    category: str | None,
+) -> dict[str, Any]:
+    facts = dict(existing_facts or {})
+    entities = list(facts.get("entidades_involucradas") or [])
+    target_entity = str(form_data.get("target_entity") or "").strip()
+    if target_entity and target_entity not in entities:
+        entities.append(target_entity)
+    if entities:
+        facts["entidades_involucradas"] = entities
+
+    key_dates = str(form_data.get("key_dates") or "").strip()
+    if key_dates:
+        facts["fechas_mencionadas"] = key_dates
+
+    case_story = str(form_data.get("case_story") or "").strip()
+    if case_story:
+        facts["hechos_principales"] = case_story
+    elif description.strip():
+        facts["hechos_principales"] = description.strip()
+
+    if category and not facts.get("problema_central"):
+        facts["problema_central"] = category
+
+    facts["intake_form"] = form_data or {}
+    return facts
+
+
 def _reconcile_case_payment(case: dict[str, Any]) -> dict[str, Any]:
     case_id = str(case["id"])
     orders = repository.list_payment_orders_for_case(case_id)
@@ -600,29 +632,32 @@ def update_case_intake(
 
     category = case.get("categoria") or case.get("category")
     prior_actions = [item["id"] for item in (case.get("prerequisites") or []) if item.get("completed")]
-    result = analyzer.full_analysis(payload.description, category=category)
-    if not result.get("success"):
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
-
+    facts = _merge_intake_into_facts(
+        existing_facts=case.get("facts") or {},
+        form_data=payload.form_data or {},
+        description=payload.description,
+        category=category,
+    )
+    legal_analysis = case.get("legal_analysis") or {}
     workflow = infer_workflow(
         category=category,
         description=payload.description,
-        facts=result["facts"],
-        legal_analysis=result["legal_analysis"],
+        facts=facts,
+        legal_analysis=legal_analysis,
         prior_actions=prior_actions,
     )
     routing = build_routing(
         category=category,
         city=case.get("usuario_ciudad") or current_user.get("city") or "",
         department=case.get("usuario_departamento") or current_user.get("department") or "",
-        facts=result["facts"],
+        facts=facts,
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
     )
     strategy = build_strategy_text(
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
-        legal_analysis=result["legal_analysis"],
+        legal_analysis=legal_analysis,
         warnings=workflow["warnings"],
     )
     intake_review = validate_intake(
@@ -630,25 +665,24 @@ def update_case_intake(
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
         description=payload.description,
-        facts=result["facts"],
+        facts=facts,
         prior_actions=prior_actions,
     )
     preview_gate = validate_submission_readiness(
         category=category,
         description=payload.description,
-        facts=result["facts"],
+        facts=facts,
         prior_actions=prior_actions,
     )
     document_rule_review = evaluate_document_rule(
         recommended_action=workflow["recommended_action"],
         workflow_type=workflow["workflow_type"],
         description=payload.description,
-        facts=result["facts"],
+        facts=facts,
     )
-    result["facts"]["intake_review"] = intake_review
-    result["facts"]["preview_gate"] = preview_gate
-    result["facts"]["document_rule_review"] = document_rule_review
-    result["facts"]["intake_form"] = payload.form_data or {}
+    facts["intake_review"] = intake_review
+    facts["preview_gate"] = preview_gate
+    facts["document_rule_review"] = document_rule_review
     combined_warnings = (
         workflow["warnings"]
         + intake_review.get("blocking_issues", [])
@@ -662,8 +696,8 @@ def update_case_intake(
         case_id,
         workflow_type=workflow["workflow_type"],
         description=payload.description,
-        facts=result["facts"],
-        legal_analysis=result["legal_analysis"],
+        facts=facts,
+        legal_analysis=legal_analysis,
         routing=routing,
         prerequisites=workflow["prerequisites"],
         warnings=list(dict.fromkeys(combined_warnings)),
