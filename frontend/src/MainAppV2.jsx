@@ -104,6 +104,12 @@ export default function MainAppV2() {
   }, []);
 
   useEffect(() => {
+    if (view === "dashboard" && !session) {
+      navigate("login", { replace: true });
+    }
+  }, [session, view]);
+
+  useEffect(() => {
     let cancelled = false;
     const loadCatalog = async () => {
       try {
@@ -440,6 +446,12 @@ export default function MainAppV2() {
               loading={loading}
               actionError={actionError}
             />
+          </div>
+        )}
+
+        {view === "dashboard" && !session && (
+          <div key="dashboard-redirect" style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#F8FAFC", color: "#0F172A" }}>
+            Redirigiendo al inicio de sesion...
           </div>
         )}
       </AnimatePresence>
