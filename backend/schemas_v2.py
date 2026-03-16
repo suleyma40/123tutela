@@ -74,6 +74,12 @@ class AnalysisPreviewResponse(BaseModel):
     prerequisites: list[dict[str, Any]]
     warnings: list[str]
     routing: dict[str, Any]
+    dx_result: dict[str, Any] = Field(default_factory=dict)
+    pending_questions: list[dict[str, Any]] = Field(default_factory=list)
+    case_route: str | None = None
+    tutela_procedencia: dict[str, Any] = Field(default_factory=dict)
+    source_validation_policy: dict[str, Any] = Field(default_factory=dict)
+    layer_outputs: dict[str, Any] = Field(default_factory=dict)
 
 
 class UploadedFileResponse(BaseModel):
@@ -244,6 +250,13 @@ class CaseResponse(BaseModel):
     facts: dict[str, Any] = Field(default_factory=dict)
     legal_analysis: dict[str, Any] = Field(default_factory=dict)
     routing: dict[str, Any] = Field(default_factory=dict)
+    dx_result: dict[str, Any] = Field(default_factory=dict)
+    pending_questions: list[dict[str, Any]] = Field(default_factory=list)
+    case_route: str | None = None
+    tutela_procedencia: dict[str, Any] = Field(default_factory=dict)
+    source_validation_policy: dict[str, Any] = Field(default_factory=dict)
+    layer_outputs: dict[str, Any] = Field(default_factory=dict)
+    final_validation: dict[str, Any] = Field(default_factory=dict)
     prerequisites: list[dict[str, Any]] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     status: str

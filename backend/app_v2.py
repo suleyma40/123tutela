@@ -8,6 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from backend.catalog_runtime import get_product, list_catalog, suggest_product_code
+from backend.case_architecture import (
+    build_dx_result,
+    build_final_validation,
+    build_layer_outputs,
+    build_source_validation_policy,
+    collect_pending_questions,
+    evaluate_tutela_procedencia,
+)
 from backend.config import settings
 from backend.document_quality import evaluate_generated_document
 from backend.entity_directory import search_entity_directory
@@ -101,6 +109,8 @@ def _normalize_file(item: dict[str, Any]) -> UploadedFileResponse:
 
 
 def _normalize_case(case: dict[str, Any]) -> CaseResponse:
+    facts = case.get("facts") or {}
+    submission_summary = case.get("submission_summary") or {}
     return CaseResponse(
         id=str(case["id"]),
         user_id=str(case["user_id"]) if case.get("user_id") else None,
@@ -116,16 +126,23 @@ def _normalize_case(case: dict[str, Any]) -> CaseResponse:
         description=case["descripcion"],
         recommended_action=case.get("recommended_action"),
         strategy_text=case.get("strategy_text"),
-        facts=case.get("facts") or {},
+        facts=facts,
         legal_analysis=case.get("legal_analysis") or {},
         routing=case.get("routing") or {},
+        dx_result=facts.get("dx_result") or {},
+        pending_questions=facts.get("pending_questions") or [],
+        case_route=((case.get("routing") or {}).get("case_route") or facts.get("dx_result", {}).get("route")),
+        tutela_procedencia=facts.get("tutela_procedencia") or {},
+        source_validation_policy=facts.get("source_validation_policy") or {},
+        layer_outputs=facts.get("layer_outputs") or {},
+        final_validation=submission_summary.get("final_validation") or {},
         prerequisites=case.get("prerequisites") or [],
         warnings=case.get("warnings") or [],
         status=case.get("estado") or "borrador",
         payment_status=case.get("payment_status") or "pendiente",
         payment_reference=case.get("payment_reference"),
         generated_document=case.get("generated_document"),
-        submission_summary=case.get("submission_summary") or {},
+        submission_summary=submission_summary,
         attachments=[str(item) for item in (case.get("attachments") or [])],
         created_at=case["created_at"],
         updated_at=case["updated_at"],
@@ -255,6 +272,70 @@ def _merge_intake_into_facts(
 
     facts["intake_form"] = form_data or {}
     return facts
+
+
+def _enrich_architecture_outputs(
+    *,
+    category: str,
+    description: str,
+    workflow: dict[str, Any],
+    facts: dict[str, Any],
+    legal_analysis: dict[str, Any],
+    routing: dict[str, Any],
+    intake_review: dict[str, Any],
+    preview_gate: dict[str, Any],
+    document_rule_review: dict[str, Any],
+    prior_actions: list[str],
+    final_validation: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    source_validation_policy = facts.get("source_validation_policy") or build_source_validation_policy()
+    tutela_procedencia = (
+        evaluate_tutela_procedencia(description=description, facts=facts, prior_actions=prior_actions)
+        if workflow["workflow_type"] == "tutela"
+        else {}
+    )
+    pending_questions = collect_pending_questions(
+        category=category,
+        workflow_type=workflow["workflow_type"],
+        description=description,
+        facts=facts,
+        prior_actions=prior_actions,
+    )
+    dx_result = build_dx_result(
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        facts=facts,
+        routing=routing,
+        intake_review=intake_review,
+        preview_gate=preview_gate,
+        document_rule_review=document_rule_review,
+        tutela_procedencia=tutela_procedencia or None,
+        pending_questions=pending_questions,
+    )
+    layer_outputs = build_layer_outputs(
+        dx_result=dx_result,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        pending_questions=pending_questions,
+        tutela_procedencia=tutela_procedencia or None,
+        final_validation=final_validation,
+    )
+    enriched_facts = dict(facts)
+    enriched_facts["source_validation_policy"] = source_validation_policy
+    enriched_facts["tutela_procedencia"] = tutela_procedencia
+    enriched_facts["pending_questions"] = pending_questions
+    enriched_facts["dx_result"] = dx_result
+    enriched_facts["layer_outputs"] = layer_outputs
+
+    enriched_legal_analysis = dict(legal_analysis or {})
+    if tutela_procedencia:
+        enriched_legal_analysis["tutela_procedencia_preliminar"] = tutela_procedencia
+
+    enriched_routing = dict(routing or {})
+    enriched_routing["case_route"] = dx_result.get("route")
+    enriched_routing["requires_human_review"] = dx_result.get("requires_human_review", False)
+    enriched_routing["urgency_level"] = dx_result.get("urgency_level")
+    return enriched_facts, enriched_legal_analysis, enriched_routing
 
 
 def _reconcile_case_payment(case: dict[str, Any]) -> dict[str, Any]:
@@ -474,6 +555,18 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
     result["facts"]["intake_review"] = intake_review
     result["facts"]["preview_gate"] = preview_gate
     result["facts"]["document_rule_review"] = document_rule_review
+    result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
+        category=payload.category,
+        description=payload.description,
+        workflow=workflow,
+        facts=result["facts"],
+        legal_analysis=result["legal_analysis"],
+        routing=routing,
+        intake_review=intake_review,
+        preview_gate=preview_gate,
+        document_rule_review=document_rule_review,
+        prior_actions=payload.prior_actions,
+    )
     combined_warnings = (
         workflow["warnings"]
         + intake_review.get("blocking_issues", [])
@@ -482,6 +575,8 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
         + preview_gate.get("warnings", [])
         + document_rule_review.get("blocking_issues", [])
         + document_rule_review.get("warnings", [])
+        + result["facts"].get("dx_result", {}).get("blocking_reasons", [])
+        + result["facts"].get("dx_result", {}).get("warnings", [])
     )
     return AnalysisPreviewResponse(
         facts=result["facts"],
@@ -492,6 +587,12 @@ def analysis_preview(payload: AnalysisPreviewRequest) -> AnalysisPreviewResponse
         prerequisites=workflow["prerequisites"],
         warnings=list(dict.fromkeys(combined_warnings)),
         routing=routing,
+        dx_result=result["facts"].get("dx_result") or {},
+        pending_questions=result["facts"].get("pending_questions") or [],
+        case_route=(routing or {}).get("case_route"),
+        tutela_procedencia=result["facts"].get("tutela_procedencia") or {},
+        source_validation_policy=result["facts"].get("source_validation_policy") or {},
+        layer_outputs=result["facts"].get("layer_outputs") or {},
     )
 
 
@@ -547,6 +648,18 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
     result["facts"]["intake_review"] = intake_review
     result["facts"]["preview_gate"] = preview_gate
     result["facts"]["document_rule_review"] = document_rule_review
+    result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
+        category=payload.category,
+        description=payload.description,
+        workflow=workflow,
+        facts=result["facts"],
+        legal_analysis=result["legal_analysis"],
+        routing=routing,
+        intake_review=intake_review,
+        preview_gate=preview_gate,
+        document_rule_review=document_rule_review,
+        prior_actions=payload.prior_actions,
+    )
     combined_warnings = (
         workflow["warnings"]
         + intake_review.get("blocking_issues", [])
@@ -555,6 +668,8 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         + preview_gate.get("warnings", [])
         + document_rule_review.get("blocking_issues", [])
         + document_rule_review.get("warnings", [])
+        + result["facts"].get("dx_result", {}).get("blocking_reasons", [])
+        + result["facts"].get("dx_result", {}).get("warnings", [])
     )
     blocking_issues = list(
         dict.fromkeys(
@@ -607,7 +722,12 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         event_type="case_created",
         actor_type="user",
         actor_id=str(current_user["id"]),
-        payload={"workflow_type": workflow["workflow_type"], "recommended_action": workflow["recommended_action"]},
+        payload={
+            "workflow_type": workflow["workflow_type"],
+            "recommended_action": workflow["recommended_action"],
+            "case_route": routing.get("case_route"),
+            "viability": (result["facts"].get("dx_result") or {}).get("viability_preliminary"),
+        },
     )
     return _snapshot_case_detail(case)
 
@@ -689,6 +809,18 @@ def update_case_intake(
     facts["intake_review"] = intake_review
     facts["preview_gate"] = preview_gate
     facts["document_rule_review"] = document_rule_review
+    facts, legal_analysis, routing = _enrich_architecture_outputs(
+        category=category,
+        description=payload.description,
+        workflow=workflow,
+        facts=facts,
+        legal_analysis=legal_analysis,
+        routing=routing,
+        intake_review=intake_review,
+        preview_gate=preview_gate,
+        document_rule_review=document_rule_review,
+        prior_actions=prior_actions,
+    )
     combined_warnings = (
         workflow["warnings"]
         + intake_review.get("blocking_issues", [])
@@ -697,6 +829,8 @@ def update_case_intake(
         + preview_gate.get("warnings", [])
         + document_rule_review.get("blocking_issues", [])
         + document_rule_review.get("warnings", [])
+        + facts.get("dx_result", {}).get("blocking_reasons", [])
+        + facts.get("dx_result", {}).get("warnings", [])
     )
     updated = repository.update_case_intake(
         case_id,
@@ -718,7 +852,12 @@ def update_case_intake(
         event_type="case_intake_updated",
         actor_type="user",
         actor_id=str(current_user["id"]),
-        payload={"description_length": len(payload.description), "fields": sorted((payload.form_data or {}).keys())},
+        payload={
+            "description_length": len(payload.description),
+            "fields": sorted((payload.form_data or {}).keys()),
+            "case_route": routing.get("case_route"),
+            "viability": (facts.get("dx_result") or {}).get("viability_preliminary"),
+        },
     )
     return _snapshot_case_detail(updated)
 
@@ -867,6 +1006,7 @@ def generate_document(
     case["facts"] = facts
     document = build_document(case)
     quality_review = evaluate_generated_document(case, document)
+    final_validation = build_final_validation(case=case, document=document, quality_review=quality_review)
     if not quality_review.get("passed"):
         repository.create_event(
             case_id=case_id,
@@ -890,12 +1030,28 @@ def generate_document(
                 f"{quality_review.get('threshold')}). " + " | ".join(detail_parts)
             ),
         )
+    if not final_validation.get("apto_para_entrega"):
+        repository.create_event(
+            case_id=case_id,
+            event_type="document_delivery_validation_blocked",
+            actor_type="system",
+            actor_id=None,
+            payload=final_validation,
+        )
+        detail_parts = final_validation.get("blocking_issues") or final_validation.get("warnings") or [
+            "La validacion final exige mas datos antes de entregar el documento.",
+        ]
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La validacion final del documento detecto ajustes pendientes: " + " | ".join(detail_parts),
+        )
     updated = repository.update_case_document(case_id, document)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible generar el documento.")
     merged_submission_summary = {
         **(updated.get("submission_summary") or {}),
         "document_quality": quality_review,
+        "final_validation": final_validation,
     }
     try:
         updated = repository.update_case_status(
