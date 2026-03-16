@@ -506,6 +506,92 @@ const normalizeAction = (value) =>
     .toLowerCase()
     .trim();
 
+const extractArticleLabel = (value) => {
+  const text = String(value || "");
+  const match = text.match(/Art(?:í|i)culo\s+(\d+)/i);
+  return match ? `Articulo ${match[1]} — Constitucion Politica` : text;
+};
+
+const buildPreviewRights = (preview) => {
+  const rights = (preview?.legal_analysis?.derechos_vulnerados || []).slice(0, 2);
+  const constitutionNorms = (preview?.legal_analysis?.normas_relevantes || []).filter((item) =>
+    normalizeAction(item).includes("constitucion"),
+  );
+
+  return rights.map((right, index) => ({
+    title: right,
+    article: extractArticleLabel(constitutionNorms[index] || constitutionNorms[0] || ""),
+  }));
+};
+
+const getViabilityConfig = (dxResult) => {
+  const viability = normalizeAction(dxResult?.viability_preliminary);
+  if (viability === "alta") {
+    return {
+      label: "Alta",
+      note: "Tu caso tiene buen fundamento preliminar.",
+      color: "#16A34A",
+      segments: [true, true, true, false],
+    };
+  }
+  if (viability === "media") {
+    return {
+      label: "Media",
+      note: "Hay base, pero conviene afinar algunos hechos antes del documento.",
+      color: "#D97706",
+      segments: [true, true, false, false],
+    };
+  }
+  return {
+    label: "Baja",
+    note: "La IA ve riesgo en la ruta y podria requerir otra via o mas soporte.",
+    color: "#DC2626",
+    segments: [true, false, false, false],
+  };
+};
+
+const shortenRouteLabel = (label, fallback = "") => {
+  const normalized = normalizeAction(label);
+  if (normalized.includes("pqrs") || normalized.includes("derecho de peticion")) return "PQRS / Reclamo";
+  if (normalized.includes("supersalud")) return "Supersalud";
+  if (normalized.includes("banco")) return "Reclamo";
+  if (normalized.includes("queja")) return "Queja";
+  if (normalized.includes("habeas data")) return "Habeas data";
+  if (normalized.includes("accion de tutela")) return "Tutela";
+  if (normalized.includes("tutela")) return "Tutela";
+  if (fallback) return fallback;
+  return String(label || "").slice(0, 32);
+};
+
+const buildRouteSteps = (preview) => {
+  const steps = [];
+  (preview?.prerequisites || []).slice(0, 2).forEach((item) => {
+    steps.push(shortenRouteLabel(item?.label));
+  });
+  steps.push(shortenRouteLabel(preview?.recommended_action, "Documento"));
+  return steps.filter(Boolean).slice(0, 3);
+};
+
+const summarizePreviewFixes = ({
+  intakeReview,
+  documentRuleReview,
+  actionSpecificMissing,
+  actionSpecificIssues,
+  previewWarnings,
+}) => {
+  const items = [
+    ...(actionSpecificMissing || []).map((item) => `Completa: ${item}`),
+    ...(actionSpecificIssues || []),
+    ...((intakeReview?.blocking_issues || []).filter((item) => !isAiOwnedReviewIssue(item))),
+    ...((intakeReview?.warnings || []).filter((item) => !isAiOwnedReviewIssue(item))),
+    ...((documentRuleReview?.blocking_issues || []).filter((item) => !isAiOwnedReviewIssue(item))),
+    ...((documentRuleReview?.warnings || []).filter((item) => !isAiOwnedReviewIssue(item))),
+    ...(previewWarnings || []).filter((item) => !isAiOwnedReviewIssue(item)),
+  ];
+
+  return [...new Set(items)].slice(0, 4);
+};
+
 const buildContinuationOptions = (item) => {
   const action = normalizeAction(item?.recommended_action);
   if (item?.status === "radicado") {
@@ -3380,12 +3466,30 @@ export default function DashboardV2(props) {
           const actionSpecificMissing = getActionSpecificMissing(preview?.recommended_action, form);
           const actionSpecificIssues = getActionSpecificIssues(preview?.recommended_action, form);
           const hasActionSpecificBlockers = actionSpecificMissing.length > 0 || actionSpecificIssues.length > 0;
+          const rightsPreview = buildPreviewRights(preview);
+          const viability = getViabilityConfig(preview?.dx_result || {});
+          const routeSteps = buildRouteSteps(preview);
+          const previewFixes = summarizePreviewFixes({
+            intakeReview,
+            documentRuleReview,
+            actionSpecificMissing,
+            actionSpecificIssues,
+            previewWarnings: preview?.warnings || [],
+          });
+          const paidLocks = [
+            "Normas aplicables al caso",
+            "Jurisprudencia especifica",
+            "Argumentacion juridica completa",
+            "Documento legal listo para radicar",
+            "Paso a paso de pruebas y soportes",
+            "Radicacion y seguimiento",
+          ];
 
           return (
             <StepShell
               stepNumber={3}
-              title="Analisis gratis y siguiente paso"
-              subtitle="Aqui revisas la ruta sugerida y, si todo esta bien, guardas el expediente para pasar al pago."
+              title="Diagnostico gratis de tu caso"
+              subtitle="Aqui ves el derecho detectado, la ruta sugerida y la viabilidad. La receta completa se desbloquea al pagar."
               onBack={() => setWizardStep(2)}
             >
               {!preview ? (
@@ -3394,44 +3498,169 @@ export default function DashboardV2(props) {
                 </div>
               ) : (
                 <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.95fr", gap: 18 }}>
+                    <div className="glass-card" style={{ padding: 22, background: "#131722", border: "1px solid #2B3345", color: "#F8FAFC" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#94A3B8" }}>ANALISIS DE TU CASO</div>
+                      <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
+                        {rightsPreview[0] && (
+                          <div style={{ padding: 16, borderRadius: 16, background: "#6B1F1A" }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#FCA5A5" }}>Derecho vulnerado detectado</div>
+                            <div style={{ marginTop: 6, fontSize: 18, fontWeight: 800 }}>{rightsPreview[0].title}</div>
+                            <div style={{ marginTop: 6, color: "#FDE2E2" }}>{rightsPreview[0].article}</div>
+                          </div>
+                        )}
+                        {rightsPreview[1] && (
+                          <div style={{ padding: 16, borderRadius: 16, background: "#5B480D" }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#FCD34D" }}>Tambien aplica</div>
+                            <div style={{ marginTop: 6, fontSize: 18, fontWeight: 800 }}>{rightsPreview[1].title}</div>
+                            <div style={{ marginTop: 6, color: "#FEF3C7" }}>{rightsPreview[1].article}</div>
+                          </div>
+                        )}
+                        <div style={{ padding: 16, borderRadius: 16, background: "#1E3A6E" }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "#93C5FD" }}>Accion recomendada</div>
+                          <div style={{ marginTop: 6, fontSize: 18, fontWeight: 800 }}>{preview.recommended_action}</div>
+                          <div style={{ marginTop: 8, color: "#DBEAFE", lineHeight: 1.6 }}>{preview.strategy}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 18 }}>
+                        <div style={{ fontWeight: 800 }}>Viabilidad del caso</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 10 }}>
+                          {viability.segments.map((active, index) => (
+                            <div
+                              key={`${viability.label}-${index}`}
+                              style={{
+                                height: 10,
+                                borderRadius: 999,
+                                background: active ? viability.color : "#334155",
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <div style={{ marginTop: 10, color: viability.color, fontWeight: 800 }}>
+                          {viability.label} — {viability.note}
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid #334155" }}>
+                        <div style={{ fontWeight: 800 }}>Ruta legal sugerida</div>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+                          {routeSteps.map((step, index) => (
+                            <React.Fragment key={`${step}-${index}`}>
+                              <div
+                                style={{
+                                  padding: "8px 12px",
+                                  borderRadius: 999,
+                                  background: index === 0 ? "#1F2937" : "#202938",
+                                  border: "1px solid #334155",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {index + 1}. {step}
+                              </div>
+                              {index < routeSteps.length - 1 && <div style={{ alignSelf: "center", color: "#94A3B8" }}>→</div>}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid #334155", color: "#94A3B8", lineHeight: 1.6 }}>
+                        Gratis: sabes qué derecho aparece afectado, qué camino seguir y qué tan viable se ve el caso.
+                      </div>
+                    </div>
+
+                    <div className="glass-card" style={{ padding: 22, background: "#1E1E1B", border: "1px solid #3F3F46", color: "#F8FAFC" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#FCA5A5" }}>BLOQUEADO HASTA PAGAR</div>
+                          <div style={{ marginTop: 8, fontWeight: 800 }}>La receta juridica completa</div>
+                        </div>
+                        <div style={{ color: "#FBBF24", fontWeight: 800 }}>Candado premium</div>
+                      </div>
+                      <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+                        {paidLocks.map((item) => (
+                          <div
+                            key={item}
+                            style={{
+                              padding: 14,
+                              borderRadius: 14,
+                              background: "#27272A",
+                              border: "1px solid #3F3F46",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 12,
+                              alignItems: "center",
+                            }}
+                          >
+                            <span style={{ color: "#D4D4D8" }}>{item}</span>
+                            <span style={{ color: "#FBBF24", fontSize: 18 }}>🔒</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+                    <div className="glass-card" style={{ padding: 18, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#166534" }}>GRATIS: EL DIAGNOSTICO</div>
+                      <div style={{ marginTop: 8, color: "#166534", fontWeight: 700, lineHeight: 1.6 }}>
+                        Qué derecho aparece comprometido y qué camino tomar.
+                      </div>
+                    </div>
+                    <div className="glass-card" style={{ padding: 18, background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#92400E" }}>PAGO: LA RECETA</div>
+                      <div style={{ marginTop: 8, color: "#92400E", fontWeight: 700, lineHeight: 1.6 }}>
+                        Normas, jurisprudencia, argumentacion y estructura completa.
+                      </div>
+                    </div>
+                    <div className="glass-card" style={{ padding: 18, background: "#FEF2F2", border: "1px solid #FECACA" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#B91C1C" }}>NUNCA GRATIS: EL DOCUMENTO</div>
+                      <div style={{ marginTop: 8, color: "#B91C1C", fontWeight: 700, lineHeight: 1.6 }}>
+                        El texto listo para radicar y la radicacion no se entregan sin pago.
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
                     <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>QUE SIGUE</div>
                     <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
-                      Si esta informacion se ve correcta, pulsa <span style={{ color: C.primary }}>Guardar expediente y abrir pago</span>.
+                      Si este diagnostico se ve correcto, pulsa <span style={{ color: C.primary }}>Guardar expediente y abrir pago</span>.
                     </div>
                     <div style={{ marginTop: 10, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-                      Aun no ves el documento final porque este paso solo muestra el analisis gratis. El documento se activa despues del pago aprobado.
+                      Aun no ves el documento final porque este paso solo entrega el diagnostico gratis. Despues del pago se activa la redaccion completa.
                     </div>
                   </div>
-                  <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
-                    <div style={{ fontWeight: 800, color: C.text }}>{preview.recommended_action}</div>
-                    <div style={{ color: C.textMuted, marginTop: 8 }}>{preview.strategy}</div>
-                  </div>
+
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
                     <div className="glass-card" style={{ padding: 18 }}>
-                      <strong style={{ color: C.text }}>Prerequisitos</strong>
+                      <strong style={{ color: C.text }}>Destino sugerido</strong>
+                      <div style={{ color: C.textMuted, marginTop: 12 }}>{preview.routing?.primary_target?.name || "Sin destino automatico"}</div>
+                      <div style={{ color: C.textMuted, marginTop: 6 }}>{preview.routing?.subject || "Sin asunto sugerido"}</div>
+                    </div>
+                    <div className="glass-card" style={{ padding: 18 }}>
+                      <strong style={{ color: C.text }}>Via previa detectada</strong>
                       <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
                         {preview.prerequisites.length ? preview.prerequisites.map((item) => (
                           <Badge key={item.id} color={item.completed ? C.success : C.warning}>{item.completed ? "Cumplido" : "Pendiente"} - {item.label}</Badge>
                         )) : <span style={{ color: C.textMuted }}>Sin via previa obligatoria detectada.</span>}
                       </div>
                     </div>
-                    <div className="glass-card" style={{ padding: 18 }}>
-                      <strong style={{ color: C.text }}>Destino sugerido</strong>
-                      <div style={{ color: C.textMuted, marginTop: 12 }}>{preview.routing?.primary_target?.name || "Sin destino automatico"}</div>
-                      <div style={{ color: C.textMuted, marginTop: 6 }}>{preview.routing?.subject || "Sin asunto sugerido"}</div>
-                    </div>
                   </div>
-                  <ActionSpecificQuestions
-                    recommendedAction={preview.recommended_action}
-                    form={form}
-                    setForm={setForm}
-                    missingFields={actionSpecificMissing}
-                    issues={actionSpecificIssues}
-                  />
-                  <DocumentRuleReviewCard review={documentRuleReview} />
-                  <IntakeReviewCard review={intakeReview} />
-                  {preview.warnings?.map((warning) => <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>{warning}</div>)}
+
+                  {!!previewFixes.length && (
+                    <div className="glass-card" style={{ padding: 18, background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#92400E" }}>ANTES DEL DOCUMENTO FINAL</div>
+                      <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                        Conviene reforzar estos puntos para que la tutela salga mas fuerte:
+                      </div>
+                      <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                        {previewFixes.map((item) => (
+                          <div key={item} style={{ color: "#92400E" }}>• {item}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button
                       onClick={async () => {
@@ -3448,6 +3677,7 @@ export default function DashboardV2(props) {
                     >
                       Guardar expediente y abrir pago
                     </Button>
+                    <Button variant="outline" onClick={() => setWizardStep(2)}>Corregir respuestas</Button>
                     <Button variant="outline" onClick={resetWizard}>Reiniciar</Button>
                   </div>
                 </>
