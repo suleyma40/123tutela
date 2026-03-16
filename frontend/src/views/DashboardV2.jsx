@@ -1364,6 +1364,41 @@ function PreviewGateCard({ issues }) {
   );
 }
 
+const AI_OWNED_REVIEW_PATTERNS = [
+  "declaracion de no temeridad",
+  "subsidiariedad",
+  "perjuicio irremediable",
+  "inmediatez",
+  "articulo 42",
+  "procedencia con base",
+  "urgencia, vulneracion o procedencia",
+];
+
+const isAiOwnedReviewIssue = (issue) => {
+  const normalized = normalizeAction(issue);
+  return AI_OWNED_REVIEW_PATTERNS.some((pattern) => normalized.includes(normalizeAction(pattern)));
+};
+
+const humanizeAiOwnedIssue = (issue) => {
+  const normalized = normalizeAction(issue);
+  if (normalized.includes("declaracion de no temeridad")) {
+    return "La IA incorporara el juramento de no temeridad con la informacion del expediente y, si hace falta, te pedira solo confirmar si ya hubo otra tutela.";
+  }
+  if (normalized.includes("subsidiariedad") || normalized.includes("perjuicio irremediable")) {
+    return "La IA reforzara la procedencia de la tutela explicando subsidiariedad y, si aplica, el perjuicio irremediable con base en los hechos del caso.";
+  }
+  if (normalized.includes("inmediatez")) {
+    return "La IA explicara por que la vulneracion sigue siendo actual o por que la accion se presenta de manera oportuna.";
+  }
+  if (normalized.includes("articulo 42") || normalized.includes("procedencia con base")) {
+    return "Si la tutela va contra un particular, la IA construira internamente la justificacion juridica de procedencia.";
+  }
+  if (normalized.includes("urgencia") || normalized.includes("procedencia")) {
+    return "La IA reforzara la argumentacion de urgencia y procedencia con redaccion juridica.";
+  }
+  return "La IA reforzara este punto juridico dentro del documento final.";
+};
+
 function IntakeReviewCard({ review }) {
   if (!review || review.status === "not_scored") {
     return null;
@@ -1426,7 +1461,9 @@ function DocumentRuleReviewCard({ review }) {
     return null;
   }
 
-  const blockingIssues = review.blocking_issues || [];
+  const originalBlockingIssues = review.blocking_issues || [];
+  const aiOwnedIssues = originalBlockingIssues.filter(isAiOwnedReviewIssue);
+  const blockingIssues = originalBlockingIssues.filter((issue) => !isAiOwnedReviewIssue(issue));
   const warnings = review.warnings || [];
   const canProceed = blockingIssues.length === 0;
 
@@ -1458,6 +1495,16 @@ function DocumentRuleReviewCard({ review }) {
           {blockingIssues.map((issue) => (
             <div key={issue} style={{ color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", padding: 14, borderRadius: 14 }}>
               {issue}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!!aiOwnedIssues.length && (
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {aiOwnedIssues.map((issue) => (
+            <div key={issue} style={{ color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", padding: 14, borderRadius: 14 }}>
+              {humanizeAiOwnedIssue(issue)}
             </div>
           ))}
         </div>
@@ -3294,7 +3341,7 @@ export default function DashboardV2(props) {
           const intakeReview = preview?.facts?.intake_review || null;
           const documentRuleReview = preview?.facts?.document_rule_review || null;
           const hasBlockingIssues = !!(intakeReview?.blocking_issues || []).length;
-          const hasDocumentRuleBlockers = !!(documentRuleReview?.blocking_issues || []).length;
+          const hasDocumentRuleBlockers = !!(documentRuleReview?.blocking_issues || []).filter((issue) => !isAiOwnedReviewIssue(issue)).length;
           const actionSpecificMissing = getActionSpecificMissing(preview?.recommended_action, form);
           const actionSpecificIssues = getActionSpecificIssues(preview?.recommended_action, form);
           const hasActionSpecificBlockers = actionSpecificMissing.length > 0 || actionSpecificIssues.length > 0;
