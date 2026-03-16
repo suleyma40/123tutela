@@ -17,6 +17,31 @@ def _split_csv(raw: str | None) -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
+def _derive_default_origins(frontend_url: str, backend_url: str) -> list[str]:
+    app_url = os.getenv("APP_URL", "")
+    root_domain = os.getenv("ROOT_DOMAIN", "")
+    frontend_domain = os.getenv("FRONTEND_DOMAIN", "")
+
+    candidates = {
+        frontend_url,
+        app_url,
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+    }
+
+    for domain in {root_domain.strip(), frontend_domain.strip()}:
+        if not domain:
+            continue
+        candidates.add(f"https://{domain}")
+        candidates.add(f"https://www.{domain}")
+        candidates.add(f"http://{domain}")
+        candidates.add(f"http://www.{domain}")
+
+    candidates.discard(backend_url)
+    return [origin for origin in candidates if origin]
+
+
 @dataclass(slots=True)
 class Settings:
     app_name: str = os.getenv("APP_NAME", "123tutela")
@@ -49,12 +74,7 @@ class Settings:
 
     def __post_init__(self) -> None:
         configured = _split_csv(os.getenv("CORS_ORIGINS"))
-        defaults = {
-            self.frontend_url,
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://localhost:4173",
-        }
+        defaults = _derive_default_origins(self.frontend_url, self.backend_url)
         self.cors_origins = [origin for origin in configured or defaults if origin]
         self.internal_admin_emails = [email.lower() for email in _split_csv(os.getenv("INTERNAL_ADMIN_EMAILS"))]
 
