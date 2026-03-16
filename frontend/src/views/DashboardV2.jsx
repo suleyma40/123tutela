@@ -1693,7 +1693,10 @@ function DetailPanel({
   regenerationContext = "",
   setRegenerationContext = () => {},
   loading,
+  detailStepOverride = null,
+  onSetDetailStep = () => {},
   onViewDocument,
+  onSaveFlowDraft,
   onGenerateFromFlow,
   onSubmitCase,
   onManualRadicado,
@@ -1716,7 +1719,8 @@ function DetailPanel({
   const review = documentReview || submissionSummary.document_quality || null;
   const rights = item.legal_analysis?.derechos_vulnerados || [];
   const rules = item.legal_analysis?.normas_relevantes || [];
-  const flowStep = getActiveFlowStep(item);
+  const baseFlowStep = getActiveFlowStep(item);
+  const flowStep = detailStepOverride || baseFlowStep;
   const missingFields = getPostPayMissingFields(postPayForm, item);
   const missingQuestions = getPostPayQuestionPrompts(postPayForm, item);
   const interviewSteps = buildPostPayInterviewSteps(postPayForm, item);
@@ -1781,8 +1785,8 @@ function DetailPanel({
                   <div style={{ color: C.textMuted, fontSize: 13, fontWeight: 700 }}>{item.recommended_action || item.workflow_type}</div>
                   <h2 style={{ marginTop: 6, fontSize: 38, lineHeight: 1.05, color: C.text, fontFamily: "'Playfair Display', serif" }}>{item.category}</h2>
                 </div>
-                <Badge color={flowStep >= 3 ? C.success : item.payment_status === "pagado" ? C.primary : C.warning}>
-                  {flowStep >= 3 ? "Documento listo" : item.payment_status === "pagado" ? "Pago confirmado" : "Pago pendiente"}
+                <Badge color={baseFlowStep >= 3 ? C.success : item.payment_status === "pagado" ? C.primary : C.warning}>
+                  {flowStep === 2 && baseFlowStep >= 3 ? "Editando datos" : baseFlowStep >= 3 ? "Documento listo" : item.payment_status === "pagado" ? "Pago confirmado" : "Pago pendiente"}
                 </Badge>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 18 }}>
@@ -1817,6 +1821,11 @@ function DetailPanel({
                   <div style={{ padding: 16, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FED7AA", color: "#9A3412" }}>
                     Para avanzar al formulario necesitas confirmar el pago del documento.
                   </div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <Button variant="secondary" onClick={() => onSetDetailStep(2)}>
+                      Probar asistente del caso
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -1826,6 +1835,18 @@ function DetailPanel({
                     <div style={{ color: C.text, fontSize: 24, fontWeight: 800 }}>Completa los datos de tu caso</div>
                     <div style={{ marginTop: 6, color: C.textMuted }}>Necesitamos esta informacion para generar un documento solido con fundamentos legales.</div>
                   </div>
+                  {(baseFlowStep >= 3 || item.payment_status !== "pagado") && (
+                    <div style={{ padding: 14, borderRadius: 16, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                      <div>
+                        {baseFlowStep >= 3
+                          ? "Estas editando nuevamente el paso 2 para mejorar el documento o probar el asistente."
+                          : "Puedes probar el asistente y guardar respuestas antes de pagar el documento."}
+                      </div>
+                      <Button variant="ghost" onClick={() => onSetDetailStep(baseFlowStep)}>
+                        {baseFlowStep >= 3 ? "Volver al documento" : "Volver al diagnostico"}
+                      </Button>
+                    </div>
+                  )}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
                     <Field label="Tu nombre completo *"><TextInput value={postPayForm.full_name} onChange={(event) => setPostPayForm((current) => ({ ...current, full_name: event.target.value }))} /></Field>
                     <Field label="Cedula de ciudadania *"><TextInput value={postPayForm.document_number} onChange={(event) => setPostPayForm((current) => ({ ...current, document_number: event.target.value }))} /></Field>
@@ -2012,9 +2033,14 @@ function DetailPanel({
                   )}
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                     <div style={{ color: C.textMuted, fontSize: 13 }}>* Campos obligatorios</div>
-                    <Button onClick={onGenerateFromFlow} disabled={loading || !!missingFields.length} icon={ArrowRight}>
-                      {loading ? "Generando..." : "Generar mi documento"}
-                    </Button>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <Button variant="secondary" onClick={onSaveFlowDraft} disabled={loading}>
+                        {loading ? "Guardando..." : "Guardar respuestas"}
+                      </Button>
+                      <Button onClick={onGenerateFromFlow} disabled={loading || !!missingFields.length || item.payment_status !== "pagado"} icon={ArrowRight}>
+                        {loading ? "Generando..." : item.payment_status !== "pagado" ? "Paga para generar el documento" : "Generar mi documento"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2066,6 +2092,9 @@ function DetailPanel({
                     <Button variant="outline" onClick={() => onViewDocument(item)}>Descargar PDF</Button>
                     <Button variant="secondary" onClick={onGenerateFromFlow} disabled={loading} icon={FileText}>
                       {loading ? "Regenerando..." : "Regenerar documento"}
+                    </Button>
+                    <Button variant="outline" onClick={() => onSetDetailStep(2)} icon={ArrowLeft}>
+                      Volver a completar datos
                     </Button>
                     <Button variant="ghost" style={{ background: "#EEF4FF", color: C.primary }} onClick={() => onViewDocument(item)}>Ver en lenguaje simple</Button>
                   </div>
@@ -2255,6 +2284,7 @@ export default function DashboardV2(props) {
   const [internalStatus, setInternalStatus] = useState("seguimiento");
   const [internalNote, setInternalNote] = useState("");
   const [wizardStep, setWizardStep] = useState(1);
+  const [detailStepOverride, setDetailStepOverride] = useState(null);
 
   const profileReady = useMemo(
     () => [profile.name, profile.document_number, profile.phone, profile.city, profile.department, profile.address].every((value) => value?.trim()),
@@ -2305,6 +2335,10 @@ export default function DashboardV2(props) {
     setRegenerationReason(intakeForm.regeneration_reason || "");
     setRegenerationContext(intakeForm.regeneration_additional_context || "");
   }, [activeCaseDetail, session.user]);
+
+  useEffect(() => {
+    setDetailStepOverride(null);
+  }, [activeCaseDetail?.case?.id]);
 
   useEffect(() => {
     const query = postPayForm.target_entity.trim();
@@ -2890,7 +2924,29 @@ export default function DashboardV2(props) {
         regenerationContext={regenerationContext}
         setRegenerationContext={setRegenerationContext}
         loading={loading}
+        detailStepOverride={detailStepOverride}
+        onSetDetailStep={setDetailStepOverride}
         onViewDocument={setDocumentCase}
+        onSaveFlowDraft={async () => {
+          if (!activeCaseDetail?.case?.id) return;
+          const nextProfile = {
+            ...profile,
+            name: postPayForm.full_name,
+            document_number: postPayForm.document_number,
+            phone: postPayForm.phone,
+            address: postPayForm.address,
+          };
+          setProfile(nextProfile);
+          await onSaveProfile(nextProfile);
+          await onUpdateCaseIntake(activeCaseDetail.case.id, {
+            description: buildPostPayDescription(postPayForm, activeCaseDetail.case),
+            form_data: {
+              ...postPayForm,
+              regeneration_reason: regenerationReason,
+              regeneration_additional_context: regenerationContext,
+            },
+          });
+        }}
         onGenerateFromFlow={async () => {
           if (!activeCaseDetail?.case?.id) return;
           const nextProfile = {
@@ -2915,6 +2971,7 @@ export default function DashboardV2(props) {
             additional_context: regenerationContext,
           });
           setDocumentReviews((current) => ({ ...current, [activeCaseDetail.case.id]: generated?.quality_review || null }));
+          setDetailStepOverride(null);
         }}
         onSubmitCase={(payload) => onSubmitCase(activeCaseDetail.case.id, payload)}
         onManualRadicado={(payload) => onManualRadicado(activeCaseDetail.case.id, payload)}
