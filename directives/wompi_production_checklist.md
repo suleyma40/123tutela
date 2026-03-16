@@ -121,6 +121,7 @@ Rutas sugeridas:
 - [x] Mostrar ofertas de continuidad: seguimiento, impugnacion, desacato y otros pasos posteriores.
 - [x] Mostrar esos pasos tanto en panel como en correo.
 - [x] Mostrar tiempos estimados, siguiente accion esperada y posibles escenarios del tramite.
+- [x] Mostrar en el panel la trazabilidad post-radicado: comprobante, canal usado, estado del correo y siguiente paso operativo.
 - [x] Mostrar descripcion clara del producto antes del pago.
 - [x] Mostrar que la plataforma cuenta con base de correos de juzgados y entidades para radicacion donde aplique.
 - [x] No mostrar `Guia de radicacion` ni `Documento urgente` en la oferta inicial.

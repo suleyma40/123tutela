@@ -1284,33 +1284,58 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
   }
 
   const { case: item, files, submission_attempts: attempts, timeline } = detail;
+  const submissionSummary = item.submission_summary || {};
+  const guidance = submissionSummary.guidance || {};
+  const emailStatus = submissionSummary.post_radicado_email || {};
+  const routingSnapshot = guidance.routing_snapshot || {};
+  const proofDeliveryChannels = guidance.proof_delivery_channels || [];
+  const continuityOffers = guidance.continuity_offers || [];
   const nextStep =
-    item.payment_status !== "pagado"
+    guidance.next_step_suggestion ||
+    (item.payment_status !== "pagado"
       ? "Completar el pago para activar el documento final."
       : !item.generated_document
         ? "Generar el documento final desde acciones operativas."
         : item.status === "radicado"
           ? "Revisar el comprobante y continuar con seguimiento si aplica."
           : item.routing?.automatable
-            ? "Ejecutar la radicación automática o revisar el último intento."
-            : "Completar el envío manual o presencial y registrar el radicado.";
+            ? "Ejecutar la radicacion automatica o revisar el ultimo intento."
+            : "Completar el envio manual o presencial y registrar el radicado.");
   const estimatedTime =
-    item.payment_status !== "pagado"
+    guidance.estimated_response_window ||
+    (item.payment_status !== "pagado"
       ? "Pendiente de pago"
       : item.status === "radicado"
         ? "Radicado emitido"
         : item.routing?.automatable
           ? "Menos de 5 minutos cuando el canal responde"
-          : "Depende del canal manual elegido";
+          : "Depende del canal manual elegido");
   const continuationOptions = buildContinuationOptions(item);
+  const postRadicadoStatusLabel =
+    emailStatus.status === "sent"
+      ? "Enviado"
+      : emailStatus.status === "pending_configuration"
+        ? "Pendiente de configurar"
+        : emailStatus.status === "error"
+          ? "Error"
+          : "Aun no procesado";
+  const postRadicadoStatusColor =
+    emailStatus.status === "sent"
+      ? C.success
+      : emailStatus.status === "pending_configuration"
+        ? C.warning
+        : emailStatus.status === "error"
+          ? C.danger
+          : C.textMuted;
+
   return (
     <div style={{ display: "grid", gap: 18 }}>
-      <SessionCard title="Expediente activo" subtitle={`${item.category} · ${item.workflow_type.replaceAll("_", " ")}`}>
+      <SessionCard title="Expediente activo" subtitle={`${item.category} - ${item.workflow_type.replaceAll("_", " ")}`}>
         <div style={{ display: "grid", gap: 12 }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <Badge color={statusColors[item.status] || C.primary}>{statusLabels[item.status] || item.status}</Badge>
             <Badge color={item.payment_status === "pagado" ? C.success : C.warning}>Pago: {item.payment_status}</Badge>
-            <Badge color={item.routing?.automatable ? C.primary : C.danger}>{item.routing?.automatable ? "Canal automático" : "Fallback manual"}</Badge>
+            <Badge color={item.routing?.automatable ? C.primary : C.danger}>{item.routing?.automatable ? "Canal automatico" : "Fallback manual"}</Badge>
           </div>
           <div style={{ color: C.text }}>{item.description}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 14 }}>
@@ -1325,7 +1350,7 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>RESUMEN DEL CASO</div>
               <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Análisis</span>
+                  <span style={{ color: C.textMuted }}>Analisis</span>
                   <strong style={{ color: C.success }}>Listo</strong>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -1337,11 +1362,11 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                   <span style={{ color: C.textMuted }}>Documento</span>
                   <strong style={{ color: item.generated_document ? C.success : C.textMuted }}>
-                    {item.generated_document ? "Disponible" : "Aún no generado"}
+                    {item.generated_document ? "Disponible" : "Aun no generado"}
                   </strong>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: C.textMuted }}>Radicación</span>
+                  <span style={{ color: C.textMuted }}>Radicacion</span>
                   <strong style={{ color: item.status === "radicado" ? C.success : C.textMuted }}>
                     {item.status === "radicado" ? "Completada" : "Pendiente"}
                   </strong>
@@ -1362,7 +1387,7 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
         </div>
       </SessionCard>
 
-      <SessionCard title="Continuidad del caso" subtitle="Esto es lo siguiente que puede necesitar tu trámite después del estado actual.">
+      <SessionCard title="Continuidad del caso" subtitle="Esto es lo siguiente que puede necesitar tu tramite despues del estado actual.">
         <div style={{ display: "grid", gap: 12 }}>
           {continuationOptions.map((option) => (
             <div key={option} className="glass-card" style={{ padding: 16, background: "#FCFDFF" }}>
@@ -1370,8 +1395,74 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
             </div>
           ))}
           <div style={{ color: C.textMuted, fontSize: 14 }}>
-            Cuando una continuidad implique nuevo cobro, lo verás claramente dentro del panel y también en las notificaciones del caso.
+            Cuando una continuidad implique nuevo cobro, lo veras claramente dentro del panel y tambien en las notificaciones del caso.
           </div>
+        </div>
+      </SessionCard>
+
+      <SessionCard title="Trazabilidad post-radicado" subtitle="Comprobante, estado del correo al cliente y siguiente paso operativo.">
+        <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 14 }}>
+          <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>COMPROBANTE Y CANAL</div>
+            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ color: C.textMuted }}>Tipo de soporte</span>
+                <strong style={{ color: C.text }}>{guidance.proof_type || "Pendiente"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ color: C.textMuted }}>Radicado o comprobante</span>
+                <strong style={{ color: item.status === "radicado" ? C.success : C.text }}>
+                  {submissionSummary.radicado || routingSnapshot.radicado || "Pendiente"}
+                </strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ color: C.textMuted }}>Canal usado</span>
+                <strong style={{ color: C.text }}>{submissionSummary.last_channel || guidance.channel || "Pendiente"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ color: C.textMuted }}>Destino</span>
+                <strong style={{ color: C.text }}>{submissionSummary.last_destination || routingSnapshot.destination_name || "Pendiente"}</strong>
+              </div>
+              <div style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>
+                {proofDeliveryChannels.length
+                  ? `Recibiras o podras validar este soporte por: ${proofDeliveryChannels.join(", ")}.`
+                  : "Cuando el canal responda, el comprobante quedara visible tambien en este panel."}
+              </div>
+            </div>
+          </div>
+          <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>NOTIFICACION AL CLIENTE</div>
+            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ color: C.textMuted }}>Correo post-radicado</span>
+                <strong style={{ color: postRadicadoStatusColor }}>{postRadicadoStatusLabel}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ color: C.textMuted }}>Se envia a</span>
+                <strong style={{ color: C.text }}>{item.usuario_email || "Sin correo"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ color: C.textMuted }}>Tiempo estimado de respuesta</span>
+                <strong style={{ color: C.text }}>{estimatedTime}</strong>
+              </div>
+              <div style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>
+                {emailStatus.reason === "smtp_not_configured"
+                  ? "Falta configurar SMTP en produccion para que este correo salga automaticamente."
+                  : guidance.post_radicado_copy?.body || "El cliente vera el siguiente paso y los tiempos esperados desde el panel y el correo."}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", marginTop: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>SIGUIENTE PASO OPERATIVO</div>
+          <div style={{ marginTop: 10, fontSize: 20, lineHeight: 1.3, fontWeight: 800, color: C.text }}>{nextStep}</div>
+          {!!continuityOffers.length && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+              {continuityOffers.map((offer) => (
+                <Badge key={offer} color={C.primary}>{offer}</Badge>
+              ))}
+            </div>
+          )}
         </div>
       </SessionCard>
 
@@ -1380,14 +1471,14 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
           <div key={file.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 14, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 10 }}>
             <div>
               <div style={{ fontWeight: 700, color: C.text }}>{file.original_name}</div>
-              <div style={{ color: C.textMuted, fontSize: 13 }}>{file.file_kind} · {Math.round(file.file_size / 1024)} KB</div>
+              <div style={{ color: C.textMuted, fontSize: 13 }}>{file.file_kind} - {Math.round(file.file_size / 1024)} KB</div>
             </div>
             <a href={`${apiBase}/files/${file.id}`} target="_blank" rel="noreferrer" style={{ color: C.primary, textDecoration: "none", fontWeight: 700 }}>Abrir</a>
           </div>
         )) : <div style={{ color: C.textMuted }}>Sin archivos asociados.</div>}
       </SessionCard>
 
-      <SessionCard title="Intentos de envío" subtitle="Trazabilidad de canal, contacto y radicado.">
+      <SessionCard title="Intentos de envio" subtitle="Trazabilidad de canal, contacto y radicado.">
         {attempts.length ? attempts.map((attempt) => (
           <div key={attempt.id} style={{ padding: 14, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -1398,7 +1489,7 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
             <div style={{ color: C.textMuted }}>{attempt.destination_contact || "Sin contacto"}</div>
             {attempt.radicado && <div style={{ marginTop: 8, color: C.success, fontWeight: 700 }}>Radicado: {attempt.radicado}</div>}
           </div>
-        )) : <div style={{ color: C.textMuted }}>No hay envíos registrados.</div>}
+        )) : <div style={{ color: C.textMuted }}>No hay envios registrados.</div>}
       </SessionCard>
 
       <SessionCard title="Timeline" subtitle="Eventos del expediente.">
@@ -1410,7 +1501,7 @@ function DetailPanel({ detail, onViewDocument, onGoNextStage }) {
             </div>
             <pre style={{ margin: "8px 0 0", whiteSpace: "pre-wrap", color: C.textMuted, fontFamily: "'DM Sans', sans-serif" }}>{JSON.stringify(event.payload || {}, null, 2)}</pre>
           </div>
-        )) : <div style={{ color: C.textMuted }}>Sin eventos todavía.</div>}
+        )) : <div style={{ color: C.textMuted }}>Sin eventos todavia.</div>}
       </SessionCard>
     </div>
   );
