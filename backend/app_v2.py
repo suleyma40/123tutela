@@ -51,6 +51,7 @@ from backend.wompi import (
 )
 from backend.workflows import (
     build_document,
+    build_submission_guidance,
     build_routing,
     build_strategy_text,
     generate_radicado,
@@ -732,6 +733,7 @@ def submit_case(
             "radicado": radicado,
             "sent_copy_to_user": True,
             "mode": payload.mode,
+            "guidance": build_submission_guidance(case=case, mode=payload.mode, channel=channel, radicado=radicado),
         },
     )
     if not updated:
@@ -775,6 +777,7 @@ def register_manual_radicado(
             **(case.get("submission_summary") or {}),
             "radicado": payload.radicado,
             "manual_notes": payload.notes,
+            "guidance": build_submission_guidance(case=case, mode="manual_contact", channel="manual_record", radicado=payload.radicado),
         },
     )
     if not updated:

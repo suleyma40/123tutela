@@ -197,10 +197,10 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 - [x] Definir una primera capa operativa de criterios juridicos minimos por tipo de documento en backend.
 - [ ] Endurecer reglas de procedencia y plazo por documento con base en `123tutela_Manual_Produccion_v1.docx`.
 - [x] Endurecer una primera capa de procedencia y plazo para tutela, derecho de peticion, impugnacion y desacato con base en `123tutela_Manual_Produccion_v1.docx`.
-- [ ] Bloquear tutela improcedente por subsidiariedad, inmediatez o falta de no temeridad.
-- [ ] Bloquear impugnacion fuera de termino o sin contraargumento real al fallo.
-- [ ] Bloquear desacato si no existe fallo identificable, notificacion y orden incumplida.
-- [ ] Endurecer habeas data, consumidor, financiero y servicios con control real de reclamacion previa.
+- [x] Bloquear tutela improcedente por subsidiariedad, inmediatez o falta de no temeridad.
+- [x] Bloquear impugnacion fuera de termino o sin contraargumento real al fallo.
+- [x] Bloquear desacato si no existe fallo identificable, notificacion y orden incumplida.
+- [x] Endurecer habeas data, consumidor, financiero y servicios con control real de reclamacion previa.
 - [ ] Definir la estructura obligatoria por documento:
   - hechos
   - derechos vulnerados o interes juridico
@@ -271,13 +271,16 @@ Este bloque es critico. No basta con generar documentos; deben estar construidos
 ## 15. Radicacion y canales
 
 - [ ] Definir estrategia de radicacion por tipo de documento.
+- [x] Documentar una primera estrategia operativa de radicacion por tipo de documento.
 - [ ] Confirmar que Evolution API sera el canal inicial donde aplique y documentar limites reales.
+- [x] Documentar el rol inicial y los limites de Evolution API para no usarlo como canal juridico por defecto.
 - [ ] Definir que parte de la radicacion sera automatica y cual sera asistida o manual.
 - [ ] Definir como se enviara el radicado o comprobante al cliente:
   - correo
   - panel
   - ambos
 - [ ] Diseñar correo post-radicado con continuidad del caso, tiempos esperados y siguiente paso sugerido.
+- [x] Definir una primera estructura de post-radicado reutilizable para panel y correo.
 - [ ] Cerrar trazabilidad operativa completa: radicacion, correo enviado, comprobante y continuidad comercial.
 
 ## 16. QA, sandbox y politicas

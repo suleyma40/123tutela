@@ -337,6 +337,77 @@ def build_strategy_text(
     )
 
 
+def build_submission_guidance(
+    *,
+    case: dict[str, Any],
+    mode: str,
+    channel: str,
+    radicado: str | None,
+) -> dict[str, Any]:
+    workflow_type = str(case.get("workflow_type") or "")
+    recommended_action = str(case.get("recommended_action") or "")
+    user_email = case.get("usuario_email")
+    routing = case.get("routing") or {}
+    proof_type = "constancia_manual"
+    if radicado:
+        proof_type = "numero_radicado"
+    elif channel == "email":
+        proof_type = "copia_correo"
+    elif channel == "portal":
+        proof_type = "acuse_portal"
+
+    estimated_response_window = "Seguimiento interno pendiente de definir"
+    if "tutela" in recommended_action.lower() or workflow_type == "tutela":
+        estimated_response_window = "Respuesta judicial prioritaria; revisar novedades en horas o pocos dias segun reparto."
+    elif "peticion" in recommended_action.lower():
+        estimated_response_window = "Respuesta esperada segun Ley 1755 de 2015, de acuerdo con la modalidad de la peticion."
+    elif "desacato" in recommended_action.lower():
+        estimated_response_window = "Seguimiento judicial corto; revisar requerimientos del mismo juzgado de primera instancia."
+    elif "impugnacion" in recommended_action.lower():
+        estimated_response_window = "Revision de segunda instancia en los tiempos del despacho competente."
+
+    next_step = "Seguir el caso desde el panel y esperar respuesta de la autoridad o entidad."
+    continuity = ["seguimiento del caso"]
+    lowered_action = recommended_action.lower()
+    if "tutela" in lowered_action:
+        next_step = "Si niegan o limitan la tutela, evaluar impugnacion; si incumplen, evaluar desacato."
+        continuity = ["seguimiento del caso", "impugnacion de tutela", "incidente de desacato"]
+    elif "peticion" in lowered_action:
+        next_step = "Si no responden o responden de forma evasiva, evaluar tutela, reclamo o actuacion posterior."
+        continuity = ["seguimiento del caso", "accion de tutela", "reclamo administrativo"]
+    elif "desacato" in lowered_action:
+        next_step = "Monitorear cumplimiento efectivo del fallo y nuevas ordenes del juzgado."
+        continuity = ["seguimiento del caso"]
+    elif "impugnacion" in lowered_action:
+        next_step = "Esperar decision de segunda instancia y evaluar cumplimiento o desacato segun el resultado."
+        continuity = ["seguimiento del caso", "incidente de desacato"]
+
+    delivery_channels = ["panel"]
+    if user_email:
+        delivery_channels.append("email")
+
+    return {
+        "mode": mode,
+        "channel": channel,
+        "proof_type": proof_type,
+        "proof_delivery_channels": delivery_channels,
+        "customer_notification_channel": "email" if user_email else "panel",
+        "evolution_api_role": "notificacion_al_cliente" if user_email else "pendiente",
+        "estimated_response_window": estimated_response_window,
+        "next_step_suggestion": next_step,
+        "continuity_offers": continuity,
+        "post_radicado_copy": {
+            "headline": "Tu tramite fue enviado y ya puedes seguirlo desde tu panel.",
+            "body": "Te enviaremos el comprobante disponible y el siguiente paso sugerido segun la respuesta o el silencio de la entidad.",
+        },
+        "routing_snapshot": {
+            "destination_name": (routing.get("primary_target") or {}).get("name"),
+            "destination_channel": channel,
+            "radicado": radicado,
+        },
+    }
+
+
 def build_document(case: dict[str, Any]) -> str:
     return build_document_from_template(case)
 

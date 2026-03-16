@@ -200,9 +200,14 @@ def evaluate_document_rule(
         if not any(word in full_text for word in ["otro medio", "subsidiariedad", "perjuicio irremediable", "no existe otro medio eficaz"]):
             blocking_issues.append("La tutela debe justificar subsidiariedad o perjuicio irremediable.")
         if not any(word in full_text for word in ["inmediatez", "reciente", "actualmente", "hoy", "sigue ocurriendo"]):
-            warnings.append("Conviene reforzar la inmediatez con una explicacion temporal mas clara.")
+            blocking_issues.append("La tutela debe explicar por que la vulneracion es actual o por que se cumple la inmediatez.")
         if not any(word in full_text for word in ["urgencia", "riesgo", "perjuicio", "vulneracion", "vulneración", "derecho fundamental"]):
             blocking_issues.append("La tutela necesita explicar urgencia, vulneracion o procedencia con mas fuerza.")
+        if any(word in full_text for word in ["particular", "empresa privada", "privada", "privado"]) and not any(
+            word in full_text
+            for word in ["servicio publico", "servicio p?blico", "indefension", "indefensi?n", "subordinacion", "subordinaci?n", "posicion dominante", "posici?n dominante", "articulo 42", "art. 42"]
+        ):
+            blocking_issues.append("Si la tutela es contra un particular, debe justificarse expresamente el supuesto habilitante del articulo 42 del Decreto 2591 de 1991.")
     elif action_key == "derecho de peticion":
         if not any(word in full_text for word in ["15 dias", "15 días", "10 dias", "10 días", "30 dias", "30 días", "ley 1755"]):
             warnings.append("Conviene incorporar el termino legal de respuesta o la referencia expresa a la Ley 1755 de 2015.")
@@ -216,11 +221,15 @@ def evaluate_document_rule(
     elif action_key == "impugnacion de tutela":
         if not any(word in full_text for word in ["3 dias", "3 días", "dentro del termino", "dentro del término", "notificacion", "notificación"]):
             blocking_issues.append("La impugnacion debe justificar que se presenta dentro del termino de 3 dias habiles desde la notificacion.")
+        if any(word in full_text for word in ["4 dias", "4 d?as", "5 dias", "5 d?as", "6 dias", "6 d?as", "una semana", "7 dias", "7 d?as", "mes pasado", "hace semanas"]):
+            blocking_issues.append("La impugnacion parece extemporanea o mal explicada en el termino. Debe revisarse el plazo fatal de 3 dias habiles.")
         if not any(word in full_text for word in ["fallo", "impugno", "segunda instancia", "error del juez", "decision negada"]):
             blocking_issues.append("La impugnacion necesita identificar el fallo y el desacuerdo juridico concreto.")
         if not any(word in full_text for word in ["razon del juez", "razones del juez", "error de valoracion", "error de valoración", "improcedente", "prueba no valorada"]):
             blocking_issues.append("La impugnacion debe contraargumentar al menos una razon concreta del fallo.")
     elif action_key == "incidente de desacato":
+        if not any(word in full_text for word in ["juzgado", "despacho", "primera instancia"]):
+            blocking_issues.append("El desacato debe identificar el mismo juzgado o despacho de primera instancia que emitio el fallo.")
         if not any(word in full_text for word in ["notificado", "notificacion", "notificación", "se notifico", "se notificó"]):
             blocking_issues.append("El desacato debe explicar que el fallo fue notificado a la entidad o responsable.")
         if not any(word in full_text for word in ["incumplio", "incumplimiento", "orden judicial", "fallo de tutela"]):

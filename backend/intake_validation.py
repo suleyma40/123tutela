@@ -82,8 +82,8 @@ def _validate_habeas_data(description: str, facts: dict[str, Any], prior_actions
         problems.append("No se identifica con claridad cuál es el dato o reporte cuestionado.")
     if not _has_any(text, ["corregir", "actualizar", "eliminar", "suprimir", "rectificar"]):
         problems.append("Debe quedar claro si se pide corregir, actualizar o suprimir el dato.")
-    if not prior_actions:
-        warnings.append("Conviene validar si ya hubo reclamación previa ante la fuente o responsable del tratamiento.")
+    if not prior_actions and not _has_any(text, ["reclamo previo", "reclamacion previa", "radicado", "peticion previa", "derecho de peticion"]):
+        problems.append("En habeas data debe existir o describirse una reclamacion previa ante la fuente o responsable del tratamiento.")
 
     return {
         "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
@@ -132,8 +132,8 @@ def _validate_bancos(description: str, facts: dict[str, Any], prior_actions: lis
         problems.append("No se identifica con claridad el cobro, reporte, bloqueo o hecho bancario controvertido.")
     if not _has_any(text, ["valor", "monto", "$", "pesos"]):
         warnings.append("Conviene indicar el monto, cuota o valor discutido para que el reclamo no quede vago.")
-    if not prior_actions:
-        warnings.append("En bancos y habeas data suele exigirse reclamacion previa antes de escalar a tutela.")
+    if not prior_actions and not _has_any(text, ["reclamo previo", "reclamacion previa", "radicado", "pqrs", "derecho de peticion"]):
+        problems.append("En conflictos bancarios y financieros debe existir o describirse una reclamacion previa antes de escalar.")
 
     return {
         "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
@@ -157,8 +157,8 @@ def _validate_servicios(description: str, facts: dict[str, Any], prior_actions: 
         problems.append("No se identifica con claridad el corte, la suspension o la facturacion discutida.")
     if not _has_any(text, ["suscriptor", "contrato", "referencia", "cuenta"]):
         warnings.append("Conviene incluir numero de suscriptor, contrato o referencia del servicio.")
-    if not prior_actions:
-        warnings.append("En servicios publicos conviene dejar constancia de reclamacion previa ante la empresa.")
+    if not prior_actions and not _has_any(text, ["reclamo previo", "reclamacion previa", "radicado", "pqrs", "peticion previa"]):
+        problems.append("En servicios publicos debe existir o describirse reclamacion previa ante la empresa, salvo urgencia constitucional.")
 
     return {
         "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
@@ -182,8 +182,8 @@ def _validate_consumidor(description: str, facts: dict[str, Any], prior_actions:
         problems.append("No se identifica con claridad el remedio que se exige al proveedor.")
     if not _has_any(text, ["factura", "pedido", "orden", "compra", "fecha"]):
         warnings.append("Conviene incluir fecha de compra, numero de pedido o soporte de la transaccion.")
-    if not prior_actions:
-        warnings.append("En consumo es mejor dejar trazabilidad de reclamacion directa antes de escalar el conflicto.")
+    if not prior_actions and not _has_any(text, ["reclamo previo", "reclamacion previa", "radicado", "garantia radicada", "peticion previa"]):
+        problems.append("En consumo debe existir o describirse una reclamacion directa previa al proveedor antes de escalar el conflicto.")
 
     return {
         "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
