@@ -24,6 +24,7 @@ from backend.schemas_v2 import (
     CaseCreateRequest,
     CaseDetailResponse,
     CaseDocumentResponse,
+    DocumentGenerateRequest,
     CaseIntakeUpdateRequest,
     CaseResponse,
     CaseSubmitRequest,
@@ -70,6 +71,7 @@ app = FastAPI(title=settings.app_name)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=r"https?://([A-Za-z0-9-]+\.)?123tutelaapp\.com$|https?://localhost(:\d+)?$|https?://127\.0\.0\.1(:\d+)?$",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -823,7 +825,11 @@ def get_payment(reference: str, current_user: dict[str, Any] = Depends(get_curre
 
 
 @app.post("/cases/{case_id}/document", response_model=CaseDocumentResponse)
-def generate_document(case_id: str, current_user: dict[str, Any] = Depends(get_current_user)) -> CaseDocumentResponse:
+def generate_document(
+    case_id: str,
+    payload: DocumentGenerateRequest | None = None,
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> CaseDocumentResponse:
     case = repository.get_case_for_user(case_id, str(current_user["id"]))
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
@@ -844,12 +850,19 @@ def generate_document(case_id: str, current_user: dict[str, Any] = Depends(get_c
         )
 
     facts = dict(case.get("facts") or {})
+    intake_form = dict(facts.get("intake_form") or {})
+    if payload:
+        if payload.regeneration_reason:
+            intake_form["regeneration_reason"] = payload.regeneration_reason.strip()
+        if payload.additional_context:
+            intake_form["regeneration_additional_context"] = payload.additional_context.strip()
+        facts["intake_form"] = intake_form
     facts["document_insights"] = analyzer.compose_document_insights(
         description=case.get("descripcion") or "",
         category=case.get("categoria") or case.get("category"),
         facts=facts,
         legal_analysis=case.get("legal_analysis") or {},
-        intake_form=facts.get("intake_form") or {},
+        intake_form=intake_form,
     )
     case["facts"] = facts
     document = build_document(case)

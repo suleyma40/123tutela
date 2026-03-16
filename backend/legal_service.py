@@ -147,6 +147,13 @@ class LegalAnalyzer:
         elif prior_claim == "no":
             chronology.append("A la fecha no se evidencia una solucion efectiva de fondo por parte de la entidad involucrada.")
 
+        regeneration_reason = self._formalize_text(intake_form.get("regeneration_reason"))
+        regeneration_context = self._formalize_text(intake_form.get("regeneration_additional_context"))
+        if regeneration_reason:
+            chronology.append(f"En esta nueva revision, la persona usuaria precisa que el documento anterior requiere mejora por la siguiente razon: {regeneration_reason}")
+        if regeneration_context:
+            chronology.append(f"Como informacion adicional relevante para la presente redaccion se incorpora lo siguiente: {regeneration_context}")
+
         failures: list[str] = []
         lowered = f"{description} {case_story}".lower()
         if any(token in lowered for token in ["no autorice", "no autoricé", "sin autorizacion", "sin autorización"]):
@@ -303,6 +310,8 @@ class LegalAnalyzer:
 
         Intake:
         {json.dumps(intake_form or {}, ensure_ascii=False)}
+
+        Si existe retroalimentacion de regeneracion, debes usarla para corregir redaccion, justificar mejor el caso o incorporar datos faltantes.
         """
         try:
             result = self._ask_json(prompt)

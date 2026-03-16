@@ -282,9 +282,9 @@ export default function MainAppV2() {
     return response.data;
   };
 
-  const handleGenerateDocument = (caseId) =>
+  const handleGenerateDocument = (caseId, payload = {}) =>
     withAction(async () => {
-      const response = await api.post(`/cases/${caseId}/document`, {}, withAuth(session.token));
+      const response = await api.post(`/cases/${caseId}/document`, payload, withAuth(session.token));
       await refreshCollections(session.token, session.user.role);
       const detail = await api.get(`/cases/${caseId}`, withAuth(session.token));
       setActiveCaseDetail(detail.data);

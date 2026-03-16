@@ -263,6 +263,11 @@ class CaseDetailResponse(BaseModel):
     timeline: list[TimelineEventResponse] = Field(default_factory=list)
 
 
+class DocumentGenerateRequest(BaseModel):
+    regeneration_reason: str | None = Field(default=None, max_length=2000)
+    additional_context: str | None = Field(default=None, max_length=4000)
+
+
 class CaseDocumentResponse(BaseModel):
     case: CaseResponse
     document: str

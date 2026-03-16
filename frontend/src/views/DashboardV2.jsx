@@ -1761,6 +1761,25 @@ function DetailPanel({
                       {checklist.map((line) => <div key={line} style={{ color: C.textMuted }}>{`✓ ${line}`}</div>)}
                     </div>
                   </div>
+                  <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#F8FAFD", display: "grid", gap: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Si quieres regenerarlo, explica que debe corregir la IA</div>
+                    <Field label="Por que no te gusto este documento o que debe mejorar">
+                      <TextArea
+                        value={regenerationReason}
+                        onChange={(event) => setRegenerationReason(event.target.value)}
+                        style={{ minHeight: 90 }}
+                        placeholder="Ej: falta mejor justificacion juridica, la cronologia esta floja o la entidad no quedo bien descrita."
+                      />
+                    </Field>
+                    <Field label="Informacion adicional para la nueva version">
+                      <TextArea
+                        value={regenerationContext}
+                        onChange={(event) => setRegenerationContext(event.target.value)}
+                        style={{ minHeight: 110 }}
+                        placeholder="Ej: reclame por telefono el 12 de enero, me dijeron que el seguro estaba activo desde noviembre y nunca firme autorizacion."
+                      />
+                    </Field>
+                  </div>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button onClick={() => onViewDocument(item)}>Ver documento completo</Button>
                     <Button variant="outline" onClick={() => onViewDocument(item)}>Descargar PDF</Button>
@@ -1937,6 +1956,8 @@ export default function DashboardV2(props) {
   const [radicadoManual, setRadicadoManual] = useState("");
   const [radicadoNote, setRadicadoNote] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
+  const [regenerationReason, setRegenerationReason] = useState("");
+  const [regenerationContext, setRegenerationContext] = useState("");
   const [internalStatus, setInternalStatus] = useState("seguimiento");
   const [internalNote, setInternalNote] = useState("");
   const [wizardStep, setWizardStep] = useState(1);
@@ -1974,6 +1995,8 @@ export default function DashboardV2(props) {
       prior_tutela: intakeForm.prior_tutela || "no",
       prior_tutela_reason: intakeForm.prior_tutela_reason || "",
     });
+    setRegenerationReason(intakeForm.regeneration_reason || "");
+    setRegenerationContext(intakeForm.regeneration_additional_context || "");
   }, [activeCaseDetail, session.user]);
 
   useEffect(() => {
@@ -2570,9 +2593,16 @@ export default function DashboardV2(props) {
           await onSaveProfile(nextProfile);
           await onUpdateCaseIntake(activeCaseDetail.case.id, {
             description: buildPostPayDescription(postPayForm, activeCaseDetail.case),
-            form_data: postPayForm,
+            form_data: {
+              ...postPayForm,
+              regeneration_reason: regenerationReason,
+              regeneration_additional_context: regenerationContext,
+            },
           });
-          const generated = await onGenerateDocument(activeCaseDetail.case.id);
+          const generated = await onGenerateDocument(activeCaseDetail.case.id, {
+            regeneration_reason: regenerationReason,
+            additional_context: regenerationContext,
+          });
           setDocumentReviews((current) => ({ ...current, [activeCaseDetail.case.id]: generated?.quality_review || null }));
         }}
         onSubmitCase={(payload) => onSubmitCase(activeCaseDetail.case.id, payload)}
