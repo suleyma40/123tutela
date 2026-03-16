@@ -725,8 +725,10 @@ def build_final_validation(
             blocking_issues.append("La tutela debe justificar subsidiariedad o la insuficiencia de otros medios.")
         if not _text(intake.get("tutela_immediacy_detail")):
             blocking_issues.append("La tutela debe justificar la inmediatez con hechos concretos.")
-        if not _text(intake.get("tutela_no_temperity_detail")):
-            blocking_issues.append("La tutela debe contener una declaracion clara sobre no temeridad o tutela previa.")
+        if not _text(intake.get("tutela_previous_action_detail")):
+            blocking_issues.append("La tutela debe aclarar si ya existio otra tutela, peticion o medida previa sobre los mismos hechos.")
+        if not _text(intake.get("tutela_oath_statement")) and not _text(intake.get("tutela_no_temperity_detail")):
+            blocking_issues.append("La tutela debe contener una declaracion clara bajo juramento sobre no temeridad.")
         if _lower(case.get("categoria")) == "salud":
             if not _text(intake.get("target_entity")):
                 blocking_issues.append("En tutela de salud debe quedar claramente identificada la EPS o IPS accionada.")

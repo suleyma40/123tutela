@@ -379,8 +379,10 @@ def validate_submission_readiness(
             problems.append("La tutela necesita justificar subsidiariedad o explicar por que no existe otro medio eficaz.")
         if not _text(intake.get("tutela_immediacy_detail")):
             problems.append("La tutela necesita explicar por que la vulneracion es actual o reciente.")
-        if not _text(intake.get("tutela_no_temperity_detail")):
-            problems.append("La tutela necesita declaracion de no temeridad o aclaracion sobre tutela previa.")
+        if not _text(intake.get("tutela_previous_action_detail")):
+            problems.append("La tutela necesita aclarar si ya existio otra tutela, peticion o medida previa sobre los mismos hechos.")
+        if not _text(intake.get("tutela_oath_statement")) and not _text(intake.get("tutela_no_temperity_detail")):
+            problems.append("La tutela necesita declaracion bajo juramento de no temeridad.")
         if _text(intake.get("acting_capacity")) and _lower(intake.get("acting_capacity")) != "nombre_propio":
             if not _text(intake.get("represented_person_name")):
                 problems.append("Si actuas por otra persona, debes identificar el nombre del menor o representado.")

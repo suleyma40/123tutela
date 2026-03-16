@@ -548,9 +548,16 @@ def analysis_preview(
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
 
+    result["facts"] = _merge_intake_into_facts(
+        existing_facts=result["facts"],
+        form_data=payload.form_data or {},
+        description=enriched_description,
+        category=payload.category,
+    )
+
     workflow = infer_workflow(
         category=payload.category,
-        description=payload.description,
+        description=enriched_description,
         facts=result["facts"],
         legal_analysis=result["legal_analysis"],
         prior_actions=payload.prior_actions,
@@ -573,13 +580,13 @@ def analysis_preview(
         category=payload.category,
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
-        description=payload.description,
+        description=enriched_description,
         facts=result["facts"],
         prior_actions=payload.prior_actions,
     )
     preview_gate = validate_submission_readiness(
         category=payload.category,
-        description=payload.description,
+        description=enriched_description,
         facts=result["facts"],
         prior_actions=payload.prior_actions,
     )
@@ -592,6 +599,7 @@ def analysis_preview(
     result["facts"]["intake_review"] = intake_review
     result["facts"]["preview_gate"] = preview_gate
     result["facts"]["document_rule_review"] = document_rule_review
+    result["facts"]["attachment_intelligence"] = attachment_context
     result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
         category=payload.category,
         description=enriched_description,
@@ -652,6 +660,13 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
     result = analyzer.full_analysis(enriched_description, category=payload.category)
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
+
+    result["facts"] = _merge_intake_into_facts(
+        existing_facts=result["facts"],
+        form_data=payload.form_data or {},
+        description=enriched_description,
+        category=payload.category,
+    )
 
     workflow = infer_workflow(
         category=payload.category,

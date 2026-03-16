@@ -83,6 +83,8 @@ const defaultIntakeFields = {
   tutela_appeal_reason: "",
   tutela_order_summary: "",
   tutela_noncompliance_detail: "",
+  tutela_previous_action_detail: "",
+  tutela_oath_statement: "",
   tutela_no_temperity_detail: "",
   tutela_other_means_detail: "",
   tutela_immediacy_detail: "",
@@ -157,6 +159,8 @@ const buildPostPayDescription = (form, caseItem) => {
     form.bank_event_date ? `Fecha del primer cobro o hecho relevante: ${form.bank_event_date}.` : "",
     form.bank_account_reference ? `Referencia del producto financiero: ${form.bank_account_reference}.` : "",
     form.refund_destination ? `Destino solicitado para la devolucion: ${form.refund_destination}.` : "",
+    form.tutela_previous_action_detail ? `Otra tutela o medida previa sobre el mismo caso: ${form.tutela_previous_action_detail}.` : "",
+    form.tutela_oath_statement ? `Declaracion bajo juramento sobre no temeridad: ${form.tutela_oath_statement}.` : "",
     form.tutela_no_temperity_detail ? `No temeridad o tutela previa: ${form.tutela_no_temperity_detail}.` : "",
     form.tutela_other_means_detail ? `Subsidiariedad o ausencia de otro medio eficaz: ${form.tutela_other_means_detail}.` : "",
     form.tutela_immediacy_detail ? `Inmediatez o justificacion temporal: ${form.tutela_immediacy_detail}.` : "",
@@ -318,11 +322,18 @@ const buildPostPayInterviewSteps = (form, caseItem) => {
   if (action === "accion de tutela") {
     steps.push(
       {
-        id: "tutela_no_temperity_detail",
-        question: "Para la tutela, necesito saber si ya presentaste otra tutela por los mismos hechos y derechos.",
-        placeholder: "Ej: no he presentado otra tutela por estos mismos hechos y derechos / ya hubo una tutela, pero ahora cambiaron los hechos...",
+        id: "tutela_previous_action_detail",
+        question: "Antes de la tutela, necesito saber si ya presentaste otra tutela, incidente, peticion o medida por estos mismos hechos.",
+        placeholder: "Ej: no he presentado otra tutela ni otra medida / ya hubo una tutela o una peticion previa y esto fue lo que paso...",
         multiline: true,
-        show: !form.tutela_no_temperity_detail?.trim(),
+        show: !form.tutela_previous_action_detail?.trim(),
+      },
+      {
+        id: "tutela_oath_statement",
+        question: "Ahora deja la declaracion bajo juramento sobre no temeridad.",
+        placeholder: "Ej: bajo juramento manifiesto que no he presentado otra tutela por los mismos hechos, derechos y pretensiones.",
+        multiline: true,
+        show: !form.tutela_oath_statement?.trim() && !form.tutela_no_temperity_detail?.trim(),
       },
       {
         id: "tutela_other_means_detail",
@@ -588,6 +599,8 @@ const buildStructuredDescription = (form) => {
     form.tutela_appeal_reason ? `Motivos de impugnacion: ${form.tutela_appeal_reason}` : "",
     form.tutela_order_summary ? `Orden judicial incumplida: ${form.tutela_order_summary}` : "",
     form.tutela_noncompliance_detail ? `Detalle del incumplimiento: ${form.tutela_noncompliance_detail}` : "",
+    form.tutela_previous_action_detail ? `Otra tutela o medida previa sobre el mismo caso: ${form.tutela_previous_action_detail}` : "",
+    form.tutela_oath_statement ? `Declaracion bajo juramento sobre no temeridad: ${form.tutela_oath_statement}` : "",
     form.tutela_no_temperity_detail ? `No temeridad o tutela previa: ${form.tutela_no_temperity_detail}` : "",
     form.tutela_other_means_detail ? `Subsidiariedad o ausencia de otro medio eficaz: ${form.tutela_other_means_detail}` : "",
     form.tutela_immediacy_detail ? `Inmediatez o justificacion temporal: ${form.tutela_immediacy_detail}` : "",
@@ -668,7 +681,8 @@ const getGuidedIntakeMissing = (form, files = []) => {
 
   const normalizedAction = normalizeAction(form.recommended_action);
   if (normalizedAction === "accion de tutela") {
-    if (!form.tutela_no_temperity_detail.trim()) missing.push("No temeridad o tutela previa");
+    if (!form.tutela_previous_action_detail.trim()) missing.push("Otra tutela, peticion o medida previa");
+    if (!form.tutela_oath_statement.trim() && !form.tutela_no_temperity_detail.trim()) missing.push("Declaracion bajo juramento de no temeridad");
     if (!form.tutela_other_means_detail.trim()) missing.push("Subsidiariedad o ausencia de otro medio eficaz");
     if (!form.tutela_immediacy_detail.trim()) missing.push("Inmediatez o justificacion temporal");
     if (form.acting_capacity !== "nombre_propio") {
@@ -1073,7 +1087,8 @@ const getActionSpecificIssues = (recommendedAction, form) => {
   }
 
   if (action === "accion de tutela") {
-    if (form.tutela_no_temperity_detail.trim().length < 20) issues.push("La tutela debe aclarar bajo juramento si existe o no otra tutela por los mismos hechos y derechos.");
+    if (form.tutela_previous_action_detail.trim().length < 15) issues.push("La tutela debe diferenciar si ya hubo otra tutela, peticion, incidente o medida previa por los mismos hechos.");
+    if (!form.tutela_oath_statement.trim() && form.tutela_no_temperity_detail.trim().length < 20) issues.push("La tutela debe incluir una declaracion expresa bajo juramento sobre no temeridad.");
     if (form.tutela_other_means_detail.trim().length < 25) issues.push("La tutela debe explicar mejor por que no existe otro medio judicial eficaz o por que hay perjuicio irremediable.");
     if (form.tutela_immediacy_detail.trim().length < 20) issues.push("La tutela debe justificar la inmediatez o explicar por que se presenta ahora.");
   }
@@ -1165,8 +1180,11 @@ function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFiel
             </Field>
           </>
         )}
-        <Field label="No temeridad o tutela previa">
-          <TextArea value={form.tutela_no_temperity_detail} onChange={(event) => setField("tutela_no_temperity_detail", event.target.value)} placeholder="Indica si ya presentaste otra tutela por los mismos hechos. Si no, dilo expresamente. Si si, explica que cambio." style={{ minHeight: 90 }} />
+        <Field label="Otra tutela, medida o actuacion previa sobre estos mismos hechos">
+          <TextArea value={form.tutela_previous_action_detail} onChange={(event) => setField("tutela_previous_action_detail", event.target.value)} placeholder="Indica si ya presentaste otra tutela, peticion, incidente o medida por este mismo caso. Si no, dilo con claridad." style={{ minHeight: 90 }} />
+        </Field>
+        <Field label="Declaracion bajo juramento de no temeridad">
+          <TextArea value={form.tutela_oath_statement} onChange={(event) => setField("tutela_oath_statement", event.target.value)} placeholder="Ej: Bajo la gravedad del juramento manifiesto que no he presentado otra accion de tutela por los mismos hechos, derechos y pretensiones." style={{ minHeight: 90 }} />
         </Field>
         <Field label="Subsidiariedad o ausencia de otro medio eficaz">
           <TextArea value={form.tutela_other_means_detail} onChange={(event) => setField("tutela_other_means_detail", event.target.value)} placeholder="Explica por que la tutela si procede: no hay otro medio eficaz, o existe urgencia o perjuicio irremediable." style={{ minHeight: 90 }} />
@@ -2141,6 +2159,8 @@ function DetailPanel({
     disputed_charge: "",
     bank_account_reference: "",
     refund_destination: "",
+    tutela_previous_action_detail: "",
+    tutela_oath_statement: "",
     tutela_no_temperity_detail: "",
     tutela_other_means_detail: "",
     tutela_immediacy_detail: "",
@@ -2729,6 +2749,8 @@ export default function DashboardV2(props) {
     disputed_charge: "",
     bank_account_reference: "",
     refund_destination: "",
+    tutela_previous_action_detail: "",
+    tutela_oath_statement: "",
     tutela_no_temperity_detail: "",
     tutela_other_means_detail: "",
     tutela_immediacy_detail: "",
@@ -2792,6 +2814,8 @@ export default function DashboardV2(props) {
       disputed_charge: intakeForm.disputed_charge || "",
       bank_account_reference: intakeForm.bank_account_reference || "",
       refund_destination: intakeForm.refund_destination || "",
+      tutela_previous_action_detail: intakeForm.tutela_previous_action_detail || "",
+      tutela_oath_statement: intakeForm.tutela_oath_statement || "",
       tutela_no_temperity_detail: intakeForm.tutela_no_temperity_detail || "",
       tutela_other_means_detail: intakeForm.tutela_other_means_detail || "",
       tutela_immediacy_detail: intakeForm.tutela_immediacy_detail || "",
@@ -3265,7 +3289,12 @@ export default function DashboardV2(props) {
               <Button
                 onClick={async () => {
                   try {
-                    const previewResult = await onPreview({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) });
+                    const previewResult = await onPreview({
+                      ...form,
+                      description: composedDescription,
+                      form_data: { ...form },
+                      attachment_ids: tempFiles.map((item) => item.id),
+                    });
                     setPreview(previewResult);
                     setWizardStep(3);
                   } catch (error) {
@@ -3345,7 +3374,12 @@ export default function DashboardV2(props) {
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button
                       onClick={async () => {
-                        const detail = await onCreateCase({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) });
+                        const detail = await onCreateCase({
+                          ...form,
+                          description: composedDescription,
+                          form_data: { ...form },
+                          attachment_ids: tempFiles.map((item) => item.id),
+                        });
                         setDraftDetail(detail);
                         setWizardStep(4);
                       }}
