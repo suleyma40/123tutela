@@ -248,6 +248,47 @@ def _build_target_from_entity(match: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _build_target_from_intake(facts: dict[str, Any], recommended_action: str) -> dict[str, Any] | None:
+    intake = (facts or {}).get("intake_form") or {}
+    entity_name = str(intake.get("target_entity") or "").strip()
+    if not entity_name:
+        return None
+
+    contact = (
+        intake.get("target_pqrs_email")
+        or intake.get("target_notification_email")
+        or intake.get("target_website")
+        or intake.get("target_phone")
+    )
+    contact = str(contact or "").strip() or None
+    channel = "manual"
+    if contact:
+        if "@" in contact:
+            channel = "email"
+        elif str(contact).lower().startswith("http"):
+            channel = "portal"
+
+    metadata = {
+        "nit": intake.get("target_identifier"),
+        "address": intake.get("target_address"),
+        "legal_representative": intake.get("legal_representative"),
+        "superintendence": intake.get("target_superintendence"),
+        "website": intake.get("target_website"),
+        "phone": intake.get("target_phone"),
+    }
+    return {
+        "type": "entidad",
+        "name": entity_name,
+        "channel": channel,
+        "contact": contact,
+        "automatable": channel in {"email", "portal"} and bool(contact),
+        "genera_radicado": channel in {"email", "portal"},
+        "subject_suggested": f"{recommended_action} - {entity_name}",
+        "reason": "Entidad consolidada desde el formulario completado por la persona usuaria.",
+        "metadata": metadata,
+    }
+
+
 def build_routing(
     *,
     category: str,
@@ -265,6 +306,9 @@ def build_routing(
     if workflow_type == "tutela":
         targets.extend(_build_target_from_court(item) for item in repository.search_court_targets(city, department))
     else:
+        intake_target = _build_target_from_intake(facts, recommended_action)
+        if intake_target:
+            targets.append(intake_target)
         targets.extend(_build_target_from_entity(item) for item in repository.search_entities(category, entity_names))
 
     primary_target = targets[0] if targets else None

@@ -56,6 +56,25 @@ GENERATION_BRIEFS: dict[str, dict[str, Any]] = {
         ],
         "must_include": ["acto o cobro identificado", "solucion concreta"],
     },
+    "reclamacion financiera": {
+        "tone": "firme, claro y tecnico como consumidor financiero",
+        "narrative_focus": [
+            "identificar producto, cobro o seguro cuestionado",
+            "explicar por que el cargo no fue autorizado o no fue informado",
+            "pedir devolucion, reverso o cancelacion con respuesta formal",
+        ],
+        "must_include": ["solicitudes numeradas", "producto o cobro identificado", "canal de respuesta"],
+    },
+    "derecho de peticion financiero": {
+        "tone": "respetuoso, exigente y orientado a respuesta de fondo",
+        "narrative_focus": [
+            "identificar claramente el banco o entidad financiera",
+            "presentar hechos ordenados cronologicamente",
+            "formular solicitudes numeradas y verificables",
+            "mencionar Ley 1755 y termino legal de respuesta",
+        ],
+        "must_include": ["solicitudes numeradas", "termino legal", "canal de notificacion"],
+    },
     "queja disciplinaria": {
         "tone": "sobrio, serio y centrado en hechos atribuibles",
         "narrative_focus": [
