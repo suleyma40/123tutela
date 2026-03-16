@@ -115,6 +115,74 @@ const statusColors = {
   requiere_accion_manual: C.danger,
 };
 
+const buildWritingGuide = (category) => {
+  const base = {
+    title: "Que debes contar para que el documento salga bien",
+    bullets: [
+      "Que paso exactamente y desde cuando.",
+      "A que entidad, empresa o persona le reclamas.",
+      "Que pediste antes y que te respondieron, si hubo respuesta.",
+      "Que necesitas que quede ordenado o resuelto.",
+    ],
+  };
+  if (category === "Salud") {
+    return {
+      title: "Para salud o tutela por salud, cuenta esto",
+      bullets: [
+        "Diagnostico, medicamento, examen o procedimiento pendiente.",
+        "Desde cuando la EPS o IPS no responde o incumple.",
+        "Orden medica, formula o incapacidad si existe.",
+        "Como te afecta hoy: dolor, riesgo, suspension del tratamiento o minimo vital.",
+      ],
+    };
+  }
+  if (category === "Bancos") {
+    return {
+      title: "Para bancos o habeas data, cuenta esto",
+      bullets: [
+        "Cobro, reporte o bloqueo que consideras injusto.",
+        "Fecha aproximada del problema y monto comprometido.",
+        "Si ya reclamaste al banco o a la central de riesgo.",
+        "Que quieres lograr: corregir, devolver, eliminar reporte o responder peticion.",
+      ],
+    };
+  }
+  if (category === "Laboral") {
+    return {
+      title: "Para un caso laboral, cuenta esto",
+      bullets: [
+        "Que relacion tenias con el empleador y que paso.",
+        "Fecha de despido, suspension, no pago o negativa.",
+        "Cuanto te deben o como se afecto tu minimo vital.",
+        "Si ya pediste respuesta formal al empleador.",
+      ],
+    };
+  }
+  if (category === "Servicios") {
+    return {
+      title: "Para servicios publicos o privados, cuenta esto",
+      bullets: [
+        "Empresa involucrada y numero de factura o suscriptor si lo tienes.",
+        "Corte, cobro, suspension o negativa concreta.",
+        "Desde cuando ocurre el problema.",
+        "Que solucion concreta estas pidiendo.",
+      ],
+    };
+  }
+  if (category === "Consumidor") {
+    return {
+      title: "Para consumidor, queja o reclamo, cuenta esto",
+      bullets: [
+        "Que compraste o contrataste y cuando.",
+        "Que fallo presento el producto o servicio.",
+        "Si pediste garantia, cambio, devolucion o respuesta previa.",
+        "Que esperas que hagan: devolver, cambiar, corregir o responder.",
+      ],
+    };
+  }
+  return base;
+};
+
 const shortDate = (value) => new Date(value).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
 const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const widgetScriptUrl = "https://checkout.wompi.co/widget.js";
@@ -1659,6 +1727,7 @@ export default function DashboardV2(props) {
     (form.description.trim().length >= 20 || composedDescription.trim().length >= 120) &&
     guidedMissing.length === 0 &&
     previewGateIssues.length === 0;
+  const writingGuide = buildWritingGuide(form.category);
   const wizardSteps = [
     { id: 1, label: "Perfil", ready: profileReady },
     { id: 2, label: "Análisis", ready: analysisReady || !!preview },
@@ -1714,95 +1783,96 @@ export default function DashboardV2(props) {
           <Badge color={C.accent}>Panel del cliente</Badge>
           <h2 style={{ fontSize: 42, margin: "18px 0 10px", fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>Todo tu caso, en un solo lugar.</h2>
           <p style={{ maxWidth: 640, color: "rgba(255,255,255,0.74)", lineHeight: 1.75 }}>
-            Desde aquí puedes crear un trámite, pagar el documento, revisar si ya fue radicado y entender cuál es el siguiente paso sin salirte del flujo.
+            Desde aqui puedes crear un tramite, pagar el documento, revisar si ya fue radicado y entender cual es el siguiente paso sin salirte del flujo.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 18, marginTop: 24 }}>
-            <div style={{ padding: 18, borderRadius: 18, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#8FD3FF" }}>QUÉ PUEDES HACER AHORA</div>
-              <div style={{ marginTop: 12, display: "grid", gap: 10, color: "rgba(255,255,255,0.84)" }}>
-                <div>1. Analizar un caso gratis y ver la recomendación.</div>
-                <div>2. Pagar solo cuando decidas activar el documento.</div>
-                <div>3. Seguir la radicación y los pasos posteriores desde el expediente.</div>
+            <div style={{ padding: 22, borderRadius: 22, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#7DD3FC", letterSpacing: "0.08em" }}>QUE PUEDES HACER AHORA</div>
+              <div style={{ display: "grid", gap: 12, marginTop: 18, color: "rgba(255,255,255,0.88)", lineHeight: 1.7 }}>
+                <div>1. Completar tus datos personales una sola vez.</div>
+                <div>2. Contarnos tu caso con preguntas guiadas y generar el analisis gratis.</div>
+                <div>3. Pagar solo si decides activar el documento o la radicacion.</div>
+              </div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 24 }}>
+                <Button onClick={() => setActiveTab("nuevo")}>Crear nuevo tramite</Button>
+                <Button variant="ghost" onClick={() => setActiveTab("tramites")}>Ver mis expedientes</Button>
               </div>
             </div>
-            <div style={{ padding: 18, borderRadius: 18, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#8FD3FF" }}>PROMESA DEL SERVICIO</div>
-              <div style={{ marginTop: 12, fontSize: 24, fontWeight: 800 }}>Análisis gratis y radicación en menos de 5 minutos cuando el canal lo permite.</div>
+            <div style={{ padding: 22, borderRadius: 22, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#7DD3FC", letterSpacing: "0.08em" }}>PROMESA DEL SERVICIO</div>
+              <div style={{ marginTop: 20, fontSize: 28, lineHeight: 1.35, fontWeight: 800 }}>
+                Analisis gratis y radicacion en menos de 5 minutos cuando el canal lo permite.
+              </div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
-            <Button onClick={() => setActiveTab("nuevo")}>Crear nuevo trámite</Button>
-            <Button variant="ghost" style={{ color: "#fff", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }} onClick={() => setActiveTab("tramites")}>
-              Ver mis expedientes
-            </Button>
-          </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
           {stats.map((item) => (
-            <div key={item.label} className="glass-card" style={{ padding: 22 }}>
-              <div style={{ color: C.textMuted, fontSize: 13, fontWeight: 700 }}>{item.label}</div>
-              <div style={{ marginTop: 10, fontSize: 24, fontWeight: 800, color: C.text }}>{item.value}</div>
+            <div key={item.label} className="glass-card" style={{ padding: 26 }}>
+              <div style={{ color: C.textMuted, fontWeight: 700 }}>{item.label}</div>
+              <div style={{ marginTop: 18, fontSize: 44, lineHeight: 1, fontWeight: 800, color: C.text }}>{item.value}</div>
             </div>
           ))}
         </div>
-        <DetailPanel detail={activeCaseDetail} onViewDocument={setDocumentCase} />
+        <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>
+          Abre un expediente para ver timeline, archivos y trazabilidad.
+        </div>
       </div>
     ),
     nuevo: (
-      <div style={{ display: "grid", gap: 18 }}>
-        <div className="glass-card" style={{ padding: 24, display: "grid", gap: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "end", flexWrap: "wrap" }}>
-            <div>
-              <Badge color={C.accent}>Flujo guiado</Badge>
-              <h2 style={{ marginTop: 10, fontSize: 34, lineHeight: 1.1, color: C.text, fontFamily: "'Playfair Display', serif" }}>
-                Nuevo trámite, paso a paso.
-              </h2>
-              <p style={{ marginTop: 10, color: C.textMuted, maxWidth: 620 }}>
-                Ahora el cliente puede avanzar o retroceder con flechas visibles durante todo el proceso.
-              </p>
-            </div>
-            <Button variant="ghost" onClick={resetWizard}>Reiniciar flujo</Button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-            {wizardSteps.map((step) => (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => setWizardStep(step.id)}
-                style={{
-                  textAlign: "left",
-                  padding: 16,
-                  borderRadius: 18,
-                  border: wizardStep === step.id ? `2px solid ${C.primary}` : `1px solid ${C.border}`,
-                  background: wizardStep === step.id ? "#EEF4FF" : "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ fontSize: 12, color: step.ready ? C.accent : C.textMuted, fontWeight: 800 }}>PASO {step.id}</div>
-                <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800, color: C.text }}>{step.label}</div>
-                <div style={{ marginTop: 6, color: C.textMuted, fontSize: 13 }}>{step.ready ? "Listo o en progreso" : "Pendiente"}</div>
-              </button>
-            ))}
-          </div>
+      <div style={{ display: "grid", gap: 22 }}>
+        <div className="glass-card" style={{ padding: 24 }}>
+          <Badge color={C.primary}>Nuevo tramite guiado</Badge>
+          <h2 style={{ marginTop: 12, fontSize: 34, lineHeight: 1.08, color: C.text, fontFamily: "'Playfair Display', serif" }}>
+            Dinos que paso y te guiamos paso a paso.
+          </h2>
+          <p style={{ marginTop: 10, color: C.textMuted, maxWidth: 760 }}>
+            Primero completas tus datos personales. Luego nos cuentas el caso con preguntas simples. Despues ves el analisis gratis, confirmas el expediente y solo al final decides si pagas el documento.
+          </p>
         </div>
-
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          {wizardSteps.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                padding: 16,
+                borderRadius: 18,
+                border: `1px solid ${wizardStep === item.id ? C.primary : C.border}`,
+                background: wizardStep === item.id ? "#EFF6FF" : C.card,
+                display: "grid",
+                gap: 6,
+              }}
+            >
+              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>{`PASO ${item.id}`}</div>
+              <div style={{ fontWeight: 800, color: C.text }}>{item.label}</div>
+              <div style={{ color: item.ready ? C.success : C.textMuted, fontSize: 13 }}>{item.ready ? "Listo" : "Pendiente"}</div>
+            </div>
+          ))}
+        </div>
         {wizardStep === 1 && (
           <StepShell
             stepNumber={1}
-            title="Perfil jurídico obligatorio"
-            subtitle="Se usa en el documento, el asunto del correo y la radicación."
+            title="Tus datos personales"
+            subtitle="Se usan en la tutela, la carta, el derecho de peticion y el correo de radicacion."
             onNext={() => setWizardStep(2)}
             nextDisabled={!profileReady}
-            nextLabel="Continuar al análisis"
+            nextLabel="Continuar al analisis"
           >
+            <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 8 }}>
+              <div style={{ fontWeight: 800, color: C.text }}>Que debes llenar aqui</div>
+              <div style={{ color: C.textMuted }}>Tu nombre, cedula, celular, correo y direccion. Estos datos se insertan automaticamente en el documento final.</div>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+              <Field label="Correo electronico">
+                <TextInput value={session.user.email || ""} disabled />
+              </Field>
               {[
                 ["Nombre completo", "name"],
-                ["Cédula", "document_number"],
+                ["Cedula", "document_number"],
                 ["Celular", "phone"],
                 ["Ciudad", "city"],
                 ["Departamento", "department"],
-                ["Dirección", "address"],
+                ["Direccion", "address"],
               ].map(([label, key]) => (
                 <Field key={key} label={label}>
                   <TextInput value={profile[key]} onChange={(event) => setProfile((current) => ({ ...current, [key]: event.target.value }))} />
@@ -1810,22 +1880,25 @@ export default function DashboardV2(props) {
               ))}
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Button onClick={() => onSaveProfile(profile)}>Guardar perfil</Button>
-              <Badge color={profileReady ? C.success : C.warning}>{profileReady ? "Perfil completo" : "Faltan datos"}</Badge>
+              <Button onClick={() => onSaveProfile(profile)}>Guardar datos personales</Button>
+              <Badge color={profileReady ? C.success : C.warning}>{profileReady ? "Perfil completo" : "Faltan datos obligatorios"}</Badge>
             </div>
           </StepShell>
         )}
-
         {wizardStep === 2 && (
           <StepShell
             stepNumber={2}
-            title="Análisis del caso"
-            subtitle="Combina IA jurídica con reglas operativas y destino sugerido."
+            title="Cuentanos tu problema"
+            subtitle="Usa tus palabras. La plataforma te ayuda con preguntas guiadas."
             onBack={() => setWizardStep(1)}
             onNext={() => setWizardStep(3)}
             nextDisabled={!analysisReady}
             nextLabel="Continuar al preview"
           >
+            <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 10 }}>
+              <div style={{ fontWeight: 800, color: C.text }}>Procedimiento simple</div>
+              <div style={{ color: C.textMuted }}>1. Elige el tipo de problema. 2. Explica que paso. 3. Responde solo las preguntas que aparezcan. 4. Genera el analisis gratis.</div>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
               {CATEGORIES.map((item) => (
                 <button
@@ -1838,7 +1911,17 @@ export default function DashboardV2(props) {
                 </button>
               ))}
             </div>
-            <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe hechos, fechas, respuestas previas y urgencia." />
+            <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", display: "grid", gap: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>{writingGuide.title.toUpperCase()}</div>
+              <div style={{ display: "grid", gap: 6 }}>
+                {writingGuide.bullets.map((bullet) => (
+                  <div key={bullet} style={{ color: C.textMuted }}>{`- ${bullet}`}</div>
+                ))}
+              </div>
+            </div>
+            <Field label="Explica el caso con detalle">
+              <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Cuenta que paso, desde cuando, con quien, que pediste antes, que pruebas tienes y que solucion necesitas." />
+            </Field>
             <GuidedIntakeFields form={form} setForm={setForm} missingFields={guidedMissing} />
             <PreviewGateCard issues={previewGateIssues} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
@@ -1873,11 +1956,10 @@ export default function DashboardV2(props) {
               </Button>
             </div>
             <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-              La plataforma combinará tus respuestas estructuradas y tu relato libre para construir un análisis más sólido.
+              El sistema usa tus datos del paso 1 y tu relato del paso 2 para construir el analisis. Si faltan datos, te lo dira antes de avanzar.
             </div>
           </StepShell>
         )}
-
         {wizardStep === 3 && (() => {
           const intakeReview = preview?.facts?.intake_review || null;
           const documentRuleReview = preview?.facts?.document_rule_review || null;
@@ -1888,69 +1970,68 @@ export default function DashboardV2(props) {
           const hasActionSpecificBlockers = actionSpecificMissing.length > 0 || actionSpecificIssues.length > 0;
 
           return (
-          <StepShell
-            stepNumber={3}
-            title="Preview gratis y expediente"
-            subtitle="Se guarda antes del pago para que quede trazabilidad."
-            onBack={() => setWizardStep(2)}
-            onNext={() => setWizardStep(4)}
-            nextDisabled={!preview || hasBlockingIssues || hasActionSpecificBlockers || hasDocumentRuleBlockers}
-            nextLabel="Continuar al pago"
-          >
-            {!preview ? (
-              <div style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>
-                Primero genera el preview desde el paso anterior para ver recomendación, destino y advertencias.
-              </div>
-            ) : (
-              <>
-                <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
-                  <div style={{ fontWeight: 800, color: C.text }}>{preview.recommended_action}</div>
-                  <div style={{ color: C.textMuted, marginTop: 8 }}>{preview.strategy}</div>
+            <StepShell
+              stepNumber={3}
+              title="Analisis gratis y revision"
+              subtitle="Aqui te mostramos la ruta sugerida antes de crear el expediente."
+              onBack={() => setWizardStep(2)}
+              onNext={() => setWizardStep(4)}
+              nextDisabled={!preview || hasBlockingIssues || hasActionSpecificBlockers || hasDocumentRuleBlockers}
+              nextLabel="Continuar al pago"
+            >
+              {!preview ? (
+                <div style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>
+                  Primero genera el preview desde el paso anterior para ver la recomendacion, el destino sugerido y las advertencias.
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-                  <div className="glass-card" style={{ padding: 18 }}>
-                    <strong style={{ color: C.text }}>Prerequisitos</strong>
-                    <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-                      {preview.prerequisites.length ? preview.prerequisites.map((item) => (
-                        <Badge key={item.id} color={item.completed ? C.success : C.warning}>{item.completed ? "Cumplido" : "Pendiente"} · {item.label}</Badge>
-                      )) : <span style={{ color: C.textMuted }}>Sin vía previa obligatoria detectada.</span>}
+              ) : (
+                <>
+                  <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
+                    <div style={{ fontWeight: 800, color: C.text }}>{preview.recommended_action}</div>
+                    <div style={{ color: C.textMuted, marginTop: 8 }}>{preview.strategy}</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+                    <div className="glass-card" style={{ padding: 18 }}>
+                      <strong style={{ color: C.text }}>Prerequisitos</strong>
+                      <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                        {preview.prerequisites.length ? preview.prerequisites.map((item) => (
+                          <Badge key={item.id} color={item.completed ? C.success : C.warning}>{item.completed ? "Cumplido" : "Pendiente"} - {item.label}</Badge>
+                        )) : <span style={{ color: C.textMuted }}>Sin via previa obligatoria detectada.</span>}
+                      </div>
+                    </div>
+                    <div className="glass-card" style={{ padding: 18 }}>
+                      <strong style={{ color: C.text }}>Destino sugerido</strong>
+                      <div style={{ color: C.textMuted, marginTop: 12 }}>{preview.routing?.primary_target?.name || "Sin destino automatico"}</div>
+                      <div style={{ color: C.textMuted, marginTop: 6 }}>{preview.routing?.subject || "Sin asunto sugerido"}</div>
                     </div>
                   </div>
-                  <div className="glass-card" style={{ padding: 18 }}>
-                    <strong style={{ color: C.text }}>Destino sugerido</strong>
-                    <div style={{ color: C.textMuted, marginTop: 12 }}>{preview.routing?.primary_target?.name || "Sin destino automático"}</div>
-                    <div style={{ color: C.textMuted, marginTop: 6 }}>{preview.routing?.subject || "Sin asunto sugerido"}</div>
+                  <ActionSpecificQuestions
+                    recommendedAction={preview.recommended_action}
+                    form={form}
+                    setForm={setForm}
+                    missingFields={actionSpecificMissing}
+                    issues={actionSpecificIssues}
+                  />
+                  <DocumentRuleReviewCard review={documentRuleReview} />
+                  <IntakeReviewCard review={intakeReview} />
+                  {preview.warnings?.map((warning) => <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>{warning}</div>)}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <Button
+                      onClick={async () => {
+                        const detail = await onCreateCase({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) });
+                        setDraftDetail(detail);
+                        setWizardStep(4);
+                      }}
+                      disabled={!profileReady || hasBlockingIssues || hasActionSpecificBlockers || hasDocumentRuleBlockers}
+                    >
+                      Guardar expediente
+                    </Button>
+                    <Button variant="outline" onClick={resetWizard}>Reiniciar</Button>
                   </div>
-                </div>
-                <ActionSpecificQuestions
-                  recommendedAction={preview.recommended_action}
-                  form={form}
-                  setForm={setForm}
-                  missingFields={actionSpecificMissing}
-                  issues={actionSpecificIssues}
-                />
-                <DocumentRuleReviewCard review={documentRuleReview} />
-                <IntakeReviewCard review={intakeReview} />
-                {preview.warnings?.map((warning) => <div key={warning} style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", padding: 14, borderRadius: 14 }}>{warning}</div>)}
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <Button
-                    onClick={async () => {
-                      const detail = await onCreateCase({ ...form, description: composedDescription, attachment_ids: tempFiles.map((item) => item.id) });
-                      setDraftDetail(detail);
-                      setWizardStep(4);
-                    }}
-                    disabled={!profileReady || hasBlockingIssues || hasActionSpecificBlockers || hasDocumentRuleBlockers}
-                  >
-                    Guardar expediente
-                  </Button>
-                  <Button variant="outline" onClick={resetWizard}>Reiniciar</Button>
-                </div>
-              </>
-            )}
-          </StepShell>
+                </>
+              )}
+            </StepShell>
           );
         })()}
-
         {wizardStep === 4 && (
           <div style={{ display: "grid", gap: 16 }}>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -1965,7 +2046,7 @@ export default function DashboardV2(props) {
             </div>
             {draftDetail ? (
               <PaymentCard
-                title="4. Pago real y documento"
+                title="4. Pago real y activacion del documento"
                 caseItem={draftDetail.case}
                 catalog={catalog}
                 onCreateWompiSession={onCreateWompiSession}
@@ -1975,7 +2056,7 @@ export default function DashboardV2(props) {
               />
             ) : (
               <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>
-                Guarda primero el expediente en el paso 3 para habilitar el pago y la activación del documento.
+                Guarda primero el expediente en el paso 3 para habilitar el pago y la activacion del documento.
               </div>
             )}
           </div>
