@@ -12,6 +12,45 @@ def _lower(value: Any) -> str:
 
 
 VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
+    "constitucion_art_15": {
+        "aliases": [
+            "constitucion politica de 1991, articulo 15",
+            "constitucion politica art. 15",
+            "constitucion politica art 15",
+            "articulo 15 cp",
+            "habeas data",
+            "buen nombre",
+        ],
+        "tipo_fuente": "norma",
+        "corporacion": "Constitucion Politica de Colombia",
+        "numero_sentencia_o_norma": "Articulo 15",
+        "fecha": "1991-07-04",
+        "url_verificada": "https://www.secretariasenado.gov.co/senado/basedoc/constitucion_politica_1991.html",
+        "extracto_relevante": "Reconoce el derecho a conocer, actualizar y rectificar informaciones recogidas en bancos de datos y archivos de entidades publicas y privadas.",
+        "tema_juridico": "habeas data y buen nombre",
+        "nivel_confiabilidad": "alto",
+        "source_level": 1,
+        "uso": ["habeas_data", "tutela", "reclamacion"],
+    },
+    "constitucion_art_23": {
+        "aliases": [
+            "constitucion politica de 1991, articulo 23",
+            "constitucion politica art. 23",
+            "constitucion politica art 23",
+            "articulo 23 cp",
+            "derecho de peticion",
+        ],
+        "tipo_fuente": "norma",
+        "corporacion": "Constitucion Politica de Colombia",
+        "numero_sentencia_o_norma": "Articulo 23",
+        "fecha": "1991-07-04",
+        "url_verificada": "https://www.secretariasenado.gov.co/senado/basedoc/constitucion_politica_1991.html",
+        "extracto_relevante": "Toda persona tiene derecho a presentar peticiones respetuosas y a obtener pronta resolucion.",
+        "tema_juridico": "derecho de peticion",
+        "nivel_confiabilidad": "alto",
+        "source_level": 1,
+        "uso": ["peticion", "tutela_por_silencio", "reclamacion"],
+    },
     "constitucion_art_86": {
         "aliases": [
             "constitucion politica de 1991, articulo 86",
@@ -31,6 +70,25 @@ VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
         "source_level": 1,
         "uso": ["tutela", "impugnacion", "desacato"],
     },
+    "constitucion_art_49": {
+        "aliases": [
+            "constitucion politica de 1991, articulo 49",
+            "constitucion politica art. 49",
+            "constitucion politica art 49",
+            "articulo 49 cp",
+            "derecho a la salud",
+        ],
+        "tipo_fuente": "norma",
+        "corporacion": "Constitucion Politica de Colombia",
+        "numero_sentencia_o_norma": "Articulo 49",
+        "fecha": "2009-12-21",
+        "url_verificada": "https://www.secretariasenado.gov.co/senado/basedoc/acto_legislativo_02_2009.html",
+        "extracto_relevante": "Garantiza el acceso a los servicios de promocion, proteccion y recuperacion de la salud y fija su prestacion como servicio publico a cargo del Estado.",
+        "tema_juridico": "salud",
+        "nivel_confiabilidad": "alto",
+        "source_level": 1,
+        "uso": ["tutela_salud", "peticion_salud"],
+    },
     "decreto_2591_art_14": {
         "aliases": [
             "decreto 2591 de 1991",
@@ -45,6 +103,24 @@ VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
         "url_verificada": "https://www.suin-juriscol.gov.co/viewDocument.asp?id=1470723",
         "extracto_relevante": "Regula el contenido minimo e informalidad de la solicitud de tutela.",
         "tema_juridico": "contenido de la tutela",
+        "nivel_confiabilidad": "alto",
+        "source_level": 1,
+        "uso": ["tutela"],
+    },
+    "decreto_2591_art_42": {
+        "aliases": [
+            "decreto 2591 de 1991 articulo 42",
+            "decreto 2591/1991 art. 42",
+            "tutela contra particular",
+            "articulo 42 decreto 2591",
+        ],
+        "tipo_fuente": "norma",
+        "corporacion": "Presidencia de la Republica / SUIN-Juriscol",
+        "numero_sentencia_o_norma": "Decreto 2591 de 1991, articulo 42",
+        "fecha": "1991-11-19",
+        "url_verificada": "https://www.suin-juriscol.gov.co/viewDocument.asp?id=1470723",
+        "extracto_relevante": "Regula los eventos en los que la tutela procede contra particulares.",
+        "tema_juridico": "tutela contra particulares",
         "nivel_confiabilidad": "alto",
         "source_level": 1,
         "uso": ["tutela"],
@@ -66,6 +142,40 @@ VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
         "source_level": 1,
         "uso": ["desacato"],
     },
+    "ley_1751_2015": {
+        "aliases": [
+            "ley 1751 de 2015",
+            "ley estatutaria 1751 de 2015",
+            "derecho fundamental a la salud",
+        ],
+        "tipo_fuente": "norma",
+        "corporacion": "Congreso de la Republica",
+        "numero_sentencia_o_norma": "Ley Estatutaria 1751 de 2015",
+        "fecha": "2015-02-16",
+        "url_verificada": "https://www.secretariasenado.gov.co/senado/basedoc/ley_1751_2015.html",
+        "extracto_relevante": "Regula el derecho fundamental a la salud, su caracter autonomo e irrenunciable y los mecanismos para su garantia.",
+        "tema_juridico": "salud",
+        "nivel_confiabilidad": "alto",
+        "source_level": 1,
+        "uso": ["tutela_salud", "peticion_salud"],
+    },
+    "ley_1755_2015": {
+        "aliases": [
+            "ley 1755 de 2015",
+            "regimen de derecho de peticion",
+            "derecho de peticion ley 1755",
+        ],
+        "tipo_fuente": "norma",
+        "corporacion": "Congreso de la Republica",
+        "numero_sentencia_o_norma": "Ley 1755 de 2015",
+        "fecha": "2015-06-30",
+        "url_verificada": "https://www.secretariasenado.gov.co/senado/basedoc/ley_1755_2015.html",
+        "extracto_relevante": "Regula el derecho fundamental de peticion, sus modalidades, contenido y terminos de respuesta ante autoridades y particulares obligados.",
+        "tema_juridico": "derecho de peticion",
+        "nivel_confiabilidad": "alto",
+        "source_level": 1,
+        "uso": ["peticion", "tutela_por_silencio", "reclamacion"],
+    },
     "derecho_peticion_suin": {
         "aliases": [
             "ley 1755 de 2015",
@@ -84,6 +194,59 @@ VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
         "nivel_confiabilidad": "alto",
         "source_level": 1,
         "uso": ["peticion", "reclamacion", "tutela_por_silencio"],
+    },
+    "ley_1266_2008": {
+        "aliases": [
+            "ley 1266 de 2008",
+            "habeas data financiero",
+            "reporte en centrales de riesgo",
+            "dato financiero",
+        ],
+        "tipo_fuente": "norma",
+        "corporacion": "Congreso de la Republica",
+        "numero_sentencia_o_norma": "Ley 1266 de 2008",
+        "fecha": "2008-12-31",
+        "url_verificada": "https://www.secretariasenado.gov.co/senado/basedoc/ley_1266_2008.html",
+        "extracto_relevante": "Desarrolla el habeas data financiero y regula la administracion de informacion financiera, crediticia, comercial y de servicios.",
+        "tema_juridico": "habeas data financiero",
+        "nivel_confiabilidad": "alto",
+        "source_level": 1,
+        "uso": ["habeas_data", "financiero", "reclamacion"],
+    },
+    "ley_1328_2009": {
+        "aliases": [
+            "ley 1328 de 2009",
+            "consumidor financiero",
+            "proteccion al consumidor financiero",
+        ],
+        "tipo_fuente": "norma",
+        "corporacion": "Congreso de la Republica",
+        "numero_sentencia_o_norma": "Ley 1328 de 2009",
+        "fecha": "2009-07-15",
+        "url_verificada": "https://www.secretariasenado.gov.co/senado/basedoc/ley_1328_2009.html",
+        "extracto_relevante": "Establece el regimen de proteccion al consumidor financiero y las obligaciones de atencion, informacion y respuesta a quejas o reclamos.",
+        "tema_juridico": "consumidor financiero",
+        "nivel_confiabilidad": "alto",
+        "source_level": 1,
+        "uso": ["financiero", "reclamacion", "peticion"],
+    },
+    "ley_1581_2012": {
+        "aliases": [
+            "ley 1581 de 2012",
+            "proteccion de datos personales",
+            "tratamiento de datos personales",
+            "supresion de datos",
+        ],
+        "tipo_fuente": "norma",
+        "corporacion": "Congreso de la Republica",
+        "numero_sentencia_o_norma": "Ley 1581 de 2012",
+        "fecha": "2012-10-17",
+        "url_verificada": "https://www.secretariasenado.gov.co/senado/basedoc/ley_1581_2012.html",
+        "extracto_relevante": "Establece el regimen general de proteccion de datos personales, derechos del titular y reglas para el tratamiento de la informacion.",
+        "tema_juridico": "proteccion de datos personales",
+        "nivel_confiabilidad": "alto",
+        "source_level": 1,
+        "uso": ["habeas_data", "reclamacion", "peticion"],
     },
     "funcion_publica_peticion_1": {
         "aliases": [
@@ -121,21 +284,21 @@ VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
 
 
 ACTION_SOURCE_KEYS: dict[str, list[str]] = {
-    "accion de tutela": ["constitucion_art_86", "decreto_2591_art_14"],
-    "accion de tutela por habeas data": ["constitucion_art_86", "decreto_2591_art_14"],
+    "accion de tutela": ["constitucion_art_86", "decreto_2591_art_14", "decreto_2591_art_42"],
+    "accion de tutela por habeas data": ["constitucion_art_86", "decreto_2591_art_14", "decreto_2591_art_42", "constitucion_art_15", "ley_1266_2008", "ley_1581_2012"],
     "impugnacion de tutela": ["constitucion_art_86", "decreto_2591_art_14"],
     "incidente de desacato": ["constitucion_art_86", "decreto_2591_art_52"],
-    "derecho de peticion": ["derecho_peticion_suin", "funcion_publica_peticion_1", "funcion_publica_peticion_2"],
-    "derecho de peticion financiero": ["derecho_peticion_suin", "funcion_publica_peticion_1"],
-    "derecho de peticion a eps": ["derecho_peticion_suin", "funcion_publica_peticion_1"],
+    "derecho de peticion": ["constitucion_art_23", "ley_1755_2015", "derecho_peticion_suin", "funcion_publica_peticion_1", "funcion_publica_peticion_2"],
+    "derecho de peticion financiero": ["constitucion_art_23", "ley_1755_2015", "ley_1328_2009", "funcion_publica_peticion_1"],
+    "derecho de peticion a eps": ["constitucion_art_23", "ley_1755_2015", "constitucion_art_49", "ley_1751_2015", "funcion_publica_peticion_1"],
     "derecho de peticion laboral": ["derecho_peticion_suin", "funcion_publica_peticion_1"],
     "derecho de peticion al proveedor": ["derecho_peticion_suin", "funcion_publica_peticion_1"],
     "derecho de peticion a empresa de servicios": ["derecho_peticion_suin", "funcion_publica_peticion_1"],
-    "reclamacion financiera": ["derecho_peticion_suin"],
-    "reclamo administrativo": ["derecho_peticion_suin"],
+    "reclamacion financiera": ["ley_1328_2009", "ley_1266_2008", "constitucion_art_23"],
+    "reclamo administrativo": ["constitucion_art_23", "ley_1755_2015"],
     "reclamo de consumo": ["derecho_peticion_suin"],
-    "reclamacion por servicios publicos": ["derecho_peticion_suin"],
-    "reclamacion de habeas data": ["derecho_peticion_suin"],
+    "reclamacion por servicios publicos": ["constitucion_art_23", "ley_1755_2015"],
+    "reclamacion de habeas data": ["constitucion_art_15", "ley_1266_2008", "ley_1581_2012", "constitucion_art_23", "ley_1755_2015"],
 }
 
 
@@ -183,6 +346,16 @@ def resolve_verified_legal_support(
             desired_keys.extend(ACTION_SOURCE_KEYS["accion de tutela"])
         elif "peticion" in action_key:
             desired_keys.extend(ACTION_SOURCE_KEYS["derecho de peticion"])
+
+    category_key = _lower(category)
+    if category_key == "salud":
+        desired_keys.extend(["constitucion_art_49", "ley_1751_2015"])
+    elif category_key == "bancos":
+        desired_keys.extend(["ley_1328_2009", "ley_1266_2008"])
+    elif category_key == "datos":
+        desired_keys.extend(["constitucion_art_15", "ley_1266_2008", "ley_1581_2012"])
+
+    desired_keys = list(dict.fromkeys(desired_keys))
 
     for key in desired_keys:
         entry = VERIFIED_SOURCE_REGISTRY.get(key)
@@ -275,4 +448,3 @@ def sanitize_legal_analysis(
     if sanitized.get("normas_verificantes") is not None:
         sanitized.pop("normas_verificantes", None)
     return sanitized
-

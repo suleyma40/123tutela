@@ -271,40 +271,62 @@ def collect_pending_questions(
         )
 
     if category_lower == "bancos":
-        if not _has_any(text, ["monto", "valor", "$", "pesos"]):
+        if not _text(intake.get("bank_amount_involved")) and not _has_any(text, ["monto", "valor", "$", "pesos"]):
             questions.append(
                 _build_question(
                     question_id="valor_cobro",
                     prompt="De cuanto es el cobro cuestionado o cuanto te han cobrado en total?",
                     reason="Falta cuantificar el perjuicio economico.",
                     priority="alta",
-                    field="charge_amount",
+                    field="bank_amount_involved",
                     route="B",
                 )
             )
-        if not _text(intake.get("target_identifier")):
+        if not _text(intake.get("bank_product_type")):
             questions.append(
                 _build_question(
                     question_id="producto_bancario",
                     prompt="Que producto financiero esta afectado: tarjeta, cuenta, credito o seguro asociado?",
                     reason="No esta completamente identificado el producto involucrado.",
                     priority="alta",
-                    field="financial_product",
+                    field="bank_product_type",
                     route="B",
                 )
             )
-        if not _has_any(text, ["tarjeta terminada", "cuenta", "producto", "ultimos 4", "referencia"]):
+        if not _text(intake.get("bank_event_date")):
+            questions.append(
+                _build_question(
+                    question_id="fecha_primer_cobro",
+                    prompt="Desde que fecha viste el primer cobro, reporte o bloqueo bancario?",
+                    reason="La cronologia financiera necesita un hito temporal claro.",
+                    priority="alta",
+                    field="bank_event_date",
+                    route="B",
+                )
+            )
+        if not _text(intake.get("bank_account_reference")) and not _has_any(text, ["tarjeta terminada", "cuenta", "producto", "ultimos 4", "referencia"]):
             questions.append(
                 _build_question(
                     question_id="referencia_producto",
                     prompt="Tienes numero de cuenta, ultimos 4 digitos de la tarjeta o referencia del producto?",
                     reason="Hace falta un identificador del producto financiero.",
                     priority="media",
-                    field="account_reference",
+                    field="bank_account_reference",
                     route="B",
                 )
             )
-        if not prior_actions and _lower(intake.get("prior_claim")) not in {"si", "sí", "reclame", "reclamo"}:
+        if not _text(intake.get("prior_claim_date")) and _lower(intake.get("prior_claim")) in {"si", "sí", "reclame", "reclamo"}:
+            questions.append(
+                _build_question(
+                    question_id="fecha_reclamo_previo_banco",
+                    prompt="En que fecha reclamaste al banco y por cual canal presentaste la reclamacion?",
+                    reason="Hace falta trazabilidad del reclamo previo.",
+                    priority="alta",
+                    field="prior_claim_date",
+                    route="B",
+                )
+            )
+        if (not prior_actions and _lower(intake.get("prior_claim")) not in {"si", "sí", "reclame", "reclamo"}) or not _text(intake.get("prior_claim_result")):
             questions.append(
                 _build_question(
                     question_id="reclamo_previo_banco",
@@ -328,7 +350,7 @@ def collect_pending_questions(
             )
 
     if category_lower == "salud":
-        if not _has_any(text, ["eps", "ips"]):
+        if not _text(intake.get("target_entity")) and not _text(intake.get("eps_name")) and not _has_any(text, ["eps", "ips"]):
             questions.append(
                 _build_question(
                     question_id="eps",
@@ -339,25 +361,106 @@ def collect_pending_questions(
                     route="B",
                 )
             )
-        if not _has_any(text, ["diagnostico", "diagnóstico", "enfermedad", "condicion", "condición"]):
+        if not _text(intake.get("diagnosis")) and not _has_any(text, ["diagnostico", "diagnóstico", "enfermedad", "condicion", "condición"]):
             questions.append(
                 _build_question(
                     question_id="diagnostico",
                     prompt="Cual es el diagnostico o condicion medica principal?",
                     reason="Hace falta el cuadro clinico que explica la urgencia del caso.",
                     priority="alta",
-                    field="medical_condition",
+                    field="diagnosis",
                     route="B",
                 )
             )
-        if not _has_any(text, ["formula", "orden medica", "orden médica", "medicamento", "tratamiento", "procedimiento"]):
+        if not _text(intake.get("treatment_needed")) and not _has_any(text, ["formula", "orden medica", "orden médica", "medicamento", "tratamiento", "procedimiento"]):
             questions.append(
                 _build_question(
                     question_id="servicio_ordenado",
                     prompt="Que medicamento, procedimiento o tratamiento te ordenaron exactamente?",
                     reason="La orden medica o el servicio requerido todavia no es claro.",
                     priority="alta",
-                    field="medical_order",
+                    field="treatment_needed",
+                    route="B",
+                )
+            )
+        if not _text(intake.get("urgency_detail")) and not _has_any(text, ["urgencia", "riesgo", "dolor", "agrav", "suspender", "empeora", "vida"]):
+            questions.append(
+                _build_question(
+                    question_id="urgencia_salud",
+                    prompt="Por que este caso de salud es urgente hoy: dolor, agravacion, suspension del tratamiento o riesgo vital?",
+                    reason="La tutela en salud necesita una urgencia mejor documentada.",
+                    priority="alta",
+                    field="urgency_detail",
+                    route="B",
+                )
+            )
+        if not _text(intake.get("prior_claim_result")) and not _has_any(text, ["radicado", "autorizacion", "autorización", "negaron", "no entregaron", "demoraron"]):
+            questions.append(
+                _build_question(
+                    question_id="respuesta_eps",
+                    prompt="Que respondio la EPS o que barrera concreta impuso: negativa, demora, falta de agenda o no entrega?",
+                    reason="Hace falta describir la respuesta o barrera administrativa de la entidad de salud.",
+                    priority="media",
+                    field="prior_claim_result",
+                    route="B",
+                )
+            )
+
+    if category_lower == "datos":
+        if not _text(intake.get("disputed_data")) and not _has_any(text, ["dato", "reporte", "historial", "datacredito", "cifin"]):
+            questions.append(
+                _build_question(
+                    question_id="dato_cuestionado",
+                    prompt="Que dato, reporte o registro personal estas cuestionando exactamente?",
+                    reason="No esta claro cual es el dato o reporte discutido.",
+                    priority="alta",
+                    field="disputed_data",
+                    route="B",
+                )
+            )
+        if not _text(intake.get("requested_data_action")):
+            questions.append(
+                _build_question(
+                    question_id="accion_sobre_dato",
+                    prompt="Que quieres que haga la entidad con ese dato: corregirlo, actualizarlo, suprimirlo o probar autorizacion?",
+                    reason="En habeas data debe definirse la accion exacta sobre la informacion.",
+                    priority="alta",
+                    field="requested_data_action",
+                    route="B",
+                )
+            )
+        if not _text(intake.get("prior_claim_result")) and not prior_actions:
+            questions.append(
+                _build_question(
+                    question_id="reclamo_previo_datos",
+                    prompt="Ya reclamaste ante la fuente o central de riesgo? Si si, indica fecha, canal y respuesta.",
+                    reason="La via previa es importante en habeas data salvo urgencia grave.",
+                    priority="alta",
+                    field="prior_claim_result",
+                    route="B",
+                )
+            )
+
+    if workflow_type == "derecho_peticion":
+        if not _text(intake.get("request_type")):
+            questions.append(
+                _build_question(
+                    question_id="tipo_peticion",
+                    prompt="Tu peticion es de informacion, documentos, consulta, interes particular o interes general?",
+                    reason="Debemos identificar la modalidad del derecho de peticion.",
+                    priority="media",
+                    field="request_type",
+                    route="A",
+                )
+            )
+        if not _text(intake.get("numbered_requests")):
+            questions.append(
+                _build_question(
+                    question_id="solicitudes_numeradas",
+                    prompt="Puedes separar en 2 o 3 solicitudes numeradas exactamente lo que esperas que te respondan?",
+                    reason="El derecho de peticion necesita solicitudes claras y numeradas.",
+                    priority="alta",
+                    field="numbered_requests",
                     route="B",
                 )
             )

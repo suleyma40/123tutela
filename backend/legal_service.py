@@ -75,28 +75,44 @@ class LegalAnalyzer:
         rights = []
         rules = []
         precedents = []
-        action = "Acción de tutela"
+        action = "Accion de tutela"
 
         if "salud" in problem or "eps" in problem:
-            rights.append("Derecho fundamental a la salud")
-            rules.extend(["Constitución Política Art. 49", "Ley 1751 de 2015"])
+            rights.extend(["Derecho fundamental a la salud", "Vida digna"])
+            rules.extend(
+                [
+                    "Constitucion Politica de 1991, articulo 49",
+                    "Ley Estatutaria 1751 de 2015",
+                    "Constitucion Politica de 1991, articulo 86",
+                ]
+            )
         if "datos" in problem or "habeas" in problem:
-            rights.append("Habeas Data")
-            rules.append("Constitución Política Art. 15")
-            action = "Derecho de petición"
+            rights.extend(["Habeas data", "Buen nombre"])
+            rules.extend(
+                [
+                    "Constitucion Politica de 1991, articulo 15",
+                    "Ley 1266 de 2008",
+                    "Ley 1581 de 2012",
+                ]
+            )
+            action = "Reclamacion de habeas data"
         if "laboral" in problem or "despido" in problem:
-            rights.extend(["Mínimo vital", "Trabajo digno"])
-            rules.append("Constitución Política Art. 25")
+            rights.extend(["Minimo vital", "Trabajo digno"])
+            rules.append("Constitucion Politica de 1991, articulo 25")
+        if "banco" in problem or "tarjeta" in problem or "cobro" in problem or "financier" in problem:
+            rights.extend(["Proteccion del consumidor financiero", "Debido proceso contractual"])
+            rules.extend(["Ley 1328 de 2009", "Constitucion Politica de 1991, articulo 23"])
+            action = "Reclamacion financiera"
 
         if not rights:
             for article in kb.get("constitucion_politica_1991", {}).get("articulos", []):
                 rights.append(article["derecho"])
-                rules.append(f"Constitución Política Art. {article['id']}")
+                rules.append(f"Constitucion Politica Art. {article['id']}")
                 break
 
         return {
-            "derechos_vulnerados": rights,
-            "normas_relevantes": rules,
+            "derechos_vulnerados": list(dict.fromkeys(rights)),
+            "normas_relevantes": list(dict.fromkeys(rules)),
             "precedentes_jurisprudenciales": precedents,
             "recommended_action": action,
         }
@@ -152,6 +168,40 @@ class LegalAnalyzer:
             summary += ", " + ", ".join(details)
         return self._formalize_text(summary)
 
+    def _health_case_summary(self, intake_form: dict[str, Any], facts: dict[str, Any], description: str) -> str:
+        entity = str(intake_form.get("target_entity") or intake_form.get("eps_name") or "la EPS o entidad de salud").strip()
+        diagnosis = str(intake_form.get("diagnosis") or "una condicion medica que requiere atencion continua").strip()
+        treatment = str(intake_form.get("treatment_needed") or "el servicio de salud requerido").strip()
+        event_date = str(intake_form.get("event_date") or intake_form.get("key_dates") or "").strip()
+        urgency = str(intake_form.get("urgency_detail") or intake_form.get("current_harm") or "").strip()
+
+        summary = (
+            f"La persona usuaria informa que {entity} ha incurrido en barreras de acceso, demora o negativa injustificada "
+            f"frente a {treatment}, pese a que dicho manejo resulta necesario en el contexto de {diagnosis}"
+        )
+        details: list[str] = []
+        if event_date:
+            details.append(f"situacion advertida desde {event_date}")
+        if urgency:
+            details.append(f"con afectacion actual consistente en {urgency}")
+        if details:
+            summary += ", " + ", ".join(details)
+        return self._formalize_text(summary)
+
+    def _data_case_summary(self, intake_form: dict[str, Any], facts: dict[str, Any], description: str) -> str:
+        entity = str(intake_form.get("target_entity") or "la entidad que trata los datos").strip()
+        disputed_data = str(intake_form.get("disputed_data") or "un dato o reporte personal cuestionado").strip()
+        requested_action = str(intake_form.get("requested_data_action") or "corregir o suprimir la informacion").strip()
+        event_date = str(intake_form.get("event_date") or intake_form.get("key_dates") or "").strip()
+
+        summary = (
+            f"La persona usuaria reporta que {entity} mantiene o divulga {disputed_data}, "
+            f"y solicita {requested_action} por considerar que el tratamiento actual resulta improcedente, inexacto o desactualizado"
+        )
+        if event_date:
+            summary += f", con conocimiento del hecho desde {event_date}"
+        return self._formalize_text(summary)
+
     def _document_insights_fallback(
         self,
         *,
@@ -163,11 +213,15 @@ class LegalAnalyzer:
     ) -> dict[str, Any]:
         intake_form = intake_form or {}
         chronology: list[str] = []
-        case_story = (
-            self._financial_case_summary(intake_form, facts, description)
-            if str(category or "").lower() == "bancos"
-            else self._formalize_text(intake_form.get("case_story") or facts.get("hechos_principales") or description)
-        )
+        category_key = str(category or "").lower()
+        if category_key == "bancos":
+            case_story = self._financial_case_summary(intake_form, facts, description)
+        elif category_key == "salud":
+            case_story = self._health_case_summary(intake_form, facts, description)
+        elif category_key == "datos":
+            case_story = self._data_case_summary(intake_form, facts, description)
+        else:
+            case_story = self._formalize_text(intake_form.get("case_story") or facts.get("hechos_principales") or description)
         if case_story:
             chronology.append(case_story)
         key_dates = self._formalize_text(intake_form.get("key_dates") or facts.get("fechas_mencionadas"))

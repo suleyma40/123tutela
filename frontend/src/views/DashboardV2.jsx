@@ -120,6 +120,7 @@ const specialProtectionOptions = ["Menor de edad", "Adulto mayor", "Embarazada",
 const evidenceTypeHints = {
   Bancos: ["Extractos bancarios PDF", "Capturas del cobro o movimiento", "Chat o correo con el banco", "Contrato o reglamento del producto", "Radicado o respuesta previa"],
   Salud: ["Orden medica o formula", "Historia clinica PDF", "Capturas de autorizaciones", "Respuesta de EPS", "Facturas o soportes de pago"],
+  Datos: ["Reporte de central de riesgo", "Pantallazo del dato cuestionado", "Derecho de peticion o reclamo previo", "Respuesta de la fuente", "Correo o PDF con evidencia"],
   default: ["PDF", "Fotos o capturas", "Chats exportados", "Correos", "Word o documentos escaneados"],
 };
 
@@ -601,11 +602,13 @@ const getGuidedIntakeMissing = (form) => {
     if (!form.eps_name.trim()) missing.push("EPS");
     if (!form.diagnosis.trim()) missing.push("Diagnostico o condicion medica");
     if (!form.treatment_needed.trim()) missing.push("Tratamiento, orden o servicio requerido");
+    if (!form.urgency_detail.trim()) missing.push("Urgencia o riesgo actual");
   }
 
   if (form.category === "Datos") {
     if (!form.disputed_data.trim()) missing.push("Dato o reporte cuestionado");
     if (!form.requested_data_action.trim()) missing.push("Accion solicitada sobre el dato");
+    if (!form.previous_response.trim()) missing.push("Reclamo previo o respuesta de la fuente");
   }
 
   if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category)) {
@@ -638,6 +641,19 @@ const getGuidedIntakeMissing = (form) => {
     if (!form.purchase_date.trim()) missing.push("Fecha de compra o contratacion");
     if (!form.order_reference.trim()) missing.push("Pedido, factura o referencia");
     if (!form.product_or_service_issue.trim()) missing.push("Falla del producto o servicio");
+  }
+
+  const normalizedAction = normalizeAction(form.recommended_action);
+  if (normalizedAction === "accion de tutela") {
+    if (!form.tutela_no_temperity_detail.trim()) missing.push("No temeridad o tutela previa");
+    if (!form.tutela_other_means_detail.trim()) missing.push("Subsidiariedad o ausencia de otro medio eficaz");
+    if (!form.tutela_immediacy_detail.trim()) missing.push("Inmediatez o justificacion temporal");
+  }
+
+  if (normalizedAction.includes("derecho de peticion")) {
+    if (!form.request_type.trim()) missing.push("Tipo de peticion");
+    if (!form.numbered_requests.trim()) missing.push("Solicitudes numeradas");
+    if (!form.petition_target_nature.trim()) missing.push("Naturaleza del destinatario");
   }
 
   return missing;
@@ -689,6 +705,14 @@ const getPreviewGateIssues = (form) => {
     issues.push("En bancos debes decir con claridad si pides reverso, desbloqueo, correccion del reporte o respuesta de fondo.");
   }
 
+  if (form.category === "Datos" && form.disputed_data.trim().length < 15) {
+    issues.push("En habeas data debes identificar mejor el dato, reporte o registro que quieres corregir o suprimir.");
+  }
+
+  if (form.category === "Datos" && form.previous_response.trim().length < 15) {
+    issues.push("En habeas data conviene dejar trazabilidad del reclamo previo y de la respuesta de la fuente o central de riesgo.");
+  }
+
   if (form.category === "Servicios" && form.service_impact.trim().length < 20) {
     issues.push("En servicios debes explicar con mas detalle el impacto del corte, cobro o incumplimiento.");
   }
@@ -712,10 +736,13 @@ const getWritingAid = (category) => {
   if (category === "Salud") {
     return "Cuenta los hechos en orden: que te ordenaron, que negaron o demoraron, desde cuando pasa y por que hoy existe urgencia o riesgo.";
   }
+  if (category === "Bancos") {
+    return "Indica producto financiero, fecha del primer cobro o bloqueo, valor discutido, reclamo previo, respuesta del banco y exactamente que quieres que corrijan o devuelvan.";
+  }
   if (category === "Datos") {
     return "Explica que dato esta mal, donde aparece, desde cuando lo conoces, si ya reclamaste y que accion exacta quieres: corregir, actualizar o suprimir.";
   }
-  if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(category)) {
+  if (["Laboral", "Servicios", "Consumidor"].includes(category)) {
     return "Escribe como una peticion o reclamacion seria: identifica a quien va dirigida, que paso, que soporte tienes, que exiges exactamente y por que eso te afecta hoy.";
   }
   return "Describe hechos concretos, fechas, entidad involucrada y una solicitud clara. Evita opiniones generales y enfocate en lo verificable.";
@@ -782,6 +809,13 @@ const buildGuidedIntakeInterviewSteps = (form) => {
         placeholder: "Ej: entrega de hidroxiurea 500 mg cada 8 horas por 6 meses",
         multiline: true,
         show: !form.treatment_needed.trim(),
+      },
+      {
+        id: "urgency_detail",
+        question: "¿Por qué este caso de salud es urgente hoy o qué riesgo existe si no actúan ya?",
+        placeholder: "Ej: empeora la enfermedad, dolor intenso, suspension del tratamiento, riesgo de recaida o complicacion",
+        multiline: true,
+        show: !form.urgency_detail.trim(),
       }
     );
   }
@@ -801,6 +835,46 @@ const buildGuidedIntakeInterviewSteps = (form) => {
         placeholder: "Ej: $38.500 mensuales / $154.000 acumulados",
         multiline: false,
         show: !form.bank_amount_involved.trim(),
+      },
+      {
+        id: "bank_claim_goal",
+        question: "¿Qué resultado esperas frente al banco: reverso, devolución, corrección del reporte, desbloqueo o respuesta?",
+        placeholder: "Ej: eliminar el seguro, devolver cobros, corregir reporte y responder de fondo",
+        multiline: true,
+        show: !form.bank_claim_goal.trim(),
+      },
+      {
+        id: "report_or_block_reason",
+        question: "¿Cuál es el hecho bancario principal: cobro, seguro, reporte, mora, fraude o bloqueo?",
+        placeholder: "Ej: seguro no autorizado y cuota de manejo cobrada sin consentimiento",
+        multiline: true,
+        show: !form.report_or_block_reason.trim(),
+      }
+    );
+  }
+
+  if (form.category === "Datos") {
+    steps.push(
+      {
+        id: "disputed_data",
+        question: "¿Qué dato, reporte o registro personal está mal o debe corregirse?",
+        placeholder: "Ej: reporte negativo en Datacredito por obligación ya pagada",
+        multiline: true,
+        show: !form.disputed_data.trim(),
+      },
+      {
+        id: "requested_data_action",
+        question: "¿Qué quieres que haga la entidad con ese dato?",
+        placeholder: "Ej: corregir, actualizar, eliminar o probar autorizacion",
+        multiline: false,
+        show: !form.requested_data_action.trim(),
+      },
+      {
+        id: "previous_response",
+        question: "¿Ya reclamaste antes ante la fuente o central de riesgo? Si sí, ¿qué te respondieron?",
+        placeholder: "Ej: reclamé por derecho de peticion el 3 de marzo y respondieron que el reporte seguía vigente",
+        multiline: true,
+        show: !form.previous_response.trim(),
       }
     );
   }
@@ -839,6 +913,32 @@ const buildGuidedIntakeInterviewSteps = (form) => {
         placeholder: "Ej: el daño es actual, el riesgo sigue vigente, la negativa es reciente",
         multiline: true,
         show: !form.tutela_immediacy_detail.trim(),
+      },
+      {
+        id: "tutela_no_temperity_detail",
+        question: "¿Ya presentaste otra tutela por los mismos hechos y derechos? Si no, déjalo claro aquí.",
+        placeholder: "Ej: no he presentado otra tutela por estos mismos hechos y derechos",
+        multiline: true,
+        show: !form.tutela_no_temperity_detail.trim(),
+      }
+    );
+  }
+
+  if (normalizeAction(form.recommended_action).includes("derecho de peticion")) {
+    steps.push(
+      {
+        id: "request_type",
+        question: "¿Tu derecho de petición es de información, documentos, consulta o interés particular?",
+        placeholder: "Ej: informacion o interes particular",
+        multiline: false,
+        show: !form.request_type.trim(),
+      },
+      {
+        id: "numbered_requests",
+        question: "Separa en dos o tres solicitudes numeradas exactamente lo que esperas que te respondan.",
+        placeholder: "Ej: 1) Entregar copia de la respuesta 2) Corregir el cobro 3) Certificar el estado del caso",
+        multiline: true,
+        show: !form.numbered_requests.trim(),
       }
     );
   }

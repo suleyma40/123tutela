@@ -196,6 +196,170 @@ Teléfono: {user_phone}
 """
 
 
+def _build_petition_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    legal_analysis = case.get("legal_analysis") or {}
+    routing = case.get("routing") or {}
+    primary = routing.get("primary_target") or {}
+
+    target = str(intake.get("target_entity") or primary.get("name") or _join_list(facts.get("entidades_involucradas"), fallback="Entidad destinataria")).strip()
+    contact = str(primary.get("contact") or intake.get("target_pqrs_email") or intake.get("target_website") or "Canal oficial de atencion").strip()
+    user_name = case.get("usuario_nombre") or "Usuario"
+    user_doc = case.get("usuario_documento") or "Sin documento registrado"
+    user_email = case.get("usuario_email") or "Sin correo"
+    user_phone = case.get("usuario_telefono") or "Sin telefono"
+    address = case.get("usuario_direccion") or "Sin direccion registrada"
+    city = case.get("usuario_ciudad") or ""
+    department = case.get("usuario_departamento") or ""
+    chronology = _generic_facts(case)
+    pretensions = _generic_pretensions(case, rule["action_key"])
+    evidence_text = _join_list(rule.get("suggested_evidence"), fallback="documentos soporte del caso")
+    request_type = str(intake.get("request_type") or "interes particular").replace("_", " ").strip()
+    verified_basis = str(
+        legal_analysis.get("legal_basis_verified_summary")
+        or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
+    ).strip()
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    return f"""Señores
+{target}
+Canal sugerido: {contact}
+
+Asunto: Derecho de petición de {request_type}
+
+Yo, {user_name}, identificado(a) con cédula {user_doc}, con domicilio en {address}, {city}, {department}, correo electrónico {user_email} y teléfono {user_phone}, en ejercicio del derecho fundamental de petición consagrado en el artículo 23 de la Constitución Política y desarrollado por la Ley 1755 de 2015, presento la siguiente solicitud.
+
+IDENTIFICACION DEL PETICIONARIO
+Nombre: {user_name}
+Cédula: {user_doc}
+Correo: {user_email}
+Teléfono: {user_phone}
+Dirección: {address}, {city}, {department}
+
+HECHOS Y CONTEXTO
+{_paragraph_lines(chronology)}
+
+FUNDAMENTO DEL DERECHO DE PETICION
+La presente petición se formula para obtener una respuesta de fondo, clara, congruente y oportuna sobre los hechos y solicitudes aquí expuestos. {verified_basis}
+
+SOLICITUDES NUMERADAS
+{_numbered_lines(pretensions)}
+
+TERMINO DE RESPUESTA
+Solicito respuesta de fondo dentro de los terminos legales aplicables conforme a la Ley 1755 de 2015.
+
+ANEXOS Y NOTIFICACIONES
+Como soporte de esta petición se anuncian o se aportan los siguientes elementos: {evidence_text}.
+
+NOTIFICACIONES
+Solicito que la respuesta sea enviada al correo {user_email} y al teléfono {user_phone}.
+
+Constancia de generación: {generated_at}
+
+Atentamente,
+{user_name}
+CC: {user_doc}
+Correo: {user_email}
+Teléfono: {user_phone}
+"""
+
+
+def _build_tutela_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    insights = facts.get("document_insights") or {}
+    legal_analysis = case.get("legal_analysis") or {}
+    routing = case.get("routing") or {}
+    primary = routing.get("primary_target") or {}
+
+    accionado = str(intake.get("target_entity") or primary.get("name") or _join_list(facts.get("entidades_involucradas"), fallback="Entidad accionada")).strip()
+    user_name = case.get("usuario_nombre") or "Usuario"
+    user_doc = case.get("usuario_documento") or "Sin documento registrado"
+    user_email = case.get("usuario_email") or "Sin correo"
+    user_phone = case.get("usuario_telefono") or "Sin telefono"
+    address = case.get("usuario_direccion") or "Sin direccion registrada"
+    city = case.get("usuario_ciudad") or ""
+    department = case.get("usuario_departamento") or ""
+    rights = _join_list(legal_analysis.get("derechos_vulnerados"), fallback="derechos fundamentales comprometidos")
+    chronology = _generic_facts(case)
+    pretensions = _generic_pretensions(case, rule["action_key"])
+    evidence_text = _join_list(rule.get("suggested_evidence"), fallback="documentos soporte del caso")
+    procedencia = facts.get("tutela_procedencia") or {}
+    verified_basis = str(
+        legal_analysis.get("legal_basis_verified_summary")
+        or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
+    ).strip()
+    subsidiarity = _sentence(
+        intake.get("tutela_other_means_detail")
+        or (
+            "La acción de tutela resulta necesaria por cuanto no existe otro medio judicial eficaz o, de existir, no ofrece protección oportuna frente al daño actual."
+            if procedencia.get("subscores", {}).get("subsidiariedad") in {"alta", "media"}
+            else ""
+        ),
+        "La acción se presenta como mecanismo de protección inmediata dada la insuficiencia de otros medios eficaces frente a la situación actual.",
+    )
+    immediacy = _sentence(
+        intake.get("tutela_immediacy_detail")
+        or "La vulneración se mantiene actual o reciente, por lo que la solicitud cumple el requisito de inmediatez.",
+        "La vulneración se mantiene actual o reciente, por lo que la solicitud cumple el requisito de inmediatez.",
+    )
+    no_temerity = _sentence(
+        intake.get("tutela_no_temperity_detail")
+        or "Bajo la gravedad del juramento manifiesto que no he presentado otra acción de tutela por los mismos hechos, derechos y pretensiones, salvo lo que se informe expresamente en este escrito.",
+        "Bajo la gravedad del juramento manifiesto que no he presentado otra acción de tutela por los mismos hechos, derechos y pretensiones.",
+    )
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    return f"""Señor Juez Constitucional (Reparto)
+{city}, {department}
+
+Referencia: Acción de tutela para la protección de {rights}
+
+Yo, {user_name}, identificado(a) con cédula {user_doc}, con domicilio en {address}, {city}, {department}, correo electrónico {user_email} y teléfono {user_phone}, actuando en nombre propio, presento acción de tutela contra {accionado}, con fundamento en el artículo 86 de la Constitución Política y el Decreto 2591 de 1991.
+
+COMPETENCIA Y REPARTO
+Por la naturaleza de los hechos y la necesidad de protección inmediata de derechos fundamentales, solicito el reparto de esta acción de tutela al despacho competente.
+
+ACCIONADO
+La presente solicitud se dirige contra {accionado}, por los hechos y omisiones que se exponen a continuación.
+
+HECHOS CRONOLOGICOS
+{_numbered_lines(chronology)}
+
+DERECHOS FUNDAMENTALES VULNERADOS
+Conforme a los hechos narrados, considero comprometidos los siguientes derechos fundamentales: {rights}.
+
+FUNDAMENTO JURIDICO
+{str(insights.get("legal_basis_summary") or "").strip() or "La situación descrita compromete derechos fundamentales y requiere protección judicial inmediata."} {verified_basis}
+
+PROCEDENCIA
+Subsidiariedad: {subsidiarity}
+
+Inmediatez: {immediacy}
+
+PRETENSIONES
+{_numbered_lines(pretensions)}
+
+PRUEBAS Y ANEXOS
+Como soporte de la presente acción se anuncian o se aportan los siguientes elementos: {evidence_text}.
+
+JURAMENTO DE NO TEMERIDAD
+{no_temerity}
+
+NOTIFICACIONES
+Solicito que las notificaciones del presente trámite sean remitidas al correo {user_email} y al teléfono {user_phone}.
+
+Constancia de generación: {generated_at}
+
+Atentamente,
+{user_name}
+CC: {user_doc}
+Correo: {user_email}
+Teléfono: {user_phone}
+"""
+
+
 def _build_generic_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     facts = case.get("facts") or {}
     insights = facts.get("document_insights") or {}
@@ -267,6 +431,10 @@ Teléfono: {user_phone}
 
 def build_document(case: dict[str, Any]) -> str:
     rule = get_document_rule(case.get("recommended_action"), case.get("workflow_type"))
+    if rule["action_key"] == "accion de tutela":
+        return _build_tutela_document(case, rule)
     if rule["action_key"] in {"reclamacion financiera", "derecho de peticion financiero"}:
         return _build_financial_document(case, rule)
+    if "derecho de peticion" in rule["action_key"]:
+        return _build_petition_document(case, rule)
     return _build_generic_document(case, rule)
