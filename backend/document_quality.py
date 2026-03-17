@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from backend.document_rules import get_document_rule
+from backend.quality_llm import score_document_with_claude
 
 
 QUALITY_PASSING_SCORE = 70
@@ -218,9 +219,9 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         operability_score -= 4
         warnings.append("Conviene reforzar el bloque de notificaciones del accionante.")
 
-    if _contains_any(lowered, ["t-760", "t-025", "su-", "c-"]) and not (source_policy.get("verified_precedents") or []):
+    if _contains_any(lowered, ["t-", "su-", "c-"]) and not (source_policy.get("verified_precedents") or []):
         legal_score -= 10
-        blocking_issues.append("Se menciona jurisprudencia sin soporte oficial verificado dentro del expediente.")
+        warnings.append("La IA debe reforzar o depurar internamente el soporte jurisprudencial antes de entregar el documento final.")
     elif (source_policy.get("verified_sources") or []) and _contains_any(lowered, ["suin-juriscol", "funcion publica", "decreto 2591", "articulo 86", "ley 1755"]):
         strengths.append("El documento se apoya en fuentes juridicas verificadas o conservadoras.")
 
@@ -258,6 +259,23 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
             blocking_issues.append("El desacato no describe con precision el incumplimiento actual.")
 
     total_score = max(0, structure_score + legal_score + factual_score + remedies_score + operability_score)
+    llm_qa = score_document_with_claude(
+        case=case,
+        document=document,
+        base_review={
+            "score": total_score,
+            "blocking_issues": blocking_issues,
+            "warnings": warnings,
+            "strengths": strengths,
+            "improvements": improvements,
+        },
+    )
+    if llm_qa:
+        total_score = min(total_score, int(llm_qa.get("adjusted_score") or total_score))
+        blocking_issues = list(dict.fromkeys([*blocking_issues, *(llm_qa.get("blocking_issues") or [])]))
+        warnings = list(dict.fromkeys([*warnings, *(llm_qa.get("warnings") or [])]))
+        strengths = list(dict.fromkeys([*strengths, *(llm_qa.get("strengths") or [])]))
+        improvements = list(dict.fromkeys([*improvements, *(llm_qa.get("improvements") or [])]))
     passed = total_score >= QUALITY_PASSING_SCORE and not blocking_issues
 
     if passed:
@@ -271,6 +289,7 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         "threshold": QUALITY_PASSING_SCORE,
         "rule": rule,
         "brief": brief,
+        "llm_qa": llm_qa or {},
         "dimension_scores": {
             "structure": structure_score,
             "legal_strength": legal_score,

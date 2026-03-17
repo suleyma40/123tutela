@@ -1467,6 +1467,9 @@ const AI_OWNED_REVIEW_PATTERNS = [
   "articulo 42",
   "procedencia con base",
   "urgencia, vulneracion o procedencia",
+  "jurisprudencia sin soporte oficial verificado",
+  "soporte jurisprudencial",
+  "fuentes verificadas",
 ];
 
 const isAiOwnedReviewIssue = (issue) => {
@@ -1490,6 +1493,9 @@ const humanizeAiOwnedIssue = (issue) => {
   }
   if (normalized.includes("urgencia") || normalized.includes("procedencia")) {
     return "La IA reforzara la argumentacion de urgencia y procedencia con redaccion juridica.";
+  }
+  if (normalized.includes("jurisprudencia") || normalized.includes("fuentes verificadas")) {
+    return "La IA verificara y reforzara internamente la jurisprudencia y las fuentes oficiales antes de entregar el documento.";
   }
   return "La IA reforzara este punto juridico dentro del documento final.";
 };

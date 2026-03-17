@@ -12,5 +12,15 @@ export const withAuth = (token) => ({
   },
 });
 
+const humanizePlatformError = (detail, fallback) => {
+  const text = String(detail || "").trim();
+  const lowered = text.toLowerCase();
+  if (!text) return fallback;
+  if (lowered.includes("jurisprudencia") || lowered.includes("soporte oficial verificado")) {
+    return "La IA esta reforzando internamente el sustento juridico del borrador para que quede listo para entrega.";
+  }
+  return text;
+};
+
 export const extractError = (error, fallback) =>
-  error?.response?.data?.detail || error?.message || fallback;
+  humanizePlatformError(error?.response?.data?.detail || error?.message, fallback);

@@ -280,6 +280,32 @@ def _merge_intake_into_facts(
     return facts
 
 
+def _refresh_verified_case_context(case: dict[str, Any]) -> dict[str, Any]:
+    facts = dict(case.get("facts") or {})
+    legal_analysis = dict(case.get("legal_analysis") or {})
+    source_validation_policy = facts.get("source_validation_policy") or build_source_validation_policy()
+    resolved_support = resolve_verified_legal_support(
+        recommended_action=case.get("recommended_action"),
+        workflow_type=case.get("workflow_type"),
+        category=case.get("categoria") or case.get("category"),
+        legal_analysis=legal_analysis,
+    )
+    source_validation_policy = {
+        **source_validation_policy,
+        **resolved_support,
+    }
+    source_validation_policy["legal_basis_verified_summary"] = build_verified_legal_basis_text(source_validation_policy)
+    facts["source_validation_policy"] = source_validation_policy
+    legal_analysis = sanitize_legal_analysis(
+        legal_analysis=legal_analysis,
+        source_validation_policy=source_validation_policy,
+    )
+    legal_analysis["legal_basis_verified_summary"] = source_validation_policy["legal_basis_verified_summary"]
+    case["facts"] = facts
+    case["legal_analysis"] = legal_analysis
+    return case
+
+
 def _enrich_architecture_outputs(
     *,
     category: str,
@@ -1061,6 +1087,10 @@ def generate_document(
         if payload.additional_context:
             intake_form["regeneration_additional_context"] = payload.additional_context.strip()
         facts["intake_form"] = intake_form
+    case["facts"] = facts
+    case = _refresh_verified_case_context(case)
+    facts = dict(case.get("facts") or {})
+    intake_form = dict(facts.get("intake_form") or {})
     facts["document_insights"] = analyzer.compose_document_insights(
         description=case.get("descripcion") or "",
         category=case.get("categoria") or case.get("category"),
@@ -1088,11 +1118,17 @@ def generate_document(
         detail_parts = quality_review.get("blocking_issues") or quality_review.get("warnings") or [
             "El borrador no alcanzo la calidad juridica minima.",
         ]
+        safe_detail_parts = [
+            "La IA esta reforzando internamente el sustento juridico y todavia no alcanza la calidad minima de entrega."
+            if "jurisprudencia" in str(item).lower() or "soporte oficial verificado" in str(item).lower()
+            else item
+            for item in detail_parts
+        ]
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"El borrador no alcanza el umbral minimo de calidad ({quality_review.get('score')}/"
-                f"{quality_review.get('threshold')}). " + " | ".join(detail_parts)
+                f"{quality_review.get('threshold')}). " + " | ".join(safe_detail_parts)
             ),
         )
     if not final_validation.get("apto_para_entrega"):

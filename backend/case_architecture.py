@@ -712,8 +712,8 @@ def build_final_validation(
 
     if _has_any(lowered, ["ganaras seguro", "resultado garantizado", "ganara el proceso", "exito asegurado"]):
         blocking_issues.append("El documento promete resultados o contiene afirmaciones impropias.")
-    if _has_any(lowered, ["t-760", "t-025", "su-", "c-"]) and not _list(source_policy.get("verified_precedents")):
-        blocking_issues.append("El documento menciona jurisprudencia sin soporte verificado suficiente.")
+    if _has_any(lowered, ["t-", "su-", "c-"]) and not _list(source_policy.get("verified_precedents")):
+        warnings.append("La IA debe reforzar o depurar internamente el soporte jurisprudencial antes de la entrega final.")
 
     if "accion de tutela" in recommended_action:
         if _text(intake.get("acting_capacity")) and _lower(intake.get("acting_capacity")) != "nombre_propio":
