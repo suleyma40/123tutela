@@ -106,6 +106,49 @@ def _build_question(
     }
 
 
+def _is_ai_owned_quality_issue(issue: object) -> bool:
+    text = _lower(issue)
+    if not text:
+        return False
+    markers = [
+        "jurisprudencia sin soporte oficial",
+        "soporte jurisprudencial",
+        "fuentes verificadas",
+        "fuente verificada",
+        "sustento juridico",
+        "depurar internamente",
+        "reforzar internamente",
+        "precedente no verificado",
+        "verificable",
+    ]
+    return any(marker in text for marker in markers)
+
+
+def _field_has_value(case: dict[str, Any], field: str | None) -> bool:
+    if not field:
+        return False
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    if _text(intake.get(field)) or _text(facts.get(field)):
+        return True
+    if field == "target_entity":
+        return bool(_text((case.get("routing") or {}).get("primary_target", {}).get("name")))
+    return False
+
+
+def _get_actionable_high_priority_questions(case: dict[str, Any]) -> list[dict[str, Any]]:
+    facts = case.get("facts") or {}
+    pending_questions = facts.get("pending_questions") or []
+    actionable: list[dict[str, Any]] = []
+    for item in pending_questions:
+        if item.get("priority") != "alta":
+            continue
+        if _field_has_value(case, item.get("field")):
+            continue
+        actionable.append(item)
+    return actionable
+
+
 def evaluate_tutela_procedencia(
     *,
     description: str,
@@ -682,8 +725,7 @@ def build_final_validation(
     lowered = _lower(document)
     blocking_issues: list[str] = []
     warnings: list[str] = []
-    pending_questions = facts.get("pending_questions") or []
-    high_priority_questions = [item for item in pending_questions if item.get("priority") == "alta"]
+    high_priority_questions = _get_actionable_high_priority_questions(case)
     route = ((case.get("routing") or {}).get("case_route") or (facts.get("dx_result") or {}).get("route") or "").strip()
 
     if not _text(case.get("recommended_action")):
@@ -694,7 +736,7 @@ def build_final_validation(
 
     if not _text(facts.get("pretension_concreta")) and not _has_any(lowered, ["solicito", "pretension", "solicitudes"]):
         blocking_issues.append("Las pretensiones no corresponden claramente al caso o siguen siendo vagas.")
-    if route and route != "A":
+    if route == "C":
         blocking_issues.append("El expediente aun no esta en ruta automatizable. Debe completar preguntas o pasar revision previa antes de entregar.")
     if high_priority_questions:
         blocking_issues.append("Faltan datos criticos del caso antes de entregar el documento final.")
@@ -762,8 +804,21 @@ def build_final_validation(
         if not _text(intake.get("prior_claim_result")):
             warnings.append("Conviene dejar trazabilidad del reclamo previo a la fuente o central de riesgo.")
 
+    financial_claim_block = "Antes de entregar una reclamacion financiera debe quedar documentado el reclamo previo o su justificacion."
+    if "reclamacion financiera" in recommended_action:
+        prior_claim = _lower(intake.get("prior_claim"))
+        if prior_claim in {"no", "aun no", "aún no", "no_aun_no"} and financial_claim_block in blocking_issues:
+            blocking_issues = [issue for issue in blocking_issues if issue != financial_claim_block]
+            warnings.append(
+                "La IA tratara este escrito como reclamacion financiera directa inicial y dejara constancia de que aun no existe respuesta previa del banco."
+            )
+
     if quality_review.get("blocking_issues"):
-        blocking_issues.extend(quality_review["blocking_issues"])
+        blocking_issues.extend(
+            issue for issue in quality_review["blocking_issues"] if not _is_ai_owned_quality_issue(issue)
+        )
+        if any(_is_ai_owned_quality_issue(issue) for issue in quality_review["blocking_issues"]):
+            warnings.append("La IA seguira depurando internamente fuentes y jurisprudencia verificable antes de la entrega final.")
 
     apto = not blocking_issues and bool(quality_review.get("passed"))
     status = "apto" if apto else "requires_changes"
