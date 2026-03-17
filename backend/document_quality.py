@@ -62,8 +62,16 @@ GENERATION_BRIEFS: dict[str, dict[str, Any]] = {
             "identificar producto, cobro o seguro cuestionado",
             "explicar por que el cargo no fue autorizado o no fue informado",
             "pedir devolucion, reverso o cancelacion con respuesta formal",
+            "incluir plazo legal de respuesta y advertencia de escalamiento ante Superfinanciera si no hay respuesta de fondo",
         ],
-        "must_include": ["solicitudes numeradas", "producto o cobro identificado", "canal de respuesta"],
+        "must_include": [
+            "solicitudes numeradas",
+            "producto o cobro identificado",
+            "canal de respuesta",
+            "termino legal de respuesta",
+            "advertencia de escalamiento",
+            "fundamento sectorial financiero",
+        ],
     },
     "derecho de peticion financiero": {
         "tone": "respetuoso, exigente y orientado a respuesta de fondo",

@@ -2222,10 +2222,10 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
   return (
     <SessionCard title={title} subtitle="El análisis es gratis. Pagas solo cuando decides generar el documento o el documento con radicación.">
       <div style={{ display: "grid", gap: 14 }}>
-        <div style={{ padding: 16, borderRadius: 16, background: C.primaryLight }}>
+        <div style={{ padding: 16, borderRadius: 16, background: "linear-gradient(135deg, #EEF4FF 0%, #F8FBFF 100%)", border: "1px solid #BFDBFE" }}>
           <div style={{ fontWeight: 800, color: C.text }}>{caseItem.recommended_action || "Producto sugerido"}</div>
           <div style={{ color: C.textMuted, marginTop: 8 }}>
-            {caseItem.strategy_text || "La plataforma analiza tu caso gratis y luego te ofrece el documento correspondiente."}
+            La IA ya confirmo la ruta preliminar de este caso. Al pagar se desbloquean la argumentacion juridica completa, la jurisprudencia aplicable y el documento final listo para radicar.
           </div>
         </div>
         <Field label="Producto a pagar">
@@ -2559,10 +2559,10 @@ function DetailPanel({
                           {detailRights.length ? detailRights.join(", ") : "Se consolidan con los datos del expediente."}
                         </div>
                       </div>
-                      <div style={{ padding: 16, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE" }}>
-                        <div style={{ fontSize: 12, color: C.primary, fontWeight: 800 }}>NORMAS BASE</div>
+                      <div style={{ padding: 16, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FED7AA" }}>
+                        <div style={{ fontSize: 12, color: "#C2410C", fontWeight: 800 }}>RECETA JURIDICA BLOQUEADA</div>
                         <div style={{ marginTop: 10, color: C.text, fontWeight: 800, lineHeight: 1.5 }}>
-                          {detailNorms.length ? detailNorms.join(", ") : "Base normativa general cargada."}
+                          Las normas sectoriales, la jurisprudencia y la argumentacion completa se habilitan cuando activas el documento.
                         </div>
                       </div>
                       <div style={{ padding: 16, borderRadius: 18, background: "#18181B", border: "1px solid #3F3F46", color: "#fff" }}>
