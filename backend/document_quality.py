@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.case_architecture import _is_ai_owned_quality_issue
 from backend.document_rules import get_document_rule
 from backend.quality_llm import score_document_with_claude
 
@@ -271,11 +272,25 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         },
     )
     if llm_qa:
-        total_score = min(total_score, int(llm_qa.get("adjusted_score") or total_score))
-        blocking_issues = list(dict.fromkeys([*blocking_issues, *(llm_qa.get("blocking_issues") or [])]))
-        warnings = list(dict.fromkeys([*warnings, *(llm_qa.get("warnings") or [])]))
+        adjusted_score = int(llm_qa.get("adjusted_score") or total_score)
+        llm_blocking = list(llm_qa.get("blocking_issues") or [])
+        ai_owned_llm_blocking = [issue for issue in llm_blocking if _is_ai_owned_quality_issue(issue)]
+        actionable_llm_blocking = [issue for issue in llm_blocking if not _is_ai_owned_quality_issue(issue)]
+        total_score = min(total_score, adjusted_score)
+        blocking_issues = list(dict.fromkeys([*blocking_issues, *actionable_llm_blocking]))
+        warnings = list(
+            dict.fromkeys(
+                [
+                    *warnings,
+                    *(llm_qa.get("warnings") or []),
+                    *ai_owned_llm_blocking,
+                ]
+            )
+        )
         strengths = list(dict.fromkeys([*strengths, *(llm_qa.get("strengths") or [])]))
         improvements = list(dict.fromkeys([*improvements, *(llm_qa.get("improvements") or [])]))
+        if ai_owned_llm_blocking:
+            improvements.append("La IA debe reforzar internamente el soporte juridico verificable antes de la entrega final.")
     passed = total_score >= QUALITY_PASSING_SCORE and not blocking_issues
 
     if passed:
