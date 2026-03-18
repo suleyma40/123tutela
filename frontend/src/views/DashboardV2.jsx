@@ -2697,9 +2697,10 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
       include_filing: includeFiling,
     });
     setLatestReference(session.order.reference);
-    await launchWidget(session.checkout);
+    const widgetResult = await launchWidget(session.checkout);
+    const transactionId = widgetResult?.transaction?.id || widgetResult?.id || widgetResult?.transactionId || widgetResult?.transaction_id || "";
     setPaymentMessage("Pago iniciado. Esperando confirmación segura de Wompi.");
-    await pollPayment(session.order.reference);
+    await pollPayment(session.order.reference, transactionId);
   };
 
   if (!caseItem) {

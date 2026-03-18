@@ -46,6 +46,7 @@ const formatMoney = (value) => {
 export default function PaymentResultView({ session, onReconcilePayment, onOpenDashboard, onLogin, onBackHome }) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const [syncMessage, setSyncMessage] = useState("");
+  const [syncing, setSyncing] = useState(false);
   const status = (params.get("status") || "PENDING").toUpperCase();
   const reference = params.get("reference");
   const transactionId = params.get("id") || params.get("transaction-id") || params.get("transaction_id");
@@ -59,6 +60,7 @@ export default function PaymentResultView({ session, onReconcilePayment, onOpenD
     const reconcile = async () => {
       if (!session?.token || !transactionId || !onReconcilePayment) return;
       try {
+        if (!cancelled) setSyncing(true);
         const result = await onReconcilePayment({ transaction_id: transactionId, reference });
         if (!cancelled && result?.status === "approved") {
           setSyncMessage("El pago ya fue sincronizado con tu expediente.");
@@ -67,6 +69,8 @@ export default function PaymentResultView({ session, onReconcilePayment, onOpenD
         if (!cancelled) {
           setSyncMessage("No fue posible sincronizar el pago automaticamente todavia. Revisa tu panel en unos segundos.");
         }
+      } finally {
+        if (!cancelled) setSyncing(false);
       }
     };
     reconcile();
@@ -74,6 +78,24 @@ export default function PaymentResultView({ session, onReconcilePayment, onOpenD
       cancelled = true;
     };
   }, [session, transactionId, reference, onReconcilePayment]);
+
+  const handleVerifyNow = async () => {
+    if (!session?.token || !transactionId || !onReconcilePayment || syncing) return;
+    setSyncMessage("");
+    setSyncing(true);
+    try {
+      const result = await onReconcilePayment({ transaction_id: transactionId, reference });
+      setSyncMessage(
+        result?.status === "approved"
+          ? "Pago verificado y expediente actualizado. Ya puedes volver al panel."
+          : "La transaccion sigue en validacion. Intenta de nuevo en unos segundos."
+      );
+    } catch {
+      setSyncMessage("Aun no fue posible verificar el pago. Si ya te cobraron, vuelve al panel y revisa en unos segundos.");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, #F4F7FB 0%, #EAF0F9 100%)", padding: 24 }}>
@@ -144,6 +166,11 @@ export default function PaymentResultView({ session, onReconcilePayment, onOpenD
               </div>
 
               <div style={{ display: "flex", gap: 12, marginTop: 30, flexWrap: "wrap" }}>
+                {transactionId && session?.token && (
+                  <Button size="lg" variant="secondary" onClick={handleVerifyNow} disabled={syncing}>
+                    {syncing ? "Verificando..." : "Verificar pago ahora"}
+                  </Button>
+                )}
                 <Button size="lg" onClick={onOpenDashboard} icon={ArrowRight}>
                   Ir a mi panel
                 </Button>
