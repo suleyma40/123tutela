@@ -575,6 +575,38 @@ def _extract_legal_references(document: str) -> list[str]:
     return list(dict.fromkeys(item.strip() for item in found if item.strip()))
 
 
+def _article_reference_is_contextually_verified(
+    reference: str,
+    *,
+    document: str,
+    verified_names: set[str],
+) -> bool:
+    normalized = _lower(reference).strip()
+    if not normalized.startswith("articulo"):
+        return False
+    article_number = re.findall(r"\d{1,3}", normalized)
+    if not article_number:
+        return False
+    number = article_number[0]
+    lowered_document = _lower(document)
+    contextual_patterns = [
+        rf"articulo\s+{number}\s+de\s+la\s+ley\s+\d{{1,4}}\s+de\s+\d{{4}}",
+        rf"articulo\s+{number}\s+del\s+decreto\s+\d{{1,4}}\s+de\s+\d{{4}}",
+        rf"articulo\s+{number}\s+de\s+decreto\s+\d{{1,4}}\s+de\s+\d{{4}}",
+        rf"articulo\s+{number}\s+de\s+la\s+constitucion",
+        rf"articulo\s+{number}\s+de\s+la\s+constitucion\s+politica",
+    ]
+    snippets: list[str] = []
+    for pattern in contextual_patterns:
+        snippets.extend(re.findall(pattern, lowered_document, flags=re.IGNORECASE))
+    for snippet in snippets:
+        if _match_registry_entry(snippet):
+            return True
+        if any(name and name in snippet for name in verified_names):
+            return True
+    return False
+
+
 def validate_document_citations(
     *,
     document: str,
@@ -595,7 +627,7 @@ def validate_document_citations(
     for reference in detected_references:
         normalized = _lower(reference)
         entry = _match_registry_entry(reference)
-        if entry or normalized in verified_names:
+        if entry or normalized in verified_names or _article_reference_is_contextually_verified(reference, document=document, verified_names=verified_names):
             verified_detected.append(reference)
         else:
             unresolved_detected.append(reference)
