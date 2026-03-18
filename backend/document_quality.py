@@ -222,7 +222,11 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         operability_score -= 4
         warnings.append("Conviene reforzar el bloque de notificaciones del accionante.")
 
-    if _contains_any(lowered, ["t-", "su-", "c-"]) and not (source_policy.get("verified_precedents") or []):
+    if (
+        _contains_any(lowered, ["t-", "su-", "c-"])
+        and not (source_policy.get("verified_precedents") or [])
+        and not (citation_guard.get("verified_detected_references") or [])
+    ):
         legal_score -= 10
         warnings.append("La IA debe reforzar o depurar internamente el soporte jurisprudencial antes de entregar el documento final.")
     elif (source_policy.get("verified_sources") or []) and _contains_any(lowered, ["suin-juriscol", "funcion publica", "decreto 2591", "articulo 86", "ley 1755"]):

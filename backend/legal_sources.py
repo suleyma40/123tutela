@@ -14,6 +14,14 @@ def _lower(value: Any) -> str:
     return _text(value).lower()
 
 
+def _compact_reference(value: Any) -> str:
+    text = _lower(value)
+    text = re.sub(r"\bsentencia\b", "", text)
+    text = re.sub(r"\bde\s+\d{4}\b", "", text)
+    text = re.sub(r"[^a-z0-9]+", "", text)
+    return text.strip()
+
+
 VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
     "constitucion_art_15": {
         "aliases": [
@@ -469,11 +477,43 @@ def _normalize_source_record(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _append_verified_entry(
+    *,
+    entry: dict[str, Any],
+    verified_sources: list[dict[str, Any]],
+    verified_normas: list[str],
+    verified_precedents: list[str],
+) -> None:
+    normalized = _normalize_source_record(entry)
+    if normalized not in verified_sources:
+        verified_sources.append(normalized)
+
+    reference_name = entry["numero_sentencia_o_norma"]
+    if entry.get("tipo_fuente") == "jurisprudencia":
+        if reference_name not in verified_precedents:
+            verified_precedents.append(reference_name)
+        return
+
+    if reference_name not in verified_normas:
+        verified_normas.append(reference_name)
+
+
 def _match_registry_entry(reference: str) -> dict[str, Any] | None:
     normalized = _lower(reference)
+    compact = _compact_reference(reference)
     for entry in _get_verified_source_registry().values():
         aliases = [_lower(item) for item in entry.get("aliases", [])]
+        compact_aliases = [_compact_reference(item) for item in entry.get("aliases", [])]
+        compact_name = _compact_reference(entry.get("numero_sentencia_o_norma"))
         if any(alias and alias in normalized for alias in aliases):
+            return entry
+        if compact and any(alias and alias == compact for alias in compact_aliases):
+            return entry
+        if compact and compact_name == compact:
+            return entry
+        if compact and compact_name.startswith(compact):
+            return entry
+        if compact and any(alias and alias.startswith(compact) for alias in compact_aliases):
             return entry
     return None
 
@@ -603,27 +643,34 @@ def resolve_verified_legal_support(
     for key in desired_keys:
         entry = _get_verified_source_registry().get(key)
         if entry:
-            verified_sources.append(_normalize_source_record(entry))
-            verified_normas.append(entry["numero_sentencia_o_norma"])
+            _append_verified_entry(
+                entry=entry,
+                verified_sources=verified_sources,
+                verified_normas=verified_normas,
+                verified_precedents=verified_precedents,
+            )
 
     for norma in legal_analysis.get("normas_relevantes") or []:
         entry = _match_registry_entry(str(norma))
         if entry:
-            normalized = _normalize_source_record(entry)
-            if normalized not in verified_sources:
-                verified_sources.append(normalized)
-            if entry["numero_sentencia_o_norma"] not in verified_normas:
-                verified_normas.append(entry["numero_sentencia_o_norma"])
+            _append_verified_entry(
+                entry=entry,
+                verified_sources=verified_sources,
+                verified_normas=verified_normas,
+                verified_precedents=verified_precedents,
+            )
         else:
             unresolved_normas.append(str(norma))
 
     for precedent in legal_analysis.get("precedentes_jurisprudenciales") or []:
         entry = _match_registry_entry(str(precedent))
         if entry and entry["tipo_fuente"] == "jurisprudencia":
-            normalized = _normalize_source_record(entry)
-            if normalized not in verified_sources:
-                verified_sources.append(normalized)
-            verified_precedents.append(entry["numero_sentencia_o_norma"])
+            _append_verified_entry(
+                entry=entry,
+                verified_sources=verified_sources,
+                verified_normas=verified_normas,
+                verified_precedents=verified_precedents,
+            )
         else:
             unresolved_precedents.append(str(precedent))
 
