@@ -343,11 +343,9 @@ def _financial_legal_basis_text(legal_sources: list[dict[str, Any]], *, has_data
         "Ley 1755 de 2015",
         "Decreto 2555 de 2010",
         "Circular Externa 029 de 2014",
+        "Ley 1266 de 2008",
+        "Ley 1581 de 2012",
     ]
-    if has_report_issue:
-        preferred_order.append("Ley 1266 de 2008")
-    if has_data_issue:
-        preferred_order.append("Ley 1581 de 2012")
     available: set[str] = set()
     for source in legal_sources:
         ref = str(source.get("numero_sentencia_o_norma") or "").strip()
@@ -607,8 +605,8 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
         header_lines.append(f"Teléfono: {target_phone}")
 
     intro = (
-        f"Yo, {user_name}, mayor de edad, identificado(a) con cédula de ciudadanía No. {user_doc}, domiciliado(a) en {address}, {city}, {department}, "
-        f"con correo electrónico {user_email} y teléfono {user_phone}, actuando en calidad de consumidor(a) financiero(a) y titular de {product_type}, "
+        f"Yo, {user_name}, persona mayor de edad, titular de la cédula de ciudadanía No. {user_doc}, con domicilio en {address}, {city}, {department}, "
+        f"correo electrónico {user_email} y teléfono {user_phone}, actuando en calidad de titular de {product_type}, "
         f"presento la siguiente reclamación formal contra {entity_name}."
     )
 
