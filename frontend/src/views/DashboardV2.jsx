@@ -948,6 +948,21 @@ const shortenRouteLabel = (label, fallback = "") => {
   return String(label || "").slice(0, 32);
 };
 
+const buildCommercialDiagnosisCopy = (action = "", category = "") => {
+  const normalizedAction = normalizeAction(action);
+  const normalizedCategory = normalizeAction(category);
+  if (normalizedAction === "accion de tutela" || normalizedCategory === "salud") {
+    return "La plataforma detecto una posible vulneracion de derechos fundamentales y una ruta judicial viable. La argumentacion completa, el escrito final y la radicacion se habilitan al activar el documento.";
+  }
+  if (normalizedAction.includes("derecho de peticion")) {
+    return "La plataforma confirmo que tu caso amerita un derecho de peticion formal. Al activar el documento se libera la redaccion completa, la estructura juridica y la opcion de radicacion.";
+  }
+  if (normalizedCategory === "bancos") {
+    return "La plataforma detecto un reclamo financiero con sustento inicial y posibilidad de exigir respuesta de fondo. El escrito final y la ruta de envio se activan despues del pago.";
+  }
+  return "La plataforma confirmo una ruta legal viable para tu caso. La estrategia completa, el documento final y la radicacion se habilitan al activar el servicio.";
+};
+
 const buildRouteSteps = (preview) => {
   const steps = [];
   (preview?.prerequisites || []).slice(0, 2).forEach((item) => {
@@ -2862,6 +2877,7 @@ function DetailPanel({
     shortenRouteLabel(item.recommended_action || item.workflow_type, "Documento"),
   ].filter(Boolean).slice(0, 3);
   const revealOperationalRouting = item.payment_status === "pagado" || baseFlowStep >= 3;
+  const commercialDiagnosisCopy = buildCommercialDiagnosisCopy(item.recommended_action || item.workflow_type, item.category);
   const visibleAutofillEntries = Object.entries(autofillSuggestions).filter(([key]) => (
     revealOperationalRouting || ![
       "target_pqrs_email",
@@ -3061,7 +3077,9 @@ function DetailPanel({
                     <div style={{ padding: 20, borderRadius: 22, background: "linear-gradient(180deg, #101827 0%, #17233A 100%)", color: "#fff", display: "grid", gap: 14 }}>
                       <div style={{ fontSize: 12, color: "#93C5FD", fontWeight: 800, letterSpacing: 0.4 }}>DIAGNOSTICO GRATIS</div>
                       <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.08 }}>Tu diagnostico ya esta listo</div>
-                      <div style={{ color: "rgba(255,255,255,0.78)", lineHeight: 1.7 }}>{item.strategy_text}</div>
+                      <div style={{ color: "rgba(255,255,255,0.78)", lineHeight: 1.7 }}>
+                        {item.payment_status === "pagado" ? item.strategy_text : commercialDiagnosisCopy}
+                      </div>
                       <div style={{ marginTop: 4 }}>
                         <div style={{ fontWeight: 800 }}>Viabilidad del caso</div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 10 }}>
@@ -3080,7 +3098,8 @@ function DetailPanel({
                           {detailViability.label} — {detailViability.note}
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {item.payment_status === "pagado" ? (
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                         {detailRouteSteps.map((step, index) => (
                           <React.Fragment key={`${step}-${index}`}>
                             <div style={{ padding: "8px 12px", borderRadius: 999, background: index === 0 ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.06)", border: "1px solid rgba(148,163,184,0.24)", fontWeight: 700 }}>
@@ -3090,6 +3109,11 @@ function DetailPanel({
                           </React.Fragment>
                         ))}
                       </div>
+                      ) : (
+                        <div style={{ padding: 14, borderRadius: 18, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(148,163,184,0.24)", color: "rgba(255,255,255,0.84)", lineHeight: 1.6 }}>
+                          Al activar el documento final se libera la estrategia completa, la version lista para firma y la radicacion dentro del flujo.
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: "grid", gap: 14 }}>
                       <div style={{ padding: 16, borderRadius: 18, background: "#FCE7F3", border: "1px solid #F9A8D4" }}>
@@ -4207,7 +4231,9 @@ export default function DashboardV2(props) {
                         <div style={{ padding: 16, borderRadius: 16, background: "#1E3A6E" }}>
                           <div style={{ fontSize: 13, fontWeight: 800, color: "#93C5FD" }}>Accion recomendada</div>
                           <div style={{ marginTop: 6, fontSize: 18, fontWeight: 800 }}>{preview.recommended_action}</div>
-                          <div style={{ marginTop: 8, color: "#DBEAFE", lineHeight: 1.6 }}>{preview.strategy}</div>
+                          <div style={{ marginTop: 8, color: "#DBEAFE", lineHeight: 1.6 }}>
+                            {buildCommercialDiagnosisCopy(preview.recommended_action, form.category)}
+                          </div>
                         </div>
                       </div>
 
