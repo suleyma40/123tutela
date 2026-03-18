@@ -187,6 +187,29 @@ const routingChannelLabels = {
 };
 
 const getRoutingChannelLabel = (channel) => routingChannelLabels[String(channel || "").toLowerCase()] || (channel || "Manual");
+const hasRefundDestinationHint = (form = {}) => {
+  const text = [
+    form.refund_destination,
+    form.concrete_request,
+    form.case_story,
+    form.bank_claim_goal,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return [
+    "misma tarjeta",
+    "misma cuenta",
+    "mismo producto",
+    "a la misma tarjeta",
+    "a la misma cuenta",
+    "a mi tarjeta",
+    "a mi cuenta",
+    "a la tarjeta",
+    "reintegrar",
+    "devolver a",
+  ].some((marker) => text.includes(marker));
+};
 
 const getFieldFixLocation = (field = "", recommendedAction = "") => {
   const normalized = String(field || "").toLowerCase();
@@ -257,7 +280,11 @@ const buildPostPayDescription = (form, caseItem) => {
     form.bank_amount_involved ? `Valor o monto discutido: ${form.bank_amount_involved}.` : "",
     form.bank_event_date ? `Fecha del primer cobro o hecho relevante: ${form.bank_event_date}.` : "",
     form.bank_account_reference ? `Referencia del producto financiero: ${form.bank_account_reference}.` : "",
-    form.refund_destination ? `Destino solicitado para la devolucion: ${form.refund_destination}.` : "",
+    form.refund_destination
+      ? `Destino solicitado para la devolucion: ${form.refund_destination}.`
+      : hasRefundDestinationHint(form)
+        ? "Destino solicitado para la devolucion: al mismo producto o medio ya indicado por la persona usuaria."
+        : "",
     form.tutela_previous_action_detail ? `Otra tutela o medida previa sobre el mismo caso: ${form.tutela_previous_action_detail}.` : "",
     form.tutela_oath_statement ? `Declaracion bajo juramento sobre no temeridad: ${form.tutela_oath_statement}.` : "",
     form.tutela_no_temperity_detail ? `No temeridad o tutela previa: ${form.tutela_no_temperity_detail}.` : "",
@@ -265,7 +292,11 @@ const buildPostPayDescription = (form, caseItem) => {
     form.tutela_immediacy_detail ? `Inmediatez o justificacion temporal: ${form.tutela_immediacy_detail}.` : "",
     form.tutela_special_protection_detail ? `Condicion de especial proteccion: ${form.tutela_special_protection_detail}.` : "",
     form.tutela_private_party_ground ? `Fundamento contra particular: ${form.tutela_private_party_ground}.` : "",
-    form.prior_claim ? `Gestion previa: ${form.prior_claim_result || "Si reclamo antes."}` : "Gestion previa: No ha reclamado directamente ante la entidad.",
+    form.prior_claim === "si"
+      ? `Gestion previa: ${form.prior_claim_result || "Si reclamo antes."}`
+      : form.prior_claim === "no"
+        ? "Gestion previa: No ha reclamado directamente ante la entidad."
+        : "",
     form.prior_claim_date ? `Fecha del reclamo previo: ${form.prior_claim_date}.` : "",
     form.entity_response ? `Respuesta recibida: ${form.entity_response}` : "",
     form.evidence_summary ? `Pruebas o soportes disponibles: ${form.evidence_summary}.` : "",
@@ -317,6 +348,7 @@ const getPostPayQuestionPrompts = (form, caseItem) => {
     if (!form.bank_event_date?.trim()) prompts.push("Desde que fecha comenzaron los cobros o desde cuando viste el cargo por primera vez?");
     if (form.prior_claim === "si" && !form.prior_claim_date?.trim()) prompts.push("En que fecha reclamaste al banco y por que canal lo hiciste?");
     if (form.prior_claim === "si" && !form.prior_claim_result?.trim()) prompts.push("Que respondio el banco o que paso despues de tu reclamo?");
+    if (!form.refund_destination?.trim() && !hasRefundDestinationHint(form)) prompts.push("Si pides devolucion del dinero, a que cuenta, tarjeta o producto debe hacerse el reintegro?");
   }
   if (category === "datos" && !form.requested_data_action?.trim()) prompts.push("Como deberia quedar corregido ese dato o reporte?");
   if (action.includes("derecho de peticion") && !form.numbered_requests?.trim()) prompts.push("Si la entidad te respondiera hoy, cuales serian las 2 o 3 soluciones concretas que necesitas recibir?");
@@ -401,7 +433,7 @@ const buildPostPayInterviewStepsClean = (form, caseItem) => {
         question: "Si pides devolucion, a que cuenta, tarjeta o medio deben abonarte los valores?",
         placeholder: "Ej: a la misma tarjeta terminada en 4821 o a la cuenta de ahorros Bancolombia",
         multiline: false,
-        show: !form.refund_destination?.trim(),
+        show: !form.refund_destination?.trim() && !hasRefundDestinationHint(form),
       }
     );
     if (form.prior_claim === "si") {

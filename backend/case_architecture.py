@@ -361,10 +361,27 @@ def collect_pending_questions(
     facts: dict[str, Any],
     prior_actions: list[str],
 ) -> list[dict[str, Any]]:
-    text = _lower(description)
     intake = facts.get("intake_form") or {}
+    text = _lower(
+        " ".join(
+            str(part).strip()
+            for part in [
+                description,
+                facts.get("hechos_principales"),
+                intake.get("case_story"),
+                intake.get("concrete_request"),
+                intake.get("prior_claim_result"),
+                intake.get("refund_destination"),
+                intake.get("bank_claim_goal"),
+            ]
+            if _text(part)
+        )
+    )
     questions: list[dict[str, Any]] = []
     category_lower = _lower(category)
+    prior_claim_value = _lower(intake.get("prior_claim"))
+    prior_claim_yes = prior_claim_value in {"si", "sí", "reclame", "reclamo"}
+    prior_claim_no = prior_claim_value in {"no", "aun no", "aún no", "no_aun_no"}
 
     if not _text(facts.get("fechas_mencionadas")):
         questions.append(
@@ -456,7 +473,7 @@ def collect_pending_questions(
                     route="B",
                 )
             )
-        if not _text(intake.get("prior_claim_date")) and _lower(intake.get("prior_claim")) in {"si", "sí", "reclame", "reclamo"}:
+        if not _text(intake.get("prior_claim_date")) and prior_claim_yes:
             questions.append(
                 _build_question(
                     question_id="fecha_reclamo_previo_banco",
@@ -467,7 +484,7 @@ def collect_pending_questions(
                     route="B",
                 )
             )
-        if (not prior_actions and _lower(intake.get("prior_claim")) not in {"si", "sí", "reclame", "reclamo"}) or not _text(intake.get("prior_claim_result")):
+        if prior_claim_yes and not _text(intake.get("prior_claim_result")):
             questions.append(
                 _build_question(
                     question_id="reclamo_previo_banco",
@@ -478,7 +495,10 @@ def collect_pending_questions(
                     route="B",
                 )
             )
-        if not _has_any(text, ["devolver a", "consignar", "cuenta de devolucion", "reintegrar"]):
+        if not _text(intake.get("refund_destination")) and not _has_any(
+            text,
+            ["devolver a", "consignar", "cuenta de devolucion", "reintegrar", "misma tarjeta", "misma cuenta", "mismo producto", "a la misma tarjeta", "a la misma cuenta", "a mi tarjeta", "a mi cuenta", "a la tarjeta"],
+        ):
             questions.append(
                 _build_question(
                     question_id="cuenta_reintegro",
