@@ -1337,19 +1337,6 @@ def generate_document(
     if case.get("payment_status") != "pagado":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debes registrar el pago antes de generar el documento.")
 
-    document_rule_review = evaluate_document_rule(
-        recommended_action=case.get("recommended_action"),
-        workflow_type=case.get("workflow_type"),
-        description=case.get("descripcion") or "",
-        facts=case.get("facts") or {},
-    )
-    if document_rule_review.get("blocking_issues"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Todavia faltan datos minimos para generar este documento: "
-            + " | ".join(document_rule_review["blocking_issues"]),
-        )
-
     facts = dict(case.get("facts") or {})
     intake_form = dict(facts.get("intake_form") or {})
     if payload:
@@ -1380,6 +1367,18 @@ def generate_document(
         intake_form=intake_form,
     )
     case["facts"] = facts
+    document_rule_review = evaluate_document_rule(
+        recommended_action=case.get("recommended_action"),
+        workflow_type=case.get("workflow_type"),
+        description=case.get("descripcion") or "",
+        facts=facts,
+    )
+    if document_rule_review.get("blocking_issues"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Todavia faltan datos minimos para generar este documento: "
+            + " | ".join(document_rule_review["blocking_issues"]),
+        )
     document = build_document(case)
     quality_review = evaluate_generated_document(case, document)
     final_validation = build_final_validation(case=case, document=document, quality_review=quality_review)
