@@ -666,7 +666,7 @@ def _build_petition_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
 
     target = str(intake.get("target_entity") or primary.get("name") or _join_list(facts.get("entidades_involucradas"), fallback="Entidad destinataria")).strip()
     contact = str(primary.get("contact") or intake.get("target_pqrs_email") or intake.get("target_website") or "Canal oficial de atencion").strip()
-    user_name = case.get("usuario_nombre") or "Usuario"
+    user_name = _person_name(case.get("usuario_nombre"))
     user_doc = case.get("usuario_documento") or "Sin documento registrado"
     user_email = case.get("usuario_email") or "Sin correo"
     user_phone = case.get("usuario_telefono") or "Sin telefono"
@@ -717,7 +717,7 @@ def _build_tutela_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     primary = routing.get("primary_target") or {}
 
     accionado = str(intake.get("target_entity") or primary.get("name") or _join_list(facts.get("entidades_involucradas"), fallback="Entidad accionada")).strip()
-    user_name = case.get("usuario_nombre") or "Usuario"
+    user_name = _person_name(case.get("usuario_nombre"))
     user_doc = case.get("usuario_documento") or "Sin documento registrado"
     user_email = case.get("usuario_email") or "Sin correo"
     user_phone = case.get("usuario_telefono") or "Sin telefono"
@@ -788,7 +788,7 @@ def _build_generic_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     legal_analysis = case.get("legal_analysis") or {}
     routing = case.get("routing") or {}
     primary = routing.get("primary_target") or {}
-    user_name = case.get("usuario_nombre") or "Usuario"
+    user_name = _person_name(case.get("usuario_nombre"))
     user_doc = case.get("usuario_documento") or "Sin documento registrado"
     user_email = case.get("usuario_email") or "Sin correo"
     user_phone = case.get("usuario_telefono") or "Sin telefono"
