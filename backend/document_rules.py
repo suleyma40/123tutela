@@ -214,7 +214,32 @@ def evaluate_document_rule(
     rule = get_document_rule(recommended_action, workflow_type)
     text = _normalize(description)
     facts_text = _normalize(str(facts.get("hechos_principales") or ""))
-    full_text = f"{text} {facts_text}"
+    intake = facts.get("intake_form") or {}
+    full_text = _normalize(
+        " ".join(
+            [
+                text,
+                facts_text,
+                str(intake.get("eps_name") or ""),
+                str(intake.get("diagnosis") or ""),
+                str(intake.get("treatment_needed") or ""),
+                str(intake.get("urgency_detail") or ""),
+                str(intake.get("medical_order_date") or ""),
+                str(intake.get("treating_doctor_name") or ""),
+                str(intake.get("eps_request_date") or ""),
+                str(intake.get("eps_request_channel") or ""),
+                str(intake.get("eps_request_reference") or ""),
+                str(intake.get("eps_response_detail") or ""),
+                str(intake.get("special_protection") or ""),
+                str(intake.get("tutela_special_protection_detail") or ""),
+                str(intake.get("ongoing_harm") or ""),
+                str(intake.get("tutela_oath_statement") or ""),
+                str(intake.get("tutela_no_temperity_detail") or ""),
+                str(intake.get("tutela_other_means_detail") or ""),
+                str(intake.get("tutela_immediacy_detail") or ""),
+            ]
+        )
+    )
     blocking_issues: list[str] = []
     warnings: list[str] = []
 
@@ -227,14 +252,32 @@ def evaluate_document_rule(
 
     action_key = rule["action_key"]
     if action_key == "accion de tutela":
+        uploaded_evidence = facts.get("uploaded_evidence_files") or []
+        health_tutela_context = (
+            _normalize(str(intake.get("category") or facts.get("category") or "")) == "salud"
+            or bool(str(intake.get("eps_name") or "").strip())
+            or bool(str(intake.get("diagnosis") or "").strip())
+        )
+        ai_can_infer_health_urgency = health_tutela_context and all(
+            str(intake.get(field) or "").strip()
+            for field in ("eps_name", "diagnosis", "treatment_needed")
+        ) and (
+            bool(uploaded_evidence)
+            or bool(str(intake.get("medical_order_date") or "").strip())
+            or bool(str(intake.get("eps_response_detail") or "").strip())
+            or bool(str(intake.get("special_protection") or "").strip())
+            or bool(str(intake.get("tutela_special_protection_detail") or "").strip())
+        )
         if not any(word in full_text for word in ["no temeridad", "no he presentado otra tutela", "otra tutela", "juramento"]):
             blocking_issues.append("La tutela debe incluir una declaracion de no temeridad o explicar si existio tutela previa.")
-        if not any(word in full_text for word in ["otro medio", "subsidiariedad", "perjuicio irremediable", "no existe otro medio eficaz"]):
+        if not ai_can_infer_health_urgency and not any(word in full_text for word in ["otro medio", "subsidiariedad", "perjuicio irremediable", "no existe otro medio eficaz"]):
             blocking_issues.append("La tutela debe justificar subsidiariedad o perjuicio irremediable.")
-        if not any(word in full_text for word in ["inmediatez", "reciente", "actualmente", "hoy", "sigue ocurriendo"]):
+        if not ai_can_infer_health_urgency and not any(word in full_text for word in ["inmediatez", "reciente", "actualmente", "hoy", "sigue ocurriendo"]):
             blocking_issues.append("La tutela debe explicar por que la vulneracion es actual o por que se cumple la inmediatez.")
-        if not any(word in full_text for word in ["urgencia", "riesgo", "perjuicio", "vulneracion", "vulneración", "derecho fundamental"]):
+        if not ai_can_infer_health_urgency and not any(word in full_text for word in ["urgencia", "riesgo", "perjuicio", "vulneracion", "vulneración", "derecho fundamental"]):
             blocking_issues.append("La tutela necesita dejar mejor descritos los hechos actuales del paciente, la barrera de la EPS y el riesgo que sigue ocurriendo hoy.")
+        elif ai_can_infer_health_urgency and not any(word in full_text for word in ["urgencia", "riesgo", "perjuicio", "vulneracion", "vulneración", "derecho fundamental"]):
+            warnings.append("La IA debe reforzar internamente la urgencia y procedencia con base en la orden medica, la EPS involucrada y los anexos disponibles.")
         if any(word in full_text for word in ["particular", "empresa privada", "privada", "privado"]) and not any(
             word in full_text
             for word in ["servicio publico", "servicio p?blico", "indefension", "indefensi?n", "subordinacion", "subordinaci?n", "posicion dominante", "posici?n dominante", "articulo 42", "art. 42"]
