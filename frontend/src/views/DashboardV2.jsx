@@ -2642,14 +2642,15 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
 
   const finalPrice = includeFiling ? selectedProduct?.price_with_filing_cop : selectedProduct?.price_cop;
   const filingPrice = selectedProduct ? selectedProduct.price_with_filing_cop - selectedProduct.price_cop : 0;
+  const isTestPricing = true;
 
   return (
-    <SessionCard title={title} subtitle="El análisis es gratis. Pagas solo cuando decides generar el documento o el documento con radicación.">
+    <SessionCard title={title} subtitle="El análisis es gratis. Pagas solo cuando decides activar el documento final.">
       <div style={{ display: "grid", gap: 14 }}>
         <div style={{ padding: 16, borderRadius: 16, background: "linear-gradient(135deg, #EEF4FF 0%, #F8FBFF 100%)", border: "1px solid #BFDBFE" }}>
           <div style={{ fontWeight: 800, color: C.text }}>{caseItem.recommended_action || "Producto sugerido"}</div>
           <div style={{ color: C.textMuted, marginTop: 8 }}>
-            La IA ya confirmo la ruta preliminar de este caso. Al pagar se desbloquean la argumentacion juridica completa, la jurisprudencia aplicable y el documento final listo para radicar.
+            La IA ya confirmo la ruta preliminar de este caso. Al pagar se desbloquea la version final del documento con argumentacion juridica completa.
           </div>
         </div>
         <Field label="Producto a pagar">
@@ -2678,13 +2679,18 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
             <div style={{ marginTop: 12, color: C.text, fontSize: 14 }}>
               Incluye análisis gratis, informe del derecho vulnerado y documento completo después del pago.
             </div>
+            {isTestPricing && (
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#F0FDF4", border: "1px solid #86EFAC", color: "#166534", fontSize: 13, fontWeight: 700 }}>
+                Precio temporal de prueba. Al cierre de pruebas volverán los valores comerciales finales.
+              </div>
+            )}
             <label style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 16, color: C.text }}>
               <input type="checkbox" checked={includeFiling} onChange={(event) => setIncludeFiling(event.target.checked)} />
               Agregar radicación por nosotros
               <strong>+{filingPrice.toLocaleString("es-CO")} COP</strong>
             </label>
             <div style={{ color: C.textMuted, fontSize: 13, marginTop: 10 }}>
-              Si compras radicación, usamos la base operativa de juzgados y entidades en Colombia y te enviamos el comprobante al correo cuando aplique.
+              Si compras radicación, la plataforma intenta gestionar el envío o la radicación y te entrega comprobante cuando aplique.
             </div>
             <div style={{ color: C.textMuted, fontSize: 13, marginTop: 8 }}>
               Siguiente paso sugerido: {selectedProduct.next_step_hint}
@@ -2694,7 +2700,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
               <div style={{ display: "grid", gap: 8, marginTop: 10, color: C.text }}>
                 <div>1. Documento jurídico final listo para usar.</div>
                 <div>2. Acceso al expediente y trazabilidad del caso desde tu panel.</div>
-                <div>3. {includeFiling ? "Radicación por parte de la plataforma cuando el canal lo permita." : "Opción de radicación según el producto que elijas."}</div>
+                <div>3. {includeFiling ? "Gestión de radicación por parte de la plataforma cuando el caso lo permita." : "Opción de radicación disponible después de activar el documento."}</div>
               </div>
             </div>
             <div style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
@@ -2855,6 +2861,7 @@ function DetailPanel({
     ...((item.prerequisites || []).slice(0, 2).map((step) => shortenRouteLabel(step.label))),
     shortenRouteLabel(item.recommended_action || item.workflow_type, "Documento"),
   ].filter(Boolean).slice(0, 3);
+  const revealOperationalRouting = item.payment_status === "pagado" || baseFlowStep >= 3;
   const progressSteps = [
     { id: 1, label: "Diagnostico" },
     { id: 2, label: "Completa datos" },
@@ -2998,22 +3005,28 @@ function DetailPanel({
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
               <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", border: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>CANAL DE RADICACION</div>
-                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{detailRoutingChannel}</div>
-                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>{detailRoutingContact}</div>
+                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{revealOperationalRouting ? detailRoutingChannel : "Disponible al activar"}</div>
+                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
+                  {revealOperationalRouting ? detailRoutingContact : "El canal operativo exacto se habilita cuando activas el documento o el servicio de radicacion."}
+                </div>
               </div>
               <div className="glass-card" style={{ padding: 18, background: item.routing?.automatable ? "#EEF4FF" : "#FFF7ED", border: item.routing?.automatable ? "1px solid #BFDBFE" : "1px solid #FED7AA" }}>
                 <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: item.routing?.automatable ? C.primary : "#C2410C" }}>ESTADO OPERATIVO</div>
                 <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
-                  {item.routing?.automatable ? "Radicacion automatizable" : "Requiere apoyo manual"}
+                  {revealOperationalRouting ? (item.routing?.automatable ? "Radicacion automatizable" : "Requiere apoyo manual") : "Se confirma despues del pago"}
                 </div>
                 <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
-                  {item.routing?.automatable ? "La entidad ya tiene un canal listo para usar dentro del flujo." : "Conviene revisar o confirmar contacto antes del envio definitivo."}
+                  {revealOperationalRouting
+                    ? (item.routing?.automatable ? "La entidad ya tiene un canal listo para usar dentro del flujo." : "Conviene revisar o confirmar contacto antes del envio definitivo.")
+                    : "Primero activas el documento. Luego la plataforma te muestra el canal y la forma de radicacion disponible para tu caso."}
                 </div>
               </div>
               <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>ENTIDAD ACTIVA</div>
                 <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{detailPrimaryTarget?.name || effectivePostPayForm.target_entity || "Entidad por confirmar"}</div>
-                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>{item.routing?.subject || "Asunto se ajusta automaticamente al documento."}</div>
+                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
+                  {revealOperationalRouting ? (item.routing?.subject || "Asunto se ajusta automaticamente al documento.") : "La configuracion operativa completa se libera despues del pago."}
+                </div>
               </div>
             </div>
 
@@ -3075,15 +3088,15 @@ function DetailPanel({
                         <div style={{ fontSize: 12, color: "#FCA5A5", fontWeight: 800 }}>SE DESBLOQUEA AL PAGAR</div>
                         <div style={{ display: "grid", gap: 8, marginTop: 10, color: "#E4E4E7" }}>
                           <div>🔒 Argumentacion juridica completa</div>
-                          <div>🔒 Documento final listo para radicar</div>
-                          <div>🔒 Paso a paso de pruebas y radicacion</div>
+                          <div>🔒 Documento final listo para presentar</div>
+                          <div>🔒 Opciones de radicacion despues del pago</div>
                         </div>
                       </div>
                     </div>
                   </div>
                   <div style={{ padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FED7AA", color: "#9A3412", display: "grid", gap: 8 }}>
                     <div style={{ fontWeight: 800 }}>Que sigue ahora</div>
-                    <div>Si este diagnostico te hace sentido, ya puedes pagar para activar el documento final y luego probar la radicacion.</div>
+                    <div>Si este diagnostico te hace sentido, ya puedes pagar para activar el documento final.</div>
                   </div>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button variant="secondary" onClick={() => onSetDetailStep(2)}>
@@ -3104,7 +3117,7 @@ function DetailPanel({
                       <div>
                         {baseFlowStep >= 3
                           ? "Estas editando nuevamente el paso 2 para mejorar el documento o probar el asistente."
-                          : "Puedes probar el asistente y guardar respuestas antes de pagar el documento."}
+                          : "Puedes completar y guardar tus datos antes de activar el documento final."}
                       </div>
                       <Button variant="ghost" onClick={() => onSetDetailStep(baseFlowStep)}>
                         {baseFlowStep >= 3 ? "Volver al documento" : "Volver al diagnostico"}
