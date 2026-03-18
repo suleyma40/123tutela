@@ -3458,6 +3458,21 @@ export default function DashboardV2(props) {
     [profile]
   );
   const activeDocumentReview = activeCaseDetail?.case?.id ? documentReviews[activeCaseDetail.case.id] : null;
+  const persistedSignature = activeCaseDetail?.case?.submission_summary?.signature || {};
+  const persistedSignaturePayload = {
+    full_name: String(persistedSignature.full_name || "").trim(),
+    document_number: String(persistedSignature.document_number || "").trim(),
+    city: String(persistedSignature.city || "").trim(),
+    date: String(persistedSignature.date || "").trim(),
+    accepted: !!persistedSignature.accepted,
+  };
+  const persistedSignatureReady =
+    !!persistedSignature.reviewed_document &&
+    !!persistedSignature.accepted &&
+    persistedSignaturePayload.full_name.length > 3 &&
+    persistedSignaturePayload.document_number.length >= 6 &&
+    persistedSignaturePayload.city.length > 2 &&
+    persistedSignaturePayload.date.length > 4;
 
   useEffect(() => {
     if (!activeCaseDetail?.case) return;
@@ -4360,17 +4375,22 @@ export default function DashboardV2(props) {
                     <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.textMuted }}>ENVIO O RADICACION</div>
                     <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o contacto manual" />
                     <TextArea value={submissionNote} onChange={(event) => setSubmissionNote(event.target.value)} placeholder="Notas del envio o fallback" style={{ minHeight: 90 }} />
+                    {!persistedSignatureReady && (
+                      <div style={{ padding: 12, borderRadius: 14, background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B" }}>
+                        Antes de enviar debes abrir el expediente, revisar el documento y guardar la firma simple.
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })} disabled={!activeCaseDetail.case.generated_document || !signatureReady}>Ejecutar envio automatico</Button>
-                      <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })} disabled={!signatureReady}>Usar contacto manual</Button>
-                      <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })} disabled={!signatureReady}>Activar modo presencial</Button>
+                      <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: persistedSignaturePayload, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!activeCaseDetail.case.generated_document || !persistedSignatureReady}>Ejecutar envio automatico</Button>
+                      <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: persistedSignaturePayload, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Usar contacto manual</Button>
+                      <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: persistedSignaturePayload, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Activar modo presencial</Button>
                     </div>
                   </div>
                   <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.textMuted }}>RADICADO MANUAL Y EVIDENCIA</div>
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                       <TextInput value={radicadoManual} onChange={(event) => setRadicadoManual(event.target.value)} placeholder="Numero de radicado manual" />
-                      <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: buildSubmissionSignatureNote(signatureForm, radicadoNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })} disabled={!signatureReady}>Registrar radicado manual</Button>
+                      <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: buildSubmissionSignatureNote(persistedSignaturePayload, radicadoNote), signature: persistedSignaturePayload, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Registrar radicado manual</Button>
                     </div>
                     <TextArea value={radicadoNote} onChange={(event) => setRadicadoNote(event.target.value)} placeholder="Notas del radicado manual" style={{ minHeight: 80 }} />
                     <input id="evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
