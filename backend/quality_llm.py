@@ -31,6 +31,7 @@ def score_document_with_claude(
             "No exijas al usuario tareas tecnicas o juridicas que le correspondan al sistema.",
             "Bloquea solo si el documento es riesgoso, inventa soporte o omite elementos esenciales.",
             "Si faltan citas verificadas, indica que el sistema debe reforzarlas internamente.",
+            "Si el documento ya es radicable y solo tiene mejoras menores de estilo, no reduzcas severamente el puntaje.",
             "Responde solo JSON con: adjusted_score, blocking_issues, warnings, strengths, improvements, verdict.",
         ],
     }

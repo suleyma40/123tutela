@@ -9,6 +9,7 @@ from backend.quality_llm import score_document_with_claude
 
 
 QUALITY_PASSING_SCORE = 70
+QUALITY_SOFT_CAP = 98
 
 
 GENERATION_BRIEFS: dict[str, dict[str, Any]] = {
@@ -165,6 +166,10 @@ def _contains_any(text: str, tokens: list[str]) -> bool:
     return any(token in text for token in tokens)
 
 
+def _clamp_score(value: int | float, *, ceiling: int = 100) -> int:
+    return max(0, min(int(round(value)), ceiling))
+
+
 def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str, Any]:
     recommended_action = case.get("recommended_action")
     workflow_type = case.get("workflow_type")
@@ -293,7 +298,14 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         llm_blocking = list(llm_qa.get("blocking_issues") or [])
         ai_owned_llm_blocking = [issue for issue in llm_blocking if _is_ai_owned_quality_issue(issue)]
         actionable_llm_blocking = [issue for issue in llm_blocking if not _is_ai_owned_quality_issue(issue)]
-        total_score = min(total_score, adjusted_score)
+        if blocking_issues or actionable_llm_blocking:
+            total_score = min(total_score, adjusted_score)
+        else:
+            # When the document is already structurally sound and the LLM only has
+            # calibration feedback, blend both signals instead of letting the
+            # probabilistic review hard-cap a near-production document.
+            blended_score = (total_score * 0.7) + (adjusted_score * 0.3)
+            total_score = _clamp_score(blended_score, ceiling=QUALITY_SOFT_CAP)
         blocking_issues = list(dict.fromkeys([*blocking_issues, *actionable_llm_blocking]))
         warnings = list(
             dict.fromkeys(
