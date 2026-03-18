@@ -110,6 +110,14 @@ def _clean_financial_evidence_items(base_items: list[str], suggested: list[str],
 def _detect_refund_destination(intake: dict[str, Any], case: dict[str, Any]) -> str:
     direct = str(intake.get("refund_destination") or "").strip()
     if direct:
+        lowered = direct.lower()
+        reference = re.sub(r"[^\d]", "", str(intake.get("bank_account_reference") or ""))
+        if "misma tarjeta" in lowered or direct.lower() == "tarjeta":
+            if len(reference) >= 4:
+                return f"la misma tarjeta terminada en {reference[-4:]}"
+            return "la misma tarjeta donde se facturaron los cobros"
+        if "misma cuenta" in lowered:
+            return "la misma cuenta asociada al producto financiero"
         return direct
     text = " ".join(
         str(part).strip().lower()
@@ -207,6 +215,7 @@ def _financial_amount_breakdown(case: dict[str, Any], intake: dict[str, Any]) ->
         "total": total,
         "raw_amount": raw_amount,
         "parsed_raw": parsed_raw,
+        "exact_total_text": _format_cop_amount(total if total is not None else parsed_raw),
         "exact_known": exact_known,
     }
 
@@ -458,7 +467,7 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     jurisprudence_text = _financial_jurisprudence_text(source_index["jurisprudencia"])
     amount_breakdown = _financial_amount_breakdown(case, intake)
     exact_amount_known = bool(amount_breakdown["exact_known"])
-    exact_total_text = _format_cop_amount(amount_breakdown["total"])
+    exact_total_text = str(amount_breakdown.get("exact_total_text") or "").strip()
 
     chronology_lines = [
         "Soy titular del producto financiero administrado por la entidad reclamada y cuestiono formalmente los cargos descritos en este escrito.",
@@ -489,7 +498,13 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
         chronology_lines.append(f"Frente a dicha reclamacion previa, la respuesta o actuacion reportada fue la siguiente: {_sentence(prior_claim_result)}")
     elif prior_claim == "si":
         chronology_lines.append("A la fecha no existe una respuesta de fondo, completa y verificable que explique el origen del cobro o justifique su permanencia.")
-    chronology_lines.extend([line for line in chronology if "persona usuaria" not in line.lower()][:1])
+    extra_chronology = [
+        line
+        for line in chronology
+        if "persona usuaria" not in line.lower()
+        and not any(token in line.lower() for token in ["cobro", "seguro", "agosto", "tarjeta", "monto", "extracto"])
+    ]
+    chronology_lines.extend(extra_chronology[:1])
     chronology_lines = _dedupe_lines(chronology_lines)
 
     failure_lines = [
