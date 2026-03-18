@@ -71,8 +71,14 @@ def compute_event_checksum(event_payload: dict[str, Any], event_secret: str) -> 
     properties = signature.get("properties") or []
     values = []
     for prop in properties:
-        values.append("" if (value := get_nested_value(data, prop)) is None else str(value))
-    values.append(signature.get("timestamp", ""))
+        value = get_nested_value(event_payload, prop)
+        if value is None:
+            value = get_nested_value(data, prop)
+        values.append("" if value is None else str(value))
+    timestamp = signature.get("timestamp")
+    if timestamp in (None, ""):
+        timestamp = event_payload.get("timestamp", "")
+    values.append(str(timestamp or ""))
     values.append(event_secret)
     raw = "".join(values)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
