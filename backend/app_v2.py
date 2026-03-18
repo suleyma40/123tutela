@@ -1427,6 +1427,14 @@ def generate_document(
         detail_parts = final_validation.get("blocking_issues") or final_validation.get("warnings") or [
             "La validacion final exige mas datos antes de entregar el documento.",
         ]
+        actionable_gaps = final_validation.get("actionable_gaps") or []
+        actionable_text = []
+        for item in actionable_gaps[:4]:
+            label = str(item.get("label") or "Dato faltante").strip()
+            where = str(item.get("where_to_fix") or "Completa datos del caso").strip()
+            actionable_text.append(f"{label} (completalo en: {where})")
+        if actionable_text:
+            detail_parts = list(detail_parts) + ["Corrige ahora: " + " | ".join(actionable_text)]
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="La validacion final del documento detecto ajustes pendientes: " + " | ".join(detail_parts),

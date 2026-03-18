@@ -188,6 +188,46 @@ const routingChannelLabels = {
 
 const getRoutingChannelLabel = (channel) => routingChannelLabels[String(channel || "").toLowerCase()] || (channel || "Manual");
 
+const getFieldFixLocation = (field = "", recommendedAction = "") => {
+  const normalized = String(field || "").toLowerCase();
+  const action = String(recommendedAction || "").toLowerCase();
+
+  if (["full_name", "document_number", "address", "phone", "copy_email"].includes(normalized)) return "Datos personales y de contacto";
+  if (["target_entity", "target_pqrs_email", "target_phone", "target_website", "target_identifier"].includes(normalized)) return "Entidad y canal de radicacion";
+  if (["key_dates", "bank_event_date", "prior_claim_date", "petition_previous_submission_date"].includes(normalized)) return "Fechas importantes del caso";
+  if (["case_story", "concrete_request", "numbered_requests", "request_type", "requested_data_action"].includes(normalized)) return "Solucion concreta que necesitas";
+  if (["available_evidence", "evidence_summary", "supporting_documents"].includes(normalized)) return "Pruebas y anexos";
+  if (normalized.startsWith("bank_") || ["disputed_charge", "refund_destination"].includes(normalized)) return "Detalle del caso financiero";
+  if (["diagnosis", "treatment_needed", "urgency_detail", "eps_name"].includes(normalized)) return "Detalle del caso de salud";
+  if (["disputed_data", "requested_data_action"].includes(normalized)) return "Detalle del dato o reporte cuestionado";
+  if (normalized.startsWith("tutela_") || ["acting_capacity", "represented_person_name", "represented_person_age", "represented_person_document", "special_protection", "prior_tutela", "prior_tutela_reason", "ongoing_harm", "subsidiarity_support"].includes(normalized)) {
+    return "Preguntas finas para tutela";
+  }
+  if (action.includes("tutela")) return "Paso de tutela y urgencia actual";
+  if (action.includes("peticion")) return "Paso de derecho de peticion";
+  return "Completa datos del caso";
+};
+
+const buildActionableGaps = (caseItem = {}, pendingQuestions = []) => {
+  const recommendedAction = caseItem?.recommended_action || caseItem?.workflow_type || "";
+  const finalValidation = caseItem?.final_validation || caseItem?.submission_summary?.final_validation || {};
+  const existing = finalValidation?.actionable_gaps || [];
+  if (existing.length) {
+    return existing.map((item) => ({
+      label: item.label || item.prompt || "Dato critico faltante",
+      prompt: item.prompt || item.label || "Completa este dato antes de entregar.",
+      where_to_fix: item.where_to_fix || getFieldFixLocation(item.field, recommendedAction),
+    }));
+  }
+  return (pendingQuestions || [])
+    .filter((item) => item?.priority === "alta")
+    .map((item) => ({
+      label: item.reason || item.question || "Dato critico faltante",
+      prompt: item.question || item.reason || "Completa este dato antes de entregar.",
+      where_to_fix: getFieldFixLocation(item.field, recommendedAction),
+    }));
+};
+
 const buildSubmissionSignatureNote = (signatureForm = {}, baseNote = "") => {
   const signatureLine = [
     "Firma simple:",
@@ -2694,6 +2734,8 @@ function DetailPanel({
   const detailRights = item.legal_analysis?.derechos_vulnerados || [];
   const detailNorms = item.legal_analysis?.normas_relevantes || [];
   const detailDx = item.dx_result || {};
+  const finalValidation = item.final_validation || submissionSummary.final_validation || null;
+  const actionableGaps = buildActionableGaps(item, backendPendingQuestions);
   const detailViability = getViabilityConfig(detailDx);
   const detailPrimaryTarget = item.routing?.primary_target || {};
   const detailRoutingChannel = getRoutingChannelLabel(item.routing?.channel || detailPrimaryTarget?.channel);
@@ -3245,6 +3287,30 @@ function DetailPanel({
                       />
                     </Field>
                   </div>
+                  {!!actionableGaps.length && (finalValidation?.status === "requires_changes" || !review?.passed) && (
+                    <div style={{ padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FDBA74", display: "grid", gap: 12 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: "#9A3412" }}>
+                        Faltan datos criticos para corregir este documento
+                      </div>
+                      <div style={{ color: "#9A3412", lineHeight: 1.6 }}>
+                        Completa estos puntos y luego vuelve a generar el documento.
+                      </div>
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {actionableGaps.slice(0, 6).map((gap, index) => (
+                          <div key={`${gap.label}-${index}`} style={{ padding: 14, borderRadius: 14, background: "#FFF", border: "1px solid #FED7AA" }}>
+                            <div style={{ fontWeight: 800, color: C.text }}>{gap.label}</div>
+                            <div style={{ marginTop: 6, color: C.textMuted }}>{gap.prompt}</div>
+                            <div style={{ marginTop: 8, fontSize: 13, color: "#9A3412", fontWeight: 700 }}>
+                              Donde lo completas: {gap.where_to_fix}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <Button variant="secondary" onClick={() => onSetDetailStep(2)}>Ir a completar datos</Button>
+                      </div>
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button onClick={() => onViewDocument(item)}>Ver documento completo</Button>
                     <Button variant="outline" onClick={() => onViewDocument(item)}>Descargar PDF</Button>

@@ -151,6 +151,102 @@ def _get_actionable_high_priority_questions(case: dict[str, Any]) -> list[dict[s
     return actionable
 
 
+def _field_location_label(field: str | None, recommended_action: str = "") -> str:
+    normalized = _lower(field)
+    action = _lower(recommended_action)
+
+    if normalized in {
+        "full_name",
+        "document_number",
+        "address",
+        "phone",
+        "copy_email",
+    }:
+        return "Datos personales y de contacto"
+    if normalized in {
+        "target_entity",
+        "target_pqrs_email",
+        "target_phone",
+        "target_website",
+        "target_identifier",
+    }:
+        return "Entidad y canal de radicacion"
+    if normalized in {
+        "key_dates",
+        "bank_event_date",
+        "prior_claim_date",
+        "petition_previous_submission_date",
+        "tutela_ruling_date",
+    }:
+        return "Fechas importantes del caso"
+    if normalized in {
+        "case_story",
+        "concrete_request",
+        "numbered_requests",
+        "request_type",
+        "requested_data_action",
+        "administrative_requested_fix",
+    }:
+        return "Solucion concreta que necesitas"
+    if normalized in {
+        "available_evidence",
+        "evidence_summary",
+        "supporting_documents",
+    }:
+        return "Pruebas y anexos"
+    if normalized.startswith("bank_") or normalized in {
+        "disputed_charge",
+        "refund_destination",
+    }:
+        return "Detalle del caso financiero"
+    if normalized in {
+        "diagnosis",
+        "treatment_needed",
+        "urgency_detail",
+        "eps_name",
+    }:
+        return "Detalle del caso de salud"
+    if normalized in {
+        "disputed_data",
+        "requested_data_action",
+    }:
+        return "Detalle del dato o reporte cuestionado"
+    if normalized.startswith("tutela_") or normalized in {
+        "acting_capacity",
+        "represented_person_name",
+        "represented_person_age",
+        "represented_person_document",
+        "special_protection",
+        "prior_tutela",
+        "prior_tutela_reason",
+        "ongoing_harm",
+        "subsidiarity_support",
+    }:
+        return "Preguntas finas para tutela"
+    if "tutela" in action:
+        return "Paso de tutela y urgencia actual"
+    if "peticion" in action:
+        return "Paso de derecho de peticion"
+    return "Completa datos del caso"
+
+
+def _build_actionable_gap(
+    *,
+    field: str | None,
+    label: str,
+    prompt: str,
+    recommended_action: str = "",
+    priority: str = "alta",
+) -> dict[str, Any]:
+    return {
+        "field": field,
+        "label": label,
+        "prompt": prompt,
+        "where_to_fix": _field_location_label(field, recommended_action),
+        "priority": priority,
+    }
+
+
 def evaluate_tutela_procedencia(
     *,
     description: str,
@@ -727,6 +823,7 @@ def build_final_validation(
     lowered = _lower(document)
     blocking_issues: list[str] = []
     warnings: list[str] = []
+    actionable_gaps: list[dict[str, Any]] = []
     high_priority_questions = _get_actionable_high_priority_questions(case)
     route = ((case.get("routing") or {}).get("case_route") or (facts.get("dx_result") or {}).get("route") or "").strip()
 
@@ -742,6 +839,16 @@ def build_final_validation(
         blocking_issues.append("El expediente aun no esta en ruta automatizable. Debe completar preguntas o pasar revision previa antes de entregar.")
     if high_priority_questions:
         blocking_issues.append("Faltan datos criticos del caso antes de entregar el documento final.")
+        for question in high_priority_questions:
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field=question.get("field"),
+                    label=question.get("reason") or question.get("question") or "Dato critico faltante",
+                    prompt=question.get("question") or question.get("reason") or "Completa este dato antes de entregar.",
+                    recommended_action=recommended_action,
+                    priority=question.get("priority") or "alta",
+                )
+            )
 
     if not _text(facts.get("fechas_mencionadas")):
         warnings.append("La cronologia sigue debil porque faltan fechas o periodos claros.")
@@ -777,37 +884,157 @@ def build_final_validation(
         if _text(intake.get("acting_capacity")) and _lower(intake.get("acting_capacity")) != "nombre_propio":
             if not _text(intake.get("represented_person_name")):
                 blocking_issues.append("La tutela debe identificar con claridad a la persona representada o al menor afectado.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="represented_person_name",
+                        label="Falta identificar a la persona representada",
+                        prompt="Completa el nombre del menor o de la persona por quien actuas.",
+                        recommended_action=recommended_action,
+                    )
+                )
             if not _text(intake.get("represented_person_age")):
                 blocking_issues.append("La tutela debe indicar la edad o fecha de nacimiento de la persona representada.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="represented_person_age",
+                        label="Falta edad o fecha de nacimiento de la persona representada",
+                        prompt="Indica la edad o fecha de nacimiento de la persona representada.",
+                        recommended_action=recommended_action,
+                    )
+                )
         if not _text(intake.get("tutela_other_means_detail")):
             blocking_issues.append("Antes de entregar la tutela debe quedar claro que hiciste antes para resolverlo o por que eso no solucionaba el dano.")
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field="tutela_other_means_detail",
+                    label="Falta contar que hiciste antes para resolverlo",
+                    prompt="Explica las gestiones previas y que sigue pasando hoy pese a esas gestiones.",
+                    recommended_action=recommended_action,
+                )
+            )
         if not _text(intake.get("tutela_immediacy_detail")):
             blocking_issues.append("Antes de entregar la tutela debe quedar claro que dano o riesgo sigue ocurriendo hoy.")
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field="tutela_immediacy_detail",
+                    label="Falta explicar el dano o riesgo actual",
+                    prompt="Cuenta que sigue ocurriendo hoy y por que el caso sigue siendo urgente.",
+                    recommended_action=recommended_action,
+                )
+            )
         if not _text(intake.get("tutela_previous_action_detail")):
             blocking_issues.append("Antes de entregar la tutela debe quedar claro si ya hubo otra solicitud o tutela por este mismo problema.")
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field="tutela_previous_action_detail",
+                    label="Falta aclarar si ya hubo otra solicitud o tutela",
+                    prompt="Indica si ya presentaste otra tutela, peticion o reclamo por estos mismos hechos y que paso.",
+                    recommended_action=recommended_action,
+                )
+            )
         if not _text(intake.get("tutela_oath_statement")) and not _text(intake.get("tutela_no_temperity_detail")):
             blocking_issues.append("Antes de entregar la tutela debe quedar claro si esta es la primera tutela por este problema o que paso con la anterior.")
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field="tutela_oath_statement",
+                    label="Falta confirmar si esta es la primera tutela por este problema",
+                    prompt="Confirma si esta es la primera tutela o resume que ocurrio con la anterior.",
+                    recommended_action=recommended_action,
+                )
+            )
         if _lower(case.get("categoria")) == "salud":
             if not _text(intake.get("target_entity")):
                 blocking_issues.append("En tutela de salud debe quedar claramente identificada la EPS o IPS accionada.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="target_entity",
+                        label="Falta identificar la EPS o IPS accionada",
+                        prompt="Completa el nombre exacto de la EPS o IPS contra la que va la tutela.",
+                        recommended_action=recommended_action,
+                    )
+                )
             if not _text(intake.get("diagnosis")):
                 blocking_issues.append("En tutela de salud falta el diagnostico o condicion medica principal.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="diagnosis",
+                        label="Falta el diagnostico o condicion medica principal",
+                        prompt="Indica el diagnostico o la condicion medica relevante para el caso.",
+                        recommended_action=recommended_action,
+                    )
+                )
             if not _text(intake.get("treatment_needed")):
                 blocking_issues.append("En tutela de salud falta el medicamento, examen o servicio concreto requerido.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="treatment_needed",
+                        label="Falta el servicio o tratamiento exacto que necesitas",
+                        prompt="Indica el medicamento, procedimiento, examen o servicio ordenado.",
+                        recommended_action=recommended_action,
+                    )
+                )
             if not _text(intake.get("urgency_detail")):
                 blocking_issues.append("En tutela de salud falta explicar la urgencia o el riesgo clinico actual.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="urgency_detail",
+                        label="Falta explicar la urgencia clinica actual",
+                        prompt="Describe el riesgo actual, agravacion, dolor o necesidad inmediata de atencion.",
+                        recommended_action=recommended_action,
+                    )
+                )
     if "derecho de peticion" in recommended_action:
         if not _text(intake.get("numbered_requests")):
             blocking_issues.append("Antes de entregar el derecho de peticion deben quedar claras las 2 o 3 respuestas o soluciones concretas que esperas recibir.")
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field="numbered_requests",
+                    label="Faltan las 2 o 3 soluciones concretas que esperas",
+                    prompt="Escribe las respuestas o soluciones concretas que necesitas que la entidad entregue.",
+                    recommended_action=recommended_action,
+                )
+            )
         if not _text(intake.get("response_channel")) and not _text(intake.get("copy_email")):
             blocking_issues.append("El derecho de peticion debe indicar un canal de notificacion claro.")
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field="copy_email",
+                    label="Falta un canal claro para recibir la respuesta",
+                    prompt="Completa el correo o canal donde quieres recibir la respuesta formal.",
+                    recommended_action=recommended_action,
+                )
+            )
         if _lower(intake.get("petition_target_nature")) == "privada" and not _text(intake.get("petition_private_ground")):
             blocking_issues.append("Si la peticion se dirige a un particular, debe explicarse el fundamento juridico para exigir respuesta.")
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field="petition_private_ground",
+                    label="Falta explicar por que ese particular debe responder",
+                    prompt="Indica por que ese particular esta obligado a responderte en este caso.",
+                    recommended_action=recommended_action,
+                )
+            )
     if "reclamacion financiera" in recommended_action:
         if not _text(intake.get("bank_product_type")):
             blocking_issues.append("La reclamacion financiera debe identificar el producto bancario o financiero afectado.")
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field="bank_product_type",
+                    label="Falta identificar el producto financiero afectado",
+                    prompt="Indica si el caso es sobre tarjeta, cuenta, credito, seguro u otro producto.",
+                    recommended_action=recommended_action,
+                )
+            )
         if not _text(intake.get("disputed_charge")):
             blocking_issues.append("La reclamacion financiera debe identificar el cobro, seguro o cargo discutido.")
+            actionable_gaps.append(
+                _build_actionable_gap(
+                    field="disputed_charge",
+                    label="Falta identificar el cobro o cargo discutido",
+                    prompt="Indica cual cobro, seguro o cargo estas cuestionando exactamente.",
+                    recommended_action=recommended_action,
+                )
+            )
         if not _text(intake.get("bank_amount_involved")):
             warnings.append("Conviene precisar el monto discutido para fortalecer la devolucion o reverso solicitado.")
         if _lower(intake.get("prior_claim")) not in {"si", "sÃ­", "reclame", "reclamo"} and not _text(intake.get("prior_claim_result")):
@@ -836,6 +1063,42 @@ def build_final_validation(
         if any(_is_ai_owned_quality_issue(issue) for issue in quality_review["blocking_issues"]):
             warnings.append("La IA seguira depurando internamente fuentes y jurisprudencia verificable antes de la entrega final.")
 
+    fallback_gap_rules = [
+        (
+            "Antes de entregar una reclamacion financiera debe quedar documentado el reclamo previo o su justificacion.",
+            _build_actionable_gap(
+                field="prior_claim_result",
+                label="Falta dejar trazabilidad del reclamo previo o explicar por que aun no existe",
+                prompt="Cuenta si ya reclamaste al banco, por cual canal y que respondieron, o explica que este sera el primer reclamo.",
+                recommended_action=recommended_action,
+            ),
+        ),
+        (
+            "En habeas data debe identificarse el dato, reporte o registro cuestionado.",
+            _build_actionable_gap(
+                field="disputed_data",
+                label="Falta identificar el dato o reporte cuestionado",
+                prompt="Indica el dato, reporte o registro personal que quieres corregir o eliminar.",
+                recommended_action=recommended_action,
+            ),
+        ),
+        (
+            "En habeas data debe quedar clara la accion solicitada sobre el dato.",
+            _build_actionable_gap(
+                field="requested_data_action",
+                label="Falta indicar como debe quedar corregido el dato",
+                prompt="Indica si debe eliminarse, corregirse, actualizarse o acreditarse con autorizacion.",
+                recommended_action=recommended_action,
+            ),
+        ),
+    ]
+    existing_gap_keys = {(item.get("field"), item.get("label")) for item in actionable_gaps}
+    for issue_text, gap in fallback_gap_rules:
+        gap_key = (gap.get("field"), gap.get("label"))
+        if issue_text in blocking_issues and gap_key not in existing_gap_keys:
+            actionable_gaps.append(gap)
+            existing_gap_keys.add(gap_key)
+
     apto = not blocking_issues and bool(quality_review.get("passed"))
     status = "apto" if apto else "requires_changes"
     next_action = "entregar" if apto else "pedir_mas_datos" if warnings else "corregir"
@@ -845,6 +1108,7 @@ def build_final_validation(
         "apto_para_entrega": apto,
         "blocking_issues": list(dict.fromkeys(blocking_issues)),
         "warnings": list(dict.fromkeys(warnings)),
+        "actionable_gaps": list({(item.get("field"), item.get("label")): item for item in actionable_gaps}.values()),
         "quality_score": quality_review.get("score"),
         "citation_guard": citation_guard,
         "next_action": next_action,
