@@ -1041,13 +1041,29 @@ def build_final_validation(
                         recommended_action=recommended_action,
                     )
                 )
-            if not _text(intake.get("urgency_detail")):
-                blocking_issues.append("En tutela de salud falta explicar la urgencia o el riesgo clinico actual.")
+            has_current_health_facts = any(
+                _text(intake.get(field))
+                for field in (
+                    "urgency_detail",
+                    "ongoing_harm",
+                    "eps_response_detail",
+                    "tutela_immediacy_detail",
+                    "tutela_other_means_detail",
+                    "tutela_special_protection_detail",
+                )
+            ) or (
+                _text(intake.get("special_protection")) and _lower(intake.get("special_protection")) not in {"no aplica", "ninguno"}
+            ) or _has_any(
+                text,
+                ["riesgo", "dolor", "agrav", "empeor", "crisis", "urgencias", "hospital", "sin medicamento", "sin examen", "sin tratamiento"],
+            )
+            if not has_current_health_facts:
+                blocking_issues.append("En tutela de salud faltan hechos actuales del paciente: que sigue pasando hoy y que riesgo o afectacion continua sin el servicio.")
                 actionable_gaps.append(
                     _build_actionable_gap(
                         field="urgency_detail",
-                        label="Falta explicar la urgencia clinica actual",
-                        prompt="Describe el riesgo actual, agravacion, dolor o necesidad inmediata de atencion.",
+                        label="Falta contar que sigue pasando hoy al paciente",
+                        prompt="Describe que sintomas, dolor, suspension del tratamiento, riesgo o empeoramiento siguen ocurriendo hoy.",
                         recommended_action=recommended_action,
                     )
                 )

@@ -144,7 +144,7 @@ const autofillFieldLabels = {
   disputed_data: "Dato cuestionado",
   prior_claim: "Gestion previa detectada",
   prior_claim_result: "Respuesta o barrera detectada",
-  urgency_detail: "Urgencia detectada",
+  urgency_detail: "Riesgo o afectacion actual",
   tutela_other_means_detail: "Gestion previa resumida",
   special_protection: "Proteccion especial",
   tutela_special_protection_detail: "Detalle de proteccion especial",
@@ -359,8 +359,8 @@ const getPostPayQuestionPrompts = (form, caseItem) => {
   }
   if (category === "datos" && !form.requested_data_action?.trim()) prompts.push("Como deberia quedar corregido ese dato o reporte?");
   if (action.includes("derecho de peticion") && !form.numbered_requests?.trim()) prompts.push("Si la entidad te respondiera hoy, cuales serian las 2 o 3 soluciones concretas que necesitas recibir?");
-  if (action === "accion de tutela" && !form.tutela_other_means_detail?.trim()) prompts.push("Que hiciste antes para resolverlo y que sigue pasando hoy que hace urgente intervenir?");
-  if (action === "accion de tutela" && !form.tutela_immediacy_detail?.trim()) prompts.push("Que esta pasando hoy que hace urgente presentar esto ahora?");
+  if (action === "accion de tutela" && !form.tutela_other_means_detail?.trim()) prompts.push("Que hiciste antes para resolverlo y que hizo despues la EPS o la entidad?");
+  if (action === "accion de tutela" && !form.tutela_immediacy_detail?.trim()) prompts.push("Que sigue pasando hoy al paciente o al afectado desde que no entregan el servicio?");
   if (action === "accion de tutela" && category === "salud") {
     if (!form.medical_order_date?.trim()) prompts.push("En que fecha te ordenaron el examen, medicamento o procedimiento?");
     if (!form.treating_doctor_name?.trim()) prompts.push("Como se llama el medico tratante que ordeno el servicio?");
@@ -1185,7 +1185,7 @@ const getGuidedIntakeMissing = (form, files = []) => {
     if (!form.eps_name.trim()) missing.push("EPS");
     if (!form.diagnosis.trim()) missing.push("Diagnostico o condicion medica");
     if (!form.treatment_needed.trim()) missing.push("Tratamiento, orden o servicio requerido");
-    if (!form.urgency_detail.trim()) missing.push("Urgencia o riesgo actual");
+    if (!form.urgency_detail.trim()) missing.push("Que sigue pasando hoy al paciente");
     if (form.acting_capacity !== "nombre_propio") {
       if (!form.represented_person_name.trim()) missing.push("Nombre del menor o paciente representado");
       if (!form.represented_person_age.trim()) missing.push("Edad o fecha de nacimiento del paciente representado");
@@ -1276,7 +1276,7 @@ const getPreviewGateIssues = (form, files = []) => {
   }
 
   if (form.category === "Salud" && form.urgency_detail.trim().length < 20) {
-    issues.push("En salud debes explicar mejor la urgencia o el riesgo clinico actual.");
+    issues.push("En salud falta contar mejor que sigue pasando hoy al paciente y que afectacion continua sin el servicio.");
   }
 
   if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category) && form.numbered_requests.trim().length < 15) {
@@ -1568,6 +1568,21 @@ const buildGuidedIntakeInterviewSteps = (form) => {
     );
   }
 
+  for (const step of steps) {
+    if (step.id === "urgency_detail") {
+      step.question = "Que esta pasando hoy al paciente desde que falta el servicio o medicamento?";
+      step.placeholder = "Ej: sigue sin medicamento, empeora, tiene dolor, crisis, recaidas o no puede iniciar el tratamiento";
+    }
+    if (step.id === "tutela_other_means_detail") {
+      step.question = "Antes de llegar aqui, que hiciste para resolverlo y que paso despues?";
+      step.placeholder = "Ej: pedi autorizacion, no respondieron o no agendaron, y el problema sigue igual";
+    }
+    if (step.id === "tutela_immediacy_detail") {
+      step.question = "Que sigue pasando hoy al paciente o al afectado desde que no entregan el servicio?";
+      step.placeholder = "Ej: sigue sin medicamento, no hacen el examen, empeora, tiene dolor o no puede empezar el tratamiento";
+    }
+  }
+
   return steps.filter((step) => step.show);
 };
 
@@ -1641,7 +1656,7 @@ const getActionSpecificIssues = (recommendedAction, form) => {
     if (form.tutela_previous_action_detail.trim().length < 15) issues.push("La tutela debe diferenciar si ya hubo otra tutela, peticion, incidente o medida previa por los mismos hechos.");
     if (!form.tutela_oath_statement.trim() && form.tutela_no_temperity_detail.trim().length < 20) issues.push("La tutela debe incluir una declaracion expresa bajo juramento sobre no temeridad.");
     if (form.tutela_other_means_detail.trim().length < 25) issues.push("Cuenta con mas detalle que hiciste antes y que sigue pasando hoy para mostrar por que el problema sigue abierto.");
-    if (form.tutela_immediacy_detail.trim().length < 20) issues.push("Explica mejor que esta pasando ahora mismo para mostrar la urgencia actual.");
+    if (form.tutela_immediacy_detail.trim().length < 20) issues.push("Cuenta mejor que sigue pasando hoy al paciente para que la IA construya internamente la urgencia del caso.");
   }
 
   if (action === "derecho de peticion" || action === "derecho de peticion a eps" || action === "derecho de peticion laboral" || action === "derecho de peticion financiero" || action === "derecho de peticion a empresa de servicios" || action === "derecho de peticion al proveedor") {
@@ -1740,8 +1755,8 @@ function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFiel
         <Field label="Que hiciste antes para resolverlo y que sigue pasando hoy">
           <TextArea value={form.tutela_other_means_detail} onChange={(event) => setField("tutela_other_means_detail", event.target.value)} placeholder="Ej: fui a la EPS, a la farmacia y a atencion al usuario, pero no solucionaron; mi hijo sigue sin medicamento y el riesgo continua." style={{ minHeight: 90 }} />
         </Field>
-        <Field label="Que hace urgente este caso hoy">
-          <TextInput value={form.tutela_immediacy_detail} onChange={(event) => setField("tutela_immediacy_detail", event.target.value)} placeholder="Ej: el medicamento sigue sin entregarse hoy, el riesgo es actual y ya hubo urgencias recientes" />
+        <Field label="Que sigue pasando hoy al paciente">
+          <TextInput value={form.tutela_immediacy_detail} onChange={(event) => setField("tutela_immediacy_detail", event.target.value)} placeholder="Ej: el medicamento sigue sin entregarse, no hacen el examen y el paciente sigue empeorando" />
         </Field>
         <Field label="Sujeto de especial proteccion, si aplica">
           <TextInput value={form.tutela_special_protection_detail} onChange={(event) => setField("tutela_special_protection_detail", event.target.value)} placeholder="Ej: menor, embarazada, adulto mayor, discapacidad, paciente de alto riesgo" />
@@ -1951,7 +1966,7 @@ const humanizeAiOwnedIssue = (issue) => {
     return "Si la tutela va contra un particular, la IA construira internamente esa justificacion sin pedirtela en lenguaje tecnico.";
   }
   if (normalized.includes("urgencia") || normalized.includes("procedencia")) {
-    return "La IA reforzara internamente la urgencia del caso con redaccion juridica basada en tus hechos.";
+    return "La IA reforzara internamente la procedencia con base en tus hechos; tu solo debes contar que pasa hoy, que ordenaron y que hizo la entidad.";
   }
   if (normalized.includes("jurisprudencia") || normalized.includes("fuentes verificadas")) {
     return "La IA verificara y reforzara internamente la jurisprudencia y las fuentes oficiales antes de entregar el documento.";
@@ -2533,8 +2548,8 @@ function GuidedIntakeFields({
           <TextInput value={form.eps_request_reference} onChange={(event) => setField("eps_request_reference", event.target.value)} placeholder="Ej: AUT-23991 o no lo entregaron" />
         </Field>
           </div>
-          <Field label="Urgencia o riesgo clinico">
-            <TextArea value={form.urgency_detail} onChange={(event) => setField("urgency_detail", event.target.value)} placeholder="Describe si hay dolor, agravacion, riesgo vital, suspension de tratamiento o afectacion grave." style={{ minHeight: 100, marginTop: 16 }} />
+          <Field label="Que sigue pasando hoy al paciente">
+            <TextArea value={form.urgency_detail} onChange={(event) => setField("urgency_detail", event.target.value)} placeholder="Describe si sigue sin medicamento, sin examen, con dolor, empeorando o sin poder iniciar el tratamiento." style={{ minHeight: 100, marginTop: 16 }} />
           </Field>
           <Field label="Respuesta o barrera concreta de la EPS">
             <TextArea value={form.eps_response_detail} onChange={(event) => setField("eps_response_detail", event.target.value)} placeholder="Ej: negaron la autorizacion, no respondieron, dejaron el caso en tramite o no dieron agenda." style={{ minHeight: 100, marginTop: 16 }} />

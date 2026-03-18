@@ -234,7 +234,7 @@ def evaluate_document_rule(
         if not any(word in full_text for word in ["inmediatez", "reciente", "actualmente", "hoy", "sigue ocurriendo"]):
             blocking_issues.append("La tutela debe explicar por que la vulneracion es actual o por que se cumple la inmediatez.")
         if not any(word in full_text for word in ["urgencia", "riesgo", "perjuicio", "vulneracion", "vulneración", "derecho fundamental"]):
-            blocking_issues.append("La tutela necesita explicar urgencia, vulneracion o procedencia con mas fuerza.")
+            blocking_issues.append("La tutela necesita dejar mejor descritos los hechos actuales del paciente, la barrera de la EPS y el riesgo que sigue ocurriendo hoy.")
         if any(word in full_text for word in ["particular", "empresa privada", "privada", "privado"]) and not any(
             word in full_text
             for word in ["servicio publico", "servicio p?blico", "indefension", "indefensi?n", "subordinacion", "subordinaci?n", "posicion dominante", "posici?n dominante", "articulo 42", "art. 42"]
