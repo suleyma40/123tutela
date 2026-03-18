@@ -185,6 +185,15 @@ def _normalize_account_reference(reference: str) -> str:
     return text
 
 
+def _person_name(value: str | None) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "Usuario"
+    if text == text.lower():
+        return " ".join(part.capitalize() for part in text.split())
+    return text
+
+
 def _financial_amount_breakdown(case: dict[str, Any], intake: dict[str, Any]) -> dict[str, Any]:
     facts = case.get("facts") or {}
     attachment_intelligence = facts.get("attachment_intelligence") or {}
@@ -420,7 +429,7 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     contact_parts = [item for item in [pqrs_email, notification_email] if item]
     contact = " / ".join(dict.fromkeys(contact_parts)) or target_website or "Canal oficial de atencion"
 
-    user_name = case.get("usuario_nombre") or "Usuario"
+    user_name = _person_name(case.get("usuario_nombre"))
     user_doc = case.get("usuario_documento") or "Sin documento registrado"
     user_email = case.get("usuario_email") or "Sin correo"
     user_phone = case.get("usuario_telefono") or "Sin telefono"
@@ -444,7 +453,7 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
         .replace("December", "diciembre")
     )
 
-    product_type = str(intake.get("bank_product_type") or "tarjeta de credito").strip()
+    product_type = str(intake.get("bank_product_type") or "tarjeta de crédito").strip()
     disputed_charge = str(intake.get("disputed_charge") or "un cobro no autorizado").strip()
     amount = str(intake.get("bank_amount_involved") or "").strip()
     refund_destination = _detect_refund_destination(intake, case)
@@ -471,10 +480,10 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
 
     chronology_lines = [
         "Soy titular del producto financiero administrado por la entidad reclamada y cuestiono formalmente los cargos descritos en este escrito.",
-        f"En fecha que ubico de manera aproximada en {event_date}, adverti que el extracto de mi {product_type} registra cargos asociados a {disputed_charge}.",
-        f"No otorgue autorizacion previa, expresa e informada para la inclusion de {disputed_charge}.",
-        "La entidad no suministro soporte contractual, poliza, certificado, grabacion, aceptacion digital verificable ni documento equivalente que pruebe mi consentimiento.",
-        "El cobro se ha mantenido de forma sucesiva, con impacto economico directo sobre mis obligaciones financieras y mi capacidad de pago.",
+        f"En fecha que ubico de manera aproximada en {event_date}, advertí que el extracto de mi {product_type} registra cargos asociados a {disputed_charge}.",
+        f"No otorgué autorización previa, expresa e informada para la inclusión de {disputed_charge}.",
+        "La entidad no suministró soporte contractual, póliza, certificado, grabación, aceptación digital verificable ni documento equivalente que pruebe mi consentimiento.",
+        "El cobro se ha mantenido de forma sucesiva, con impacto económico directo sobre mis obligaciones financieras y mi capacidad de pago.",
     ]
     if amount_breakdown["entries"]:
         chronology_lines.append(
@@ -489,13 +498,13 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     elif amount:
         chronology_lines.append(f"El monto actualmente identificado asciende de manera aproximada a {amount}, por lo que antes de escalar ante autoridades conviene consolidar el cuadro exacto de cobros con soporte en extractos.")
     else:
-        chronology_lines.append("Aun falta consolidar el cuadro exacto de cargos mes a mes, por lo que corresponde a la entidad certificar el valor total cobrado desde la primera facturacion y a la usuaria completar ese soporte con extractos si decide esperar antes de radicar.")
+        chronology_lines.append("Aún falta consolidar el cuadro exacto de cargos mes a mes, por lo que corresponde a la entidad certificar el valor total cobrado desde la primera facturación y a la usuaria completar ese soporte con extractos si decide esperar antes de radicar.")
     if account_reference:
         chronology_lines.append(f"El producto financiero puede individualizarse como {account_reference}.")
     if prior_claim == "si" and prior_claim_date:
-        chronology_lines.append(f"Antes de este escrito ya se formulo gestion directa ante la entidad en fecha {prior_claim_date}.")
+        chronology_lines.append(f"Antes de este escrito ya se formuló gestión directa ante la entidad en fecha {prior_claim_date}.")
     if prior_claim_result:
-        chronology_lines.append(f"Frente a dicha reclamacion previa, la respuesta o actuacion reportada fue la siguiente: {_sentence(prior_claim_result)}")
+        chronology_lines.append(f"Frente a dicha reclamación previa, la respuesta o actuación reportada fue la siguiente: {_sentence(prior_claim_result)}")
     elif prior_claim == "si":
         chronology_lines.append("A la fecha no existe una respuesta de fondo, completa y verificable que explique el origen del cobro o justifique su permanencia.")
     extra_chronology = [
@@ -508,74 +517,74 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     chronology_lines = _dedupe_lines(chronology_lines)
 
     failure_lines = [
-        "La entidad efectuo o mantuvo cobros sin demostrar una autorizacion valida, expresa e informada de la titular.",
-        "La entidad incumplio su deber de informacion transparente, clara, verificable y suficiente sobre el producto o servicio que esta cobrando.",
-        "La entidad no acredito trazabilidad contractual ni soporte documental idoneo del seguro o concepto facturado.",
+        "La entidad efectuó o mantuvo cobros sin demostrar una autorización válida, expresa e informada de la titular.",
+        "La entidad incumplió su deber de información transparente, clara, verificable y suficiente sobre el producto o servicio que está cobrando.",
+        "La entidad no acreditó trazabilidad contractual ni soporte documental idóneo del seguro o concepto facturado.",
     ]
     if any(token in f"{case.get('descripcion', '')} {facts.get('hechos_principales', '')}".lower() for token in ["datacredito", "transunion", "central", "reporte"]):
-        failure_lines.append("Si el cobro impacto reportes negativos, la permanencia de esa informacion sin soporte suficiente compromete el habeas data financiero de la titular.")
+        failure_lines.append("Si el cobro impactó reportes negativos, la permanencia de esa información sin soporte suficiente compromete el habeas data financiero de la titular.")
     failure_lines.extend([line for line in failures if "persona usuaria" not in line.lower()][:1])
     failure_lines = _dedupe_lines(failure_lines)
 
     request_lines = [
-        suggested_pretensions[0] if suggested_pretensions else "Que se elimine de manera inmediata y definitiva el cobro no autorizado cuestionado en este reclamo.",
+        "CESAR de manera inmediata y definitiva el cobro no autorizado cuestionado en esta reclamación.",
         (
-            f"Que se reintegre la suma exacta de {exact_total_text}, correspondiente a los cobros identificados en los extractos aportados, "
-            "sin perjuicio de los valores adicionales que aparezcan al consolidar la totalidad del historico."
+            f"REINTEGRAR la suma exacta de {exact_total_text}, correspondiente a los cobros identificados en los extractos aportados, "
+            "sin perjuicio de los valores adicionales que aparezcan al consolidar la totalidad del histórico."
             if exact_total_text
-            else "Que se reintegre la totalidad de los valores cobrados por el concepto no autorizado desde la primera facturacion identificable, con actualizacion e indexacion a la fecha del pago."
+            else "REINTEGRAR la totalidad de los valores cobrados por el concepto no autorizado desde la primera facturación identificable, con actualización e indexación a la fecha del pago."
         ),
-        "Que se certifique por escrito la eliminacion definitiva del cobro y se entregue el historial completo de cargos, fechas, valores y referencias aplicadas.",
-        "Que se remita copia integra del soporte en el que supuestamente consta mi autorizacion; si dicho soporte no existe, solicito que ello se declare expresamente.",
+        "CERTIFICAR por escrito la eliminación definitiva del cobro y entregar el historial completo de cargos, fechas, valores y referencias aplicadas.",
+        "REMITIR copia íntegra del soporte en el que supuestamente consta mi autorización; si dicho soporte no existe, declararlo expresamente.",
     ]
     if any(token in f"{case.get('descripcion', '')} {facts.get('hechos_principales', '')}".lower() for token in ["datacredito", "transunion", "central", "reporte"]):
-        request_lines.append("Que, de existir reporte ante centrales de riesgo asociado al cobro controvertido, se ordene su correccion inmediata y se remita constancia de actualizacion.")
+        request_lines.append("CORREGIR de inmediato cualquier reporte ante centrales de riesgo asociado al cobro controvertido y remitir constancia de actualización.")
     else:
-        request_lines.append("Que, si la entidad realizo reporte negativo derivado del cobro controvertido, proceda a corregirlo de inmediato y me remita constancia del ajuste ante las centrales respectivas.")
-    request_lines.append("Que se informe la identidad de la aseguradora o tercero beneficiario del cobro, el numero de poliza o producto asociado y las condiciones bajo las cuales se registro en el sistema de la entidad.")
+        request_lines.append("CORREGIR de inmediato cualquier reporte negativo derivado del cobro controvertido y remitir constancia del ajuste ante las centrales respectivas, si dicho reporte existe.")
+    request_lines.append("INFORMAR la identidad de la aseguradora o tercero beneficiario del cobro, el número de póliza o producto asociado y las condiciones bajo las cuales se registró en el sistema de la entidad.")
     if refund_destination:
-        request_lines.append(f"Que la devolucion correspondiente se abone en {refund_destination}, o en el canal que la entidad y la suscrita acuerden de manera verificable.")
+        request_lines.append(f"ABONAR la devolución correspondiente en {refund_destination}, o en el canal que la entidad y la suscrita acuerden de manera verificable.")
     if not exact_amount_known:
-        request_lines.append("Que la entidad entregue un cuadro detallado con fecha, valor y concepto de cada cobro aplicado, para definir con exactitud la suma total a devolver.")
+        request_lines.append("ENTREGAR un cuadro detallado con fecha, valor y concepto de cada cobro aplicado, para definir con exactitud la suma total a devolver.")
     request_lines = _dedupe_lines(request_lines)
 
     response_term = (
-        "De conformidad con el articulo 14 de la Ley 1755 de 2015, la presente reclamacion debe ser resuelta dentro de los quince (15) dias habiles siguientes a su radicacion, "
+        "De conformidad con el artículo 14 de la Ley 1755 de 2015, la presente reclamación debe ser resuelta dentro de los quince (15) días hábiles siguientes a su radicación, "
         "mediante respuesta de fondo, clara, congruente y verificable."
     )
     warning_text = (
-        f"En caso de silencio, respuesta evasiva o negativa infundada, la suscrita acudira en primer termino al Defensor del Consumidor Financiero de {entity_name} y, "
-        f"de persistir el incumplimiento, escalara la situacion ante {control_entity or 'la Superintendencia Financiera de Colombia'}, "
-        "sin perjuicio de formular accion de tutela por vulneracion del derecho de peticion o activar las acciones administrativas y de habeas data que correspondan."
+        f"En caso de silencio, respuesta evasiva o negativa infundada, la suscrita acudirá en primer término al Defensor del Consumidor Financiero de {entity_name} y, "
+        f"de persistir el incumplimiento, escalará la situación ante {control_entity or 'la Superintendencia Financiera de Colombia'}, "
+        "sin perjuicio de formular acción de tutela por vulneración del derecho de petición o activar las acciones administrativas y de habeas data que correspondan."
     )
     evidence_items = _uploaded_evidence_items(case)
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     header_lines = [
         f"{city.title() if city else 'Colombia'}, {formatted_header_date}",
-        "Senores",
+        "Señores",
         entity_name.upper(),
     ]
     if nit:
         header_lines.append(f"NIT: {nit}")
     if representative:
-        header_lines.append(f"Atencion: {representative}, representante legal")
+        header_lines.append(f"Atención: {representative}, representante legal")
     if target_address:
-        header_lines.append(f"Direccion: {target_address}")
+        header_lines.append(f"Dirección: {target_address}")
     header_lines.append(f"Correo: {contact}")
     if target_phone:
-        header_lines.append(f"Telefono: {target_phone}")
+        header_lines.append(f"Teléfono: {target_phone}")
 
     intro = (
-        f"Yo, {user_name}, mayor de edad, identificado(a) con cedula de ciudadania No. {user_doc}, domiciliado(a) en {address}, {city}, {department}, "
-        f"con correo electronico {user_email} y telefono {user_phone}, actuando en calidad de consumidor(a) financiero(a) y titular de {product_type}, "
-        f"presento la siguiente reclamacion formal contra {entity_name}."
+        f"Yo, {user_name}, mayor de edad, identificado(a) con cédula de ciudadanía No. {user_doc}, domiciliado(a) en {address}, {city}, {department}, "
+        f"con correo electrónico {user_email} y teléfono {user_phone}, actuando en calidad de consumidor(a) financiero(a) y titular de {product_type}, "
+        f"presento la siguiente reclamación formal contra {entity_name}."
     )
 
     return f"""{'\n'.join(header_lines)}
-Asunto: RECLAMACION FORMAL POR COBRO NO AUTORIZADO EN {product_type.upper()} - Articulo 23 de la Constitucion Politica, Ley 1328 de 2009, Ley 1480 de 2011 y Ley 1755 de 2015
+Asunto: RECLAMACIÓN FORMAL POR COBRO NO AUTORIZADO EN {product_type.upper()} - Artículo 23 de la Constitución Política, Ley 1328 de 2009, Ley 1480 de 2011 y Ley 1755 de 2015
 
-I. IDENTIFICACION DEL CONSUMIDOR FINANCIERO
+I. IDENTIFICACIÓN DEL CONSUMIDOR FINANCIERO
 {intro}
 
 II. HECHOS
@@ -597,7 +606,7 @@ IV. IRREGULARIDADES ATRIBUIDAS A LA ENTIDAD
 V. SOLICITUDES CONCRETAS
 {_numbered_lines(request_lines)}
 
-VI. TERMINO LEGAL DE RESPUESTA
+VI. TÉRMINO LEGAL DE RESPUESTA
 {response_term}
 
 VII. ADVERTENCIA LEGAL
@@ -607,7 +616,7 @@ VIII. PRUEBAS Y ANEXOS
 {_numbered_lines(evidence_items)}
 
 IX. NOTIFICACIONES
-Solicito que toda respuesta, decision o requerimiento relacionado con la presente reclamacion se remita al correo {user_email}, al telefono {user_phone} y, si aplica, a la direccion fisica {address}, {city}, {department}.
+Solicito que toda respuesta, decisión o requerimiento relacionado con la presente reclamación se remita al correo {user_email}, al teléfono {user_phone} y, si aplica, a la dirección física {address}, {city}, {department}.
 
 Constancia de generacion: {generated_at}
 
