@@ -130,6 +130,17 @@ def _detect_refund_destination(intake: dict[str, Any], case: dict[str, Any]) -> 
     return ""
 
 
+def _uploaded_evidence_items(case: dict[str, Any]) -> list[str]:
+    facts = case.get("facts") or {}
+    uploaded_files = facts.get("uploaded_evidence_files") or []
+    items = ["Copia del documento de identidad de la reclamante."]
+    for file_info in uploaded_files:
+        name = str((file_info or {}).get("original_name") or "").strip()
+        if name:
+            items.append(f"Archivo aportado por la usuaria: {name}.")
+    return _dedupe_lines(items)
+
+
 def _extract_month_reference(text: str) -> str:
     lowered = str(text or "").lower()
     months = [
@@ -420,14 +431,7 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
         f"En caso de silencio, respuesta evasiva o negativa infundada, la suscrita podra escalar la situacion ante {control_entity or 'la Superintendencia Financiera de Colombia'}, "
         "formular accion de tutela por vulneracion del derecho de peticion y activar las acciones administrativas o de habeas data que correspondan."
     )
-    evidence_items = [
-        "Copia del documento de identidad de la reclamante.",
-        "Extractos, estados de cuenta o movimientos donde consten los cobros controvertidos.",
-        "Capturas, correos, chats o comunicaciones con la entidad financiera sobre el cargo reclamado.",
-        "Contrato, reglamento, certificado o constancia que la entidad haya suministrado sobre el producto cuestionado.",
-    ]
-    suggested_evidence = [str(item).strip() for item in rule.get("suggested_evidence") or [] if str(item).strip()]
-    evidence_items = _clean_financial_evidence_items(evidence_items, suggested_evidence, has_prior_claim=prior_claim == "si")
+    evidence_items = _uploaded_evidence_items(case)
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     header_lines = [
@@ -514,7 +518,7 @@ def _build_petition_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     department = case.get("usuario_departamento") or ""
     chronology_text = _paragraph_lines(_generic_facts(case))
     pretensions = _generic_pretensions(case, rule["action_key"])
-    evidence_text = _join_list(rule.get("suggested_evidence"), fallback="documentos soporte del caso")
+    evidence_text = _join_list(_uploaded_evidence_items(case), fallback="Copia del documento de identidad del peticionario.")
     request_type = str(intake.get("request_type") or "interes particular").replace("_", " ").strip()
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
@@ -566,7 +570,7 @@ def _build_tutela_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     rights = _join_list(legal_analysis.get("derechos_vulnerados"), fallback="derechos fundamentales comprometidos")
     chronology_text = _paragraph_lines(_generic_facts(case))
     pretensions = _generic_pretensions(case, rule["action_key"])
-    evidence_text = _join_list(rule.get("suggested_evidence"), fallback="documentos soporte del caso")
+    evidence_text = _join_list(_uploaded_evidence_items(case), fallback="Copia del documento de identidad del accionante.")
     procedencia = facts.get("tutela_procedencia") or {}
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
@@ -648,7 +652,7 @@ def _build_generic_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     )
     if verified_basis:
         legal_basis = f"{legal_basis} {verified_basis}".strip()
-    evidence_text = _join_list(rule.get("suggested_evidence"))
+    evidence_text = _join_list(_uploaded_evidence_items(case), fallback="Copia del documento de identidad de la persona usuaria.")
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     return f"""Senores

@@ -1362,6 +1362,16 @@ def generate_document(
     case = _refresh_verified_case_context(case)
     facts = dict(case.get("facts") or {})
     intake_form = dict(facts.get("intake_form") or {})
+    attachment_records = repository.list_files_for_case(case_id)
+    facts["uploaded_evidence_files"] = [
+        {
+            "id": str(item.get("id")),
+            "original_name": str(item.get("original_name") or ""),
+            "file_kind": str(item.get("file_kind") or ""),
+        }
+        for item in attachment_records
+        if item.get("original_name")
+    ]
     facts["document_insights"] = analyzer.compose_document_insights(
         description=case.get("descripcion") or "",
         category=case.get("categoria") or case.get("category"),
