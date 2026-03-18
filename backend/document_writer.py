@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import re
 from typing import Any
 
 from backend.document_rules import get_document_rule
@@ -128,6 +129,86 @@ def _detect_refund_destination(intake: dict[str, Any], case: dict[str, Any]) -> 
     if "misma cuenta" in text or "a mi cuenta" in text or "a la cuenta" in text:
         return "la misma cuenta asociada al producto financiero"
     return ""
+
+
+def _parse_cop_amount(value: str) -> int | None:
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    digits = re.sub(r"[^\d]", "", text)
+    if not digits:
+        return None
+    try:
+        return int(digits)
+    except Exception:
+        return None
+
+
+def _format_cop_amount(value: int | None) -> str:
+    if value is None:
+        return ""
+    return f"${value:,}".replace(",", ".")
+
+
+def _amount_looks_approximate(value: str) -> bool:
+    lowered = str(value or "").strip().lower()
+    if not lowered:
+        return True
+    return any(
+        token in lowered
+        for token in [
+            "aproxim",
+            "estimad",
+            "mas o menos",
+            "cerca de",
+            "alrededor",
+            "sin perjuicio",
+        ]
+    )
+
+
+def _normalize_account_reference(reference: str) -> str:
+    text = str(reference or "").strip()
+    if not text:
+        return ""
+    digits = re.sub(r"[^\d]", "", text)
+    if len(digits) >= 4:
+        return f"tarjeta terminada en {digits[-4:]}"
+    return text
+
+
+def _financial_amount_breakdown(case: dict[str, Any], intake: dict[str, Any]) -> dict[str, Any]:
+    facts = case.get("facts") or {}
+    attachment_intelligence = facts.get("attachment_intelligence") or {}
+    profiles = attachment_intelligence.get("attachment_profiles") or []
+    entries: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for profile in profiles:
+        if str(profile.get("type") or "").strip() != "extracto":
+            continue
+        suggestions = profile.get("suggestions") or {}
+        date = str(suggestions.get("bank_event_date") or "").strip()
+        amount_text = str(suggestions.get("bank_amount_involved") or "").strip()
+        parsed = _parse_cop_amount(amount_text)
+        if not date or parsed is None:
+            continue
+        key = (date.lower(), str(parsed))
+        if key in seen:
+            continue
+        seen.add(key)
+        entries.append({"date": date, "amount": parsed, "amount_text": _format_cop_amount(parsed)})
+
+    total = sum(item["amount"] for item in entries) if entries else None
+    raw_amount = str(intake.get("bank_amount_involved") or "").strip()
+    parsed_raw = _parse_cop_amount(raw_amount)
+    exact_known = bool(entries) or (bool(raw_amount) and not _amount_looks_approximate(raw_amount) and parsed_raw is not None)
+    return {
+        "entries": entries,
+        "total": total,
+        "raw_amount": raw_amount,
+        "parsed_raw": parsed_raw,
+        "exact_known": exact_known,
+    }
 
 
 def _uploaded_evidence_items(case: dict[str, Any]) -> list[str]:
@@ -358,7 +439,7 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     disputed_charge = str(intake.get("disputed_charge") or "un cobro no autorizado").strip()
     amount = str(intake.get("bank_amount_involved") or "").strip()
     refund_destination = _detect_refund_destination(intake, case)
-    account_reference = str(intake.get("bank_account_reference") or "").strip()
+    account_reference = _normalize_account_reference(str(intake.get("bank_account_reference") or "").strip())
     event_date = _financial_date_label(intake, facts, str(case.get("descripcion") or ""))
     prior_claim = str(intake.get("prior_claim") or "").strip().lower()
     prior_claim_date = str(intake.get("prior_claim_date") or "").strip()
@@ -375,6 +456,9 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
         [source for source in source_index["norma"] + source_index["guia_institucional"] if not str(source.get("numero_sentencia_o_norma") or "").startswith("Articulo")]
     )
     jurisprudence_text = _financial_jurisprudence_text(source_index["jurisprudencia"])
+    amount_breakdown = _financial_amount_breakdown(case, intake)
+    exact_amount_known = bool(amount_breakdown["exact_known"])
+    exact_total_text = _format_cop_amount(amount_breakdown["total"])
 
     chronology_lines = [
         "Soy titular del producto financiero administrado por la entidad reclamada y cuestiono formalmente los cargos descritos en este escrito.",
@@ -383,12 +467,22 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
         "La entidad no suministro soporte contractual, poliza, certificado, grabacion, aceptacion digital verificable ni documento equivalente que pruebe mi consentimiento.",
         "El cobro se ha mantenido de forma sucesiva, con impacto economico directo sobre mis obligaciones financieras y mi capacidad de pago.",
     ]
-    if amount:
-        chronology_lines.append(f"El monto actualmente identificado asciende de manera aproximada a {amount}, sin perjuicio de la liquidacion exacta que debe certificar la entidad.")
+    if amount_breakdown["entries"]:
+        chronology_lines.append(
+            "De los extractos aportados se identifican, al menos, los siguientes cobros: "
+            + "; ".join(f"{item['date']}: {item['amount_text']}" for item in amount_breakdown["entries"][:6])
+            + "."
+        )
+        if exact_total_text:
+            chronology_lines.append(f"Con base en esos extractos, el total actualmente consolidado asciende a {exact_total_text}.")
+    elif amount and exact_amount_known:
+        chronology_lines.append(f"El monto actualmente identificado y reportado para este cobro asciende a {amount}.")
+    elif amount:
+        chronology_lines.append(f"El monto actualmente identificado asciende de manera aproximada a {amount}, por lo que antes de escalar ante autoridades conviene consolidar el cuadro exacto de cobros con soporte en extractos.")
     else:
-        chronology_lines.append("Corresponde a la entidad certificar el valor exacto de todos los cargos realizados por este concepto desde su primera facturacion.")
+        chronology_lines.append("Aun falta consolidar el cuadro exacto de cargos mes a mes, por lo que corresponde a la entidad certificar el valor total cobrado desde la primera facturacion y a la usuaria completar ese soporte con extractos si decide esperar antes de radicar.")
     if account_reference:
-        chronology_lines.append(f"El producto financiero puede individualizarse con la siguiente referencia informada por la titular: {account_reference}.")
+        chronology_lines.append(f"El producto financiero puede individualizarse como {account_reference}.")
     if prior_claim == "si" and prior_claim_date:
         chronology_lines.append(f"Antes de este escrito ya se formulo gestion directa ante la entidad en fecha {prior_claim_date}.")
     if prior_claim_result:
@@ -410,7 +504,12 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
 
     request_lines = [
         suggested_pretensions[0] if suggested_pretensions else "Que se elimine de manera inmediata y definitiva el cobro no autorizado cuestionado en este reclamo.",
-        "Que se reintegre la totalidad de los valores cobrados por el concepto no autorizado desde la primera facturacion identificable, con actualizacion e indexacion a la fecha del pago.",
+        (
+            f"Que se reintegre la suma exacta de {exact_total_text}, correspondiente a los cobros identificados en los extractos aportados, "
+            "sin perjuicio de los valores adicionales que aparezcan al consolidar la totalidad del historico."
+            if exact_total_text
+            else "Que se reintegre la totalidad de los valores cobrados por el concepto no autorizado desde la primera facturacion identificable, con actualizacion e indexacion a la fecha del pago."
+        ),
         "Que se certifique por escrito la eliminacion definitiva del cobro y se entregue el historial completo de cargos, fechas, valores y referencias aplicadas.",
         "Que se remita copia integra del soporte en el que supuestamente consta mi autorizacion; si dicho soporte no existe, solicito que ello se declare expresamente.",
     ]
@@ -421,6 +520,8 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     request_lines.append("Que se informe la identidad de la aseguradora o tercero beneficiario del cobro, el numero de poliza o producto asociado y las condiciones bajo las cuales se registro en el sistema de la entidad.")
     if refund_destination:
         request_lines.append(f"Que la devolucion correspondiente se abone en {refund_destination}, o en el canal que la entidad y la suscrita acuerden de manera verificable.")
+    if not exact_amount_known:
+        request_lines.append("Que la entidad entregue un cuadro detallado con fecha, valor y concepto de cada cobro aplicado, para definir con exactitud la suma total a devolver.")
     request_lines = _dedupe_lines(request_lines)
 
     response_term = (
@@ -428,8 +529,9 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
         "mediante respuesta de fondo, clara, congruente y verificable."
     )
     warning_text = (
-        f"En caso de silencio, respuesta evasiva o negativa infundada, la suscrita podra escalar la situacion ante {control_entity or 'la Superintendencia Financiera de Colombia'}, "
-        "formular accion de tutela por vulneracion del derecho de peticion y activar las acciones administrativas o de habeas data que correspondan."
+        f"En caso de silencio, respuesta evasiva o negativa infundada, la suscrita acudira en primer termino al Defensor del Consumidor Financiero de {entity_name} y, "
+        f"de persistir el incumplimiento, escalara la situacion ante {control_entity or 'la Superintendencia Financiera de Colombia'}, "
+        "sin perjuicio de formular accion de tutela por vulneracion del derecho de peticion o activar las acciones administrativas y de habeas data que correspondan."
     )
     evidence_items = _uploaded_evidence_items(case)
 
