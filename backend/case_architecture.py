@@ -8,28 +8,31 @@ from backend.legal_sources import validate_document_citations
 OFFICIAL_SOURCES = [
     {
         "level": 1,
-        "label": "Fuentes oficiales obligatorias",
+        "label": "Fuentes primarias para jurisprudencia",
         "sources": [
-            "Corte Constitucional",
-            "Corte Suprema de Justicia",
-            "Consejo de Estado",
+            "www.corteconstitucional.gov.co/relatoria/",
+            "www.consejodeestado.gov.co",
+        ],
+    },
+    {
+        "level": 2,
+        "label": "Fuentes secundarias para contraste jurisprudencial",
+        "sources": [
+            "www.vlex.com.co",
+        ],
+    },
+    {
+        "level": 3,
+        "label": "Fuentes primarias para normas y regulacion",
+        "sources": [
             "SUIN-Juriscol",
-            "Funcion Publica",
+            "secretariasenado.gov.co",
             "Ministerios y superintendencias competentes segun el caso",
             "Leyes, decretos y resoluciones vigentes",
         ],
     },
     {
-        "level": 2,
-        "label": "Fuentes secundarias permitidas",
-        "sources": [
-            "Conceptos doctrinales",
-            "Articulos juridicos",
-            "Guias institucionales",
-        ],
-    },
-    {
-        "level": 3,
+        "level": 4,
         "label": "Fuentes no aptas para sustento principal",
         "sources": [
             "Blogs",

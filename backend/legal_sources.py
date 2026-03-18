@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 
 def _text(value: Any) -> str:
@@ -20,6 +21,40 @@ def _compact_reference(value: Any) -> str:
     text = re.sub(r"\bde\s+\d{4}\b", "", text)
     text = re.sub(r"[^a-z0-9]+", "", text)
     return text.strip()
+
+
+PRIMARY_JURISPRUDENCE_DOMAINS = {
+    "www.corteconstitucional.gov.co",
+    "corteconstitucional.gov.co",
+    "www.consejodeestado.gov.co",
+    "consejodeestado.gov.co",
+}
+
+SECONDARY_JURISPRUDENCE_DOMAINS = {
+    "www.vlex.com.co",
+    "vlex.com.co",
+}
+
+
+def _domain_from_url(value: Any) -> str:
+    url = _text(value)
+    if not url:
+        return ""
+    try:
+        return (urlparse(url).netloc or "").lower().strip()
+    except Exception:
+        return ""
+
+
+def _jurisprudence_source_tier(record: dict[str, Any]) -> int:
+    if str(record.get("tipo_fuente") or "") != "jurisprudencia":
+        return 1
+    domain = _domain_from_url(record.get("url_verificada"))
+    if domain in PRIMARY_JURISPRUDENCE_DOMAINS:
+        return 1
+    if domain in SECONDARY_JURISPRUDENCE_DOMAINS:
+        return 2
+    return 99
 
 
 VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
@@ -464,6 +499,7 @@ ACTION_SOURCE_KEYS: dict[str, list[str]] = {
 
 
 def _normalize_source_record(record: dict[str, Any]) -> dict[str, Any]:
+    source_tier = _jurisprudence_source_tier(record)
     return {
         "tipo_fuente": record["tipo_fuente"],
         "corporacion": record["corporacion"],
@@ -474,6 +510,7 @@ def _normalize_source_record(record: dict[str, Any]) -> dict[str, Any]:
         "tema_juridico": record["tema_juridico"],
         "nivel_confiabilidad": record["nivel_confiabilidad"],
         "source_level": record["source_level"],
+        "source_tier": source_tier,
     }
 
 
@@ -484,6 +521,10 @@ def _append_verified_entry(
     verified_normas: list[str],
     verified_precedents: list[str],
 ) -> None:
+    if entry.get("tipo_fuente") == "jurisprudencia":
+        source_tier = _jurisprudence_source_tier(entry)
+        if source_tier >= 99:
+            return
     normalized = _normalize_source_record(entry)
     if normalized not in verified_sources:
         verified_sources.append(normalized)
@@ -541,6 +582,8 @@ def _load_external_verified_registry() -> dict[str, dict[str, Any]]:
         aliases = record.get("aliases")
         if not isinstance(aliases, list) or not aliases:
             aliases = [record["numero_sentencia_o_norma"]]
+        if record.get("tipo_fuente") == "jurisprudencia" and _jurisprudence_source_tier(record) >= 99:
+            continue
         normalized[str(key)] = {
             **record,
             "aliases": [str(item).strip() for item in aliases if str(item).strip()],
