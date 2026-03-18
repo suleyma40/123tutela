@@ -2949,6 +2949,7 @@ function DetailPanel({
     shortenRouteLabel(item.recommended_action || item.workflow_type, "Documento"),
   ].filter(Boolean).slice(0, 3);
   const revealOperationalRouting = item.payment_status === "pagado" || baseFlowStep >= 3;
+  const postPayChatMode = item.payment_status === "pagado";
   const commercialDiagnosisCopy = buildCommercialDiagnosisCopy(item.recommended_action || item.workflow_type, item.category);
   const visibleAutofillEntries = Object.entries(autofillSuggestions).filter(([key]) => (
     revealOperationalRouting || ![
@@ -2973,6 +2974,7 @@ function DetailPanel({
     signatureForm.document_number.trim().length >= 6 &&
     signatureForm.city.trim().length > 2 &&
     signatureForm.date.trim().length > 4;
+  const chatGenerationBlocked = loading || item.payment_status !== "pagado" || !!activeInterviewStep;
 
   useEffect(() => {
     setSignatureForm((current) => ({
@@ -3041,7 +3043,7 @@ function DetailPanel({
                   {flowStep === 1
                     ? "Revisar el diagnostico y decidir si continúas al pago."
                     : flowStep === 2
-                      ? "Completar los datos y soportes del caso."
+                      ? (postPayChatMode ? "Hablar con el agente y subir soportes del caso." : "Completar los datos y soportes del caso.")
                       : flowStep === 3
                         ? "Ver el documento y escoger la radicacion."
                         : "Guardar el comprobante y hacer seguimiento."}
@@ -3223,6 +3225,25 @@ function DetailPanel({
               )}
 
               {flowStep === 2 && (
+                postPayChatMode ? (
+                <PaidCaseAgentWorkspace
+                  item={item}
+                  activeInterviewStep={activeInterviewStep}
+                  interviewDraft={interviewDraft}
+                  setInterviewDraft={setInterviewDraft}
+                  answerInterviewStep={answerInterviewStep}
+                  evidenceHints={evidenceHints}
+                  evidenceNote={evidenceNote}
+                  setEvidenceNote={setEvidenceNote}
+                  uploadEvidence={uploadEvidence}
+                  files={files}
+                  missingQuestions={missingQuestions}
+                  loading={loading}
+                  onSaveFlowDraft={onSaveFlowDraft}
+                  onGenerateFromFlow={onGenerateFromFlow}
+                  generateDisabled={chatGenerationBlocked}
+                />
+                ) : (
                 <div style={{ display: "grid", gap: 18 }}>
                   <div>
                     <div style={{ color: C.text, fontSize: 24, fontWeight: 800 }}>Completa los datos de tu caso</div>
@@ -3440,6 +3461,7 @@ function DetailPanel({
                     </div>
                   </div>
                 </div>
+                )
               )}
 
               {flowStep === 3 && (
@@ -3625,6 +3647,117 @@ function DetailPanel({
               </div>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PaidCaseAgentWorkspace({
+  item,
+  activeInterviewStep,
+  interviewDraft,
+  setInterviewDraft,
+  answerInterviewStep,
+  evidenceHints = [],
+  evidenceNote = "",
+  setEvidenceNote = () => {},
+  uploadEvidence = async () => {},
+  files = [],
+  missingQuestions = [],
+  loading = false,
+  onSaveFlowDraft = () => {},
+  onGenerateFromFlow = () => {},
+  generateDisabled = false,
+}) {
+  return (
+    <div style={{ display: "grid", gap: 18 }}>
+      <div>
+        <div style={{ color: C.text, fontSize: 24, fontWeight: 800 }}>Habla con el agente juridico de tu caso</div>
+        <div style={{ marginTop: 6, color: C.textMuted, lineHeight: 1.7 }}>
+          Ya no tienes que llenar el formulario largo. El agente conoce la ruta legal, revisa tus anexos y te hara una pregunta a la vez hasta dejar el expediente listo para redactar.
+        </div>
+      </div>
+
+      <div style={{ padding: 18, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", display: "grid", gap: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.primary }}>AGENTE DEL CASO</div>
+          <Badge color={activeInterviewStep ? C.primary : C.success}>
+            {activeInterviewStep ? "Faltan respuestas del chat" : "Chat completo"}
+          </Badge>
+        </div>
+        <div style={{ color: C.text, fontWeight: 700, lineHeight: 1.65 }}>
+          {activeInterviewStep
+            ? activeInterviewStep.question
+            : "El agente ya tiene lo minimo para seguir. Puedes guardar y generar el documento cuando quieras."}
+        </div>
+        {activeInterviewStep ? (
+          activeInterviewStep.multiline ? (
+            <TextArea
+              value={interviewDraft}
+              onChange={(event) => setInterviewDraft(event.target.value)}
+              style={{ minHeight: 110 }}
+              placeholder={activeInterviewStep.placeholder}
+            />
+          ) : (
+            <TextInput
+              value={interviewDraft}
+              onChange={(event) => setInterviewDraft(event.target.value)}
+              placeholder={activeInterviewStep.placeholder}
+            />
+          )
+        ) : (
+          <div style={{ padding: 14, borderRadius: 14, background: "#FFFFFF", border: `1px solid ${C.border}`, color: C.textMuted, lineHeight: 1.6 }}>
+            El agente ya consolidó los hechos principales con tus respuestas y los soportes cargados.
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <Button variant="secondary" onClick={answerInterviewStep} disabled={!activeInterviewStep || !interviewDraft.trim()}>
+            Guardar respuesta y seguir
+          </Button>
+          <div style={{ color: C.textMuted, fontSize: 13 }}>
+            El agente formula las preguntas juridicamente utiles y se encarga de la urgencia, procedencia y argumentacion.
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Sube tus pruebas</div>
+          <div style={{ color: C.textMuted, marginTop: 4 }}>PDF, imagen o Word. Maximo 10MB por archivo.</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            {evidenceHints.map((hint) => <Badge key={hint} color={C.primary}>{hint}</Badge>)}
+          </div>
+        </div>
+        <input id="postpay-evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
+        <div style={{ border: `1px dashed ${C.border}`, borderRadius: 18, padding: 24, background: "#F8FAFD", display: "grid", gap: 12, justifyItems: "center" }}>
+          <TextInput value={evidenceNote} onChange={(event) => setEvidenceNote(event.target.value)} placeholder="Descripcion del archivo" style={{ maxWidth: 420 }} />
+          <Button variant="secondary" onClick={() => document.getElementById("postpay-evidence-upload").click()} icon={Upload}>Arrastra archivos o haz clic</Button>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {files.map((file) => <Badge key={file.id} color={C.accent}>{file.original_name}</Badge>)}
+        </div>
+      </div>
+
+      {!!missingQuestions.length && (
+        <div style={{ padding: 14, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}`, color: C.textMuted, lineHeight: 1.7 }}>
+          El agente seguira preguntando hasta cerrar el expediente. No tienes que traducir nada a lenguaje juridico.
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ color: C.textMuted, fontSize: 13 }}>
+          {activeInterviewStep
+            ? "Primero responde la pregunta actual del agente."
+            : `Todo listo para generar el ${String(item.recommended_action || item.workflow_type || "documento").toLowerCase()}.`}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Button variant="secondary" onClick={onSaveFlowDraft} disabled={loading}>
+            {loading ? "Guardando..." : "Guardar avance"}
+          </Button>
+          <Button onClick={onGenerateFromFlow} disabled={generateDisabled} icon={ArrowRight}>
+            {loading ? "Generando..." : "Generar mi documento"}
+          </Button>
         </div>
       </div>
     </div>
