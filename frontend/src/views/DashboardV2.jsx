@@ -4784,6 +4784,7 @@ export default function DashboardV2(props) {
           catalog={catalog}
           onCreateWompiSession={onCreateWompiSession}
           onGetPayment={onGetPayment}
+          onReconcilePayment={onReconcilePayment}
           onRefreshCase={onRefreshCase}
           loading={loading}
         />
