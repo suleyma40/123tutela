@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 from typing import Any
 
 from backend.case_architecture import _is_ai_owned_quality_issue
@@ -170,6 +171,47 @@ def _clamp_score(value: int | float, *, ceiling: int = 100) -> int:
     return max(0, min(int(round(value)), ceiling))
 
 
+def _normalize_text(value: str) -> str:
+    return "".join(
+        char for char in unicodedata.normalize("NFKD", value.lower()) if not unicodedata.combining(char)
+    )
+
+
+SECTION_ALIASES: dict[str, list[str]] = {
+    "destinatario": ["destinatario", "senores", "doctor", "doctora", "atencion:"],
+    "identificacion del consumidor financiero": ["identificacion del consumidor financiero"],
+    "identificacion del peticionario": ["identificacion del peticionario"],
+    "hechos y contexto": ["hechos y contexto", "hechos", "hechos relevantes", "ii. hechos"],
+    "fundamento del reclamo": ["fundamento del reclamo", "fundamentos de derecho", "fundamento juridico", "iii. fundamentos de derecho"],
+    "fundamento del derecho de peticion": ["fundamento del derecho de peticion", "fundamentos de derecho", "iii. fundamentos de derecho"],
+    "solicitudes numeradas": ["solicitudes numeradas", "solicitudes concretas", "pretensiones", "v. solicitudes"],
+    "pruebas y anexos": ["pruebas y anexos", "anexos", "viii. pruebas y anexos"],
+    "anexos y notificaciones": ["anexos y notificaciones", "pruebas y anexos", "notificaciones"],
+    "notificaciones": ["notificaciones", "ix. notificaciones"],
+    "termino legal de respuesta": ["termino legal de respuesta", "vi. termino legal de respuesta"],
+}
+
+
+def _has_required_section(text: str, section: str) -> bool:
+    normalized_text = _normalize_text(text)
+    tokens = SECTION_ALIASES.get(_normalize_text(section), [_normalize_text(section)])
+    if _contains_any(normalized_text, tokens):
+        return True
+
+    normalized_section = _normalize_text(section)
+    if normalized_section == "destinatario":
+        return _contains_any(
+            normalized_text,
+            ["nit:", "asunto:", "representante legal", "servicioalcliente@", "defensor@", "telefono:"],
+        )
+    if normalized_section in {"identificacion del consumidor financiero", "identificacion del peticionario"}:
+        return _contains_any(
+            normalized_text,
+            ["cedula de ciudadania", "persona mayor de edad", "correo electronico", "telefono ", "telefono:"],
+        )
+    return False
+
+
 def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str, Any]:
     recommended_action = case.get("recommended_action")
     workflow_type = case.get("workflow_type")
@@ -189,7 +231,7 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
     source_policy = (case.get("facts") or {}).get("source_validation_policy") or {}
     citation_guard = validate_document_citations(document=document, source_validation_policy=source_policy)
 
-    missing_sections = [section for section in rule["required_sections"] if section.lower() not in lowered]
+    missing_sections = [section for section in rule["required_sections"] if not _has_required_section(lowered, section)]
     if missing_sections:
         penalty = min(15, len(missing_sections) * 3)
         structure_score -= penalty
