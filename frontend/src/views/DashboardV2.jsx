@@ -4528,6 +4528,7 @@ export default function DashboardV2(props) {
                 catalog={catalog}
                 onCreateWompiSession={onCreateWompiSession}
                 onGetPayment={onGetPayment}
+                onReconcilePayment={onReconcilePayment}
                 onRefreshCase={onRefreshCase}
                 loading={loading}
               />
@@ -4596,9 +4597,27 @@ export default function DashboardV2(props) {
               catalog={catalog}
               onCreateWompiSession={onCreateWompiSession}
               onGetPayment={onGetPayment}
+              onReconcilePayment={onReconcilePayment}
               onRefreshCase={onRefreshCase}
               loading={loading}
             />
+            {activeCaseDetail.case.payment_status === "pagado" && !activeCaseDetail.case.generated_document && (
+              <SessionCard title="Pago confirmado" subtitle="Tu pago ya fue aprobado. El siguiente paso es generar el documento final.">
+                <div style={{ display: "grid", gap: 14 }}>
+                  <div className="glass-card" style={{ padding: 18, background: "#ECFDF5", border: "1px solid #86EFAC", color: "#166534" }}>
+                    Gracias. Tu expediente ya quedó activado y listo para generar el documento jurídico final.
+                  </div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <Button
+                      onClick={() => document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                      icon={ArrowRight}
+                    >
+                      Ir a generar documento
+                    </Button>
+                  </div>
+                </div>
+              </SessionCard>
+            )}
             <div id="case-next-stage">
               <SessionCard title="Acciones operativas" subtitle="Solo ves las acciones del siguiente paso: documento, envio y radicado.">
                 <div style={{ display: "grid", gap: 18 }}>
