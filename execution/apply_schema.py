@@ -13,7 +13,7 @@ def apply_schema():
     ssh.connect(ip, username=user, password=password)
     
     container = "bw7aj85ekz1p65w04lptq93j"
-    sql_file = "execution/schema_123tutela.sql"
+    sql_file = "execution/schema_mvp_v2.sql"
     
     with open(sql_file, "r", encoding="utf-8") as f:
         sql_content = f.read()

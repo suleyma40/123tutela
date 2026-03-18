@@ -198,11 +198,15 @@ class CaseSubmitRequest(BaseModel):
     mode: str = Field(pattern="^(auto|manual_contact|presencial)$")
     manual_contact: str | None = Field(default=None, max_length=180)
     notes: str | None = Field(default=None, max_length=500)
+    signature: dict[str, Any] = Field(default_factory=dict)
+    reviewed_document: bool = False
 
 
 class ManualRadicadoRequest(BaseModel):
     radicado: str = Field(min_length=3, max_length=120)
     notes: str | None = Field(default=None, max_length=500)
+    signature: dict[str, Any] = Field(default_factory=dict)
+    reviewed_document: bool = False
 
 
 class InternalStatusUpdateRequest(BaseModel):

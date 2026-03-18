@@ -4,9 +4,11 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from backend.config import settings
+from backend.storage import absolute_path
 
 
 def _is_email_configured() -> bool:
@@ -129,4 +131,80 @@ def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], gui
         **base_result,
         "status": "sent",
         "subject": content["subject"],
+    }
+
+
+def send_signed_submission_email(
+    *,
+    recipient: str | None,
+    subject: str,
+    body_text: str,
+    body_html: str,
+    attachments: list[dict[str, str]] | None = None,
+    reply_to: str | None = None,
+) -> dict[str, Any]:
+    attempted_at = datetime.now(timezone.utc).isoformat()
+    base_result = {
+        "provider": "smtp",
+        "attempted_at": attempted_at,
+        "recipient": recipient,
+        "from_email": settings.notification_from_email,
+        "reply_to": reply_to or settings.notification_reply_to,
+    }
+    if not recipient:
+        return {**base_result, "status": "skipped", "reason": "missing_recipient"}
+    if not _is_email_configured():
+        return {**base_result, "status": "pending_configuration", "reason": "smtp_not_configured"}
+
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = settings.notification_from_email
+    message["To"] = recipient
+    if reply_to or settings.notification_reply_to:
+        message["Reply-To"] = reply_to or settings.notification_reply_to
+    message.set_content(body_text)
+    message.add_alternative(body_html, subtype="html")
+
+    attached_files: list[str] = []
+    for item in attachments or []:
+        relative_path = str(item.get("relative_path") or "").strip()
+        filename = str(item.get("filename") or Path(relative_path).name or "adjunto.bin").strip()
+        mime_type = str(item.get("mime_type") or "application/octet-stream").strip()
+        if not relative_path:
+            continue
+        file_path = absolute_path(relative_path)
+        if not file_path.exists():
+            continue
+        maintype, _, subtype = mime_type.partition("/")
+        message.add_attachment(file_path.read_bytes(), maintype=maintype or "application", subtype=subtype or "octet-stream", filename=filename)
+        attached_files.append(filename)
+
+    try:
+        if settings.notification_smtp_use_ssl:
+            context = ssl.create_default_context()
+            with smtplib.SMTP_SSL(settings.notification_smtp_host, settings.notification_smtp_port, context=context, timeout=20) as server:
+                if settings.notification_smtp_user:
+                    server.login(settings.notification_smtp_user, settings.notification_smtp_password)
+                server.send_message(message)
+        else:
+            with smtplib.SMTP(settings.notification_smtp_host, settings.notification_smtp_port, timeout=20) as server:
+                if settings.notification_smtp_use_starttls:
+                    server.starttls(context=ssl.create_default_context())
+                if settings.notification_smtp_user:
+                    server.login(settings.notification_smtp_user, settings.notification_smtp_password)
+                server.send_message(message)
+    except Exception as exc:  # pragma: no cover
+        return {
+            **base_result,
+            "status": "error",
+            "reason": str(exc),
+            "subject": subject,
+            "attachments": attached_files,
+        }
+
+    return {
+        **base_result,
+        "status": "sent",
+        "subject": subject,
+        "attachments": attached_files,
     }

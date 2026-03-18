@@ -1,0 +1,11 @@
+{
+  "metadata": {
+    "description": "Registro adicional de fuentes juridicas verificadas para 123tutela. Las entradas aqui definidas se fusionan con el registro interno del backend.",
+    "last_updated": "2026-03-17",
+    "notes": [
+      "Cada fuente debe incluir numero_sentencia_o_norma, corporacion, fecha, url_verificada y extracto_relevante.",
+      "Solo deben cargarse referencias verificadas contra fuente institucional u oficial."
+    ]
+  },
+  "sources": {}
+}

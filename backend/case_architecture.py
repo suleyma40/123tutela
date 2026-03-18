@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.legal_sources import validate_document_citations
+
 
 OFFICIAL_SOURCES = [
     {
@@ -193,7 +195,7 @@ def evaluate_tutela_procedencia(
 
     perjuicio_irremediable = "alta" if _has_any(text, ["urgencia", "grave", "riesgo", "perjuicio irremediable", "vida", "salud", "minimo vital"]) else "media"
     if perjuicio_irremediable != "alta":
-        warnings.append("Conviene explicar con mayor fuerza la urgencia, gravedad o dano actual.")
+        warnings.append("Conviene explicar mejor que dano sigue ocurriendo hoy o por que el caso sigue siendo urgente.")
 
     hecho_superado = _has_any(text, ["ya resolvieron", "ya entregaron", "ya respondieron", "solucionado"])
     if hecho_superado:
@@ -233,7 +235,7 @@ def evaluate_tutela_procedencia(
         recomendacion = "escalar"
 
     if special_protection and special_protection not in {"no aplica", "ninguno"}:
-        warnings.append("Hay sujeto de especial proteccion; esto fortalece urgencia y procedencia si se documenta bien.")
+        warnings.append("Hay sujeto de especial proteccion; conviene dejarlo claro porque refuerza la urgencia del caso.")
 
     return {
         "procedencia": procedencia,
@@ -283,8 +285,8 @@ def collect_pending_questions(
         questions.append(
             _build_question(
                 question_id="pretension_concreta",
-                prompt="Que quieres exactamente que ordene la entidad o el juez?",
-                reason="No hay una pretension suficientemente concreta.",
+                prompt="Que necesitas que pase para solucionar tu problema: devolver dinero, entregar un medicamento, corregir un dato, responder un reclamo u otra medida concreta?",
+                reason="Hace falta entender el resultado practico que esperas obtener.",
                 priority="alta",
                 field="concrete_request",
                 route="B",
@@ -465,8 +467,8 @@ def collect_pending_questions(
             questions.append(
                 _build_question(
                     question_id="accion_sobre_dato",
-                    prompt="Que quieres que haga la entidad con ese dato: corregirlo, actualizarlo, suprimirlo o probar autorizacion?",
-                    reason="En habeas data debe definirse la accion exacta sobre la informacion.",
+                    prompt="Que esta mal con ese dato o reporte y como deberia quedar corregido: actualizado, eliminado, corregido o con prueba de autorizacion?",
+                    reason="Hace falta entender el error concreto del dato y el ajuste esperado.",
                     priority="alta",
                     field="requested_data_action",
                     route="B",
@@ -489,8 +491,8 @@ def collect_pending_questions(
             questions.append(
                 _build_question(
                     question_id="tipo_peticion",
-                    prompt="Tu peticion es de informacion, documentos, consulta, interes particular o interes general?",
-                    reason="Debemos identificar la modalidad del derecho de peticion.",
+                    prompt="Que necesitas de la entidad en este momento: informacion, copias de documentos, una respuesta sobre tu caso o que corrijan una actuacion?",
+                    reason="Debemos entender el objetivo practico de la peticion.",
                     priority="media",
                     field="request_type",
                     route="A",
@@ -500,8 +502,8 @@ def collect_pending_questions(
             questions.append(
                 _build_question(
                     question_id="solicitudes_numeradas",
-                    prompt="Puedes separar en 2 o 3 solicitudes numeradas exactamente lo que esperas que te respondan?",
-                    reason="El derecho de peticion necesita solicitudes claras y numeradas.",
+                    prompt="Si la entidad te respondiera hoy, cuales serian las 2 o 3 respuestas o soluciones concretas que necesitas recibir?",
+                    reason="Hace falta identificar las respuestas concretas que la entidad debe dar.",
                     priority="alta",
                     field="numbered_requests",
                     route="B",
@@ -514,8 +516,8 @@ def collect_pending_questions(
             questions.append(
                 _build_question(
                     question_id="subsidiariedad",
-                    prompt="Que tramites, reclamos o gestiones hiciste antes y por que el problema sigue necesitando una solucion urgente hoy?",
-                    reason="La tutela necesita justificar subsidiariedad.",
+                    prompt="Antes de llegar hasta aqui, que hiciste para resolver el problema y que paso despues: te respondieron, no te contestaron o el dano sigue igual?",
+                    reason="Hace falta la secuencia real de gestiones previas y el estado actual del problema.",
                     priority="alta",
                     field="subsidiarity_support",
                     route="B",
@@ -525,8 +527,8 @@ def collect_pending_questions(
             questions.append(
                 _build_question(
                     question_id="temeridad",
-                    prompt="Ya presentaste otra tutela, peticion, incidente o medida por estos mismos hechos? Si si, explica que paso.",
-                    reason="Debemos descartar temeridad antes de redactar.",
+                    prompt="Ya habias presentado antes una tutela, peticion o reclamo por este mismo problema? Si si, cuenta que presentaste y que te respondieron.",
+                    reason="Necesitamos saber si ya hubo actuaciones previas sobre los mismos hechos.",
                     priority="alta",
                     field="prior_tutela_reason",
                     route="B",
@@ -536,8 +538,8 @@ def collect_pending_questions(
             questions.append(
                 _build_question(
                     question_id="inmediatez",
-                    prompt="Por que el problema sigue ocurriendo hoy o por que tu necesidad de proteccion sigue siendo urgente en este momento?",
-                    reason="La inmediatez constitucional aun no queda fuerte.",
+                    prompt="Que esta pasando hoy que hace urgente este caso: el dano sigue, empeoro, te siguen cobrando, no entregan el servicio o el riesgo continua?",
+                    reason="Hace falta describir el dano actual o la urgencia presente.",
                     priority="alta",
                     field="ongoing_harm",
                     route="B",
@@ -745,11 +747,21 @@ def build_final_validation(
         warnings.append("La cronologia sigue debil porque faltan fechas o periodos claros.")
 
     source_policy = facts.get("source_validation_policy") or {}
+    citation_guard = validate_document_citations(document=document, source_validation_policy=source_policy)
     if not _list(source_policy.get("verified_sources")) and _has_any(recommended_action, ["tutela", "impugnacion", "desacato", "cumplimiento"]):
         warnings.append("No hay fuentes verificadas cargadas todavia; el sustento jurisprudencial debe mantenerse conservador.")
     if source_policy.get("unresolved_precedents"):
         warnings.append(
             "Existen referencias jurisprudenciales no verificadas automaticamente y fueron excluidas como sustento principal."
+        )
+    if citation_guard.get("has_unverified_citations"):
+        blocking_issues.append(
+            "El documento final contiene citas o referencias juridicas no verificadas por el registro interno."
+        )
+        warnings.append(
+            "Referencias pendientes de verificacion detectadas: "
+            + ", ".join((citation_guard.get("unresolved_detected_references") or [])[:4])
+            + "."
         )
 
     if _has_any(lowered, ["ganaras seguro", "resultado garantizado", "ganara el proceso", "exito asegurado"]):
@@ -764,13 +776,13 @@ def build_final_validation(
             if not _text(intake.get("represented_person_age")):
                 blocking_issues.append("La tutela debe indicar la edad o fecha de nacimiento de la persona representada.")
         if not _text(intake.get("tutela_other_means_detail")):
-            blocking_issues.append("La tutela debe justificar subsidiariedad o la insuficiencia de otros medios.")
+            blocking_issues.append("Antes de entregar la tutela debe quedar claro que hiciste antes para resolverlo o por que eso no solucionaba el dano.")
         if not _text(intake.get("tutela_immediacy_detail")):
-            blocking_issues.append("La tutela debe justificar la inmediatez con hechos concretos.")
+            blocking_issues.append("Antes de entregar la tutela debe quedar claro que dano o riesgo sigue ocurriendo hoy.")
         if not _text(intake.get("tutela_previous_action_detail")):
-            blocking_issues.append("La tutela debe aclarar si ya existio otra tutela, peticion o medida previa sobre los mismos hechos.")
+            blocking_issues.append("Antes de entregar la tutela debe quedar claro si ya hubo otra solicitud o tutela por este mismo problema.")
         if not _text(intake.get("tutela_oath_statement")) and not _text(intake.get("tutela_no_temperity_detail")):
-            blocking_issues.append("La tutela debe contener una declaracion clara bajo juramento sobre no temeridad.")
+            blocking_issues.append("Antes de entregar la tutela debe quedar claro si esta es la primera tutela por este problema o que paso con la anterior.")
         if _lower(case.get("categoria")) == "salud":
             if not _text(intake.get("target_entity")):
                 blocking_issues.append("En tutela de salud debe quedar claramente identificada la EPS o IPS accionada.")
@@ -782,7 +794,7 @@ def build_final_validation(
                 blocking_issues.append("En tutela de salud falta explicar la urgencia o el riesgo clinico actual.")
     if "derecho de peticion" in recommended_action:
         if not _text(intake.get("numbered_requests")):
-            blocking_issues.append("El derecho de peticion debe dejar solicitudes numeradas y verificables.")
+            blocking_issues.append("Antes de entregar el derecho de peticion deben quedar claras las 2 o 3 respuestas o soluciones concretas que esperas recibir.")
         if not _text(intake.get("response_channel")) and not _text(intake.get("copy_email")):
             blocking_issues.append("El derecho de peticion debe indicar un canal de notificacion claro.")
         if _lower(intake.get("petition_target_nature")) == "privada" and not _text(intake.get("petition_private_ground")):
@@ -830,6 +842,7 @@ def build_final_validation(
         "blocking_issues": list(dict.fromkeys(blocking_issues)),
         "warnings": list(dict.fromkeys(warnings)),
         "quality_score": quality_review.get("score"),
+        "citation_guard": citation_guard,
         "next_action": next_action,
         "checks": {
             "tipo_documento_correcto": bool(case.get("recommended_action")),
@@ -837,6 +850,7 @@ def build_final_validation(
             "pretensiones_claras": bool(_text(facts.get("pretension_concreta")) or _has_any(lowered, ["solicito", "pretension", "solicitudes"])),
             "cronologia_minima": bool(_text(facts.get("fechas_mencionadas"))),
             "citas_verificadas": bool(_list(source_policy.get("verified_sources"))),
+            "sin_citas_no_verificadas": not citation_guard.get("has_unverified_citations"),
             "sin_promesas_de_resultado": not _has_any(lowered, ["ganaras seguro", "resultado garantizado", "exito asegurado"]),
         },
     }

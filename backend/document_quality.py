@@ -4,6 +4,7 @@ from typing import Any
 
 from backend.case_architecture import _is_ai_owned_quality_issue
 from backend.document_rules import get_document_rule
+from backend.legal_sources import validate_document_citations
 from backend.quality_llm import score_document_with_claude
 
 
@@ -16,13 +17,13 @@ GENERATION_BRIEFS: dict[str, dict[str, Any]] = {
         "narrative_focus": [
             "cronologia estricta de hechos",
             "conexion entre hecho, derecho fundamental y dano actual",
-            "procedencia por subsidiariedad, inmediatez y no temeridad",
+            "explicar que se intento antes, que dano sigue ocurriendo hoy y si ya existio una tutela previa",
             "orden concreta, medible y ejecutable al juez o accionado",
         ],
         "must_include": [
-            "juramento de no temeridad",
-            "subsidiariedad o perjuicio irremediable",
-            "explicacion de inmediatez",
+            "aclarar si ya existio otra tutela previa",
+            "explicar que se intento antes o por que el dano requiere intervencion ya",
+            "explicar por que el problema sigue siendo actual",
             "pretensiones precisas",
         ],
     },
@@ -31,11 +32,11 @@ GENERATION_BRIEFS: dict[str, dict[str, Any]] = {
         "narrative_focus": [
             "identificar con precision la entidad destinataria",
             "explicar hechos sin ruido narrativo",
-            "formular solicitudes numeradas y verificables",
+            "formular 2 o 3 soluciones concretas y verificables",
             "mencionar termino legal de respuesta aplicable",
         ],
         "must_include": [
-            "solicitudes numeradas",
+            "soluciones concretas",
             "canal de notificacion",
             "termino legal o Ley 1755",
         ],
@@ -80,10 +81,10 @@ GENERATION_BRIEFS: dict[str, dict[str, Any]] = {
         "narrative_focus": [
             "identificar claramente el banco o entidad financiera",
             "presentar hechos ordenados cronologicamente",
-            "formular solicitudes numeradas y verificables",
+            "formular soluciones concretas y verificables",
             "mencionar Ley 1755 y termino legal de respuesta",
         ],
-        "must_include": ["solicitudes numeradas", "termino legal", "canal de notificacion"],
+        "must_include": ["soluciones concretas", "termino legal", "canal de notificacion"],
     },
     "queja disciplinaria": {
         "tone": "sobrio, serio y centrado en hechos atribuibles",
@@ -181,6 +182,7 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
     remedies_score = 20
     operability_score = 10
     source_policy = (case.get("facts") or {}).get("source_validation_policy") or {}
+    citation_guard = validate_document_citations(document=document, source_validation_policy=source_policy)
 
     missing_sections = [section for section in rule["required_sections"] if section.lower() not in lowered]
     if missing_sections:
@@ -226,24 +228,35 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
     elif (source_policy.get("verified_sources") or []) and _contains_any(lowered, ["suin-juriscol", "funcion publica", "decreto 2591", "articulo 86", "ley 1755"]):
         strengths.append("El documento se apoya en fuentes juridicas verificadas o conservadoras.")
 
+    if citation_guard.get("has_unverified_citations"):
+        legal_score -= 15
+        blocking_issues.append(
+            "El documento contiene referencias juridicas no verificadas automaticamente: "
+            + ", ".join((citation_guard.get("unresolved_detected_references") or [])[:4])
+            + "."
+        )
+        improvements.append("Eliminar o sustituir toda cita no verificada antes de la entrega final.")
+    elif citation_guard.get("verified_detected_references"):
+        strengths.append("Las referencias juridicas detectadas coinciden con el registro verificable de la app.")
+
     action_key = rule["action_key"]
     if action_key == "accion de tutela":
         if not _contains_any(lowered, ["no temeridad", "juramento"]):
             legal_score -= 8
-            blocking_issues.append("La tutela no contiene juramento o declaracion de no temeridad.")
+            blocking_issues.append("La tutela no deja claro si ya existio otra tutela por este mismo problema.")
         if not _contains_any(lowered, ["subsidiariedad", "otro medio", "perjuicio irremediable"]):
             legal_score -= 8
-            blocking_issues.append("La tutela no justifica subsidiariedad ni perjuicio irremediable.")
+            blocking_issues.append("La tutela no explica bien que se intento antes o por que el dano requiere intervencion inmediata.")
         if not _contains_any(lowered, ["inmediatez", "actualmente", "sigue ocurriendo", "reciente"]):
             legal_score -= 4
-            warnings.append("La tutela debe reforzar la inmediatez del dano o la vulneracion.")
+            warnings.append("La tutela debe explicar mejor que dano o riesgo sigue ocurriendo hoy.")
     elif action_key == "derecho de peticion":
         if not _contains_any(lowered, ["ley 1755", "15 dias", "10 dias", "30 dias"]):
             legal_score -= 6
             warnings.append("El derecho de peticion debe mencionar el termino legal de respuesta.")
         if not _contains_any(lowered, ["1.", "2.", "1)", "2)", "solicitudes"]):
             remedies_score -= 8
-            blocking_issues.append("El derecho de peticion necesita solicitudes numeradas mas claras.")
+            blocking_issues.append("El derecho de peticion necesita dejar mas claras las respuestas o soluciones concretas que esperas recibir.")
     elif action_key == "impugnacion de tutela":
         if not _contains_any(lowered, ["3 dias", "notificacion", "fallo impugnado"]):
             legal_score -= 8
@@ -305,6 +318,7 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         "rule": rule,
         "brief": brief,
         "llm_qa": llm_qa or {},
+        "citation_guard": citation_guard,
         "dimension_scores": {
             "structure": structure_score,
             "legal_strength": legal_score,

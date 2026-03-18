@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import re
+from pathlib import Path
 from typing import Any
 
 
@@ -406,6 +409,10 @@ VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
 }
 
 
+ROOT = Path(__file__).resolve().parents[1]
+EXTERNAL_VERIFIED_REGISTRY_PATH = ROOT / "knowledge_base" / "verified_legal_registry.json"
+
+
 ACTION_SOURCE_KEYS: dict[str, list[str]] = {
     "accion de tutela": ["constitucion_art_86", "decreto_2591_art_14", "decreto_2591_art_42"],
     "accion de tutela por habeas data": ["constitucion_art_86", "decreto_2591_art_14", "decreto_2591_art_42", "constitucion_art_15", "ley_1266_2008", "ley_1581_2012"],
@@ -464,11 +471,101 @@ def _normalize_source_record(record: dict[str, Any]) -> dict[str, Any]:
 
 def _match_registry_entry(reference: str) -> dict[str, Any] | None:
     normalized = _lower(reference)
-    for entry in VERIFIED_SOURCE_REGISTRY.values():
+    for entry in _get_verified_source_registry().values():
         aliases = [_lower(item) for item in entry.get("aliases", [])]
         if any(alias and alias in normalized for alias in aliases):
             return entry
     return None
+
+
+def _load_external_verified_registry() -> dict[str, dict[str, Any]]:
+    if not EXTERNAL_VERIFIED_REGISTRY_PATH.exists():
+        return {}
+
+    try:
+        with open(EXTERNAL_VERIFIED_REGISTRY_PATH, "r", encoding="utf-8") as file:
+            payload = json.load(file)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    records = payload.get("sources") if isinstance(payload, dict) else payload
+    if not isinstance(records, dict):
+        return {}
+
+    normalized: dict[str, dict[str, Any]] = {}
+    for key, record in records.items():
+        if not isinstance(record, dict):
+            continue
+        if not record.get("numero_sentencia_o_norma"):
+            continue
+        aliases = record.get("aliases")
+        if not isinstance(aliases, list) or not aliases:
+            aliases = [record["numero_sentencia_o_norma"]]
+        normalized[str(key)] = {
+            **record,
+            "aliases": [str(item).strip() for item in aliases if str(item).strip()],
+            "source_level": int(record.get("source_level", 1)),
+            "nivel_confiabilidad": str(record.get("nivel_confiabilidad") or "alto"),
+        }
+    return normalized
+
+
+def _get_verified_source_registry() -> dict[str, dict[str, Any]]:
+    external = _load_external_verified_registry()
+    if not external:
+        return VERIFIED_SOURCE_REGISTRY
+    return {
+        **VERIFIED_SOURCE_REGISTRY,
+        **external,
+    }
+
+
+def _extract_legal_references(document: str) -> list[str]:
+    text = str(document or "")
+    patterns = [
+        r"\b(?:T|SU|C)-\d{1,4}[A-Z]?(?:/\d{2,4})?\b",
+        r"\bLey\s+\d{1,4}\s+de\s+\d{4}\b",
+        r"\bDecreto\s+\d{1,4}\s+de\s+\d{4}\b",
+        r"\b(?:Art(?:iculo|\.)?)\s+\d{1,3}\b",
+        r"\bCircular(?:\s+Externa)?\s+\d{1,3}\s+de\s+\d{4}\b",
+    ]
+    found: list[str] = []
+    for pattern in patterns:
+        found.extend(re.findall(pattern, text, flags=re.IGNORECASE))
+    return list(dict.fromkeys(item.strip() for item in found if item.strip()))
+
+
+def validate_document_citations(
+    *,
+    document: str,
+    source_validation_policy: dict[str, Any],
+) -> dict[str, Any]:
+    detected_references = _extract_legal_references(document)
+    verified_registry = _get_verified_source_registry()
+    verified_names = {
+        _lower(item.get("numero_sentencia_o_norma"))
+        for item in verified_registry.values()
+        if item.get("numero_sentencia_o_norma")
+    }
+    verified_names.update(_lower(item) for item in (source_validation_policy.get("verified_normas") or []))
+    verified_names.update(_lower(item) for item in (source_validation_policy.get("verified_precedents") or []))
+
+    verified_detected: list[str] = []
+    unresolved_detected: list[str] = []
+    for reference in detected_references:
+        normalized = _lower(reference)
+        entry = _match_registry_entry(reference)
+        if entry or normalized in verified_names:
+            verified_detected.append(reference)
+        else:
+            unresolved_detected.append(reference)
+
+    return {
+        "detected_references": detected_references,
+        "verified_detected_references": list(dict.fromkeys(verified_detected)),
+        "unresolved_detected_references": list(dict.fromkeys(unresolved_detected)),
+        "has_unverified_citations": bool(unresolved_detected),
+    }
 
 
 def resolve_verified_legal_support(
@@ -504,7 +601,7 @@ def resolve_verified_legal_support(
     desired_keys = list(dict.fromkeys(desired_keys))
 
     for key in desired_keys:
-        entry = VERIFIED_SOURCE_REGISTRY.get(key)
+        entry = _get_verified_source_registry().get(key)
         if entry:
             verified_sources.append(_normalize_source_record(entry))
             verified_normas.append(entry["numero_sentencia_o_norma"])

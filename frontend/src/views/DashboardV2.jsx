@@ -124,6 +124,25 @@ const statusColors = {
 };
 
 const specialProtectionOptions = ["Menor de edad", "Adulto mayor", "Embarazada", "Discapacidad", "Otro", "No aplica"];
+const autofillFieldLabels = {
+  key_dates: "Fechas detectadas",
+  target_entity: "Entidad detectada",
+  evidence_summary: "Pruebas detectadas",
+  bank_product_type: "Producto financiero",
+  disputed_charge: "Cobro discutido",
+  bank_amount_involved: "Monto detectado",
+  bank_event_date: "Fecha del primer hecho",
+  diagnosis: "Diagnostico detectado",
+  treatment_needed: "Tratamiento o servicio",
+  disputed_data: "Dato cuestionado",
+  prior_claim: "Gestion previa detectada",
+  prior_claim_result: "Respuesta o barrera detectada",
+  urgency_detail: "Urgencia detectada",
+  tutela_other_means_detail: "Gestion previa resumida",
+  special_protection: "Proteccion especial",
+  tutela_special_protection_detail: "Detalle de proteccion especial",
+  prior_tutela: "Tutela previa",
+};
 const evidenceTypeHints = {
   Bancos: ["Extractos bancarios PDF", "Capturas del cobro o movimiento", "Chat o correo con el banco", "Contrato o reglamento del producto", "Radicado o respuesta previa"],
   Salud: ["Orden medica o formula", "Historia clinica PDF", "Capturas de autorizaciones", "Respuesta de EPS", "Facturas o soportes de pago"],
@@ -140,6 +159,46 @@ const summarizeUploadedEvidence = (files = []) =>
 const hasEvidenceAvailable = (form, files = []) =>
   Boolean(form.evidence_summary.trim() || (files || []).length);
 
+const formatAutofillEntry = ([key, value]) => `${autofillFieldLabels[key] || key}: ${String(value)}`;
+
+const mergeDetectedFormValues = (currentForm = {}, detectedForm = {}) => {
+  const next = { ...currentForm };
+  Object.entries(detectedForm || {}).forEach(([key, value]) => {
+    if (key.startsWith("_")) return;
+    const currentValue = currentForm?.[key];
+    const normalizedCurrent = typeof currentValue === "string" ? currentValue.trim() : currentValue;
+    const normalizedValue = typeof value === "string" ? value.trim() : value;
+    const shouldFillString = !normalizedCurrent || normalizedCurrent === "no" || normalizedCurrent === "No aplica";
+    const shouldFillOther = currentValue == null || currentValue === "";
+    if ((typeof normalizedValue === "string" && normalizedValue && shouldFillString) || (typeof normalizedValue !== "string" && normalizedValue && shouldFillOther)) {
+      next[key] = value;
+    }
+  });
+  return next;
+};
+
+const routingChannelLabels = {
+  email: "Correo",
+  portal: "Portal",
+  portal_pqrs: "Portal PQRS",
+  email_alterno: "Correo alterno",
+  telefono: "Telefono",
+  manual: "Manual",
+};
+
+const getRoutingChannelLabel = (channel) => routingChannelLabels[String(channel || "").toLowerCase()] || (channel || "Manual");
+
+const buildSubmissionSignatureNote = (signatureForm = {}, baseNote = "") => {
+  const signatureLine = [
+    "Firma simple:",
+    signatureForm.full_name || "sin nombre",
+    signatureForm.document_number || "sin cc",
+    signatureForm.city || "sin ciudad",
+    signatureForm.date || "sin fecha",
+  ].join(" | ");
+  return [baseNote || "", signatureLine].filter(Boolean).join(" || ").slice(0, 500);
+};
+
 const buildPostPayDescription = (form, caseItem) => {
   const parts = [
     caseItem?.recommended_action ? `Documento esperado: ${caseItem.recommended_action}.` : "",
@@ -151,7 +210,7 @@ const buildPostPayDescription = (form, caseItem) => {
     form.target_phone ? `Telefono de contacto de la entidad: ${form.target_phone}.` : "",
     form.target_superintendence ? `Entidad de control relacionada: ${form.target_superintendence}.` : "",
     form.case_story ? `Relato detallado: ${form.case_story}` : "",
-    form.concrete_request ? `Solicito expresamente: ${form.concrete_request}.` : "",
+    form.concrete_request ? `Resultado o solucion esperada por la persona usuaria: ${form.concrete_request}.` : "",
     form.key_dates ? `Fechas importantes: ${form.key_dates}.` : "",
     form.bank_product_type ? `Producto financiero: ${form.bank_product_type}.` : "",
     form.disputed_charge ? `Cobro o concepto discutido: ${form.disputed_charge}.` : "",
@@ -162,7 +221,7 @@ const buildPostPayDescription = (form, caseItem) => {
     form.tutela_previous_action_detail ? `Otra tutela o medida previa sobre el mismo caso: ${form.tutela_previous_action_detail}.` : "",
     form.tutela_oath_statement ? `Declaracion bajo juramento sobre no temeridad: ${form.tutela_oath_statement}.` : "",
     form.tutela_no_temperity_detail ? `No temeridad o tutela previa: ${form.tutela_no_temperity_detail}.` : "",
-    form.tutela_other_means_detail ? `Subsidiariedad o ausencia de otro medio eficaz: ${form.tutela_other_means_detail}.` : "",
+    form.tutela_other_means_detail ? `Gestiones previas y estado actual del problema: ${form.tutela_other_means_detail}.` : "",
     form.tutela_immediacy_detail ? `Inmediatez o justificacion temporal: ${form.tutela_immediacy_detail}.` : "",
     form.tutela_special_protection_detail ? `Condicion de especial proteccion: ${form.tutela_special_protection_detail}.` : "",
     form.tutela_private_party_ground ? `Fundamento contra particular: ${form.tutela_private_party_ground}.` : "",
@@ -186,7 +245,7 @@ const getPostPayMissingFields = (form, caseItem) => {
   if (!form.phone.trim()) missing.push("WhatsApp / celular");
   if (!form.target_entity.trim()) missing.push("Entidad contra la que reclamas");
   if (!form.case_story.trim()) missing.push("Cuenta con detalle que paso");
-  if (!form.concrete_request.trim()) missing.push("Que quieres que ordenen o solucionen");
+  if (!form.concrete_request.trim()) missing.push("Que solucion concreta necesitas");
   if (!form.key_dates.trim()) missing.push("Fechas importantes");
   if (!form.evidence_summary?.trim()) missing.push("Pruebas o soportes disponibles");
   if (!form.special_protection.trim()) missing.push("Proteccion especial");
@@ -199,7 +258,7 @@ const getPostPayMissingFields = (form, caseItem) => {
     if (form.prior_claim === "si" && !form.prior_claim_date?.trim()) missing.push("Fecha del reclamo previo");
   }
   if ((caseItem?.recommended_action || "").toLowerCase().includes("tutela") && form.prior_tutela === "si" && !form.prior_tutela_reason.trim()) {
-    missing.push("Por que esta tutela es diferente");
+    missing.push("Que paso con la solicitud o tutela anterior");
   }
   return missing;
 };
@@ -207,7 +266,9 @@ const getPostPayMissingFields = (form, caseItem) => {
 const getPostPayQuestionPrompts = (form, caseItem) => {
   const prompts = [];
   const category = (caseItem?.category || "").toLowerCase();
+  const action = normalizeAction(caseItem?.recommended_action || caseItem?.workflow_type || "");
   if (!form.key_dates.trim()) prompts.push("Que fecha exacta o aproximada tuvo el primer hecho relevante?");
+  if (!form.concrete_request.trim()) prompts.push("Que solucion concreta necesitas para que el problema quede resuelto?");
   if (!form.evidence_summary?.trim()) prompts.push("Que pruebas tienes hoy: extracto, chat, correo, captura, PDF, audio o contrato?");
   if (category === "bancos") {
     if (!form.bank_product_type?.trim()) prompts.push("Que producto financiero esta involucrado: tarjeta de credito, cuenta, prestamo, Nequi u otro?");
@@ -217,10 +278,221 @@ const getPostPayQuestionPrompts = (form, caseItem) => {
     if (form.prior_claim === "si" && !form.prior_claim_date?.trim()) prompts.push("En que fecha reclamaste al banco y por que canal lo hiciste?");
     if (form.prior_claim === "si" && !form.prior_claim_result?.trim()) prompts.push("Que respondio el banco o que paso despues de tu reclamo?");
   }
+  if (category === "datos" && !form.requested_data_action?.trim()) prompts.push("Como deberia quedar corregido ese dato o reporte?");
+  if (action.includes("derecho de peticion") && !form.numbered_requests?.trim()) prompts.push("Si la entidad te respondiera hoy, cuales serian las 2 o 3 soluciones concretas que necesitas recibir?");
+  if (action === "accion de tutela" && !form.tutela_other_means_detail?.trim()) prompts.push("Que hiciste antes para resolverlo y que sigue pasando hoy que hace urgente intervenir?");
+  if (action === "accion de tutela" && !form.tutela_immediacy_detail?.trim()) prompts.push("Que esta pasando hoy que hace urgente presentar esto ahora?");
   return prompts;
 };
 
+const buildPostPayInterviewStepsClean = (form, caseItem) => {
+  const category = (caseItem?.category || "").toLowerCase();
+  const action = normalizeAction(caseItem?.recommended_action || caseItem?.workflow_type || "");
+  const steps = [
+    {
+      id: "case_story",
+      question: "Cuentame brevemente que paso, en que orden y como te afecta hoy.",
+      placeholder: "Ej: saque la tarjeta en octubre, luego empezaron a cobrar un seguro que nunca autorice y el banco no resolvio.",
+      multiline: true,
+      show: !form.case_story.trim(),
+    },
+    {
+      id: "key_dates",
+      question: "Que fechas exactas o aproximadas recuerdas de los hechos?",
+      placeholder: "Ej: octubre de 2025 apertura, noviembre de 2025 primer cobro, enero de 2026 reclamo",
+      multiline: false,
+      show: !form.key_dates.trim(),
+    },
+    {
+      id: "concrete_request",
+      question: "Que necesitas que pase para que el problema quede resuelto?",
+      placeholder: "Ej: eliminar el seguro, devolver los cobros, entregar el medicamento o corregir el reporte",
+      multiline: true,
+      show: !form.concrete_request.trim(),
+    },
+    {
+      id: "evidence_summary",
+      question: "Que pruebas tienes hoy disponibles?",
+      placeholder: "Ej: extractos PDF, capturas, chat, correo, contrato, audio o radicado",
+      multiline: true,
+      show: !form.evidence_summary?.trim(),
+    },
+  ];
+
+  if (category === "bancos") {
+    steps.push(
+      {
+        id: "bank_product_type",
+        question: "Que producto financiero esta involucrado?",
+        placeholder: "Ej: tarjeta de credito, cuenta de ahorros, prestamo o Nequi",
+        multiline: false,
+        show: !form.bank_product_type?.trim(),
+      },
+      {
+        id: "disputed_charge",
+        question: "Cual es exactamente el cobro o concepto discutido?",
+        placeholder: "Ej: seguro de desempleo, cuota de manejo, interes o cargo no reconocido",
+        multiline: false,
+        show: !form.disputed_charge?.trim(),
+      },
+      {
+        id: "bank_amount_involved",
+        question: "Por que valor te estan cobrando ese concepto o cuanto te han cobrado en total?",
+        placeholder: "Ej: $38.500 mensuales o $154.000 acumulados",
+        multiline: false,
+        show: !form.bank_amount_involved?.trim(),
+      },
+      {
+        id: "bank_event_date",
+        question: "Desde que fecha viste el primer cobro o el primer hecho relevante?",
+        placeholder: "Ej: 12 de octubre de 2025",
+        multiline: false,
+        show: !form.bank_event_date?.trim(),
+      },
+      {
+        id: "bank_account_reference",
+        question: "Que referencia del producto puedes compartir sin exponer todo el dato?",
+        placeholder: "Ej: tarjeta terminada en 4821 o cuenta de ahorros terminada en 9912",
+        multiline: false,
+        show: !form.bank_account_reference?.trim(),
+      },
+      {
+        id: "refund_destination",
+        question: "Si pides devolucion, a que cuenta, tarjeta o medio deben abonarte los valores?",
+        placeholder: "Ej: a la misma tarjeta terminada en 4821 o a la cuenta de ahorros Bancolombia",
+        multiline: false,
+        show: !form.refund_destination?.trim(),
+      }
+    );
+    if (form.prior_claim === "si") {
+      steps.push(
+        {
+          id: "prior_claim_date",
+          question: "En que fecha reclamaste al banco y por que canal lo hiciste?",
+          placeholder: "Ej: 14 de enero de 2026 por PQRS web y llamada",
+          multiline: false,
+          show: !form.prior_claim_date?.trim(),
+        },
+        {
+          id: "prior_claim_result",
+          question: "Que te respondio el banco o que ocurrio despues del reclamo?",
+          placeholder: "Ej: dijeron que el seguro estaba activo, pero no enviaron autorizacion ni soporte",
+          multiline: true,
+          show: !form.prior_claim_result?.trim(),
+        }
+      );
+    }
+  }
+
+  if (category === "salud") {
+    steps.push(
+      {
+        id: "diagnosis",
+        question: "Cual es el diagnostico o la condicion medica principal?",
+        placeholder: "Ej: artritis reumatoide, embarazo de alto riesgo o trastorno de ansiedad",
+        multiline: false,
+        show: !form.diagnosis.trim(),
+      },
+      {
+        id: "treatment_needed",
+        question: "Que medicamento, procedimiento, cita o tratamiento hace falta?",
+        placeholder: "Ej: medicamento biologico, resonancia, cirugia o cita con especialista",
+        multiline: false,
+        show: !form.treatment_needed.trim(),
+      },
+      {
+        id: "urgency_detail",
+        question: "Por que esto es urgente hoy?",
+        placeholder: "Ej: el dolor empeora, suspendieron tratamiento o existe riesgo vital",
+        multiline: true,
+        show: !form.urgency_detail.trim(),
+      }
+    );
+  }
+
+  if (category === "datos") {
+    steps.push(
+      {
+        id: "disputed_data",
+        question: "Que dato o reporte esta mal o te esta afectando?",
+        placeholder: "Ej: reporte negativo en Datacredito por obligacion ya pagada",
+        multiline: true,
+        show: !form.disputed_data.trim(),
+      },
+      {
+        id: "requested_data_action",
+        question: "Como deberia quedar corregido ese dato o reporte?",
+        placeholder: "Ej: actualizar el estado, eliminar el reporte o corregir la fecha",
+        multiline: false,
+        show: !form.requested_data_action.trim(),
+      }
+    );
+  }
+
+  if (action === "accion de tutela") {
+    steps.push(
+      {
+        id: "tutela_previous_action_detail",
+        question: "Antes de esta tutela, cuentame si ya presentaste otra solicitud, peticion o tutela por este mismo problema.",
+        placeholder: "Ej: no habia presentado otra / ya habia presentado una peticion previa y esto fue lo que paso",
+        multiline: true,
+        show: !form.tutela_previous_action_detail?.trim(),
+      },
+      {
+        id: "tutela_oath_statement",
+        question: "Confirma si ya habias presentado otra tutela por este mismo problema o si esta es la primera vez.",
+        placeholder: "Ej: no habia presentado otra tutela por estos mismos hechos",
+        multiline: true,
+        show: !form.tutela_oath_statement?.trim() && !form.tutela_no_temperity_detail?.trim(),
+      },
+      {
+        id: "tutela_other_means_detail",
+        question: "Que hiciste antes para resolverlo y que esta pasando ahora que sigue siendo urgente?",
+        placeholder: "Ej: reclame antes, no solucionaron y el dano sigue ocurriendo hoy",
+        multiline: true,
+        show: !form.tutela_other_means_detail?.trim(),
+      },
+      {
+        id: "tutela_immediacy_detail",
+        question: "Que esta pasando hoy que hace urgente presentar esto ahora?",
+        placeholder: "Ej: el hecho es reciente, la vulneracion sigue ocurriendo o el riesgo es actual",
+        multiline: true,
+        show: !form.tutela_immediacy_detail?.trim(),
+      },
+      {
+        id: "tutela_special_protection_detail",
+        question: "Existe alguna condicion de especial proteccion que deba resaltarse?",
+        placeholder: "Ej: menor de edad, adulto mayor, embarazo, discapacidad o enfermedad grave",
+        multiline: false,
+        show: !form.tutela_special_protection_detail?.trim(),
+      }
+    );
+  }
+
+  if (action.includes("derecho de peticion")) {
+    steps.push(
+      {
+        id: "request_type",
+        question: "Que necesitas de la entidad: informacion, documentos, una respuesta sobre tu caso o una correccion?",
+        placeholder: "Ej: informacion, documentos o respuesta de fondo",
+        multiline: false,
+        show: !form.request_type.trim(),
+      },
+      {
+        id: "numbered_requests",
+        question: "Si la entidad te respondiera hoy, cuales serian las 2 o 3 soluciones concretas que necesitas recibir?",
+        placeholder: "Ej: entregar copia del contrato, corregir el cobro y certificar el estado del caso",
+        multiline: true,
+        show: !form.numbered_requests.trim(),
+      }
+    );
+  }
+
+  return steps.filter((step) => step.show);
+};
+
 const buildPostPayInterviewSteps = (form, caseItem) => {
+  return buildPostPayInterviewStepsClean(form, caseItem);
   const category = (caseItem?.category || "").toLowerCase();
   const action = normalizeAction(caseItem?.recommended_action || caseItem?.workflow_type || "");
   const steps = [
@@ -587,8 +859,10 @@ const summarizePreviewFixes = ({
   actionSpecificMissing,
   actionSpecificIssues,
   previewWarnings,
+  pendingQuestions,
 }) => {
   const items = [
+    ...((pendingQuestions || []).map((item) => item?.question).filter(Boolean)),
     ...(actionSpecificMissing || []).map((item) => `Completa: ${item}`),
     ...(actionSpecificIssues || []),
     ...((intakeReview?.blocking_issues || []).filter((item) => !isAiOwnedReviewIssue(item))),
@@ -824,7 +1098,7 @@ const getPreviewGateIssues = (form, files = []) => {
   }
 
   if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category) && form.numbered_requests.trim().length < 15) {
-    issues.push("Para un derecho de peticion fuerte debes dejar mas claras las solicitudes numeradas esperadas.");
+    issues.push("Para un derecho de peticion fuerte debes dejar mas claras las 2 o 3 soluciones concretas que esperas recibir.");
   }
 
   if (form.category === "Laboral" && form.minimum_vital_impact.trim().length < 20) {
@@ -1125,9 +1399,9 @@ const getActionSpecificMissing = (recommendedAction, form) => {
   }
 
   if (action === "accion de tutela") {
-    if (!form.tutela_no_temperity_detail.trim()) missing.push("No temeridad o tutela previa");
-    if (!form.tutela_other_means_detail.trim()) missing.push("Subsidiariedad o ausencia de otro medio eficaz");
-    if (!form.tutela_immediacy_detail.trim()) missing.push("Inmediatez o justificacion temporal");
+    if (!form.tutela_no_temperity_detail.trim()) missing.push("Si ya hubo otra tutela o solicitud previa");
+    if (!form.tutela_other_means_detail.trim()) missing.push("Que hiciste antes y que sigue pasando hoy");
+    if (!form.tutela_immediacy_detail.trim()) missing.push("Por que esto es urgente ahora");
   }
 
   if (action === "derecho de peticion" || action === "derecho de peticion a eps" || action === "derecho de peticion laboral" || action === "derecho de peticion financiero" || action === "derecho de peticion a empresa de servicios" || action === "derecho de peticion al proveedor") {
@@ -1184,8 +1458,8 @@ const getActionSpecificIssues = (recommendedAction, form) => {
   if (action === "accion de tutela") {
     if (form.tutela_previous_action_detail.trim().length < 15) issues.push("La tutela debe diferenciar si ya hubo otra tutela, peticion, incidente o medida previa por los mismos hechos.");
     if (!form.tutela_oath_statement.trim() && form.tutela_no_temperity_detail.trim().length < 20) issues.push("La tutela debe incluir una declaracion expresa bajo juramento sobre no temeridad.");
-    if (form.tutela_other_means_detail.trim().length < 25) issues.push("La tutela debe explicar mejor por que no existe otro medio judicial eficaz o por que hay perjuicio irremediable.");
-    if (form.tutela_immediacy_detail.trim().length < 20) issues.push("La tutela debe justificar la inmediatez o explicar por que se presenta ahora.");
+    if (form.tutela_other_means_detail.trim().length < 25) issues.push("Cuenta con mas detalle que hiciste antes y que sigue pasando hoy para mostrar por que el problema sigue abierto.");
+    if (form.tutela_immediacy_detail.trim().length < 20) issues.push("Explica mejor que esta pasando ahora mismo para mostrar la urgencia actual.");
   }
 
   if (action === "derecho de peticion" || action === "derecho de peticion a eps" || action === "derecho de peticion laboral" || action === "derecho de peticion financiero" || action === "derecho de peticion a empresa de servicios" || action === "derecho de peticion al proveedor") {
@@ -1278,13 +1552,13 @@ function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFiel
         <Field label="Otra tutela, medida o actuacion previa sobre estos mismos hechos">
           <TextArea value={form.tutela_previous_action_detail} onChange={(event) => setField("tutela_previous_action_detail", event.target.value)} placeholder="Indica si ya presentaste otra tutela, peticion, incidente o medida por este mismo caso. Si no, dilo con claridad." style={{ minHeight: 90 }} />
         </Field>
-        <Field label="Declaracion bajo juramento de no temeridad">
-          <TextArea value={form.tutela_oath_statement} onChange={(event) => setField("tutela_oath_statement", event.target.value)} placeholder="Ej: Bajo la gravedad del juramento manifiesto que no he presentado otra accion de tutela por los mismos hechos, derechos y pretensiones." style={{ minHeight: 90 }} />
+        <Field label="Confirma si esta es la primera tutela por este problema">
+          <TextArea value={form.tutela_oath_statement} onChange={(event) => setField("tutela_oath_statement", event.target.value)} placeholder="Ej: no he presentado otra tutela por estos mismos hechos." style={{ minHeight: 90 }} />
         </Field>
-        <Field label="Que tramites hiciste antes y por que hoy necesitas ayuda urgente">
+        <Field label="Que hiciste antes para resolverlo y que sigue pasando hoy">
           <TextArea value={form.tutela_other_means_detail} onChange={(event) => setField("tutela_other_means_detail", event.target.value)} placeholder="Ej: fui a la EPS, a la farmacia y a atencion al usuario, pero no solucionaron; mi hijo sigue sin medicamento y el riesgo continua." style={{ minHeight: 90 }} />
         </Field>
-        <Field label="Por que presentas la tutela ahora">
+        <Field label="Que hace urgente este caso hoy">
           <TextInput value={form.tutela_immediacy_detail} onChange={(event) => setField("tutela_immediacy_detail", event.target.value)} placeholder="Ej: el medicamento sigue sin entregarse hoy, el riesgo es actual y ya hubo urgencias recientes" />
         </Field>
         <Field label="Sujeto de especial proteccion, si aplica">
@@ -1480,19 +1754,22 @@ const isAiOwnedReviewIssue = (issue) => {
 const humanizeAiOwnedIssue = (issue) => {
   const normalized = normalizeAction(issue);
   if (normalized.includes("declaracion de no temeridad")) {
-    return "La IA incorporara el juramento de no temeridad con la informacion del expediente y, si hace falta, te pedira solo confirmar si ya hubo otra tutela.";
+    return "La IA incorporara este control interno y, si hace falta, solo te pedira confirmar si ya hubo otra tutela o solicitud previa.";
+  }
+  if (normalized.includes("juramento")) {
+    return "La IA dejara listo este control interno dentro del documento final usando la informacion del expediente.";
   }
   if (normalized.includes("subsidiariedad") || normalized.includes("perjuicio irremediable")) {
-    return "La IA reforzara la procedencia de la tutela explicando subsidiariedad y, si aplica, el perjuicio irremediable con base en los hechos del caso.";
+    return "La IA reforzara internamente por que este caso necesita intervenirse ya, con base en lo que paso antes y en el dano actual.";
   }
   if (normalized.includes("inmediatez")) {
-    return "La IA explicara por que la vulneracion sigue siendo actual o por que la accion se presenta de manera oportuna.";
+    return "La IA explicara por que el problema sigue ocurriendo hoy o por que la accion se presenta en este momento.";
   }
   if (normalized.includes("articulo 42") || normalized.includes("procedencia con base")) {
-    return "Si la tutela va contra un particular, la IA construira internamente la justificacion juridica de procedencia.";
+    return "Si la tutela va contra un particular, la IA construira internamente esa justificacion sin pedirtela en lenguaje tecnico.";
   }
   if (normalized.includes("urgencia") || normalized.includes("procedencia")) {
-    return "La IA reforzara la argumentacion de urgencia y procedencia con redaccion juridica.";
+    return "La IA reforzara internamente la urgencia del caso con redaccion juridica basada en tus hechos.";
   }
   if (normalized.includes("jurisprudencia") || normalized.includes("fuentes verificadas")) {
     return "La IA verificara y reforzara internamente la jurisprudencia y las fuentes oficiales antes de entregar el documento.";
@@ -1613,7 +1890,7 @@ function DocumentRuleReviewCard({ review }) {
       </div>
 
       <div style={{ marginTop: 14, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-        La plataforma ya evalua internamente la estructura del documento, la procedencia y el nivel de soporte requerido para esta ruta.
+        La plataforma ya evalua internamente la estructura del documento, si hacen falta mas hechos y el nivel de soporte requerido para esta ruta.
       </div>
 
       {!!blockingIssues.length && (
@@ -1797,8 +2074,8 @@ function GuidedIntakeFields({
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-        <Field label="Que solicitas exactamente">
-          <TextInput value={form.concrete_request} onChange={(event) => setField("concrete_request", event.target.value)} placeholder="Ej: entrega de medicamento, respuesta de fondo, correccion del reporte" />
+        <Field label="Que solucion concreta necesitas">
+          <TextInput value={form.concrete_request} onChange={(event) => setField("concrete_request", event.target.value)} placeholder="Ej: entrega de medicamento, devolucion del dinero o correccion del reporte" />
         </Field>
         <Field label="Canal para recibir respuesta">
           <TextInput value={form.response_channel} onChange={(event) => setField("response_channel", event.target.value)} placeholder="Ej: correo electronico, direccion fisica o ambos" />
@@ -1822,8 +2099,8 @@ function GuidedIntakeFields({
                 <option value="interes_general">Interes general</option>
               </select>
             </Field>
-            <Field label="Solicitudes numeradas esperadas">
-              <TextInput value={form.numbered_requests} onChange={(event) => setField("numbered_requests", event.target.value)} placeholder="Ej: 1) Responder de fondo 2) Entregar copia 3) Corregir cobro" />
+            <Field label="2 o 3 soluciones concretas que necesitas">
+              <TextInput value={form.numbered_requests} onChange={(event) => setField("numbered_requests", event.target.value)} placeholder="Ej: entregar copia del contrato, corregir el cobro y certificar el estado del caso" />
             </Field>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
@@ -2069,7 +2346,7 @@ function GuidedIntakeFields({
             <Field label="Dato o reporte cuestionado">
               <TextInput value={form.disputed_data} onChange={(event) => setField("disputed_data", event.target.value)} placeholder="Ej: reporte negativo por obligacion ya pagada" />
             </Field>
-            <Field label="Accion solicitada sobre el dato">
+        <Field label="Como debe quedar corregido el dato">
               <select
                 value={form.requested_data_action}
                 onChange={(event) => setField("requested_data_action", event.target.value)}
@@ -2378,6 +2655,14 @@ function DetailPanel({
   const [radicadoNote, setRadicadoNote] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
   const [interviewDraft, setInterviewDraft] = useState("");
+  const [documentReviewed, setDocumentReviewed] = useState(false);
+  const [signatureAccepted, setSignatureAccepted] = useState(false);
+  const [signatureForm, setSignatureForm] = useState({
+    full_name: "",
+    document_number: "",
+    city: "Bogota",
+    date: new Date().toLocaleDateString("es-CO"),
+  });
 
   if (!detail) {
     return <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>Abre un expediente para continuar el wizard del caso activo.</div>;
@@ -2387,21 +2672,32 @@ function DetailPanel({
   const submissionSummary = item.submission_summary || {};
   const guidance = submissionSummary.guidance || {};
   const review = documentReview || submissionSummary.document_quality || null;
+  const effectivePostPayForm = mergeDetectedFormValues(postPayForm, item.facts?.intake_form || item.facts?.autofill_suggestions || {});
   const rights = item.legal_analysis?.derechos_vulnerados || [];
   const rules = item.legal_analysis?.normas_relevantes || [];
   const baseFlowStep = getActiveFlowStep(item);
   const flowStep = detailStepOverride || baseFlowStep;
-  const missingFields = getPostPayMissingFields(postPayForm, item);
-  const missingQuestions = getPostPayQuestionPrompts(postPayForm, item);
-  const interviewSteps = buildPostPayInterviewSteps(postPayForm, item);
+  const normalizedDetailAction = normalizeAction(item.recommended_action || item.workflow_type || "");
+  const isTutelaFlow = normalizedDetailAction === "accion de tutela";
+  const missingFields = getPostPayMissingFields(effectivePostPayForm, item);
+  const backendPendingQuestions = item.pending_questions || item.facts?.pending_questions || [];
+  const autofillSuggestions = item.facts?.autofill_suggestions || {};
+  const missingQuestions = [
+    ...backendPendingQuestions.map((question) => question?.question).filter(Boolean),
+    ...getPostPayQuestionPrompts(effectivePostPayForm, item),
+  ].filter((value, index, array) => array.indexOf(value) === index);
+  const interviewSteps = buildPostPayInterviewSteps(effectivePostPayForm, item);
   const activeInterviewStep = interviewSteps[0] || null;
   const checklist = buildDocumentChecklist(item, review, files);
-  const whatsappCopy = postPayForm.phone || item.user_phone || "";
+  const whatsappCopy = effectivePostPayForm.phone || item.user_phone || "";
   const evidenceHints = evidenceTypeHints[item.category] || evidenceTypeHints.default;
   const detailRights = item.legal_analysis?.derechos_vulnerados || [];
   const detailNorms = item.legal_analysis?.normas_relevantes || [];
   const detailDx = item.dx_result || {};
   const detailViability = getViabilityConfig(detailDx);
+  const detailPrimaryTarget = item.routing?.primary_target || {};
+  const detailRoutingChannel = getRoutingChannelLabel(item.routing?.channel || detailPrimaryTarget?.channel);
+  const detailRoutingContact = detailPrimaryTarget?.contact || effectivePostPayForm.target_pqrs_email || effectivePostPayForm.target_website || effectivePostPayForm.target_phone || "Canal por confirmar";
   const detailRouteSteps = [
     ...((item.prerequisites || []).slice(0, 2).map((step) => shortenRouteLabel(step.label))),
     shortenRouteLabel(item.recommended_action || item.workflow_type, "Documento"),
@@ -2412,6 +2708,21 @@ function DetailPanel({
     { id: 3, label: "Documento listo" },
     { id: 4, label: "Radicacion" },
   ];
+  const signatureReady =
+    documentReviewed &&
+    signatureAccepted &&
+    signatureForm.full_name.trim().length > 3 &&
+    signatureForm.document_number.trim().length >= 6 &&
+    signatureForm.city.trim().length > 2 &&
+    signatureForm.date.trim().length > 4;
+
+  useEffect(() => {
+    setSignatureForm((current) => ({
+      ...current,
+      full_name: effectivePostPayForm.full_name || item.user_name || current.full_name,
+      document_number: effectivePostPayForm.document_number || item.user_document || current.document_number,
+    }));
+  }, [effectivePostPayForm.full_name, effectivePostPayForm.document_number, item.user_name, item.user_document]);
 
   const uploadEvidence = async (event) => {
     const file = event.target.files?.[0];
@@ -2514,6 +2825,42 @@ function DetailPanel({
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            {!!Object.keys(autofillSuggestions).length && (
+              <div className="glass-card" style={{ padding: 18, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#166534" }}>DATOS DETECTADOS AUTOMATICAMENTE</div>
+                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                  Encontramos estos datos en tu relato o anexos y los usamos para acelerar el expediente:
+                </div>
+                        <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                          {Object.entries(autofillSuggestions).slice(0, 5).map(([key, value]) => (
+                            <div key={key} style={{ color: "#166534" }}>{`• ${formatAutofillEntry([key, value])}`}</div>
+                          ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+              <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>CANAL DE RADICACION</div>
+                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{detailRoutingChannel}</div>
+                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>{detailRoutingContact}</div>
+              </div>
+              <div className="glass-card" style={{ padding: 18, background: item.routing?.automatable ? "#EEF4FF" : "#FFF7ED", border: item.routing?.automatable ? "1px solid #BFDBFE" : "1px solid #FED7AA" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: item.routing?.automatable ? C.primary : "#C2410C" }}>ESTADO OPERATIVO</div>
+                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                  {item.routing?.automatable ? "Radicacion automatizable" : "Requiere apoyo manual"}
+                </div>
+                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
+                  {item.routing?.automatable ? "La entidad ya tiene un canal listo para usar dentro del flujo." : "Conviene revisar o confirmar contacto antes del envio definitivo."}
+                </div>
+              </div>
+              <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>ENTIDAD ACTIVA</div>
+                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{detailPrimaryTarget?.name || effectivePostPayForm.target_entity || "Entidad por confirmar"}</div>
+                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>{item.routing?.subject || "Asunto se ajusta automaticamente al documento."}</div>
               </div>
             </div>
 
@@ -2696,12 +3043,12 @@ function DetailPanel({
                     <Field label="Cuenta con detalle que paso *">
                       <TextArea value={postPayForm.case_story} onChange={(event) => setPostPayForm((current) => ({ ...current, case_story: event.target.value }))} style={{ minHeight: 140 }} placeholder="Fechas, que te negaron, que respuesta te dieron, como te afecta." />
                     </Field>
-                    <Field label="Que quieres que ordenen o solucionen *">
+                    <Field label="Que solucion concreta necesitas *">
                       <TextArea
                         value={postPayForm.concrete_request}
                         onChange={(event) => setPostPayForm((current) => ({ ...current, concrete_request: event.target.value }))}
                         style={{ minHeight: 96 }}
-                        placeholder="Ej: Solicito que Bancolombia elimine el cobro del seguro no autorizado, devuelva los valores cobrados y responda formalmente mi reclamacion."
+                        placeholder="Ej: eliminar el cobro del seguro no autorizado, devolver los valores cobrados y responder formalmente mi reclamacion."
                       />
                     </Field>
                     <Field label="Fechas importantes *"><TextInput value={postPayForm.key_dates} onChange={(event) => setPostPayForm((current) => ({ ...current, key_dates: event.target.value }))} placeholder="Cuando paso, cuando reclamaste y cuando respondieron" /></Field>
@@ -2748,23 +3095,27 @@ function DetailPanel({
                     <Field label="Que pruebas tienes disponibles *">
                       <TextArea value={postPayForm.evidence_summary} onChange={(event) => setPostPayForm((current) => ({ ...current, evidence_summary: event.target.value }))} style={{ minHeight: 96 }} placeholder="Ej: extractos, capturas, chats, correo de respuesta, PDF del contrato o audio del asesor." />
                     </Field>
-                    <Field label="Sujeto de especial proteccion *">
-                      <select value={postPayForm.special_protection} onChange={(event) => setPostPayForm((current) => ({ ...current, special_protection: event.target.value }))} style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}>
-                        {specialProtectionOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                      </select>
-                    </Field>
-                    <div style={{ display: "grid", gap: 10 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Has presentado tutela antes por esto? *</div>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        {[["no", "No"], ["si", "Si"]].map(([value, label]) => (
-                          <button key={value} onClick={() => setPostPayForm((current) => ({ ...current, prior_tutela: value }))} style={{ border: `1px solid ${postPayForm.prior_tutela === value ? C.primary : C.border}`, background: postPayForm.prior_tutela === value ? C.primaryLight : "#fff", color: postPayForm.prior_tutela === value ? C.primary : C.text, borderRadius: 14, padding: "10px 16px", fontWeight: 700, cursor: "pointer" }}>{label}</button>
-                        ))}
-                      </div>
-                    </div>
-                    {postPayForm.prior_tutela === "si" && (
-                      <Field label="Si si, por que es diferente?">
-                        <TextArea value={postPayForm.prior_tutela_reason} onChange={(event) => setPostPayForm((current) => ({ ...current, prior_tutela_reason: event.target.value }))} style={{ minHeight: 90 }} />
-                      </Field>
+                    {isTutelaFlow && (
+                      <>
+                        <Field label="Sujeto de especial proteccion *">
+                          <select value={postPayForm.special_protection} onChange={(event) => setPostPayForm((current) => ({ ...current, special_protection: event.target.value }))} style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}>
+                            {specialProtectionOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                          </select>
+                        </Field>
+                        <div style={{ display: "grid", gap: 10 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Has presentado tutela antes por esto? *</div>
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            {[["no", "No"], ["si", "Si"]].map(([value, label]) => (
+                              <button key={value} onClick={() => setPostPayForm((current) => ({ ...current, prior_tutela: value }))} style={{ border: `1px solid ${postPayForm.prior_tutela === value ? C.primary : C.border}`, background: postPayForm.prior_tutela === value ? C.primaryLight : "#fff", color: postPayForm.prior_tutela === value ? C.primary : C.text, borderRadius: 14, padding: "10px 16px", fontWeight: 700, cursor: "pointer" }}>{label}</button>
+                            ))}
+                          </div>
+                        </div>
+                        {postPayForm.prior_tutela === "si" && (
+                          <Field label="Si si, por que es diferente?">
+                            <TextArea value={postPayForm.prior_tutela_reason} onChange={(event) => setPostPayForm((current) => ({ ...current, prior_tutela_reason: event.target.value }))} style={{ minHeight: 90 }} />
+                          </Field>
+                        )}
+                      </>
                     )}
                   </div>
                   <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18, display: "grid", gap: 12 }}>
@@ -2832,6 +3183,49 @@ function DetailPanel({
                       {checklist.map((line) => <div key={line} style={{ color: C.textMuted }}>{`✓ ${line}`}</div>)}
                     </div>
                   </div>
+                  <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Revisa el documento antes de firmar</div>
+                        <div style={{ marginTop: 6, color: C.textMuted }}>El orden correcto es revisar, firmar, confirmar envio y despues radicar.</div>
+                      </div>
+                      <Button variant="outline" onClick={() => onViewDocument(item)}>Abrir vista completa</Button>
+                    </div>
+                    <div style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}`, maxHeight: 240, overflow: "auto", color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                      {item.generated_document ? `${item.generated_document.slice(0, 1800)}${item.generated_document.length > 1800 ? "\n\n[...] abre la vista completa para revisar todo el documento." : ""}` : "Todavia no hay vista previa disponible."}
+                    </div>
+                    <label style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.text }}>
+                      <input type="checkbox" checked={documentReviewed} onChange={(event) => setDocumentReviewed(event.target.checked)} />
+                      <span style={{ lineHeight: 1.6 }}>Ya revise el documento completo y puedo pasar a la firma.</span>
+                    </label>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Firma simple para el envio</div>
+                      <div style={{ marginTop: 6, color: C.textMuted }}>Nombre, cedula, ciudad y fecha como validacion previa del envio.</div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+                      <Field label="Nombre completo">
+                        <TextInput value={signatureForm.full_name} onChange={(event) => setSignatureForm((current) => ({ ...current, full_name: event.target.value }))} />
+                      </Field>
+                      <Field label="Cedula">
+                        <TextInput value={signatureForm.document_number} onChange={(event) => setSignatureForm((current) => ({ ...current, document_number: event.target.value }))} />
+                      </Field>
+                      <Field label="Ciudad">
+                        <TextInput value={signatureForm.city} onChange={(event) => setSignatureForm((current) => ({ ...current, city: event.target.value }))} />
+                      </Field>
+                      <Field label="Fecha">
+                        <TextInput value={signatureForm.date} onChange={(event) => setSignatureForm((current) => ({ ...current, date: event.target.value }))} />
+                      </Field>
+                    </div>
+                    <label style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.text }}>
+                      <input type="checkbox" checked={signatureAccepted} onChange={(event) => setSignatureAccepted(event.target.checked)} />
+                      <span style={{ lineHeight: 1.6 }}>Autorizo el uso de esta firma simple y confirmo que el documento final ya fue revisado.</span>
+                    </label>
+                    {!signatureReady && (
+                      <div style={{ padding: 14, borderRadius: 16, background: "#FFF7ED", border: "1px solid #FED7AA", color: "#9A3412" }}>
+                        La firma y la radicacion se habilitan cuando revisas el documento completo y completas esta confirmacion.
+                      </div>
+                    )}
+                  </div>
                   <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#F8FAFD", display: "grid", gap: 12 }}>
                     <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Si quieres regenerarlo, explica que debe corregir la IA</div>
                     <Field label="Por que no te gusto este documento o que debe mejorar">
@@ -2889,10 +3283,15 @@ function DetailPanel({
               <div style={{ padding: 22, borderRadius: 22, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
                 <div style={{ fontSize: 24, fontWeight: 800, color: C.text }}>Siguiente paso: radicacion</div>
                 <div style={{ marginTop: 8, color: C.textMuted }}>Puedes radicar tu mismo, pedir la guia o dejar que nosotros lo hagamos por ti.</div>
+                {!signatureReady && (
+                  <div style={{ marginTop: 14, padding: 14, borderRadius: 16, background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B" }}>
+                    Antes del envio debes revisar el documento completo y confirmar la firma simple.
+                  </div>
+                )}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 18 }}>
-                  <Button onClick={() => onSubmitCase({ mode: "auto", notes: submissionNote })}>Radicar por mi (+$34.000)</Button>
-                  <Button variant="outline" onClick={() => onSubmitCase({ mode: "manual_contact", manual_contact: manualContact, notes: submissionNote })}>Dame la guia (+$17.000)</Button>
-                  <Button variant="ghost" style={{ background: "#F8FAFD", border: `1px solid ${C.border}` }} onClick={() => onManualRadicado({ radicado: radicadoManual || `AUTO-${Date.now()}`, notes: radicadoNote || "Usuario decidio radicar por su cuenta." })}>Yo lo radico por mi cuenta</Button>
+                  <Button disabled={!signatureReady} onClick={() => onSubmitCase({ mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })}>Radicar por mi (+$34.000)</Button>
+                  <Button disabled={!signatureReady} variant="outline" onClick={() => onSubmitCase({ mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })}>Dame la guia (+$17.000)</Button>
+                  <Button disabled={!signatureReady} variant="ghost" style={{ background: "#F8FAFD", border: `1px solid ${C.border}` }} onClick={() => onManualRadicado({ radicado: radicadoManual || `AUTO-${Date.now()}`, notes: buildSubmissionSignatureNote(signatureForm, radicadoNote || "Usuario decidio radicar por su cuenta."), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })}>Yo lo radico por mi cuenta</Button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
                   <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o canal para la guia" />
@@ -3063,7 +3462,7 @@ export default function DashboardV2(props) {
   useEffect(() => {
     if (!activeCaseDetail?.case) return;
     const intakeForm = activeCaseDetail.case.facts?.intake_form || {};
-    setPostPayForm({
+    const hydratedPostPayForm = mergeDetectedFormValues({
       full_name: intakeForm.full_name || activeCaseDetail.case.user_name || session.user.name || "",
       document_number: intakeForm.document_number || activeCaseDetail.case.user_document || session.user.document_number || "",
       phone: intakeForm.phone || activeCaseDetail.case.user_phone || session.user.phone || "",
@@ -3101,7 +3500,8 @@ export default function DashboardV2(props) {
       special_protection: intakeForm.special_protection || "No aplica",
       prior_tutela: intakeForm.prior_tutela || "no",
       prior_tutela_reason: intakeForm.prior_tutela_reason || "",
-    });
+    }, activeCaseDetail.case.facts?.autofill_suggestions || {});
+    setPostPayForm(hydratedPostPayForm);
     setRegenerationReason(intakeForm.regeneration_reason || "");
     setRegenerationContext(intakeForm.regeneration_additional_context || "");
   }, [activeCaseDetail, session.user]);
@@ -3545,6 +3945,7 @@ export default function DashboardV2(props) {
                       form_data: { ...form },
                       attachment_ids: tempFiles.map((item) => item.id),
                     });
+                    setForm((current) => mergeDetectedFormValues(current, previewResult?.facts?.intake_form || previewResult?.facts?.autofill_suggestions || {}));
                     setPreview(previewResult);
                     setWizardStep(3);
                   } catch (error) {
@@ -3568,22 +3969,29 @@ export default function DashboardV2(props) {
           </StepShell>
         )}
         {wizardStep === 3 && (() => {
+          const previewForm = mergeDetectedFormValues(form, preview?.facts?.intake_form || preview?.facts?.autofill_suggestions || {});
           const intakeReview = preview?.facts?.intake_review || null;
           const documentRuleReview = preview?.facts?.document_rule_review || null;
           const hasBlockingIssues = !!(intakeReview?.blocking_issues || []).length;
           const hasDocumentRuleBlockers = !!(documentRuleReview?.blocking_issues || []).filter((issue) => !isAiOwnedReviewIssue(issue)).length;
-          const actionSpecificMissing = getActionSpecificMissing(preview?.recommended_action, form);
-          const actionSpecificIssues = getActionSpecificIssues(preview?.recommended_action, form);
+          const actionSpecificMissing = getActionSpecificMissing(preview?.recommended_action, previewForm);
+          const actionSpecificIssues = getActionSpecificIssues(preview?.recommended_action, previewForm);
           const hasActionSpecificBlockers = actionSpecificMissing.length > 0 || actionSpecificIssues.length > 0;
           const rightsPreview = buildPreviewRights(preview);
           const viability = getViabilityConfig(preview?.dx_result || {});
           const routeSteps = buildRouteSteps(preview);
+          const previewPrimaryTarget = preview?.routing?.primary_target || {};
+          const previewRoutingChannel = getRoutingChannelLabel(preview?.routing?.channel || previewPrimaryTarget?.channel);
+          const previewRoutingContact = previewPrimaryTarget?.contact || "Canal por confirmar";
+          const backendPendingQuestions = preview?.pending_questions || preview?.facts?.pending_questions || [];
+          const autofillSuggestions = preview?.facts?.autofill_suggestions || {};
           const previewFixes = summarizePreviewFixes({
             intakeReview,
             documentRuleReview,
             actionSpecificMissing,
             actionSpecificIssues,
             previewWarnings: preview?.warnings || [],
+            pendingQuestions: backendPendingQuestions,
           });
           const paidLocks = [
             "Normas aplicables al caso",
@@ -3756,11 +4164,65 @@ export default function DashboardV2(props) {
                     </div>
                   </div>
 
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+                    <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", border: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>CANAL DETECTADO</div>
+                      <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{previewRoutingChannel}</div>
+                      <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>{previewRoutingContact}</div>
+                    </div>
+                    <div className="glass-card" style={{ padding: 18, background: preview?.routing?.automatable ? "#EEF4FF" : "#FFF7ED", border: preview?.routing?.automatable ? "1px solid #BFDBFE" : "1px solid #FED7AA" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: preview?.routing?.automatable ? C.primary : "#C2410C" }}>RADICACION</div>
+                      <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                        {preview?.routing?.automatable ? "Lista para radicacion digital" : "Puede requerir gestion manual"}
+                      </div>
+                      <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
+                        {preview?.routing?.automatable ? "La app ya encontro un canal operativo para avanzar sin pedirte mas datos de contacto." : "Todavia puede hacer falta confirmar el canal exacto antes del envio final."}
+                      </div>
+                    </div>
+                    <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PLAN DE FALLBACK</div>
+                      <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                        {preview?.routing?.fallback?.mode === "none" ? "Sin bloqueo operativo" : "Hay fallback preparado"}
+                      </div>
+                      <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
+                        {(preview?.routing?.fallback?.instructions || [])[0] || "Si el canal principal falla, la app conserva una ruta operativa alternativa."}
+                      </div>
+                    </div>
+                  </div>
+
+                  {!!backendPendingQuestions.length && (
+                    <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>PREGUNTAS CLAVE QUE FALTAN</div>
+                      <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                        Antes del documento final conviene completar estas respuestas:
+                      </div>
+                      <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                        {backendPendingQuestions.slice(0, 5).map((question) => (
+                          <div key={question.id || question.question} style={{ color: C.text }}>{`• ${question.question}`}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {!!Object.keys(autofillSuggestions).length && (
+                    <div className="glass-card" style={{ padding: 18, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#166534" }}>DATOS DETECTADOS EN TUS ANEXOS</div>
+                      <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                        La app ya detecto estos datos para no hacerte repetir informacion:
+                      </div>
+                <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                  {Object.entries(autofillSuggestions).slice(0, 5).map(([key, value]) => (
+                    <div key={key} style={{ color: "#166534" }}>{`• ${formatAutofillEntry([key, value])}`}</div>
+                  ))}
+                </div>
+              </div>
+                  )}
+
                   {!!previewFixes.length && (
                     <div className="glass-card" style={{ padding: 18, background: "#FFFBEB", border: "1px solid #FDE68A" }}>
                       <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#92400E" }}>ANTES DEL DOCUMENTO FINAL</div>
                       <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
-                        Conviene reforzar estos puntos para que la tutela salga mas fuerte:
+                        Conviene reforzar estos puntos para que el documento salga mas completo:
                       </div>
                       <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
                         {previewFixes.map((item) => (
@@ -3774,9 +4236,9 @@ export default function DashboardV2(props) {
                     <Button
                       onClick={async () => {
                         const detail = await onCreateCase({
-                          ...form,
+                          ...previewForm,
                           description: composedDescription,
-                          form_data: { ...form },
+                          form_data: { ...previewForm },
                           attachment_ids: tempFiles.map((item) => item.id),
                         });
                         setDraftDetail(detail);
@@ -3899,16 +4361,16 @@ export default function DashboardV2(props) {
                     <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o contacto manual" />
                     <TextArea value={submissionNote} onChange={(event) => setSubmissionNote(event.target.value)} placeholder="Notas del envio o fallback" style={{ minHeight: 90 }} />
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: submissionNote })} disabled={!activeCaseDetail.case.generated_document}>Ejecutar envio automatico</Button>
-                      <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: submissionNote })}>Usar contacto manual</Button>
-                      <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: submissionNote })}>Activar modo presencial</Button>
+                      <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })} disabled={!activeCaseDetail.case.generated_document || !signatureReady}>Ejecutar envio automatico</Button>
+                      <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })} disabled={!signatureReady}>Usar contacto manual</Button>
+                      <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })} disabled={!signatureReady}>Activar modo presencial</Button>
                     </div>
                   </div>
                   <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.textMuted }}>RADICADO MANUAL Y EVIDENCIA</div>
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                       <TextInput value={radicadoManual} onChange={(event) => setRadicadoManual(event.target.value)} placeholder="Numero de radicado manual" />
-                      <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: radicadoNote })}>Registrar radicado manual</Button>
+                      <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: buildSubmissionSignatureNote(signatureForm, radicadoNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })} disabled={!signatureReady}>Registrar radicado manual</Button>
                     </div>
                     <TextArea value={radicadoNote} onChange={(event) => setRadicadoNote(event.target.value)} placeholder="Notas del radicado manual" style={{ minHeight: 80 }} />
                     <input id="evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
@@ -3988,19 +4450,20 @@ export default function DashboardV2(props) {
         onViewDocument={setDocumentCase}
         onSaveFlowDraft={async () => {
           if (!activeCaseDetail?.case?.id) return;
+          const effectiveDetailForm = mergeDetectedFormValues(postPayForm, activeCaseDetail.case.facts?.intake_form || activeCaseDetail.case.facts?.autofill_suggestions || {});
           const nextProfile = {
             ...profile,
-            name: postPayForm.full_name,
-            document_number: postPayForm.document_number,
-            phone: postPayForm.phone,
-            address: postPayForm.address,
+            name: effectiveDetailForm.full_name,
+            document_number: effectiveDetailForm.document_number,
+            phone: effectiveDetailForm.phone,
+            address: effectiveDetailForm.address,
           };
           setProfile(nextProfile);
           await onSaveProfile(nextProfile);
           await onUpdateCaseIntake(activeCaseDetail.case.id, {
-            description: buildPostPayDescription(postPayForm, activeCaseDetail.case),
+            description: buildPostPayDescription(effectiveDetailForm, activeCaseDetail.case),
             form_data: {
-              ...postPayForm,
+              ...effectiveDetailForm,
               regeneration_reason: regenerationReason,
               regeneration_additional_context: regenerationContext,
             },
@@ -4008,19 +4471,20 @@ export default function DashboardV2(props) {
         }}
         onGenerateFromFlow={async () => {
           if (!activeCaseDetail?.case?.id) return;
+          const effectiveDetailForm = mergeDetectedFormValues(postPayForm, activeCaseDetail.case.facts?.intake_form || activeCaseDetail.case.facts?.autofill_suggestions || {});
           const nextProfile = {
             ...profile,
-            name: postPayForm.full_name,
-            document_number: postPayForm.document_number,
-            phone: postPayForm.phone,
-            address: postPayForm.address,
+            name: effectiveDetailForm.full_name,
+            document_number: effectiveDetailForm.document_number,
+            phone: effectiveDetailForm.phone,
+            address: effectiveDetailForm.address,
           };
           setProfile(nextProfile);
           await onSaveProfile(nextProfile);
           await onUpdateCaseIntake(activeCaseDetail.case.id, {
-            description: buildPostPayDescription(postPayForm, activeCaseDetail.case),
+            description: buildPostPayDescription(effectiveDetailForm, activeCaseDetail.case),
             form_data: {
-              ...postPayForm,
+              ...effectiveDetailForm,
               regeneration_reason: regenerationReason,
               regeneration_additional_context: regenerationContext,
             },

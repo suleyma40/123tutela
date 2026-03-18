@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,8 @@ from backend.legal_sources import (
     sanitize_legal_analysis,
 )
 from backend.notifications import send_post_radicado_email
+from backend.notifications import send_signed_submission_email
+from backend.submission_artifacts import create_signed_submission_artifacts
 from backend.schemas_v2 import (
     AnalysisPreviewRequest,
     AnalysisPreviewResponse,
@@ -57,7 +60,11 @@ from backend.schemas_v2 import (
 )
 from backend.security import create_token, decode_token, hash_password, verify_password
 from backend.storage import absolute_path, move_relative_path, save_upload
-from backend.attachment_intelligence import build_attachment_context, enrich_description_with_attachment_context
+from backend.attachment_intelligence import (
+    build_attachment_context,
+    enrich_description_with_attachment_context,
+    suggest_fields_from_context,
+)
 from backend import repository_ext as repository
 from backend.wompi import (
     amount_cop_to_cents,
@@ -244,6 +251,23 @@ def _normalize_payment_order(order: dict[str, Any]) -> PaymentOrderResponse:
     )
 
 
+def _normalize_submission_signature(signature: dict[str, Any] | None, *, reviewed_document: bool) -> dict[str, Any]:
+    data = dict(signature or {})
+    normalized = {
+        "full_name": str(data.get("full_name") or "").strip(),
+        "document_number": str(data.get("document_number") or "").strip(),
+        "city": str(data.get("city") or "").strip(),
+        "date": str(data.get("date") or "").strip(),
+        "accepted": bool(data.get("accepted") or data.get("accept") or data.get("acepta_terminos") or data.get("accepted_terms")),
+        "reviewed_document": bool(reviewed_document),
+    }
+    if len(normalized["full_name"]) < 4 or len(normalized["document_number"]) < 6 or len(normalized["city"]) < 2 or len(normalized["date"]) < 4:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La firma simple esta incompleta.")
+    if not normalized["accepted"] or not normalized["reviewed_document"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debes revisar el documento y confirmar la firma antes del envio.")
+    return normalized
+
+
 def _merge_intake_into_facts(
     *,
     existing_facts: dict[str, Any],
@@ -278,6 +302,212 @@ def _merge_intake_into_facts(
 
     facts["intake_form"] = form_data or {}
     return facts
+
+
+def _pick_preferred_routing_channel(entity: dict[str, Any] | None) -> dict[str, Any] | None:
+    channels = list((entity or {}).get("routing_channels") or [])
+    if not channels:
+        return None
+    priority = {"email": 0, "portal_pqrs": 1, "portal": 2, "email_alterno": 3, "telefono": 4}
+    channels.sort(key=lambda item: (priority.get(str(item.get("channel") or "").lower(), 9), 0 if item.get("automatable") else 1))
+    return channels[0]
+
+
+def _resolve_entity_directory_prefill(form_data: dict[str, Any] | None) -> dict[str, Any]:
+    merged = dict(form_data or {})
+    target_entity = str(merged.get("target_entity") or "").strip()
+    if not target_entity:
+        return merged
+
+    try:
+        results = search_entity_directory(target_entity, limit=3)
+    except Exception:
+        return merged
+    if not results:
+        return merged
+
+    normalized_target = re.sub(r"\s+", " ", target_entity).strip().lower()
+    entity = next((item for item in results if str(item.get("name") or "").strip().lower() == normalized_target), results[0])
+    preferred_channel = _pick_preferred_routing_channel(entity)
+
+    field_map = {
+        "target_entity": entity.get("name"),
+        "target_identifier": entity.get("nit"),
+        "target_address": entity.get("address"),
+        "legal_representative": entity.get("legal_representative"),
+        "target_superintendence": entity.get("superintendence"),
+        "target_website": entity.get("website"),
+    }
+    for key, value in field_map.items():
+        if value and not str(merged.get(key) or "").strip():
+            merged[key] = value
+
+    pqrs_email = next(iter(entity.get("pqrs_emails") or []), "")
+    notification_email = next(iter(entity.get("notification_emails") or []), "")
+    phone = next(iter(entity.get("phones") or []), "")
+    if pqrs_email and not str(merged.get("target_pqrs_email") or "").strip():
+        merged["target_pqrs_email"] = pqrs_email
+    if notification_email and not str(merged.get("target_notification_email") or "").strip():
+        merged["target_notification_email"] = notification_email
+    if phone and not str(merged.get("target_phone") or "").strip():
+        merged["target_phone"] = phone
+
+    if preferred_channel:
+        merged["_entity_channel"] = {
+            "channel": preferred_channel.get("channel"),
+            "contact": preferred_channel.get("contact"),
+            "automatable": preferred_channel.get("automatable"),
+            "genera_radicado": preferred_channel.get("genera_radicado"),
+            "notes": preferred_channel.get("notes"),
+        }
+        preferred_contact = str(preferred_channel.get("contact") or "").strip()
+        preferred_kind = str(preferred_channel.get("channel") or "").strip().lower()
+        if preferred_contact:
+            if "@" in preferred_contact and not str(merged.get("target_pqrs_email") or "").strip():
+                merged["target_pqrs_email"] = preferred_contact
+            elif preferred_contact.startswith("http") and not str(merged.get("target_website") or "").strip():
+                merged["target_website"] = preferred_contact
+            elif preferred_kind == "telefono" and not str(merged.get("target_phone") or "").strip():
+                merged["target_phone"] = preferred_contact
+
+    merged["_resolved_entity_directory"] = {
+        "name": entity.get("name"),
+        "source": entity.get("source"),
+        "routing_channels": entity.get("routing_channels") or [],
+    }
+    return merged
+
+
+def _extract_relevant_sentence(text: str, keywords: tuple[str, ...]) -> str:
+    for chunk in re.split(r"(?<=[\.\!\?])\s+|\n+", text):
+        compact = re.sub(r"\s+", " ", chunk).strip(" .,:;")
+        if compact and any(keyword in compact.lower() for keyword in keywords):
+            return compact[:240]
+    return ""
+
+
+def _derive_extra_autofill_fields(
+    *,
+    form_data: dict[str, Any],
+    description: str,
+    category: str | None,
+    attachment_context: dict[str, Any] | None,
+) -> dict[str, Any]:
+    combined_text = ". ".join(
+        [item for item in [str(description or "").strip(), str((attachment_context or {}).get("combined_text") or "").strip()] if item]
+    )
+    lowered = combined_text.lower()
+    category_key = str(category or "").strip().lower()
+    derived: dict[str, Any] = {}
+
+    if not str(form_data.get("prior_claim") or "").strip():
+        if any(term in lowered for term in ("radicado", "pqrs", "reclamo", "derecho de peticion", "derecho de petición", "solicitud previa")):
+            derived["prior_claim"] = "si"
+
+    if not str(form_data.get("prior_claim_result") or "").strip():
+        prior_claim_result = _extract_relevant_sentence(
+            combined_text,
+            ("neg", "demor", "no respond", "no contest", "no entreg", "sin agenda", "bloque", "rechaz"),
+        )
+        if prior_claim_result:
+            derived["prior_claim_result"] = prior_claim_result
+
+    if not str(form_data.get("urgency_detail") or "").strip():
+        urgency_detail = _extract_relevant_sentence(
+            combined_text,
+            ("urgenc", "riesgo", "dolor", "empeor", "vital", "grave", "suspend", "sin medicamento"),
+        )
+        if urgency_detail:
+            derived["urgency_detail"] = urgency_detail
+
+    if not str(form_data.get("tutela_other_means_detail") or "").strip():
+        tutela_other_means_detail = _extract_relevant_sentence(
+            combined_text,
+            ("reclamo", "peticion", "petición", "radicado", "pqrs", "respond", "contest", "neg", "demor"),
+        )
+        if tutela_other_means_detail:
+            derived["tutela_other_means_detail"] = tutela_other_means_detail
+
+    if not str(form_data.get("special_protection") or "").strip() or str(form_data.get("special_protection")) == "No aplica":
+        if any(term in lowered for term in ("menor de edad", "niño", "niña", "adolescente")):
+            derived["special_protection"] = "Menor de edad"
+        elif any(term in lowered for term in ("adulto mayor", "tercera edad")):
+            derived["special_protection"] = "Adulto mayor"
+        elif "embaraz" in lowered or "gestante" in lowered:
+            derived["special_protection"] = "Embarazada"
+        elif any(term in lowered for term in ("discapacidad", "silla de ruedas", "movilidad reducida")):
+            derived["special_protection"] = "Discapacidad"
+
+    if not str(form_data.get("tutela_special_protection_detail") or "").strip():
+        tutela_special_protection_detail = _extract_relevant_sentence(
+            combined_text,
+            ("menor de edad", "adulto mayor", "embaraz", "gestante", "discapacidad", "enfermedad grave"),
+        )
+        if tutela_special_protection_detail:
+            derived["tutela_special_protection_detail"] = tutela_special_protection_detail
+
+    if not str(form_data.get("prior_tutela") or "").strip():
+        if "tutela anterior" in lowered or "ya presente tutela" in lowered or "ya presenté tutela" in lowered:
+            derived["prior_tutela"] = "si"
+
+    if category_key == "salud" and not str(form_data.get("prior_claim") or "").strip():
+        if any(term in lowered for term in ("eps", "ips", "autorizacion", "autorización", "farmacia", "agenda")):
+            derived["prior_claim"] = "si"
+
+    return derived
+
+
+def _merge_form_with_attachment_suggestions(
+    *,
+    form_data: dict[str, Any] | None,
+    description: str,
+    category: str | None,
+    attachment_context: dict[str, Any] | None,
+) -> dict[str, Any]:
+    merged = _resolve_entity_directory_prefill(form_data or {})
+    category_key = str(category or "").strip().lower()
+    suggestions = suggest_fields_from_context(
+        category=category,
+        description=description,
+        form_data=merged,
+        attachment_context=attachment_context,
+    )
+    for key, value in (attachment_context or {}).get("typed_suggestions", {}).items():
+        if value and not str(merged.get(key) or "").strip() and not suggestions.get(key):
+            suggestions[key] = value
+    suggestions.update(
+        {
+            key: value
+            for key, value in _derive_extra_autofill_fields(
+                form_data=merged,
+                description=description,
+                category=category,
+                attachment_context=attachment_context,
+            ).items()
+            if not str(merged.get(key) or "").strip()
+        }
+    )
+    for key, value in list(suggestions.items()):
+        cleaned = str(value or "").strip()
+        if key == "disputed_charge":
+            cleaned = re.split(r"\s+(?:el|por|desde|segun)\s+(?=\d|\$)", cleaned, maxsplit=1)[0].strip(" .,:;")
+            cleaned = re.sub(r"\s+el$", "", cleaned, flags=re.IGNORECASE).strip(" .,:;")
+        elif key == "treatment_needed":
+            cleaned = re.split(r"\s+(?:el|para|desde)\s+(?=\d|[A-Z])", cleaned, maxsplit=1)[0].strip(" .,:;")
+            if category_key == "salud" and re.search(r"\b(banco|davivienda|bancolombia|seguro|cobro|cargo)\b", cleaned, flags=re.IGNORECASE):
+                cleaned = ""
+        elif key == "target_entity":
+            cleaned = re.split(r"\s+(?:cobro|nego|niega|reporto|bloqueo|debito|cargo)\b", cleaned, maxsplit=1)[0].strip(" .,:;")
+        if cleaned:
+            suggestions[key] = cleaned
+        else:
+            suggestions.pop(key, None)
+    for key, value in suggestions.items():
+        if not str(merged.get(key) or "").strip() and str(value or "").strip():
+            merged[key] = value
+    if suggestions:
+        merged["_autofill"] = suggestions
+    return merged
 
 
 def _refresh_verified_case_context(case: dict[str, Any]) -> dict[str, Any]:
@@ -585,6 +815,12 @@ def analysis_preview(
 
     attachment_context = build_attachment_context(attachment_records)
     enriched_description = enrich_description_with_attachment_context(payload.description, attachment_context)
+    enriched_form_data = _merge_form_with_attachment_suggestions(
+        form_data=payload.form_data or {},
+        description=enriched_description,
+        category=payload.category,
+        attachment_context=attachment_context,
+    )
 
     result = analyzer.full_analysis(enriched_description, category=payload.category)
     if not result.get("success"):
@@ -592,7 +828,7 @@ def analysis_preview(
 
     result["facts"] = _merge_intake_into_facts(
         existing_facts=result["facts"],
-        form_data=payload.form_data or {},
+        form_data=enriched_form_data,
         description=enriched_description,
         category=payload.category,
     )
@@ -642,6 +878,7 @@ def analysis_preview(
     result["facts"]["preview_gate"] = preview_gate
     result["facts"]["document_rule_review"] = document_rule_review
     result["facts"]["attachment_intelligence"] = attachment_context
+    result["facts"]["autofill_suggestions"] = enriched_form_data.get("_autofill") or {}
     result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
         category=payload.category,
         description=enriched_description,
@@ -698,6 +935,12 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
 
     attachment_context = build_attachment_context(attachment_records)
     enriched_description = enrich_description_with_attachment_context(payload.description, attachment_context)
+    enriched_form_data = _merge_form_with_attachment_suggestions(
+        form_data=payload.form_data or {},
+        description=enriched_description,
+        category=payload.category,
+        attachment_context=attachment_context,
+    )
 
     result = analyzer.full_analysis(enriched_description, category=payload.category)
     if not result.get("success"):
@@ -705,7 +948,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
 
     result["facts"] = _merge_intake_into_facts(
         existing_facts=result["facts"],
-        form_data=payload.form_data or {},
+        form_data=enriched_form_data,
         description=enriched_description,
         category=payload.category,
     )
@@ -755,6 +998,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
     result["facts"]["preview_gate"] = preview_gate
     result["facts"]["document_rule_review"] = document_rule_review
     result["facts"]["attachment_intelligence"] = attachment_context
+    result["facts"]["autofill_suggestions"] = enriched_form_data.get("_autofill") or {}
     result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
         category=payload.category,
         description=enriched_description,
@@ -865,16 +1109,25 @@ def update_case_intake(
 
     category = case.get("categoria") or case.get("category")
     prior_actions = [item["id"] for item in (case.get("prerequisites") or []) if item.get("completed")]
+    attachment_records = repository.list_files_for_case(case_id)
+    attachment_context = build_attachment_context(attachment_records)
+    enriched_description = enrich_description_with_attachment_context(payload.description, attachment_context)
+    enriched_form_data = _merge_form_with_attachment_suggestions(
+        form_data=payload.form_data or {},
+        description=enriched_description,
+        category=category,
+        attachment_context=attachment_context,
+    )
     facts = _merge_intake_into_facts(
         existing_facts=case.get("facts") or {},
-        form_data=payload.form_data or {},
-        description=payload.description,
+        form_data=enriched_form_data,
+        description=enriched_description,
         category=category,
     )
     legal_analysis = case.get("legal_analysis") or {}
     workflow = infer_workflow(
         category=category,
-        description=payload.description,
+        description=enriched_description,
         facts=facts,
         legal_analysis=legal_analysis,
         prior_actions=prior_actions,
@@ -897,28 +1150,30 @@ def update_case_intake(
         category=category,
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
-        description=payload.description,
+        description=enriched_description,
         facts=facts,
         prior_actions=prior_actions,
     )
     preview_gate = validate_submission_readiness(
         category=category,
-        description=payload.description,
+        description=enriched_description,
         facts=facts,
         prior_actions=prior_actions,
     )
     document_rule_review = evaluate_document_rule(
         recommended_action=workflow["recommended_action"],
         workflow_type=workflow["workflow_type"],
-        description=payload.description,
+        description=enriched_description,
         facts=facts,
     )
     facts["intake_review"] = intake_review
     facts["preview_gate"] = preview_gate
     facts["document_rule_review"] = document_rule_review
+    facts["attachment_intelligence"] = attachment_context
+    facts["autofill_suggestions"] = enriched_form_data.get("_autofill") or {}
     facts, legal_analysis, routing = _enrich_architecture_outputs(
         category=category,
-        description=payload.description,
+        description=enriched_description,
         workflow=workflow,
         facts=facts,
         legal_analysis=legal_analysis,
@@ -942,7 +1197,7 @@ def update_case_intake(
     updated = repository.update_case_intake(
         case_id,
         workflow_type=workflow["workflow_type"],
-        description=payload.description,
+        description=enriched_description,
         facts=facts,
         legal_analysis=legal_analysis,
         routing=routing,
@@ -960,8 +1215,8 @@ def update_case_intake(
         actor_type="user",
         actor_id=str(current_user["id"]),
         payload={
-            "description_length": len(payload.description),
-            "fields": sorted((payload.form_data or {}).keys()),
+            "description_length": len(enriched_description),
+            "fields": sorted(key for key in (enriched_form_data or {}).keys() if not key.startswith("_")),
             "case_route": routing.get("case_route"),
             "viability": (facts.get("dx_result") or {}).get("viability_preliminary"),
         },
@@ -1219,6 +1474,7 @@ def submit_case(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debes registrar el pago antes de radicar.")
     if not case.get("generated_document"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Genera el documento antes de radicar.")
+    signature = _normalize_submission_signature(payload.signature, reviewed_document=payload.reviewed_document)
 
     routing = case.get("routing") or {}
     primary = routing.get("primary_target") or {}
@@ -1233,8 +1489,17 @@ def submit_case(
     response_payload = {
         "mode": payload.mode,
         "notes": payload.notes,
+        "signature": signature,
     }
     radicado = None
+    signed_artifacts = create_signed_submission_artifacts(
+        case_id=case_id,
+        recommended_action=str(case.get("recommended_action") or case.get("workflow_type") or "documento"),
+        document_text=str(case.get("generated_document") or ""),
+        signature=signature,
+        radicado=radicado,
+    )
+    signed_delivery_result: dict[str, Any] = {"status": "pending"}
 
     if payload.mode == "auto":
         if not routing.get("automatable") or not destination_contact:
@@ -1242,6 +1507,25 @@ def submit_case(
         if routing.get("genera_radicado"):
             status_value = "radicado"
             radicado = generate_radicado("RAD")
+            signed_artifacts = create_signed_submission_artifacts(
+                case_id=case_id,
+                recommended_action=str(case.get("recommended_action") or case.get("workflow_type") or "documento"),
+                document_text=str(case.get("generated_document") or ""),
+                signature=signature,
+                radicado=radicado,
+            )
+        if channel == "email" and destination_contact:
+            signed_delivery_result = send_signed_submission_email(
+                recipient=destination_contact,
+                subject=subject or f"{case.get('recommended_action') or 'Documento juridico'} - {case.get('usuario_nombre') or ''}".strip(" -"),
+                body_text=f"Se remite {case.get('recommended_action') or 'documento juridico'} firmado por {signature['full_name']} identificado con documento {signature['document_number']}.",
+                body_html=f"<p>Se remite <strong>{case.get('recommended_action') or 'documento juridico'}</strong> firmado por {signature['full_name']} identificado con documento {signature['document_number']}.</p>",
+                attachments=[
+                    {"relative_path": signed_artifacts.get("docx_relative_path", ""), "filename": signed_artifacts.get("docx_filename", "documento_firmado.docx"), "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+                    {"relative_path": signed_artifacts.get("pdf_relative_path", ""), "filename": signed_artifacts.get("pdf_filename", "documento_firmado.pdf"), "mime_type": "application/pdf"},
+                ],
+                reply_to=case.get("usuario_email"),
+            )
         attempt_status = "success"
     elif payload.mode == "manual_contact":
         if not payload.manual_contact:
@@ -1250,12 +1534,35 @@ def submit_case(
         manual_contact = {"value": payload.manual_contact, "notes": payload.notes}
         channel = "email" if "@" in payload.manual_contact else "manual"
         status_value = "enviado" if "@" in payload.manual_contact else "requiere_accion_manual"
+        if channel == "email":
+            radicado = generate_radicado("RAD")
+            signed_artifacts = create_signed_submission_artifacts(
+                case_id=case_id,
+                recommended_action=str(case.get("recommended_action") or case.get("workflow_type") or "documento"),
+                document_text=str(case.get("generated_document") or ""),
+                signature=signature,
+                radicado=radicado,
+            )
+            signed_delivery_result = send_signed_submission_email(
+                recipient=destination_contact,
+                subject=subject or f"{case.get('recommended_action') or 'Documento juridico'} - {case.get('usuario_nombre') or ''}".strip(" -"),
+                body_text=f"Se remite {case.get('recommended_action') or 'documento juridico'} firmado por {signature['full_name']} identificado con documento {signature['document_number']}.",
+                body_html=f"<p>Se remite <strong>{case.get('recommended_action') or 'documento juridico'}</strong> firmado por {signature['full_name']} identificado con documento {signature['document_number']}.</p>",
+                attachments=[
+                    {"relative_path": signed_artifacts.get("docx_relative_path", ""), "filename": signed_artifacts.get("docx_filename", "documento_firmado.docx"), "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+                    {"relative_path": signed_artifacts.get("pdf_relative_path", ""), "filename": signed_artifacts.get("pdf_filename", "documento_firmado.pdf"), "mime_type": "application/pdf"},
+                ],
+                reply_to=case.get("usuario_email"),
+            )
         attempt_status = "manual_contact"
     else:
-        manual_contact = {"mode": "presencial", "notes": payload.notes}
+        manual_contact = {"mode": "presencial", "notes": payload.notes, "signature": signature}
         status_value = "requiere_accion_manual"
         attempt_status = "presencial_required"
         response_payload["instructions"] = routing.get("fallback", {}).get("instructions") or []
+
+    response_payload["signed_artifacts"] = signed_artifacts
+    response_payload["delivery_result"] = signed_delivery_result
 
     repository.create_submission_attempt(
         case_id=case_id,
@@ -1279,6 +1586,9 @@ def submit_case(
             "radicado": radicado,
             "sent_copy_to_user": True,
             "mode": payload.mode,
+            "signature": signature,
+            "signed_artifacts": signed_artifacts,
+            "delivery_result": signed_delivery_result,
             "guidance": build_submission_guidance(case=case, mode=payload.mode, channel=channel, radicado=radicado),
         },
     )
@@ -1306,7 +1616,7 @@ def submit_case(
         event_type="submission_attempted",
         actor_type="user",
         actor_id=str(current_user["id"]),
-        payload={"mode": payload.mode, "channel": channel, "radicado": radicado},
+        payload={"mode": payload.mode, "channel": channel, "radicado": radicado, "signature": signature, "delivery_result": signed_delivery_result},
     )
     return _snapshot_case_detail(updated)
 
@@ -1319,7 +1629,18 @@ def register_manual_radicado(
 ) -> CaseDetailResponse:
     case = repository.get_case_for_user(case_id, str(current_user["id"]))
     if not case:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tr?mite no encontrado.")
+    if not case.get("generated_document"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Genera el documento antes de registrar el radicado.")
+
+    signature = _normalize_submission_signature(payload.signature, reviewed_document=payload.reviewed_document)
+    signed_artifacts = create_signed_submission_artifacts(
+        case_id=case_id,
+        recommended_action=str(case.get("recommended_action") or case.get("workflow_type") or "documento"),
+        document_text=str(case.get("generated_document") or ""),
+        signature=signature,
+        radicado=payload.radicado,
+    )
 
     repository.create_submission_attempt(
         case_id=case_id,
@@ -1330,7 +1651,11 @@ def register_manual_radicado(
         cc=[case.get("usuario_email")] if case.get("usuario_email") else [],
         status="manual_radicado",
         radicado=payload.radicado,
-        response_payload={"notes": payload.notes},
+        response_payload={
+            "notes": payload.notes,
+            "signature": signature,
+            "signed_artifacts": signed_artifacts,
+        },
     )
     updated = repository.update_case_status(
         case_id,
@@ -1339,6 +1664,8 @@ def register_manual_radicado(
             **(case.get("submission_summary") or {}),
             "radicado": payload.radicado,
             "manual_notes": payload.notes,
+            "signature": signature,
+            "signed_artifacts": signed_artifacts,
             "guidance": build_submission_guidance(case=case, mode="manual_contact", channel="manual_record", radicado=payload.radicado),
         },
     )
@@ -1365,7 +1692,12 @@ def register_manual_radicado(
         event_type="manual_radicado_recorded",
         actor_type="user",
         actor_id=str(current_user["id"]),
-        payload={"radicado": payload.radicado, "notes": payload.notes},
+        payload={
+            "radicado": payload.radicado,
+            "notes": payload.notes,
+            "signature": signature,
+            "signed_artifacts": signed_artifacts,
+        },
     )
     return _snapshot_case_detail(updated)
 

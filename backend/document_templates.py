@@ -51,6 +51,13 @@ def _facts_lines(case: dict[str, Any]) -> list[str]:
     return lines or ["El usuario reporta una situacion que requiere documentacion juridica y seguimiento formal."]
 
 
+def _list_from_insights(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value or "").strip()
+    return [text] if text else []
+
+
 def _pretension_lines(case: dict[str, Any], action_key: str) -> list[str]:
     facts = case.get("facts") or {}
     intake_form = facts.get("intake_form") or {}
