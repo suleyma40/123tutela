@@ -237,6 +237,16 @@ def _financial_amount_breakdown(case: dict[str, Any], intake: dict[str, Any]) ->
     total = sum(item["amount"] for item in entries) if entries else None
     raw_amount = str(intake.get("bank_amount_involved") or "").strip()
     parsed_raw = _parse_cop_amount(raw_amount)
+    event_label = str(intake.get("bank_event_date") or intake.get("key_dates") or "").strip()
+    inferred_month_count: int | None = None
+    inferred_total: int | None = None
+    start_month = _month_year_from_label(event_label)
+    if not entries and parsed_raw is not None and start_month:
+        now = datetime.now()
+        months = (now.year - start_month[0]) * 12 + (now.month - start_month[1]) + 1
+        if months > 0:
+            inferred_month_count = months
+            inferred_total = parsed_raw * months
     exact_known = bool(entries) or (bool(raw_amount) and not _amount_looks_approximate(raw_amount) and parsed_raw is not None)
     return {
         "entries": entries,
@@ -244,6 +254,10 @@ def _financial_amount_breakdown(case: dict[str, Any], intake: dict[str, Any]) ->
         "raw_amount": raw_amount,
         "parsed_raw": parsed_raw,
         "exact_total_text": _format_cop_amount(total if total is not None else parsed_raw),
+        "inferred_month_count": inferred_month_count,
+        "inferred_total": inferred_total,
+        "inferred_total_text": _format_cop_amount(inferred_total),
+        "event_label": event_label,
         "exact_known": exact_known,
     }
 
@@ -285,6 +299,30 @@ def _extract_month_reference(text: str) -> str:
     if relative_match:
         return relative_match.group(0)
     return ""
+
+
+def _month_year_from_label(text: str) -> tuple[int, int] | None:
+    lowered = str(text or "").strip().lower()
+    months = {
+        "enero": 1,
+        "febrero": 2,
+        "marzo": 3,
+        "abril": 4,
+        "mayo": 5,
+        "junio": 6,
+        "julio": 7,
+        "agosto": 8,
+        "septiembre": 9,
+        "octubre": 10,
+        "noviembre": 11,
+        "diciembre": 12,
+    }
+    for label, month in months.items():
+        if label in lowered:
+            year_match = re.search(r"(20\d{2})", lowered)
+            if year_match:
+                return (int(year_match.group(1)), month)
+    return None
 
 
 def _financial_date_label(intake: dict[str, Any], facts: dict[str, Any], description: str) -> str:
@@ -379,8 +417,8 @@ def _financial_jurisprudence_text(precedents: list[dict[str, Any]]) -> str:
     if not precedents:
         return "No se incluyeron sentencias específicas porque el sistema no encontró soporte jurisprudencial verificable suficiente para este punto y prefirió conservar un fundamento normativo seguro."
     known = {
-        "Sentencia C-909 de 2012": "La Corte admitió límites intensos frente a estipulaciones o prácticas abusivas en relaciones de consumo y financieras.",
-        "Sentencia T-517 de 2006": "La actividad aseguradora y financiera, por su interés público, no puede amparar abusos informativos ni afectaciones desproporcionadas al usuario.",
+        "Sentencia T-302 de 2020": "La Corte examinó la gestión bancaria de pólizas asociadas a productos financieros y reiteró el deber de información clara, completa y oportuna frente a la persona usuaria.",
+        "Sentencia T-676 de 2016": "La Corte precisó que las entidades financieras y aseguradoras no pueden desinformar al usuario ni frustrar la posibilidad real de reclamar la póliza o corregir el cobro asociado.",
     }
     lines: list[str] = []
     used: set[str] = set()
@@ -525,6 +563,10 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     amount_breakdown = _financial_amount_breakdown(case, intake)
     exact_amount_known = bool(amount_breakdown["exact_known"])
     exact_total_text = str(amount_breakdown.get("exact_total_text") or "").strip()
+    inferred_total_text = str(amount_breakdown.get("inferred_total_text") or "").strip()
+    inferred_month_count = amount_breakdown.get("inferred_month_count")
+    inferred_event_label = str(amount_breakdown.get("event_label") or event_date).strip()
+    has_actual_breakdown = bool(amount_breakdown["entries"])
 
     chronology_lines = [
         "Soy titular del producto financiero administrado por la entidad reclamada y cuestiono formalmente los cargos descritos en este escrito.",
@@ -543,6 +585,11 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
             chronology_lines.append(f"Con base en esos extractos, el total actualmente consolidado asciende a {exact_total_text} COP.")
     elif formatted_amount and exact_amount_known:
         chronology_lines.append(f"El monto actualmente identificado y reportado para este cobro asciende a {formatted_amount} COP.")
+        if inferred_total_text and inferred_month_count:
+            chronology_lines.append(
+                f"Tomando como base un cobro mensual reportado de {formatted_amount} COP desde {inferred_event_label} y hasta la fecha, "
+                f"la suma acumulada reclamada asciende a {inferred_total_text} COP, correspondiente a {inferred_month_count} meses."
+            )
     elif formatted_amount:
         chronology_lines.append(f"El monto actualmente identificado asciende de manera aproximada a {formatted_amount} COP, por lo que antes de escalar ante autoridades conviene consolidar el cuadro exacto de cobros con soporte en extractos.")
     else:
@@ -577,9 +624,13 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     request_lines = [
         "CESAR de manera inmediata y definitiva el cobro no autorizado cuestionado en esta reclamaci\u00f3n.",
         (
-            f"REINTEGRAR la suma exacta de {exact_total_text} COP, correspondiente a los cobros identificados en los extractos aportados, sin perjuicio de los valores adicionales que aparezcan al consolidar la totalidad del hist\u00f3rico."
-            if exact_total_text
-            else "REINTEGRAR la totalidad de los valores cobrados por el concepto no autorizado desde la primera facturaci\u00f3n identificable, con actualizaci\u00f3n e indexaci\u00f3n a la fecha del pago."
+            f"REINTEGRAR la suma exacta de {exact_total_text} COP, correspondiente a los cobros identificados en los extractos aportados, sin perjuicio de los valores adicionales que aparezcan al consolidar la totalidad del histórico."
+            if exact_total_text and has_actual_breakdown
+            else (
+                f"REINTEGRAR la suma acumulada de {inferred_total_text} COP, calculada con base en un cobro mensual reportado de {formatted_amount} COP desde {inferred_event_label} y hasta la fecha, sin perjuicio de los ajustes que resulten del historial completo que debe certificar la entidad."
+                if inferred_total_text and inferred_month_count and formatted_amount
+                else "REINTEGRAR la totalidad de los valores cobrados por el concepto no autorizado desde la primera facturación identificable, con actualización e indexación a la fecha del pago."
+            )
         ),
         "CERTIFICAR por escrito la eliminaci\u00f3n definitiva del cobro y entregar el historial completo de cargos, fechas, valores y referencias aplicadas.",
         "REMITIR copia \u00edntegra del soporte en el que supuestamente consta mi autorizaci\u00f3n; si dicho soporte no existe, declararlo expresamente.",
