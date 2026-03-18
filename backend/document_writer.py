@@ -292,43 +292,70 @@ def _source_index_by_type(sources: list[dict[str, Any]]) -> dict[str, list[dict[
     return index
 
 
-def _financial_constitutional_basis_text(constitutional_sources: list[dict[str, Any]]) -> str:
+def _financial_case_flags(case: dict[str, Any]) -> dict[str, bool]:
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    combined = " ".join(
+        str(item or "")
+        for item in [
+            case.get("descripcion"),
+            facts.get("hechos_principales"),
+            intake.get("disputed_charge"),
+            intake.get("concrete_request"),
+        ]
+    ).lower()
+    has_report_issue = any(token in combined for token in ["datacredito", "data credito", "transunion", "central de riesgo", "reporte negativo", "reporte"])
+    has_data_issue = has_report_issue or any(token in combined for token in ["habeas data", "datos personales", "tratamiento de datos"])
+    return {"has_report_issue": has_report_issue, "has_data_issue": has_data_issue}
+
+
+def _financial_constitutional_basis_text(constitutional_sources: list[dict[str, Any]], *, has_data_issue: bool) -> str:
     explanations: list[str] = []
     for source in constitutional_sources:
         ref = str(source.get("numero_sentencia_o_norma") or "").strip()
-        article = ref.replace("Articulo", "Artículo")
-        if "13" in ref:
-            explanations.append(f"{article} de la Constitución Política: protege a la consumidora frente a tratos arbitrarios y prácticas abusivas en una relación claramente asimétrica.")
-        elif "15" in ref:
-            explanations.append(f"{article} de la Constitución Política: ampara el habeas data y exige autorización válida para usar información financiera o vincular productos no solicitados.")
-        elif "23" in ref:
-            explanations.append(f"{article} de la Constitución Política: garantiza una respuesta pronta, completa y de fondo frente a la reclamación presentada.")
+        article = ref.replace("Articulo", "Art?culo")
+        if "23" in ref:
+            explanations.append(f"{article} de la Constituci?n Pol?tica: garantiza una respuesta pronta, completa y de fondo frente a la reclamaci?n presentada.")
         elif "78" in ref:
-            explanations.append(f"{article} de la Constitución Política: impone la protección constitucional del consumidor y el deber de información clara, suficiente y verificable.")
-    return "\n".join(f"- {line}" for line in explanations if line) or "- La reclamación se sustenta en la protección constitucional del consumidor y en el derecho a obtener respuesta de fondo."
+            explanations.append(f"{article} de la Constituci?n Pol?tica: impone la protecci?n constitucional del consumidor y el deber de informaci?n clara, suficiente y verificable.")
+        elif "15" in ref and has_data_issue:
+            explanations.append(f"{article} de la Constituci?n Pol?tica: ampara el habeas data y exige autorizaci?n v?lida para usar informaci?n financiera o vincular productos no solicitados.")
+        elif "13" in ref and has_data_issue:
+            explanations.append(f"{article} de la Constituci?n Pol?tica: refuerza la protecci?n frente a actuaciones abusivas en una relaci?n claramente asim?trica.")
+    return "\n".join(f"- {line}" for line in explanations if line) or "- La reclamaci?n se sustenta en la protecci?n constitucional del consumidor y en el derecho a obtener respuesta de fondo."
 
 
-def _financial_legal_basis_text(legal_sources: list[dict[str, Any]]) -> str:
+def _financial_legal_basis_text(legal_sources: list[dict[str, Any]], *, has_data_issue: bool, has_report_issue: bool) -> str:
     if not legal_sources:
-        return "- El caso exige revisar el régimen especial del consumidor financiero y la normativa general de protección al consumidor."
+        return "- El caso exige revisar el r?gimen especial del consumidor financiero y la normativa general de protecci?n al consumidor."
     wanted = {
-        "Ley 1328 de 2009": "Marco principal del consumidor financiero. Refuerza derechos de información, atención, reclamación y prohibición de prácticas abusivas.",
-        "Ley 1480 de 2011": "Complementa la protección frente a información insuficiente, cobros no consentidos y cláusulas o prácticas abusivas.",
-        "Ley 1755 de 2015": "Fija el deber de responder de fondo dentro del término legal cuando el usuario presenta una petición o reclamación formal.",
-        "Ley 1266 de 2008": "Aplica cuando el cobro impacta reportes o historiales crediticios y permite exigir corrección en centrales de riesgo.",
-        "Ley 1581 de 2012": "Refuerza la exigencia de autorización previa, expresa e informada para el tratamiento de datos personales.",
-        "Decreto 2555 de 2010": "Compila la regulación del sector financiero y refuerza deberes de diligencia, transparencia y soporte del producto cobrado.",
-        "Circular Externa 029 de 2014": "Contiene instrucciones de la Superintendencia Financiera sobre protección del consumidor financiero y deberes de información.",
+        "Ley 1328 de 2009": "Marco principal del consumidor financiero. Refuerza los deberes de informaci?n, atenci?n, reclamaci?n y prohibici?n de pr?cticas abusivas.",
+        "Ley 1480 de 2011": "Complementa la protecci?n frente a informaci?n insuficiente, cobros no consentidos y pr?cticas abusivas.",
+        "Ley 1755 de 2015": "Fija el deber de responder de fondo dentro del t?rmino legal cuando el usuario presenta una reclamaci?n formal.",
+        "Decreto 2555 de 2010": "Compila la regulaci?n del sector financiero y refuerza los deberes de diligencia, transparencia y soporte del producto cobrado.",
+        "Circular Externa 029 de 2014": "Contiene instrucciones de la Superintendencia Financiera sobre protecci?n del consumidor financiero y deberes de informaci?n.",
+        "Ley 1266 de 2008": "Aplica cuando el cobro impacta reportes o historiales crediticios y permite exigir su correcci?n en centrales de riesgo.",
+        "Ley 1581 de 2012": "Refuerza la exigencia de autorizaci?n previa, expresa e informada para el tratamiento de datos personales.",
     }
-    lines: list[str] = []
-    used: set[str] = set()
+    preferred_order = [
+        "Ley 1328 de 2009",
+        "Ley 1480 de 2011",
+        "Ley 1755 de 2015",
+        "Decreto 2555 de 2010",
+        "Circular Externa 029 de 2014",
+    ]
+    if has_report_issue:
+        preferred_order.append("Ley 1266 de 2008")
+    if has_data_issue:
+        preferred_order.append("Ley 1581 de 2012")
+    available: set[str] = set()
     for source in legal_sources:
         ref = str(source.get("numero_sentencia_o_norma") or "").strip()
-        for prefix, explanation in wanted.items():
-            if ref.startswith(prefix) and prefix not in used:
-                lines.append(f"- {prefix}: {explanation}")
-                used.add(prefix)
-    return "\n".join(lines) or "- El caso se apoya en normas verificadas del régimen del consumidor financiero, protección al consumidor y derecho de petición."
+        for prefix in wanted:
+            if ref.startswith(prefix):
+                available.add(prefix)
+    lines = [f"- {prefix}: {wanted[prefix]}" for prefix in preferred_order if prefix in available]
+    return "\n".join(lines) or "- El caso se apoya en normas verificadas del r?gimen del consumidor financiero, protecci?n al consumidor y derecho de petici?n."
 
 
 def _financial_jurisprudence_text(precedents: list[dict[str, Any]]) -> str:
@@ -467,11 +494,15 @@ def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str
     suggested_pretensions = _generic_pretensions(case, rule["action_key"])
     source_policy = facts.get("source_validation_policy") or {}
     source_index = _source_index_by_type(source_policy.get("verified_sources") or [])
+    case_flags = _financial_case_flags(case)
     constitutional_text = _financial_constitutional_basis_text(
-        [source for source in source_index["norma"] if str(source.get("numero_sentencia_o_norma") or "").startswith("Articulo")]
+        [source for source in source_index["norma"] if str(source.get("numero_sentencia_o_norma") or "").startswith("Articulo")],
+        has_data_issue=case_flags["has_data_issue"],
     )
     statutory_text = _financial_legal_basis_text(
-        [source for source in source_index["norma"] + source_index["guia_institucional"] if not str(source.get("numero_sentencia_o_norma") or "").startswith("Articulo")]
+        [source for source in source_index["norma"] + source_index["guia_institucional"] if not str(source.get("numero_sentencia_o_norma") or "").startswith("Articulo")],
+        has_data_issue=case_flags["has_data_issue"],
+        has_report_issue=case_flags["has_report_issue"],
     )
     jurisprudence_text = _financial_jurisprudence_text(source_index["jurisprudencia"])
     amount_breakdown = _financial_amount_breakdown(case, intake)
