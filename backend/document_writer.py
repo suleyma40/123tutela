@@ -265,7 +265,7 @@ def _financial_amount_breakdown(case: dict[str, Any], intake: dict[str, Any]) ->
 def _uploaded_evidence_items(case: dict[str, Any]) -> list[str]:
     facts = case.get("facts") or {}
     uploaded_files = facts.get("uploaded_evidence_files") or []
-    items = ["Copia del documento de identidad de la reclamante."]
+    items = ["Copia del documento de identidad de la persona firmante."]
     for file_info in uploaded_files:
         name = _clean_uploaded_file_label(str((file_info or {}).get("original_name") or "").strip())
         if name:
@@ -736,33 +736,86 @@ def _build_petition_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     user_email = case.get("usuario_email") or "Sin correo"
     user_phone = case.get("usuario_telefono") or "Sin telefono"
     address = case.get("usuario_direccion") or "Sin direccion registrada"
-    city = case.get("usuario_ciudad") or ""
-    department = case.get("usuario_departamento") or ""
-    chronology_text = _paragraph_lines(_generic_facts(case))
-    pretensions = _generic_pretensions(case, rule["action_key"])
-    evidence_text = _join_list(_uploaded_evidence_items(case), fallback="Copia del documento de identidad del peticionario.")
-    request_type = str(intake.get("request_type") or "interes particular").replace("_", " ").strip()
+    city = _titleish_place(case.get("usuario_ciudad"))
+    department = _titleish_place(case.get("usuario_departamento"))
+    chronology = _dedupe_lines(_generic_facts(case))
+    request_type = str(intake.get("request_type") or "particular").replace("_", " ").strip()
+    evidence_items = _uploaded_evidence_items(case)
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    header_date = (
+        datetime.now()
+        .strftime("%d de %B de %Y")
+        .replace("January", "enero")
+        .replace("February", "febrero")
+        .replace("March", "marzo")
+        .replace("April", "abril")
+        .replace("May", "mayo")
+        .replace("June", "junio")
+        .replace("July", "julio")
+        .replace("August", "agosto")
+        .replace("September", "septiembre")
+        .replace("October", "octubre")
+        .replace("November", "noviembre")
+        .replace("December", "diciembre")
+    )
+
+    concrete_request = str(intake.get("concrete_request") or facts.get("pretension_concreta") or "").strip()
+    petition_lines: list[str] = []
+    if concrete_request:
+        petition_lines.append(f"RESPONDER de fondo, de manera clara, congruente y completa, la siguiente solicitud principal: {concrete_request}.")
+    else:
+        petition_lines.append("RESPONDER de fondo, de manera clara, congruente y completa, cada una de las solicitudes formuladas en este escrito.")
+    petition_lines.append("INFORMAR por escrito las razones de hecho y de derecho que sustenten la decision adoptada frente a cada punto.")
+    if contact and "canal oficial de atencion" not in contact.lower():
+        petition_lines.append(f"TRAMITAR la presente peticion a traves del canal oficial identificado para la entidad destinataria: {contact}.")
+    petition_lines.append(f"REMITIR la respuesta al correo {user_email} y al telefono {user_phone}, sin perjuicio de la direccion fisica informada.")
+    petition_lines = _dedupe_lines(petition_lines)
+
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
     ).strip()
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    legal_basis_text = (
+        "La presente peticion se formula en ejercicio del articulo 23 de la Constitucion Politica y de la Ley 1755 de 2015, "
+        "que obligan a la entidad destinataria a emitir una respuesta de fondo, oportuna, congruente y verificable frente a los hechos y solicitudes aqui expuestos."
+    )
+    if verified_basis:
+        legal_basis_text = f"{legal_basis_text} {verified_basis}".strip()
 
-    return f"""Senores
-{target}
-Canal sugerido: {contact}
+    facts_block = chronology or ["La persona peticionaria expone una situacion que requiere respuesta formal de la entidad destinataria."]
+    intro = (
+        f"Yo, {user_name}, persona mayor de edad, titular de la cedula de ciudadania No. {user_doc}, con domicilio en {address}, {city}, {department}, "
+        f"correo electronico {user_email} y telefono {user_phone}, presento DERECHO DE PETICION en interes {request_type} "
+        f"contra {target}, con fundamento en el articulo 23 de la Constitucion Politica y la Ley 1755 de 2015."
+    )
+    return f"""{city or 'Colombia'}, {header_date}
+Señores
+{target.upper()}
+Canal oficial o sugerido: {contact}
 
-Asunto: Derecho de peticion de {request_type}
+Asunto: DERECHO DE PETICION EN INTERES {request_type.upper()}
 
-Yo, {user_name}, identificado(a) con cedula {user_doc}, con domicilio en {address}, {city}, {department}, correo electronico {user_email} y telefono {user_phone}, en ejercicio del derecho fundamental de peticion consagrado en el articulo 23 de la Constitucion Politica y desarrollado por la Ley 1755 de 2015, presento la siguiente solicitud.
+I. IDENTIFICACION DEL PETICIONARIO
+{intro}
 
-{_section("IDENTIFICACION DEL PETICIONARIO", f"Nombre: {user_name}\nCedula: {user_doc}\nCorreo: {user_email}\nTelefono: {user_phone}\nDireccion: {address}, {city}, {department}")}
-{_section("HECHOS Y CONTEXTO", chronology_text)}
-{_section("FUNDAMENTO DEL DERECHO DE PETICION", f"La presente peticion se formula para obtener una respuesta de fondo, clara, congruente y completa sobre los hechos y solicitudes aqui expuestos. {verified_basis}".strip())}
-{_section("SOLICITUDES NUMERADAS", _numbered_lines(pretensions))}
-{_section("TERMINO DE RESPUESTA", "Solicito respuesta de fondo dentro de los terminos legales aplicables conforme a la Ley 1755 de 2015.")}
-{_section("ANEXOS Y NOTIFICACIONES", f"Como soporte de esta peticion se anuncian o se aportan los siguientes elementos: {evidence_text}.")}
-{_section("NOTIFICACIONES", f"Solicito que la respuesta sea enviada al correo {user_email} y al telefono {user_phone}.")}
+II. HECHOS Y CONTEXTO
+{_numbered_lines(facts_block)}
+
+III. FUNDAMENTO DEL DERECHO DE PETICION
+{legal_basis_text}
+
+IV. SOLICITUDES NUMERADAS
+{_numbered_lines(petition_lines)}
+
+V. TERMINO LEGAL DE RESPUESTA
+De conformidad con la Ley 1755 de 2015, la entidad destinataria debe emitir una respuesta de fondo, clara, congruente, completa y verificable dentro del termino legal aplicable al contenido de esta peticion.
+
+VI. ANEXOS Y NOTIFICACIONES
+{_numbered_lines(evidence_items)}
+
+VII. NOTIFICACIONES
+Solicito que toda respuesta, decision o requerimiento relacionado con esta peticion se remita al correo {user_email}, al telefono {user_phone} y, si aplica, a la direccion fisica {address}, {city}, {department}.
+
 Constancia de generacion: {generated_at}
 
 Atentamente,
@@ -787,12 +840,11 @@ def _build_tutela_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     user_email = case.get("usuario_email") or "Sin correo"
     user_phone = case.get("usuario_telefono") or "Sin telefono"
     address = case.get("usuario_direccion") or "Sin direccion registrada"
-    city = case.get("usuario_ciudad") or ""
-    department = case.get("usuario_departamento") or ""
+    city = _titleish_place(case.get("usuario_ciudad"))
+    department = _titleish_place(case.get("usuario_departamento"))
     rights = _join_list(legal_analysis.get("derechos_vulnerados"), fallback="derechos fundamentales comprometidos")
-    chronology_text = _paragraph_lines(_generic_facts(case))
-    pretensions = _generic_pretensions(case, rule["action_key"])
-    evidence_text = _join_list(_uploaded_evidence_items(case), fallback="Copia del documento de identidad del accionante.")
+    chronology_lines = _dedupe_lines(_generic_facts(case))
+    evidence_items = _uploaded_evidence_items(case)
     procedencia = facts.get("tutela_procedencia") or {}
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
@@ -818,25 +870,66 @@ def _build_tutela_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
         "Bajo la gravedad del juramento manifiesto que no he presentado otra accion de tutela por los mismos hechos, derechos y pretensiones.",
     )
     legal_basis_text = f"{str(insights.get('legal_basis_summary') or '').strip() or 'La situacion descrita compromete derechos fundamentales y requiere proteccion judicial inmediata.'} {verified_basis}".strip()
+    pretensions = _generic_pretensions(case, rule["action_key"])
+    tutela_requests: list[str] = []
+    if pretensions:
+        for line in pretensions:
+            clean = _sentence(line, "").strip()
+            if not clean:
+                continue
+            lowered = clean.lower()
+            if lowered.startswith("que se "):
+                clean = clean[7:].strip()
+            elif lowered.startswith("que "):
+                clean = clean[4:].strip()
+            verb = clean.split(" ", 1)[0].upper()
+            rest = clean[len(clean.split(" ", 1)[0]):].strip()
+            tutela_requests.append(f"{verb} {rest}".strip())
+    if not tutela_requests:
+        tutela_requests = [
+            "AMPARAR de manera inmediata los derechos fundamentales comprometidos en este escrito.",
+            "ORDENAR a la entidad accionada la actuacion concreta necesaria para cesar la vulneracion denunciada.",
+        ]
+    tutela_requests = _dedupe_lines(tutela_requests)
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    return f"""Senor Juez Constitucional (Reparto)
+    return f"""Señor Juez Constitucional (Reparto)
 {city}, {department}
 
-Referencia: Accion de tutela para la proteccion de {rights}
+Referencia: ACCION DE TUTELA PARA LA PROTECCION DE {rights.upper()}
 
-Yo, {user_name}, identificado(a) con cedula {user_doc}, con domicilio en {address}, {city}, {department}, correo electronico {user_email} y telefono {user_phone}, actuando en nombre propio, presento accion de tutela contra {accionado}, con fundamento en el articulo 86 de la Constitucion Politica y el Decreto 2591 de 1991.
+I. COMPETENCIA Y REPARTO
+Por la naturaleza de los hechos expuestos y la necesidad de proteccion inmediata de derechos fundamentales, solicito el reparto de esta accion de tutela al despacho competente.
 
-{_section("COMPETENCIA Y REPARTO", "Por la naturaleza de los hechos y la necesidad de proteccion inmediata de derechos fundamentales, solicito el reparto de esta accion de tutela al despacho competente.")}
-{_section("ACCIONADO", f"La presente solicitud se dirige contra {accionado}, por los hechos y omisiones que se exponen a continuacion.")}
-{_section("HECHOS CRONOLOGICOS", chronology_text)}
-{_section("DERECHOS FUNDAMENTALES VULNERADOS", f"Conforme a los hechos narrados, considero comprometidos los siguientes derechos fundamentales: {rights}.")}
-{_section("FUNDAMENTO JURIDICO", legal_basis_text)}
-{_section("PROCEDENCIA", f"Subsidiariedad: {subsidiarity}\n\nInmediatez: {immediacy}")}
-{_section("PRETENSIONES", _numbered_lines(pretensions))}
-{_section("PRUEBAS Y ANEXOS", f"Como soporte de la presente accion se anuncian o se aportan los siguientes elementos: {evidence_text}.")}
-{_section("JURAMENTO DE NO TEMERIDAD", no_temerity)}
-{_section("NOTIFICACIONES", f"Solicito que las notificaciones del presente tramite sean remitidas al correo {user_email} y al telefono {user_phone}.")}
+II. IDENTIFICACION DEL ACCIONANTE Y DEL ACCIONADO
+Yo, {user_name}, persona mayor de edad, titular de la cedula de ciudadania No. {user_doc}, con domicilio en {address}, {city}, {department}, correo electronico {user_email} y telefono {user_phone}, actuando en nombre propio, presento accion de tutela contra {accionado}, con fundamento en el articulo 86 de la Constitucion Politica y el Decreto 2591 de 1991.
+
+III. HECHOS CRONOLOGICOS
+{_numbered_lines(chronology_lines)}
+
+IV. DERECHOS FUNDAMENTALES VULNERADOS
+Conforme a los hechos narrados, considero comprometidos los siguientes derechos fundamentales: {rights}.
+
+V. FUNDAMENTO JURIDICO
+{legal_basis_text}
+
+VI. PROCEDENCIA
+Subsidiariedad: {subsidiarity}
+
+Inmediatez: {immediacy}
+
+VII. PRETENSIONES
+{_numbered_lines(tutela_requests)}
+
+VIII. PRUEBAS Y ANEXOS
+{_numbered_lines(evidence_items)}
+
+IX. JURAMENTO DE NO TEMERIDAD
+{no_temerity}
+
+X. NOTIFICACIONES
+Solicito que las notificaciones del presente tramite sean remitidas al correo {user_email}, al telefono {user_phone} y, si aplica, a la direccion fisica {address}, {city}, {department}.
+
 Constancia de generacion: {generated_at}
 
 Atentamente,
