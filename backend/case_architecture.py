@@ -631,6 +631,51 @@ def collect_pending_questions(
 
     if workflow_type == "tutela":
         procedencia = evaluate_tutela_procedencia(description=description, facts=facts, prior_actions=prior_actions)
+        if _lower(category) == "salud":
+            if not _text(intake.get("medical_order_date")):
+                questions.append(
+                    _build_question(
+                        question_id="orden_medica_fecha",
+                        prompt="En que fecha te ordenaron el examen, medicamento o procedimiento que hoy estas reclamando?",
+                        reason="Hace falta la fecha de la orden medica para sostener la cronologia de la tutela.",
+                        priority="alta",
+                        field="medical_order_date",
+                        route="B",
+                    )
+                )
+            if not _text(intake.get("treating_doctor_name")):
+                questions.append(
+                    _build_question(
+                        question_id="medico_tratante",
+                        prompt="Como se llama el medico tratante que ordeno el servicio y, si lo recuerdas, en que IPS te atendieron?",
+                        reason="Necesitamos identificar quien ordeno el servicio y desde donde se emitio la orden medica.",
+                        priority="alta",
+                        field="treating_doctor_name",
+                        route="B",
+                    )
+                )
+            if not _text(intake.get("eps_request_date")):
+                questions.append(
+                    _build_question(
+                        question_id="solicitud_eps_fecha",
+                        prompt="En que fecha pediste a la EPS la autorizacion del examen, medicamento o procedimiento?",
+                        reason="Hace falta la fecha de la solicitud previa ante la EPS.",
+                        priority="alta",
+                        field="eps_request_date",
+                        route="B",
+                    )
+                )
+            if not _text(intake.get("eps_response_detail")):
+                questions.append(
+                    _build_question(
+                        question_id="respuesta_eps_detalle",
+                        prompt="Que hizo la EPS despues: nego, guardo silencio, demoro, no agendo o puso otra barrera concreta?",
+                        reason="Necesitamos saber la respuesta o barrera real de la EPS para sustentar la vulneracion.",
+                        priority="alta",
+                        field="eps_response_detail",
+                        route="B",
+                    )
+                )
         if procedencia["subscores"]["subsidiariedad"] != "alta":
             questions.append(
                 _build_question(
@@ -1003,6 +1048,46 @@ def build_final_validation(
                         field="urgency_detail",
                         label="Falta explicar la urgencia clinica actual",
                         prompt="Describe el riesgo actual, agravacion, dolor o necesidad inmediata de atencion.",
+                        recommended_action=recommended_action,
+                    )
+                )
+            if not _text(intake.get("medical_order_date")):
+                blocking_issues.append("En tutela de salud falta la fecha de la orden medica o de la consulta donde se formulo el servicio.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="medical_order_date",
+                        label="Falta la fecha de la orden medica",
+                        prompt="Indica la fecha de la cita o de la orden medica donde se solicito el examen, medicamento o procedimiento.",
+                        recommended_action=recommended_action,
+                    )
+                )
+            if not _text(intake.get("treating_doctor_name")):
+                blocking_issues.append("En tutela de salud falta identificar el medico tratante que ordeno el servicio.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="treating_doctor_name",
+                        label="Falta el nombre del medico tratante",
+                        prompt="Indica el nombre del medico tratante que ordeno el examen, medicamento o procedimiento.",
+                        recommended_action=recommended_action,
+                    )
+                )
+            if not _text(intake.get("eps_request_date")):
+                blocking_issues.append("En tutela de salud falta la fecha en que solicitaste la autorizacion ante la EPS.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="eps_request_date",
+                        label="Falta la fecha de la solicitud a la EPS",
+                        prompt="Indica en que fecha pediste a la EPS la autorizacion o prestacion del servicio.",
+                        recommended_action=recommended_action,
+                    )
+                )
+            if not _text(intake.get("eps_response_detail")):
+                blocking_issues.append("En tutela de salud falta explicar si la EPS nego, guardo silencio o impuso una barrera concreta.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="eps_response_detail",
+                        label="Falta la respuesta o barrera concreta de la EPS",
+                        prompt="Cuenta si la EPS nego, guardo silencio, demoro, no agendo o impuso otra barrera concreta.",
                         recommended_action=recommended_action,
                     )
                 )

@@ -870,6 +870,34 @@ def _build_tutela_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
         "Bajo la gravedad del juramento manifiesto que no he presentado otra accion de tutela por los mismos hechos, derechos y pretensiones.",
     )
     legal_basis_text = f"{str(insights.get('legal_basis_summary') or '').strip() or 'La situacion descrita compromete derechos fundamentales y requiere proteccion judicial inmediata.'} {verified_basis}".strip()
+    if str(case.get("categoria") or "").strip().lower() == "salud":
+        medical_order_date = str(intake.get("medical_order_date") or "").strip()
+        treating_doctor_name = str(intake.get("treating_doctor_name") or "").strip()
+        treating_ips_name = str(intake.get("treating_ips_name") or intake.get("ips_name") or "").strip()
+        treatment_needed = str(intake.get("treatment_needed") or "").strip()
+        diagnosis = str(intake.get("diagnosis") or "").strip()
+        eps_request_date = str(intake.get("eps_request_date") or "").strip()
+        eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
+        eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
+        eps_response_detail = str(intake.get("eps_response_detail") or "").strip()
+        health_lines: list[str] = []
+        if medical_order_date and treatment_needed:
+            doctor_fragment = f" por el medico tratante {treating_doctor_name}" if treating_doctor_name else ""
+            ips_fragment = f", adscrito a {treating_ips_name}" if treating_ips_name else ""
+            diagnosis_fragment = f", en razon del diagnostico de {diagnosis}" if diagnosis else ""
+            health_lines.append(
+                f"El dia {medical_order_date} fue ordenado{doctor_fragment}{ips_fragment} el servicio de salud consistente en {treatment_needed}{diagnosis_fragment}."
+            )
+        if eps_request_date:
+            channel_fragment = f" a traves de {eps_request_channel}" if eps_request_channel else ""
+            reference_fragment = f", bajo el radicado o referencia {eps_request_reference}" if eps_request_reference else ""
+            health_lines.append(
+                f"El dia {eps_request_date} se solicito formalmente ante {accionado} la autorizacion o prestacion del servicio requerido{channel_fragment}{reference_fragment}."
+            )
+        if eps_response_detail:
+            health_lines.append(f"Frente a dicha solicitud, la EPS o entidad accionada incurrio en la siguiente respuesta u omision: {_sentence(eps_response_detail)}")
+        if health_lines:
+            chronology_lines = _dedupe_lines([*health_lines, *chronology_lines])
     pretensions = _generic_pretensions(case, rule["action_key"])
     tutela_requests: list[str] = []
     if pretensions:

@@ -38,6 +38,13 @@ const defaultIntakeFields = {
   diagnosis: "",
   treatment_needed: "",
   urgency_detail: "",
+  medical_order_date: "",
+  treating_doctor_name: "",
+  treating_ips_name: "",
+  eps_request_date: "",
+  eps_request_channel: "",
+  eps_request_reference: "",
+  eps_response_detail: "",
   disputed_data: "",
   requested_data_action: "corregir",
   labor_relation_type: "",
@@ -354,6 +361,12 @@ const getPostPayQuestionPrompts = (form, caseItem) => {
   if (action.includes("derecho de peticion") && !form.numbered_requests?.trim()) prompts.push("Si la entidad te respondiera hoy, cuales serian las 2 o 3 soluciones concretas que necesitas recibir?");
   if (action === "accion de tutela" && !form.tutela_other_means_detail?.trim()) prompts.push("Que hiciste antes para resolverlo y que sigue pasando hoy que hace urgente intervenir?");
   if (action === "accion de tutela" && !form.tutela_immediacy_detail?.trim()) prompts.push("Que esta pasando hoy que hace urgente presentar esto ahora?");
+  if (action === "accion de tutela" && category === "salud") {
+    if (!form.medical_order_date?.trim()) prompts.push("En que fecha te ordenaron el examen, medicamento o procedimiento?");
+    if (!form.treating_doctor_name?.trim()) prompts.push("Como se llama el medico tratante que ordeno el servicio?");
+    if (!form.eps_request_date?.trim()) prompts.push("En que fecha solicitaste a la EPS la autorizacion o prestacion?");
+    if (!form.eps_response_detail?.trim()) prompts.push("Que hizo la EPS despues: nego, guardo silencio, demoro o no agendo?");
+  }
   return prompts;
 };
 
@@ -478,6 +491,34 @@ const buildPostPayInterviewStepsClean = (form, caseItem) => {
         placeholder: "Ej: el dolor empeora, suspendieron tratamiento o existe riesgo vital",
         multiline: true,
         show: !form.urgency_detail.trim(),
+      },
+      {
+        id: "medical_order_date",
+        question: "En que fecha te ordenaron el examen, procedimiento o tratamiento?",
+        placeholder: "Ej: 12 de marzo de 2026",
+        multiline: false,
+        show: !form.medical_order_date?.trim(),
+      },
+      {
+        id: "treating_doctor_name",
+        question: "Como se llama el medico tratante que ordeno ese servicio?",
+        placeholder: "Ej: Dra. Ana Gomez",
+        multiline: false,
+        show: !form.treating_doctor_name?.trim(),
+      },
+      {
+        id: "eps_request_date",
+        question: "En que fecha pediste a la EPS la autorizacion o prestacion del servicio?",
+        placeholder: "Ej: 14 de marzo de 2026",
+        multiline: false,
+        show: action === "accion de tutela" && !form.eps_request_date?.trim(),
+      },
+      {
+        id: "eps_response_detail",
+        question: "Que hizo la EPS despues: nego, guardo silencio, demoro, no agendo o puso otra barrera?",
+        placeholder: "Ej: no respondio, nego por fuera de PBS, no genero agenda o dejo el caso pendiente",
+        multiline: true,
+        show: action === "accion de tutela" && !form.eps_response_detail?.trim(),
       }
     );
   }
@@ -994,6 +1035,13 @@ const buildStructuredDescription = (form) => {
     form.category === "Salud" && form.ips_name ? `IPS o clinica: ${form.ips_name}` : "",
     form.category === "Salud" && form.diagnosis ? `Diagnostico o condicion medica: ${form.diagnosis}` : "",
     form.category === "Salud" && form.treatment_needed ? `Tratamiento, orden o servicio requerido: ${form.treatment_needed}` : "",
+    form.category === "Salud" && form.medical_order_date ? `Fecha de la orden medica: ${form.medical_order_date}` : "",
+    form.category === "Salud" && form.treating_doctor_name ? `Medico tratante: ${form.treating_doctor_name}` : "",
+    form.category === "Salud" && form.treating_ips_name ? `IPS o clinica tratante: ${form.treating_ips_name}` : "",
+    form.category === "Salud" && form.eps_request_date ? `Fecha de solicitud a la EPS: ${form.eps_request_date}` : "",
+    form.category === "Salud" && form.eps_request_channel ? `Canal de solicitud a la EPS: ${form.eps_request_channel}` : "",
+    form.category === "Salud" && form.eps_request_reference ? `Radicado o referencia de la EPS: ${form.eps_request_reference}` : "",
+    form.category === "Salud" && form.eps_response_detail ? `Respuesta o barrera de la EPS: ${form.eps_response_detail}` : "",
     form.category === "Salud" && form.urgency_detail ? `Urgencia o riesgo clinico: ${form.urgency_detail}` : "",
     form.category === "Datos" && form.disputed_data ? `Dato o reporte cuestionado: ${form.disputed_data}` : "",
     form.category === "Datos" && form.requested_data_action ? `Accion solicitada sobre el dato: ${form.requested_data_action}` : "",
@@ -2398,15 +2446,36 @@ function GuidedIntakeFields({
                 </Field>
               </>
             )}
-            <Field label="Diagnostico o condicion medica">
-              <TextInput value={form.diagnosis} onChange={(event) => setField("diagnosis", event.target.value)} placeholder="Ej: cancer, embarazo de alto riesgo, depresion severa" />
-            </Field>
-            <Field label="Tratamiento, orden o servicio requerido">
-              <TextInput value={form.treatment_needed} onChange={(event) => setField("treatment_needed", event.target.value)} placeholder="Ej: medicamento X, cita con especialista, procedimiento Y" />
-            </Field>
+        <Field label="Diagnostico o condicion medica">
+          <TextInput value={form.diagnosis} onChange={(event) => setField("diagnosis", event.target.value)} placeholder="Ej: cancer, embarazo de alto riesgo, depresion severa" />
+        </Field>
+        <Field label="Tratamiento, orden o servicio requerido">
+          <TextInput value={form.treatment_needed} onChange={(event) => setField("treatment_needed", event.target.value)} placeholder="Ej: medicamento X, cita con especialista, procedimiento Y" />
+        </Field>
+        <Field label="Fecha de la orden medica o consulta">
+          <TextInput value={form.medical_order_date} onChange={(event) => setField("medical_order_date", event.target.value)} placeholder="Ej: 12 de marzo de 2026" />
+        </Field>
+        <Field label="Medico tratante">
+          <TextInput value={form.treating_doctor_name} onChange={(event) => setField("treating_doctor_name", event.target.value)} placeholder="Ej: Dra. Ana Gomez" />
+        </Field>
+        <Field label="IPS o clinica tratante">
+          <TextInput value={form.treating_ips_name} onChange={(event) => setField("treating_ips_name", event.target.value)} placeholder="Ej: Clinica Medellin" />
+        </Field>
+        <Field label="Fecha de solicitud a la EPS">
+          <TextInput value={form.eps_request_date} onChange={(event) => setField("eps_request_date", event.target.value)} placeholder="Ej: 14 de marzo de 2026" />
+        </Field>
+        <Field label="Canal usado ante la EPS">
+          <TextInput value={form.eps_request_channel} onChange={(event) => setField("eps_request_channel", event.target.value)} placeholder="Ej: portal web, call center, oficina, IPS" />
+        </Field>
+        <Field label="Radicado o referencia de la EPS">
+          <TextInput value={form.eps_request_reference} onChange={(event) => setField("eps_request_reference", event.target.value)} placeholder="Ej: AUT-23991 o no lo entregaron" />
+        </Field>
           </div>
           <Field label="Urgencia o riesgo clinico">
             <TextArea value={form.urgency_detail} onChange={(event) => setField("urgency_detail", event.target.value)} placeholder="Describe si hay dolor, agravacion, riesgo vital, suspension de tratamiento o afectacion grave." style={{ minHeight: 100, marginTop: 16 }} />
+          </Field>
+          <Field label="Respuesta o barrera concreta de la EPS">
+            <TextArea value={form.eps_response_detail} onChange={(event) => setField("eps_response_detail", event.target.value)} placeholder="Ej: negaron la autorizacion, no respondieron, dejaron el caso en tramite o no dieron agenda." style={{ minHeight: 100, marginTop: 16 }} />
           </Field>
         </div>
       )}
@@ -2682,6 +2751,16 @@ function DetailPanel({
     concrete_request: "",
     key_dates: "",
     evidence_summary: "",
+    diagnosis: "",
+    treatment_needed: "",
+    urgency_detail: "",
+    medical_order_date: "",
+    treating_doctor_name: "",
+    treating_ips_name: "",
+    eps_request_date: "",
+    eps_request_channel: "",
+    eps_request_reference: "",
+    eps_response_detail: "",
     bank_product_type: "",
     bank_amount_involved: "",
     bank_event_date: "",
@@ -3594,6 +3673,16 @@ export default function DashboardV2(props) {
       concrete_request: intakeForm.concrete_request || "",
       key_dates: intakeForm.key_dates || normalizeMentionedDates(activeCaseDetail.case.facts?.fechas_mencionadas) || "",
       evidence_summary: intakeForm.evidence_summary || "",
+      diagnosis: intakeForm.diagnosis || "",
+      treatment_needed: intakeForm.treatment_needed || "",
+      urgency_detail: intakeForm.urgency_detail || "",
+      medical_order_date: intakeForm.medical_order_date || "",
+      treating_doctor_name: intakeForm.treating_doctor_name || "",
+      treating_ips_name: intakeForm.treating_ips_name || "",
+      eps_request_date: intakeForm.eps_request_date || "",
+      eps_request_channel: intakeForm.eps_request_channel || "",
+      eps_request_reference: intakeForm.eps_request_reference || "",
+      eps_response_detail: intakeForm.eps_response_detail || "",
       bank_product_type: intakeForm.bank_product_type || "",
       bank_amount_involved: intakeForm.bank_amount_involved || "",
       bank_event_date: intakeForm.bank_event_date || "",
