@@ -313,29 +313,29 @@ def _financial_constitutional_basis_text(constitutional_sources: list[dict[str, 
     explanations: list[str] = []
     for source in constitutional_sources:
         ref = str(source.get("numero_sentencia_o_norma") or "").strip()
-        article = ref.replace("Articulo", "Art?culo")
-        if "23" in ref:
-            explanations.append(f"{article} de la Constituci?n Pol?tica: garantiza una respuesta pronta, completa y de fondo frente a la reclamaci?n presentada.")
+        article = ref.replace("Articulo", "Artículo")
+        if "13" in ref:
+            explanations.append(f"{article} de la Constitución Política: protege a la consumidora frente a tratos arbitrarios y prácticas abusivas en una relación claramente asimétrica.")
+        elif "15" in ref:
+            explanations.append(f"{article} de la Constitución Política: ampara el habeas data y exige autorización válida para usar información financiera o vincular productos no solicitados.")
+        elif "23" in ref:
+            explanations.append(f"{article} de la Constitución Política: garantiza una respuesta pronta, completa y de fondo frente a la reclamación presentada.")
         elif "78" in ref:
-            explanations.append(f"{article} de la Constituci?n Pol?tica: impone la protecci?n constitucional del consumidor y el deber de informaci?n clara, suficiente y verificable.")
-        elif "15" in ref and has_data_issue:
-            explanations.append(f"{article} de la Constituci?n Pol?tica: ampara el habeas data y exige autorizaci?n v?lida para usar informaci?n financiera o vincular productos no solicitados.")
-        elif "13" in ref and has_data_issue:
-            explanations.append(f"{article} de la Constituci?n Pol?tica: refuerza la protecci?n frente a actuaciones abusivas en una relaci?n claramente asim?trica.")
-    return "\n".join(f"- {line}" for line in explanations if line) or "- La reclamaci?n se sustenta en la protecci?n constitucional del consumidor y en el derecho a obtener respuesta de fondo."
+            explanations.append(f"{article} de la Constitución Política: impone la protección constitucional del consumidor y el deber de información clara, suficiente y verificable.")
+    return "\n".join(f"- {line}" for line in explanations if line) or "- La reclamación se sustenta en la protección constitucional del consumidor y en el derecho a obtener respuesta de fondo."
 
 
 def _financial_legal_basis_text(legal_sources: list[dict[str, Any]], *, has_data_issue: bool, has_report_issue: bool) -> str:
     if not legal_sources:
-        return "- El caso exige revisar el r?gimen especial del consumidor financiero y la normativa general de protecci?n al consumidor."
+        return "- El caso exige revisar el régimen especial del consumidor financiero y la normativa general de protección al consumidor."
     wanted = {
-        "Ley 1328 de 2009": "Marco principal del consumidor financiero. Refuerza los deberes de informaci?n, atenci?n, reclamaci?n y prohibici?n de pr?cticas abusivas.",
-        "Ley 1480 de 2011": "Complementa la protecci?n frente a informaci?n insuficiente, cobros no consentidos y pr?cticas abusivas.",
-        "Ley 1755 de 2015": "Fija el deber de responder de fondo dentro del t?rmino legal cuando el usuario presenta una reclamaci?n formal.",
-        "Decreto 2555 de 2010": "Compila la regulaci?n del sector financiero y refuerza los deberes de diligencia, transparencia y soporte del producto cobrado.",
-        "Circular Externa 029 de 2014": "Contiene instrucciones de la Superintendencia Financiera sobre protecci?n del consumidor financiero y deberes de informaci?n.",
-        "Ley 1266 de 2008": "Aplica cuando el cobro impacta reportes o historiales crediticios y permite exigir su correcci?n en centrales de riesgo.",
-        "Ley 1581 de 2012": "Refuerza la exigencia de autorizaci?n previa, expresa e informada para el tratamiento de datos personales.",
+        "Ley 1328 de 2009": "Marco principal del consumidor financiero. Refuerza los deberes de información, atención, reclamación y prohibición de prácticas abusivas.",
+        "Ley 1480 de 2011": "Complementa la protección frente a información insuficiente, cobros no consentidos y prácticas abusivas.",
+        "Ley 1755 de 2015": "Fija el deber de responder de fondo dentro del término legal cuando el usuario presenta una reclamación formal.",
+        "Decreto 2555 de 2010": "Compila la regulación del sector financiero y refuerza los deberes de diligencia, transparencia y soporte del producto cobrado.",
+        "Circular Externa 029 de 2014": "Contiene instrucciones de la Superintendencia Financiera sobre protección del consumidor financiero y deberes de información.",
+        "Ley 1266 de 2008": "Aplica cuando el cobro impacta reportes o historiales crediticios y permite exigir su corrección en centrales de riesgo.",
+        "Ley 1581 de 2012": "Refuerza la exigencia de autorización previa, expresa e informada para el tratamiento de datos personales.",
     }
     preferred_order = [
         "Ley 1328 de 2009",
@@ -355,7 +355,7 @@ def _financial_legal_basis_text(legal_sources: list[dict[str, Any]], *, has_data
             if ref.startswith(prefix):
                 available.add(prefix)
     lines = [f"- {prefix}: {wanted[prefix]}" for prefix in preferred_order if prefix in available]
-    return "\n".join(lines) or "- El caso se apoya en normas verificadas del r?gimen del consumidor financiero, protecci?n al consumidor y derecho de petici?n."
+    return "\n".join(lines) or "- El caso se apoya en normas verificadas del régimen del consumidor financiero, protección al consumidor y derecho de petición."
 
 
 def _financial_jurisprudence_text(precedents: list[dict[str, Any]]) -> str:
