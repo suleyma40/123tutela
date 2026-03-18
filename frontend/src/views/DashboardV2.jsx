@@ -2862,6 +2862,16 @@ function DetailPanel({
     shortenRouteLabel(item.recommended_action || item.workflow_type, "Documento"),
   ].filter(Boolean).slice(0, 3);
   const revealOperationalRouting = item.payment_status === "pagado" || baseFlowStep >= 3;
+  const visibleAutofillEntries = Object.entries(autofillSuggestions).filter(([key]) => (
+    revealOperationalRouting || ![
+      "target_pqrs_email",
+      "target_phone",
+      "target_website",
+      "target_identifier",
+      "target_superintendence",
+      "tutela_other_means_detail",
+    ].includes(key)
+  ));
   const progressSteps = [
     { id: 1, label: "Diagnostico" },
     { id: 2, label: "Completa datos" },
@@ -2988,47 +2998,57 @@ function DetailPanel({
               </div>
             </div>
 
-            {!!Object.keys(autofillSuggestions).length && (
+            {!!visibleAutofillEntries.length && (
               <div className="glass-card" style={{ padding: 18, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#166534" }}>DATOS DETECTADOS AUTOMATICAMENTE</div>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#166534" }}>
+                  {revealOperationalRouting ? "DATOS DETECTADOS AUTOMATICAMENTE" : "DATOS DETECTADOS PARA EL DIAGNOSTICO"}
+                </div>
                 <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
-                  Encontramos estos datos en tu relato o anexos y los usamos para acelerar el expediente:
+                  {revealOperationalRouting
+                    ? "Encontramos estos datos en tu relato o anexos y los usamos para acelerar el expediente:"
+                    : "Con estos datos la plataforma preparo el diagnostico y la ruta sugerida. El detalle operativo se habilita al activar el documento."}
                 </div>
                         <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-                          {Object.entries(autofillSuggestions).slice(0, 5).map(([key, value]) => (
+                          {visibleAutofillEntries.slice(0, 5).map(([key, value]) => (
                             <div key={key} style={{ color: "#166534" }}>{`• ${formatAutofillEntry([key, value])}`}</div>
                           ))}
                 </div>
               </div>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-              <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", border: `1px solid ${C.border}` }}>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>CANAL DE RADICACION</div>
-                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{revealOperationalRouting ? detailRoutingChannel : "Disponible al activar"}</div>
-                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
-                  {revealOperationalRouting ? detailRoutingContact : "El canal operativo exacto se habilita cuando activas el documento o el servicio de radicacion."}
+            {revealOperationalRouting ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+                <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>CANAL DE RADICACION</div>
+                  <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{detailRoutingChannel}</div>
+                  <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>{detailRoutingContact}</div>
+                </div>
+                <div className="glass-card" style={{ padding: 18, background: item.routing?.automatable ? "#EEF4FF" : "#FFF7ED", border: item.routing?.automatable ? "1px solid #BFDBFE" : "1px solid #FED7AA" }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: item.routing?.automatable ? C.primary : "#C2410C" }}>ESTADO OPERATIVO</div>
+                  <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                    {item.routing?.automatable ? "Radicacion automatizable" : "Requiere apoyo manual"}
+                  </div>
+                  <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
+                    {item.routing?.automatable ? "La entidad ya tiene un canal listo para usar dentro del flujo." : "Conviene revisar o confirmar contacto antes del envio definitivo."}
+                  </div>
+                </div>
+                <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>ENTIDAD ACTIVA</div>
+                  <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{detailPrimaryTarget?.name || effectivePostPayForm.target_entity || "Entidad por confirmar"}</div>
+                  <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
+                    {item.routing?.subject || "Asunto se ajusta automaticamente al documento."}
+                  </div>
                 </div>
               </div>
-              <div className="glass-card" style={{ padding: 18, background: item.routing?.automatable ? "#EEF4FF" : "#FFF7ED", border: item.routing?.automatable ? "1px solid #BFDBFE" : "1px solid #FED7AA" }}>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: item.routing?.automatable ? C.primary : "#C2410C" }}>ESTADO OPERATIVO</div>
-                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
-                  {revealOperationalRouting ? (item.routing?.automatable ? "Radicacion automatizable" : "Requiere apoyo manual") : "Se confirma despues del pago"}
-                </div>
-                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
-                  {revealOperationalRouting
-                    ? (item.routing?.automatable ? "La entidad ya tiene un canal listo para usar dentro del flujo." : "Conviene revisar o confirmar contacto antes del envio definitivo.")
-                    : "Primero activas el documento. Luego la plataforma te muestra el canal y la forma de radicacion disponible para tu caso."}
+            ) : (
+              <div className="glass-card" style={{ padding: 20, background: "linear-gradient(180deg, #FCFDFF 0%, #F8FAFD 100%)", border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>ACTIVACION Y RADICACION</div>
+                <div style={{ marginTop: 8, color: C.text, fontWeight: 800, fontSize: 22 }}>Primero activas el documento. Luego se libera la radicacion.</div>
+                <div style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.7, maxWidth: 760 }}>
+                  Al activar el documento final, la plataforma confirma el canal disponible, prepara la version lista para firma y te muestra la opcion de radicar con apoyo o por tu cuenta.
                 </div>
               </div>
-              <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>ENTIDAD ACTIVA</div>
-                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{detailPrimaryTarget?.name || effectivePostPayForm.target_entity || "Entidad por confirmar"}</div>
-                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
-                  {revealOperationalRouting ? (item.routing?.subject || "Asunto se ajusta automaticamente al documento.") : "La configuracion operativa completa se libera despues del pago."}
-                </div>
-              </div>
-            </div>
+            )}
 
             <div style={{ padding: 22, borderRadius: 22, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
               {flowStep === 1 && (
@@ -3167,7 +3187,7 @@ function DetailPanel({
                       <Field label="Direccion de la entidad"><TextInput value={postPayForm.target_address} onChange={(event) => setPostPayForm((current) => ({ ...current, target_address: event.target.value }))} /></Field>
                       <Field label="Representante legal"><TextInput value={postPayForm.legal_representative} onChange={(event) => setPostPayForm((current) => ({ ...current, legal_representative: event.target.value }))} /></Field>
                     </div>
-                    {(postPayForm.target_pqrs_email || postPayForm.target_phone || postPayForm.target_superintendence || postPayForm.target_website) && (
+                    {item.payment_status === "pagado" && (postPayForm.target_pqrs_email || postPayForm.target_phone || postPayForm.target_superintendence || postPayForm.target_website) && (
                       <div style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 8 }}>
                         <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>DATOS PRECARGADOS PARA DOCUMENTO Y RADICACION</div>
                         {postPayForm.target_pqrs_email && <div style={{ color: C.textMuted }}>Correo PQRS: <strong style={{ color: C.text }}>{postPayForm.target_pqrs_email}</strong></div>}
