@@ -3657,6 +3657,7 @@ export default function DashboardV2(props) {
     onConfirmPayment,
     onCreateWompiSession,
     onGetPayment,
+    onReconcilePayment,
     onRefreshCase,
     onGenerateDocument,
     onSubmitCase,
