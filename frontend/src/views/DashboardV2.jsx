@@ -963,6 +963,53 @@ const buildCommercialDiagnosisCopy = (action = "", category = "") => {
   return "La plataforma confirmo una ruta legal viable para tu caso. La estrategia completa, el documento final y la radicacion se habilitan al activar el servicio.";
 };
 
+const buildPaymentOfferCopy = (action = "", category = "") => {
+  const normalizedAction = normalizeAction(action);
+  const normalizedCategory = normalizeAction(category);
+  if (normalizedAction === "accion de tutela" || normalizedCategory === "salud") {
+    return {
+      headline: "Activa tu tutela lista para presentar",
+      body: "Al pagar se desbloquea la accion de tutela completa, con hechos depurados, fundamentos juridicos, pretensiones y control final de calidad.",
+      unlocks: [
+        "Tutela final lista para revisar, firmar y presentar.",
+        "Redaccion juridica completa con estructura judicial.",
+        "Acceso al expediente activo y trazabilidad del caso.",
+      ],
+    };
+  }
+  if (normalizedAction.includes("derecho de peticion")) {
+    return {
+      headline: "Activa tu derecho de peticion final",
+      body: "Al pagar se libera el documento completo, con fundamento legal, solicitudes numeradas y control de calidad antes del envio.",
+      unlocks: [
+        "Derecho de peticion final listo para revisar y usar.",
+        "Argumentacion juridica completa y solicitudes claras.",
+        "Acceso al expediente activo y trazabilidad del caso.",
+      ],
+    };
+  }
+  if (normalizedCategory === "bancos") {
+    return {
+      headline: "Activa tu reclamo financiero final",
+      body: "Al pagar se desbloquea el escrito formal para la entidad, con calculo de pretensiones, soporte juridico y control final antes de radicar.",
+      unlocks: [
+        "Reclamo financiero final listo para revisar y firmar.",
+        "Calculo y redaccion completa del documento.",
+        "Acceso al expediente activo y trazabilidad del caso.",
+      ],
+    };
+  }
+  return {
+    headline: "Activa tu documento legal final",
+    body: "Al pagar se libera la version completa del documento, con estructura juridica, revision final y acceso al flujo de firma y radicacion.",
+    unlocks: [
+      "Documento final listo para revisar y usar.",
+      "Redaccion juridica completa y control final de calidad.",
+      "Acceso al expediente activo y trazabilidad del caso.",
+    ],
+  };
+};
+
 const buildRouteSteps = (preview) => {
   const steps = [];
   (preview?.prerequisites || []).slice(0, 2).forEach((item) => {
@@ -2555,6 +2602,10 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
     () => catalog.find((item) => item.code === selectedCode) || null,
     [catalog, selectedCode]
   );
+  const paymentOffer = useMemo(
+    () => buildPaymentOfferCopy(caseItem?.recommended_action, caseItem?.category),
+    [caseItem?.recommended_action, caseItem?.category]
+  );
 
   const launchWidget = (checkout) =>
     new Promise((resolve, reject) => {
@@ -2663,9 +2714,9 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
     <SessionCard title={title} subtitle="El análisis es gratis. Pagas solo cuando decides activar el documento final.">
       <div style={{ display: "grid", gap: 14 }}>
         <div style={{ padding: 16, borderRadius: 16, background: "linear-gradient(135deg, #EEF4FF 0%, #F8FBFF 100%)", border: "1px solid #BFDBFE" }}>
-          <div style={{ fontWeight: 800, color: C.text }}>{caseItem.recommended_action || "Producto sugerido"}</div>
+          <div style={{ fontWeight: 800, color: C.text }}>{paymentOffer.headline}</div>
           <div style={{ color: C.textMuted, marginTop: 8 }}>
-            La IA ya confirmo la ruta preliminar de este caso. Al pagar se desbloquea la version final del documento con argumentacion juridica completa.
+            {paymentOffer.body}
           </div>
         </div>
         <Field label="Producto a pagar">
@@ -2707,16 +2758,21 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
             <div style={{ color: C.textMuted, fontSize: 13, marginTop: 10 }}>
               Si compras radicación, la plataforma intenta gestionar el envío o la radicación y te entrega comprobante cuando aplique.
             </div>
-            <div style={{ color: C.textMuted, fontSize: 13, marginTop: 8 }}>
-              Siguiente paso sugerido: {selectedProduct.next_step_hint}
-            </div>
             <div style={{ marginTop: 16, padding: 14, borderRadius: 14, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>LO QUE RECIBES AL PAGAR</div>
+              <div style={{ display: "grid", gap: 8, marginTop: 10, color: C.text }}>
+                {paymentOffer.unlocks.map((line, index) => (
+                  <div key={`${selectedProduct.code}-unlock-${index}`}>{index + 1}. {line}</div>
+                ))}
+                <div>4. {includeFiling ? "Gestion de radicacion por parte de la plataforma cuando el caso lo permita." : "Opcion de firma y radicacion disponible despues de activar el documento."}</div>
+              </div>
+              {false && (
               <div style={{ display: "grid", gap: 8, marginTop: 10, color: C.text }}>
                 <div>1. Documento jurídico final listo para usar.</div>
                 <div>2. Acceso al expediente y trazabilidad del caso desde tu panel.</div>
                 <div>3. {includeFiling ? "Gestión de radicación por parte de la plataforma cuando el caso lo permita." : "Opción de radicación disponible después de activar el documento."}</div>
               </div>
+              )}
             </div>
             <div style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
               <strong style={{ color: C.primary }}>Pago seguro con Wompi.</strong>
