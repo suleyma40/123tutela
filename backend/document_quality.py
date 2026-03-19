@@ -312,7 +312,17 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
     remedies_score = 20
     operability_score = 10
     source_policy = (case.get("facts") or {}).get("source_validation_policy") or {}
-    citation_guard = validate_document_citations(document=document, source_validation_policy=source_policy)
+    citation_verifier_enabled = bool(source_policy.get("document_citation_verifier_enabled"))
+    citation_guard = (
+        validate_document_citations(document=document, source_validation_policy=source_policy)
+        if citation_verifier_enabled
+        else {
+            "detected_references": [],
+            "verified_detected_references": [],
+            "unresolved_detected_references": [],
+            "has_unverified_citations": False,
+        }
+    )
 
     missing_sections = [section for section in rule["required_sections"] if not _has_required_section(lowered, section)]
     if missing_sections:
@@ -363,11 +373,7 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         strengths.append("El documento se apoya en fuentes juridicas verificadas o conservadoras.")
 
     unresolved_detected = list(citation_guard.get("unresolved_detected_references") or [])
-    health_internal_citation_issue = _is_health_internal_article_citation_issue(
-        unresolved_detected,
-        category=category or "",
-    )
-    if citation_guard.get("has_unverified_citations") and not health_internal_citation_issue:
+    if citation_guard.get("has_unverified_citations"):
         legal_score -= 15
         blocking_issues.append(
             "El documento contiene referencias juridicas no verificadas automaticamente: "
@@ -375,10 +381,6 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
             + "."
         )
         improvements.append("Eliminar o sustituir toda cita no verificada antes de la entrega final.")
-    elif health_internal_citation_issue:
-        warnings.append(
-            "La IA seguira depurando internamente la normalizacion de referencias constitucionales o procesales del bloque salud."
-        )
     elif citation_guard.get("verified_detected_references"):
         strengths.append("Las referencias juridicas detectadas coinciden con el registro verificable de la app.")
 

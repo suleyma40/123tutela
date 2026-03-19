@@ -76,6 +76,7 @@ def _has_any(text: str, keywords: list[str]) -> bool:
 def build_source_validation_policy() -> dict[str, Any]:
     return {
         "hierarchy": OFFICIAL_SOURCES,
+        "document_citation_verifier_enabled": False,
         "required_fields_for_use": [
             "tipo_fuente",
             "corporacion",
@@ -947,19 +948,25 @@ def build_final_validation(
         warnings.append("La cronologia sigue debil porque faltan fechas o periodos claros.")
 
     source_policy = facts.get("source_validation_policy") or {}
-    citation_guard = validate_document_citations(document=document, source_validation_policy=source_policy)
-    unresolved_detected = list(citation_guard.get("unresolved_detected_references") or [])
-    health_internal_citation_issue = _is_health_internal_article_citation_issue(
-        unresolved_detected,
-        category=category,
+    citation_verifier_enabled = bool(source_policy.get("document_citation_verifier_enabled"))
+    citation_guard = (
+        validate_document_citations(document=document, source_validation_policy=source_policy)
+        if citation_verifier_enabled
+        else {
+            "detected_references": [],
+            "verified_detected_references": [],
+            "unresolved_detected_references": [],
+            "has_unverified_citations": False,
+        }
     )
+    unresolved_detected = list(citation_guard.get("unresolved_detected_references") or [])
     if not _list(source_policy.get("verified_sources")) and _has_any(recommended_action, ["tutela", "impugnacion", "desacato", "cumplimiento"]):
         warnings.append("No hay fuentes verificadas cargadas todavia; el sustento jurisprudencial debe mantenerse conservador.")
     if source_policy.get("unresolved_precedents"):
         warnings.append(
             "Existen referencias jurisprudenciales no verificadas automaticamente y fueron excluidas como sustento principal."
         )
-    if citation_guard.get("has_unverified_citations") and not health_internal_citation_issue:
+    if citation_guard.get("has_unverified_citations"):
         blocking_issues.append(
             "El documento final contiene citas o referencias juridicas no verificadas por el registro interno."
         )
@@ -967,10 +974,6 @@ def build_final_validation(
             "Referencias pendientes de verificacion detectadas: "
             + ", ".join(unresolved_detected[:4])
             + "."
-        )
-    elif health_internal_citation_issue:
-        warnings.append(
-            "La IA seguira depurando internamente la normalizacion de referencias constitucionales o procesales del bloque salud."
         )
 
     if _has_any(lowered, ["ganaras seguro", "resultado garantizado", "ganara el proceso", "exito asegurado"]):
