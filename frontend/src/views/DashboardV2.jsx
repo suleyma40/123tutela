@@ -4035,6 +4035,36 @@ function DetailPanel({
               <div style={{ padding: 22, borderRadius: 22, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
                 <div style={{ fontSize: 24, fontWeight: 800, color: C.text }}>Siguiente paso: radicacion</div>
                 <div style={{ marginTop: 8, color: C.textMuted }}>Puedes radicar tu mismo, pedir la guia o dejar que nosotros lo hagamos por ti.</div>
+                <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Confirmacion final antes del envio</div>
+                    <div style={{ marginTop: 6, color: C.textMuted, lineHeight: 1.6 }}>
+                      Si ya revisaste el documento, puedes confirmar aqui mismo la revision y la firma electronica simple para desbloquear la radicacion.
+                    </div>
+                  </div>
+                  <label style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.text }}>
+                    <input type="checkbox" checked={documentReviewed} onChange={(event) => setDocumentReviewed(event.target.checked)} />
+                    <span style={{ lineHeight: 1.6 }}>Ya verifique el documento completo y autorizo continuar con la radicacion.</span>
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+                    <Field label="Nombre completo">
+                      <TextInput value={signatureForm.full_name} onChange={(event) => setSignatureForm((current) => ({ ...current, full_name: event.target.value }))} />
+                    </Field>
+                    <Field label="Cedula">
+                      <TextInput value={signatureForm.document_number} onChange={(event) => setSignatureForm((current) => ({ ...current, document_number: event.target.value }))} />
+                    </Field>
+                    <Field label="Ciudad">
+                      <TextInput value={signatureForm.city} onChange={(event) => setSignatureForm((current) => ({ ...current, city: event.target.value }))} />
+                    </Field>
+                    <Field label="Fecha">
+                      <TextInput value={signatureForm.date} onChange={(event) => setSignatureForm((current) => ({ ...current, date: event.target.value }))} />
+                    </Field>
+                  </div>
+                  <label style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.text }}>
+                    <input type="checkbox" checked={signatureAccepted} onChange={(event) => setSignatureAccepted(event.target.checked)} />
+                    <span style={{ lineHeight: 1.6 }}>Acepto el consentimiento de firma electronica simple version {SIMPLE_SIGNATURE_CONSENT_VERSION}.</span>
+                  </label>
+                </div>
                 {!signatureReady && (
                   <div style={{ marginTop: 14, padding: 14, borderRadius: 16, background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B" }}>
                     Antes del envio debes revisar el documento completo y confirmar la firma simple.
