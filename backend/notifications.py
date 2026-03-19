@@ -51,9 +51,71 @@ def _is_email_configured() -> bool:
     )
 
 
-def build_post_radicado_email(case: dict[str, Any], guidance: dict[str, Any]) -> dict[str, str]:
+def _post_radicado_user_guidance(case: dict[str, Any], guidance: dict[str, Any]) -> dict[str, Any]:
+    submission_policy = guidance.get("submission_policy") or {}
+    document_family = str(submission_policy.get("document_family") or "").lower()
     product = str(case.get("recommended_action") or "tramite")
     destination = ((case.get("routing") or {}).get("primary_target") or {}).get("name") or "la entidad o autoridad competente"
+    panel_steps = [
+        "En tu panel veras si el caso esta enviado, si ya hay radicado y si aparece una novedad nueva.",
+        "Si la EPS, la entidad o el juzgado te llaman o te escriben, registra ese dato en tu panel o repórtalo a soporte para dejar trazabilidad.",
+        "Si te piden documentos adicionales, respuesta o aclaracion, debes reportarlo de inmediato para definir el siguiente paso.",
+    ]
+    if "tutela" in document_family or "impugnacion" in document_family or "desacato" in document_family:
+        timeline_title = "Que puede pasar ahora con esta actuacion judicial"
+        timeline_items = [
+            f"El despacho o el sistema de reparto puede asignar el caso y generar constancia o radicado a nombre de {destination}.",
+            "El juzgado puede notificar a la EPS o a la entidad accionada y pedir respuesta o soportes en un termino corto.",
+            "La EPS o la entidad te puede llamar, escribir o pedir verificaciones sobre los hechos, la orden medica o los anexos.",
+            "Si hay decision favorable pero no cumplen, el siguiente paso puede ser seguimiento, impugnacion o desacato segun corresponda.",
+        ]
+        expected_window = (
+            "En tutela no aplica una espera general de 15 dias habiles: el reparto y las actuaciones suelen moverse en horas o pocos dias, "
+            "y la decision judicial normalmente es mas rapida que un tramite administrativo ordinario."
+        )
+    elif "derecho_peticion" in document_family:
+        timeline_title = "Que puede pasar ahora con tu peticion"
+        timeline_items = [
+            f"La entidad destinataria debe recibir y tramitar la solicitud enviada a {destination}.",
+            "La entidad puede responder por correo, por su portal o llamarte para validar informacion o soportes.",
+            "Si no responden de fondo dentro del termino legal o la respuesta es insuficiente, puede tocar escalar a tutela.",
+        ]
+        expected_window = (
+            "En peticiones ordinarias la entidad suele tener un termino de respuesta de hasta 15 dias habiles, "
+            "salvo reglas especiales del sector o del tipo de solicitud."
+        )
+    else:
+        timeline_title = "Que puede pasar ahora"
+        timeline_items = [
+            f"La entidad o autoridad destinataria en {destination} puede emitir radicado, acuse o respuesta inicial.",
+            "Pueden llamarte o escribirte para validar hechos, anexos o datos de contacto.",
+            "Si aparece una respuesta, requerimiento o incumplimiento, el siguiente paso se define desde tu panel.",
+        ]
+        expected_window = guidance.get("estimated_response_window") or "El tiempo de respuesta depende del canal y del tipo de tramite."
+
+    return {
+        "timeline_title": timeline_title,
+        "timeline_items": timeline_items,
+        "expected_window": expected_window,
+        "panel_steps": panel_steps,
+        "support_copy": (
+            "Si pagaste envio o seguimiento, no necesitas salirte del flujo: revisa tu panel, conserva tus llamadas o correos y repórtanos cualquier novedad "
+            f"en {settings.support_email} para actualizar el expediente."
+        ),
+        "customer_copy": (
+            f"Las copias al cliente salen desde {settings.notifications_email}. "
+            f"Si el juzgado o la entidad responde directamente al canal de envio, la primera novedad puede llegar a {settings.radications_email} "
+            "y luego reflejarse en tu panel."
+        ),
+        "product": product,
+        "destination": destination,
+    }
+
+
+def build_post_radicado_email(case: dict[str, Any], guidance: dict[str, Any]) -> dict[str, str]:
+    helper = _post_radicado_user_guidance(case, guidance)
+    product = helper["product"]
+    destination = helper["destination"]
     radicado = ((guidance.get("routing_snapshot") or {}).get("radicado")) or "Pendiente de confirmacion"
     channel = guidance.get("channel") or "manual"
     proof_type = guidance.get("proof_type") or "constancia"
@@ -63,6 +125,16 @@ def build_post_radicado_email(case: dict[str, Any], guidance: dict[str, Any]) ->
     continuity_text = ", ".join(str(item) for item in continuity) or "seguimiento del caso"
     headline = (guidance.get("post_radicado_copy") or {}).get("headline") or "Tu tramite fue enviado."
     body = (guidance.get("post_radicado_copy") or {}).get("body") or "Ya puedes revisar el detalle en tu panel."
+    timeline_title = helper["timeline_title"]
+    timeline_items = helper["timeline_items"]
+    panel_steps = helper["panel_steps"]
+    support_copy = helper["support_copy"]
+    customer_copy = helper["customer_copy"]
+    expected_window = helper["expected_window"]
+    timeline_text = "\n".join(f"- {item}" for item in timeline_items)
+    panel_steps_text = "\n".join(f"- {item}" for item in panel_steps)
+    timeline_html = "".join(f"<li>{item}</li>" for item in timeline_items)
+    panel_html = "".join(f"<li>{item}</li>" for item in panel_steps)
 
     subject = f"123tutela | Tu tramite fue enviado: {product}"
     text_body = f"""
@@ -70,14 +142,27 @@ def build_post_radicado_email(case: dict[str, Any], guidance: dict[str, Any]) ->
 
 {body}
 
+Que sigue ahora:
+{timeline_title}
+{timeline_text}
+
 Producto: {product}
 Destino: {destination}
 Canal usado: {channel}
 Evidencia disponible: {proof_type}
 Radicado o comprobante: {radicado}
 
-Tiempo estimado:
-{estimated}
+Tiempo estimado y expectativa real:
+{expected_window}
+
+Como seguirlo desde tu panel:
+{panel_steps_text}
+
+Si pagaste envio o seguimiento:
+{support_copy}
+
+Canales de copia y respuesta:
+{customer_copy}
 
 Siguiente paso sugerido:
 {next_step}
@@ -91,12 +176,18 @@ Panel del cliente:
     html_body = f"""
 <h2>{headline}</h2>
 <p>{body}</p>
+<p><strong>Que sigue ahora:</strong><br>{timeline_title}</p>
+<ul>{timeline_html}</ul>
 <p><strong>Producto:</strong> {product}</p>
 <p><strong>Destino:</strong> {destination}</p>
 <p><strong>Canal usado:</strong> {channel}</p>
 <p><strong>Evidencia disponible:</strong> {proof_type}</p>
 <p><strong>Radicado o comprobante:</strong> {radicado}</p>
-<p><strong>Tiempo estimado:</strong><br>{estimated}</p>
+<p><strong>Tiempo estimado y expectativa real:</strong><br>{expected_window}</p>
+<p><strong>Como seguirlo desde tu panel:</strong></p>
+<ul>{panel_html}</ul>
+<p><strong>Si pagaste envio o seguimiento:</strong><br>{support_copy}</p>
+<p><strong>Canales de copia y respuesta:</strong><br>{customer_copy}</p>
 <p><strong>Siguiente paso sugerido:</strong><br>{next_step}</p>
 <p><strong>Continuidad posible:</strong><br>{continuity_text}</p>
 <p><strong>Panel del cliente:</strong><br><a href="{settings.frontend_url}">{settings.frontend_url}</a></p>
