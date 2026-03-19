@@ -573,6 +573,28 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     return _dedupe_lines(lines + chronology_lines)
 
 
+def _health_jurisprudence_lines(case: dict[str, Any], *, limit: int = 4) -> list[str]:
+    facts = case.get("facts") or {}
+    source_policy = facts.get("source_validation_policy") or {}
+    precedents = [
+        item
+        for item in (source_policy.get("verified_sources") or [])
+        if str(item.get("tipo_fuente") or "").strip() == "jurisprudencia"
+    ]
+    lines: list[str] = []
+    for item in precedents[:limit]:
+        ref = str(item.get("numero_sentencia_o_norma") or "").strip()
+        corp = str(item.get("corporacion") or "").strip()
+        extract = _sentence(str(item.get("extracto_relevante") or "").strip(), fallback="").strip()
+        if not ref:
+            continue
+        if extract:
+            lines.append(f"{ref} ({corp}): {extract}")
+        else:
+            lines.append(f"{ref} ({corp}).")
+    return _dedupe_lines(lines)
+
+
 def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     facts = case.get("facts") or {}
     intake = facts.get("intake_form") or {}
@@ -918,6 +940,7 @@ def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) 
     contact = str(ctx["primary"].get("contact") or intake.get("target_pqrs_email") or intake.get("target_website") or "Canal oficial de atencion").strip()
     chronology = _health_fact_lines(case)
     evidence_items = _uploaded_evidence_items(case)
+    jurisprudence_lines = _health_jurisprudence_lines(case, limit=3)
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
@@ -976,6 +999,9 @@ II. HECHOS Y CONTEXTO
 
 III. FUNDAMENTO DEL DERECHO DE PETICION
 {legal_basis_text}
+
+Jurisprudencia verificable aplicable:
+{_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. El sistema priorizo en este caso soporte normativo oficial suficiente y conservador."}
 
 IV. SOLICITUDES NUMERADAS
 {_numbered_lines(_dedupe_lines(request_lines))}
@@ -1148,6 +1174,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     legal_analysis = ctx["legal_analysis"]
     chronology_lines = _health_fact_lines(case)
     evidence_items = _uploaded_evidence_items(case)
+    jurisprudence_lines = _health_jurisprudence_lines(case, limit=4)
     rights = _join_list(
         legal_analysis.get("derechos_vulnerados"),
         fallback="los derechos fundamentales a la salud y a la vida digna",
@@ -1217,6 +1244,9 @@ Conforme a los hechos narrados, considero comprometidos los siguientes derechos 
 V. FUNDAMENTO JURIDICO
 {legal_basis_text}
 
+Jurisprudencia verificable aplicable:
+{_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. El sistema priorizo fundamento normativo oficial suficiente para este caso concreto."}
+
 VI. PROCEDENCIA
 Subsidiariedad: {subsidiarity}
 
@@ -1252,6 +1282,7 @@ def _build_health_impugnacion_document(case: dict[str, Any], rule: dict[str, Any
     chronology_lines = _health_fact_lines(case)
     ruling_date = str(intake.get("tutela_ruling_date") or "").strip() or "fecha que debe precisarse con la notificacion del fallo"
     appeal_reason = str(intake.get("tutela_appeal_reason") or "").strip() or "El fallo no valoro integralmente la urgencia del caso ni la barrera actual de la EPS."
+    jurisprudence_lines = _health_jurisprudence_lines(case, limit=3)
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
@@ -1280,6 +1311,9 @@ IV. RAZONES DE IMPUGNACION
 V. FUNDAMENTO JURIDICO
 La impugnacion se presenta al amparo del articulo 86 de la Constitucion Politica y del Decreto 2591 de 1991, en procura de una segunda revision judicial integral del caso. {verified_basis}
 
+Jurisprudencia verificable aplicable:
+{_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. El sistema priorizo soporte normativo y jurisprudencial conservador para la segunda instancia."}
+
 VI. SOLICITUDES A LA SEGUNDA INSTANCIA
 1. REVOCAR o MODIFICAR el fallo impugnado en lo desfavorable a la parte accionante.
 2. CONCEDER la proteccion integral de los derechos fundamentales comprometidos.
@@ -1307,6 +1341,7 @@ def _build_health_desacato_document(case: dict[str, Any], rule: dict[str, Any]) 
     chronology_lines = _health_fact_lines(case)
     ruling_date = str(intake.get("tutela_ruling_date") or "").strip() or "fecha que debe precisarse con el fallo"
     noncompliance = str(intake.get("tutela_noncompliance_detail") or "").strip() or "La entidad accionada no ha cumplido integralmente la orden judicial de salud y la barrera persiste."
+    jurisprudence_lines = _health_jurisprudence_lines(case, limit=3)
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
@@ -1328,6 +1363,9 @@ III. INCUMPLIMIENTO ACTUAL
 
 IV. FUNDAMENTO JURIDICO
 El presente incidente se formula con fundamento en el articulo 86 de la Constitucion Politica y en el regimen del Decreto 2591 de 1991 aplicable al desacato por incumplimiento de fallos de tutela. {verified_basis}
+
+Jurisprudencia verificable aplicable:
+{_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. El sistema priorizo soporte normativo y de desacato verificable para exigir cumplimiento inmediato."}
 
 V. SOLICITUDES
 1. DECLARAR que existe incumplimiento del fallo de tutela referido.

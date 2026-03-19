@@ -1,11 +1,1153 @@
 {
   "metadata": {
     "description": "Registro adicional de fuentes juridicas verificadas para 123tutela. Las entradas aqui definidas se fusionan con el registro interno del backend.",
-    "last_updated": "2026-03-17",
+    "last_updated": "2026-03-18",
     "notes": [
       "Cada fuente debe incluir numero_sentencia_o_norma, corporacion, fecha, url_verificada y extracto_relevante.",
-      "Solo deben cargarse referencias verificadas contra fuente institucional u oficial."
+      "Solo deben cargarse referencias verificadas contra fuente institucional u oficial.",
+      "La jurisprudencia de salud se importa desde jurisprudencia-salud-verificada.js descargado y se normaliza contra dominios permitidos."
     ]
   },
-  "sources": {}
+  "sources": {
+    "salud_principios_fundamentales_t_760_2008": {
+      "aliases": [
+        "T-760/2008",
+        "sentencia T-760/2008",
+        "t-760 de 2008",
+        "sentencia t-760 de 2008",
+        "Derecho a la salud como derecho fundamental autónomo — Sentencia estructural"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-760 de 2008",
+      "fecha": "2008-07-31",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2008/t-760-08.htm",
+      "extracto_relevante": "El derecho a la salud es un derecho fundamental cuya protección no puede quedar supeditada a la existencia de recursos presupuestales ni a trámites administrativos que constituyan barreras de acceso. El derecho fundamental a la salud comprende, entre otros, el derecho a acceder a servicios de salud de manera oportuna, eficaz y con calidad.",
+      "tema_juridico": "Derecho a la salud como derecho fundamental autónomo — Sentencia estructural",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_principios_fundamentales_su_508_2020": {
+      "aliases": [
+        "SU-508/2020",
+        "sentencia SU-508/2020",
+        "su-508 de 2020",
+        "sentencia su-508 de 2020",
+        "Sentencia de unificación — Servicios y tecnologías en salud: pañales, sillas de ruedas, cuidadores, transporte"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia SU-508 de 2020",
+      "fecha": "2020-12-07",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2020/su508-20.htm",
+      "extracto_relevante": "Para acceder al tratamiento integral deben verificarse: (i) que la EPS haya actuado con negligencia en la prestación del servicio, como ocurre cuando demora de manera injustificada el suministro de medicamentos, la programación de procedimientos o la realización de tratamientos; y (ii) que existan las órdenes correspondientes, emitidas por el médico tratante, en que se especifiquen las prestaciones o servicios que requiere el paciente.",
+      "tema_juridico": "Sentencia de unificación — Servicios y tecnologías en salud: pañales, sillas de ruedas, cuidadores, transporte",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_principios_fundamentales_t_252_2024": {
+      "aliases": [
+        "T-252/2024",
+        "sentencia T-252/2024",
+        "t-252 de 2024",
+        "sentencia t-252 de 2024",
+        "Principio de integralidad — Barreras administrativas EPS — Sujetos de especial protección"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-252 de 2024",
+      "fecha": "2024-07-02",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-252-24.htm",
+      "extracto_relevante": "Las EPS accionadas vulneraron el derecho fundamental a la salud de las y los accionantes —sujetos de especial protección constitucional— al negarles el acceso oportuno, continuo y efectivo a los servicios, insumos y tecnologías en salud ordenados por el médico tratante, a partir de barreras y restricciones administrativas.",
+      "tema_juridico": "Principio de integralidad — Barreras administrativas EPS — Sujetos de especial protección",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_principios_fundamentales_t_423_2019": {
+      "aliases": [
+        "T-423/2019",
+        "sentencia T-423/2019",
+        "t-423 de 2019",
+        "sentencia t-423 de 2019",
+        "Medicamentos y procedimientos NO PBS — Cuatro requisitos para su autorización por tutela"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-423 de 2019",
+      "fecha": "2019-09-19",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2019/t-423-19.htm",
+      "extracto_relevante": "El juez constitucional podrá ordenar la entrega de prestaciones no cubiertas por el PBS cuando: (i) sea imprescindible para garantizar la supervivencia o la dignidad del paciente; (ii) sea insustituible por lo cubierto en el PBS; (iii) sea prescrito por los médicos adscritos a la EPS de afiliación del paciente; y (iv) no pueda ser cubierto con la capacidad económica del paciente.",
+      "tema_juridico": "Medicamentos y procedimientos NO PBS — Cuatro requisitos para su autorización por tutela",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_principios_fundamentales_t_274_2020": {
+      "aliases": [
+        "T-274/2020",
+        "sentencia T-274/2020",
+        "t-274 de 2020",
+        "sentencia t-274 de 2020",
+        "Tutela procedente contra planes complementarios de salud — Interrupción de tratamientos"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-274 de 2020",
+      "fecha": "2020-07-08",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2020/t-274-20.htm",
+      "extracto_relevante": "La acción de tutela procede de manera excepcional cuando los mecanismos judiciales ordinarios no resultan idóneos o efectivos en la protección de derechos fundamentales, o no resultan oportunos para prevenir un perjuicio irremediable, máxime si se tiene en cuenta que puede verse comprometido el estado de salud del usuario ante la interrupción de tratamientos médicos.",
+      "tema_juridico": "Tutela procedente contra planes complementarios de salud — Interrupción de tratamientos",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_principios_fundamentales_t_380_2024": {
+      "aliases": [
+        "T-380/2024",
+        "sentencia T-380/2024",
+        "t-380 de 2024",
+        "sentencia t-380 de 2024",
+        "Principio de integralidad y continuidad — Negación de medicamento para cáncer de mama"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-380 de 2024",
+      "fecha": "2024-09-11",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-380-24.htm",
+      "extracto_relevante": "La negación del medicamento Pertuzumab, en la composición ordenada por el médico oncólogo tratante, generó una fragmentación en el servicio de salud, al romper la integralidad del tratamiento formulado, entregando solo parte de él, lo que pone en riesgo los efectos paliativos y curativos del tratamiento.",
+      "tema_juridico": "Principio de integralidad y continuidad — Negación de medicamento para cáncer de mama",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_principios_fundamentales_t_377_2024": {
+      "aliases": [
+        "T-377/2024",
+        "sentencia T-377/2024",
+        "t-377 de 2024",
+        "sentencia t-377 de 2024",
+        "Tratamiento integral en oncología — Principios de integralidad y oportunidad"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-377 de 2024",
+      "fecha": "2024-08-29",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-377-24.htm",
+      "extracto_relevante": "Los pacientes con cáncer tienen derecho a una atención integral en salud, lo que debe incluir todo cuidado, suministro de medicamentos, intervenciones quirúrgicas, prácticas de rehabilitación, exámenes para el diagnóstico y el seguimiento, así como todo otro componente que el médico tratante valore como necesario.",
+      "tema_juridico": "Tratamiento integral en oncología — Principios de integralidad y oportunidad",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_principios_fundamentales_t_155_2024": {
+      "aliases": [
+        "T-155/2024",
+        "sentencia T-155/2024",
+        "t-155 de 2024",
+        "sentencia t-155 de 2024",
+        "Barreras económicas al acceso en salud — Transporte y medicamentos en domicilio"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-155 de 2024",
+      "fecha": "2024-04-25",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-155-24.htm",
+      "extracto_relevante": "Las entidades a cargo de prestar servicios de salud violan el derecho a la salud de sus usuarios si no toman medidas para garantizar el acceso a los medicamentos prescritos en el municipio de residencia de la persona. Los ciudadanos no tienen la obligación de asumir las consecuencias perjudiciales de las trabas administrativas y demás dificultades que abarca la gestión del sistema de salud.",
+      "tema_juridico": "Barreras económicas al acceso en salud — Transporte y medicamentos en domicilio",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_principios_fundamentales_t_014_2024": {
+      "aliases": [
+        "T-014/2024",
+        "sentencia T-014/2024",
+        "t-014 de 2024",
+        "sentencia t-014 de 2024",
+        "PBS — Todo lo no excluido expresamente se entiende incluido — Prohibición de barreras administrativas"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-014 de 2024",
+      "fecha": "2024-01-25",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-014-24.htm",
+      "extracto_relevante": "El Plan de Beneficios en Salud cubre todo servicio o medicamento que no esté expresamente excluido. Las EPS no pueden aducir dificultades o fallas en el aplicativo MIPRES para negar servicios de salud prescritos por los médicos tratantes, pues ello pone en grave riesgo la integridad de los pacientes, especialmente si se trata de sujetos de especial protección constitucional.",
+      "tema_juridico": "PBS — Todo lo no excluido expresamente se entiende incluido — Prohibición de barreras administrativas",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_principios_fundamentales_t_268_2023": {
+      "aliases": [
+        "T-268/2023",
+        "sentencia T-268/2023",
+        "t-268 de 2023",
+        "sentencia t-268 de 2023",
+        "Adulto mayor — Enfermería domiciliaria — Primacía de la orden médica sobre concepto de auditoría"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-268 de 2023",
+      "fecha": "2023-07-19",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2023/T-268-23.htm",
+      "extracto_relevante": "No se entiende que el concepto de auditoría de la EPS prime sobre la orden médica del médico tratante. No es de recibo que la falta de indicación de determinados procedimientos sean prevalentes a la orden médica que consideró pertinente la prestación del servicio de enfermería. El actuar de la EPS vulnera el derecho fundamental a la salud en sus características de accesibilidad, integralidad, continuidad y oportunidad.",
+      "tema_juridico": "Adulto mayor — Enfermería domiciliaria — Primacía de la orden médica sobre concepto de auditoría",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "peticion_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_239_2019": {
+      "aliases": [
+        "T-239/2019",
+        "sentencia T-239/2019",
+        "t-239 de 2019",
+        "sentencia t-239 de 2019",
+        "Tres categorías de servicios de salud — PBS con UPC, no PBS recobrable a ADRES, no PBS con cargo EPS"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-239 de 2019",
+      "fecha": "2019-05-28",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2019/t-239-19.htm",
+      "extracto_relevante": "La prestación de servicios de salud y la entrega de medicamentos o insumos debe analizarse con base en tres posibilidades: i. Que se encuentren incluidos en el PBS con cargo a la UPC, en cuyo caso, al ser prescritos, deben ser suministrados por la EPS y financiados por la UPC; ii. Que se encuentren por fuera del PBS pero no excluidos, en cuyo caso deben ser suministrados por la EPS y financiados por la ADRES; iii. Que estén expresamente excluidos del PBS.",
+      "tema_juridico": "Tres categorías de servicios de salud — PBS con UPC, no PBS recobrable a ADRES, no PBS con cargo EPS",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_025_2023": {
+      "aliases": [
+        "T-025/2023",
+        "sentencia T-025/2023",
+        "t-025 de 2023",
+        "sentencia t-025 de 2023",
+        "Barreras burocráticas para medicamentos — SU-508 como precedente vinculante"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-025 de 2023",
+      "fecha": "2023-02-02",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2023/T-025-23.htm",
+      "extracto_relevante": "La jurisprudencia de la Corte ha reiterado que la imposición de barreras administrativas y burocráticas por parte de las EPS para proveer medicamentos, insumos y procedimientos vulnera el derecho fundamental a la salud; también desconoce los principios de oportunidad, eficiencia, calidad e integralidad.",
+      "tema_juridico": "Barreras burocráticas para medicamentos — SU-508 como precedente vinculante",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_012_2024": {
+      "aliases": [
+        "T-012/2024",
+        "sentencia T-012/2024",
+        "t-012 de 2024",
+        "sentencia t-012 de 2024",
+        "Tratamiento integral — Cuidador domiciliario — Insumos de aseo no excluidos del PBS"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-012 de 2024",
+      "fecha": "2024-01-18",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-012-24.htm",
+      "extracto_relevante": "La Corte considera que se vulnera el principio de integralidad en los casos en los que los servicios y tecnologías de salud no son suministrados de forma completa al usuario que cumple con las condiciones para que se le provean. La falta de diligencia de la entidad y el incumplimiento de sus obligaciones derivadas del derecho al diagnóstico constituyen una vulneración del derecho a la salud.",
+      "tema_juridico": "Tratamiento integral — Cuidador domiciliario — Insumos de aseo no excluidos del PBS",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_086_2024": {
+      "aliases": [
+        "T-086/2024",
+        "sentencia T-086/2024",
+        "t-086 de 2024",
+        "sentencia t-086 de 2024",
+        "Viáticos y transporte para citas médicas — Derecho al diagnóstico — Menor de edad"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-086 de 2024",
+      "fecha": "2024-03-07",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/T-086-24.htm",
+      "extracto_relevante": "El Plan de Beneficios en Salud cubre todo servicio o medicamento que no esté expresamente excluido. La falta de cubrimiento del transporte para acceder a servicios de salud en otra ciudad cuando el paciente carece de recursos constituye una barrera de acceso que vulnera el derecho fundamental a la salud.",
+      "tema_juridico": "Viáticos y transporte para citas médicas — Derecho al diagnóstico — Menor de edad",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_092_2018": {
+      "aliases": [
+        "T-092/2018",
+        "sentencia T-092/2018",
+        "t-092 de 2018",
+        "sentencia t-092 de 2018",
+        "Entrega de medicamentos en municipio de residencia — Paciente en silla de ruedas — Barrera de acceso"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-092 de 2018",
+      "fecha": "2018-03-12",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2018/T-092-18.htm",
+      "extracto_relevante": "El derecho a la salud se vulnera por la existencia de barreras para la entrega de medicamentos en el municipio de residencia de la accionante, quien se encuentra en silla de ruedas. Cualquier restricción injustificada al acceso a los servicios de salud debe entenderse como una práctica abusiva propiciada por el poder dominante de las entidades aseguradoras y bancarias.",
+      "tema_juridico": "Entrega de medicamentos en municipio de residencia — Paciente en silla de ruedas — Barrera de acceso",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_920_2013": {
+      "aliases": [
+        "T-920/2013",
+        "sentencia T-920/2013",
+        "t-920 de 2013",
+        "sentencia t-920 de 2013",
+        "Paciente con cáncer — Protección constitucional especial — Medicamentos PBS y no PBS"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-920 de 2013",
+      "fecha": "2013-12-09",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2013/T-920-13.htm",
+      "extracto_relevante": "Por la complejidad y el manejo del cáncer esta Corporación ha reiterado el deber de protección especial que deben tener las entidades prestadoras del servicio de salud, y por lo tanto, ha ordenado que se autoricen todos los medicamentos y procedimientos PBS y no PBS que se requieran para el tratamiento específico e incluso inaplicar las normas que fundamentan las limitaciones al POS, razón por la cual se le debe otorgar un trato preferente.",
+      "tema_juridico": "Paciente con cáncer — Protección constitucional especial — Medicamentos PBS y no PBS",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_195_2021": {
+      "aliases": [
+        "T-195/2021",
+        "sentencia T-195/2021",
+        "t-195 de 2021",
+        "sentencia t-195 de 2021",
+        "Entrega de medicamentos durante emergencia sanitaria — COVID-19 — Continuidad"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-195 de 2021",
+      "fecha": "2021-06-24",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2021/t-195-21.htm",
+      "extracto_relevante": "Las entidades del SGSSS tienen la obligación de garantizar el acceso prioritario y eficaz a los servicios de salud en el marco de la emergencia sanitaria, específicamente respecto a aquellos grupos poblacionales que padecen enfermedades de base. No pueden imponerse situaciones de carácter procedimental que representen un deterioro en su salud, ya sea por la suspensión, negación o interrupción definitiva de un servicio.",
+      "tema_juridico": "Entrega de medicamentos durante emergencia sanitaria — COVID-19 — Continuidad",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_202_2003": {
+      "aliases": [
+        "T-202/2003",
+        "sentencia T-202/2003",
+        "t-202 de 2003",
+        "sentencia t-202 de 2003",
+        "Cuatro requisitos para inaplicación del POS — Medicamento no incluido amenaza vida o dignidad"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-202 de 2003",
+      "fecha": "2003-03-10",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2003/t-202-03.htm",
+      "extracto_relevante": "Antes de inaplicar la normativa que regula las exclusiones del Plan Obligatorio de Salud, se debe verificar que: (i) la falta del medicamento o tratamiento amenace o vulnere los derechos fundamentales a la vida o la integridad personal del afiliado; (ii) el medicamento o tratamiento excluido no pueda ser reemplazado por otro que figure dentro del PBS; (iii) el paciente no tenga capacidad de pago; (iv) el medicamento haya sido prescrito por un médico adscrito a la EPS.",
+      "tema_juridico": "Cuatro requisitos para inaplicación del POS — Medicamento no incluido amenaza vida o dignidad",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_155_2024": {
+      "aliases": [
+        "T-155/2024",
+        "sentencia T-155/2024",
+        "t-155 de 2024",
+        "sentencia t-155 de 2024",
+        "Continuidad e integralidad — Prohibición de barreras para entrega de medicamentos"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-155 de 2024",
+      "fecha": "2024-04-25",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-155-24.htm",
+      "extracto_relevante": "La falta de comercialización o la falta de disponibilidad temporal de un medicamento no eximen a las EPS de responsabilidad. Tampoco las exime el hecho de haber entregado ocasionalmente un medicamento que el paciente necesita permanentemente, pues concluir lo contrario desconocería el principio de continuidad e integralidad.",
+      "tema_juridico": "Continuidad e integralidad — Prohibición de barreras para entrega de medicamentos",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_medicamentos_procedimientos_t_482_2013": {
+      "aliases": [
+        "T-482/2013",
+        "sentencia T-482/2013",
+        "t-482 de 2013",
+        "sentencia t-482 de 2013",
+        "Cumplimiento de tutela en salud — Incumplimientos tardíos agravan la situación del paciente"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-482 de 2013",
+      "fecha": "2013-07-26",
+      "url_verificada": "https://www.corteconstitucional.gov.co/RELATORIA/2013/T-482-13.htm",
+      "extracto_relevante": "Existe incumplimiento por parte de la EPS cuando hay prestaciones pendientes y cumplimientos tardíos que han agravado la situación de salud del menor. El incumplimiento de las sentencias judiciales constituye una transgresión del derecho fundamental de acceso a la justicia, el cual incluye el derecho a obtener el cumplimiento de las decisiones consagradas en las sentencias de tutela.",
+      "tema_juridico": "Cumplimiento de tutela en salud — Incumplimientos tardíos agravan la situación del paciente",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_406_1992": {
+      "aliases": [
+        "T-406/1992",
+        "sentencia T-406/1992",
+        "t-406 de 1992",
+        "sentencia t-406 de 1992",
+        "Tutela como instrumento del Estado Social de Derecho — Base constitucional"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-406 de 1992",
+      "fecha": "1992-06-05",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/1992/t-406-92.htm",
+      "extracto_relevante": "El Estado Social de Derecho tiene como uno de sus pilares fundamentales la garantía efectiva de los derechos fundamentales, para lo cual la tutela es el instrumento constitucional por excelencia.",
+      "tema_juridico": "Tutela como instrumento del Estado Social de Derecho — Base constitucional",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_414_1992": {
+      "aliases": [
+        "T-414/1992",
+        "sentencia T-414/1992",
+        "t-414 de 1992",
+        "sentencia t-414 de 1992",
+        "Conexidad salud-vida — Tutela inmediata — Primera sentencia de salud"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-414 de 1992",
+      "fecha": "1992-06-16",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/1992/t-414-92.htm",
+      "extracto_relevante": "La vida humana no puede verse amenazada por la negación de servicios de salud. Cuando existe conexidad entre la salud y el derecho a la vida, el juez de tutela está obligado a actuar de inmediato.",
+      "tema_juridico": "Conexidad salud-vida — Tutela inmediata — Primera sentencia de salud",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_1316_2001": {
+      "aliases": [
+        "T-1316/2001",
+        "sentencia T-1316/2001",
+        "t-1316 de 2001",
+        "sentencia t-1316 de 2001",
+        "Perjuicio irremediable — Tutela definitiva sin importar otros recursos"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-1316 de 2001",
+      "fecha": "2001-12-07",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2001/t-1316-01.htm",
+      "extracto_relevante": "Cuando el daño que se amenaza causar es irreversible o de difícil reparación, la tutela procede de manera transitoria sin importar la existencia de otros recursos judiciales. Para que sea irremediable el perjuicio debe ser inminente, las medidas urgentes, la situación requerir de medidas impostergables y el perjuicio ser grave.",
+      "tema_juridico": "Perjuicio irremediable — Tutela definitiva sin importar otros recursos",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_302_2020": {
+      "aliases": [
+        "T-302/2020",
+        "sentencia T-302/2020",
+        "t-302 de 2020",
+        "sentencia t-302 de 2020",
+        "Tutela procedente contra banco por información al consumidor financiero — Derecho de petición en salud"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-302 de 2020",
+      "fecha": "2020-07-27",
+      "url_verificada": "https://www.corteconstitucional.gov.co/Relatoria/2020/T-302-20.htm",
+      "extracto_relevante": "La Corte concedió amparo al derecho a la información y al debido proceso contractual de la accionante, cuando el banco vinculó un producto sin cumplir el deber de información previa, expresa y verificable.",
+      "tema_juridico": "Tutela procedente contra banco por información al consumidor financiero — Derecho de petición en salud",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_239_2019": {
+      "aliases": [
+        "T-239/2019",
+        "sentencia T-239/2019",
+        "t-239 de 2019",
+        "sentencia t-239 de 2019",
+        "Prohibición de usar fallas en MIPRES para negar servicios de salud"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-239 de 2019",
+      "fecha": "2019-05-28",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2019/t-239-19.htm",
+      "extracto_relevante": "Las EPS no pueden aducir dificultades administrativas o de trámite para suspender o negar servicios de salud requeridos por los pacientes, menos aún, cuando se trata de personas que se encuentran en estado de vulnerabilidad. Si un profesional de la salud determinó que un paciente necesita la realización de algún procedimiento o la entrega de un medicamento o insumo, las EPS tienen el deber de proveérselo, sin importar si están incluidos en el Plan de Beneficios en Salud.",
+      "tema_juridico": "Prohibición de usar fallas en MIPRES para negar servicios de salud",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_423_2019": {
+      "aliases": [
+        "T-423/2019",
+        "sentencia T-423/2019",
+        "t-423 de 2019",
+        "sentencia t-423 de 2019",
+        "Concepto de médico no adscrito a la EPS — Validez para ordenar medicamento no PBS"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-423 de 2019",
+      "fecha": "2019-09-19",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2019/t-423-19.htm",
+      "extracto_relevante": "Los conceptos de los médicos no adscritos a las EPS también pueden tener validez, a fin de propiciar la protección constitucional de las personas. Esta Corte, de forma excepcional, ha permitido el suministro de medicamentos, aun cuando no existe orden de un médico tratante, siempre y cuando se pueda inferir de algún documento aportado al proceso la plena necesidad de suministrar lo requerido por el accionante.",
+      "tema_juridico": "Concepto de médico no adscrito a la EPS — Validez para ordenar medicamento no PBS",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_274_2020": {
+      "aliases": [
+        "T-274/2020",
+        "sentencia T-274/2020",
+        "t-274 de 2020",
+        "sentencia t-274 de 2020",
+        "Tutela contra planes complementarios — Interrupción de tratamientos"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-274 de 2020",
+      "fecha": "2020-07-08",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2020/t-274-20.htm",
+      "extracto_relevante": "La acción de tutela procede de manera excepcional cuando los mecanismos judiciales ordinarios no resultan idóneos o efectivos en la protección de derechos fundamentales, o no resultan oportunos para prevenir un perjuicio irremediable, máxime si se tiene en cuenta que puede verse comprometido el estado de salud del usuario ante la interrupción de tratamientos médicos.",
+      "tema_juridico": "Tutela contra planes complementarios — Interrupción de tratamientos",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_025_2023": {
+      "aliases": [
+        "T-025/2023",
+        "sentencia T-025/2023",
+        "t-025 de 2023",
+        "sentencia t-025 de 2023",
+        "Función jurisdiccional de la Supersalud no desplaza al juez de tutela"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-025 de 2023",
+      "fecha": "2023-02-02",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2023/T-025-23.htm",
+      "extracto_relevante": "La función jurisdiccional por la Superintendencia Nacional de Salud no desplaza al juez de tutela cuando se trata de proteger el acceso efectivo al derecho fundamental a la salud.",
+      "tema_juridico": "Función jurisdiccional de la Supersalud no desplaza al juez de tutela",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_380_2024": {
+      "aliases": [
+        "T-380/2024",
+        "sentencia T-380/2024",
+        "t-380 de 2024",
+        "sentencia t-380 de 2024",
+        "Medicamentos no aprobados por INVIMA — Aval científico como criterio"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-380 de 2024",
+      "fecha": "2024-09-11",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-380-24.htm",
+      "extracto_relevante": "Es procedente el amparo del derecho fundamental a la salud cuando se trate del acceso a medicamentos que, pese a no tener la aprobación del INVIMA para la indicación específica, estuvieran acreditados en la comunidad científica como necesarios para el tratamiento de la patología.",
+      "tema_juridico": "Medicamentos no aprobados por INVIMA — Aval científico como criterio",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_tutela_salud_procedencia_t_252_2024": {
+      "aliases": [
+        "T-252/2024",
+        "sentencia T-252/2024",
+        "t-252 de 2024",
+        "sentencia t-252 de 2024",
+        "Sujetos de especial protección — Flexibilización del juicio de procedibilidad"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-252 de 2024",
+      "fecha": "2024-07-02",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-252-24.htm",
+      "extracto_relevante": "Las EPS accionadas vulneraron el derecho fundamental a la salud de las y los accionantes —sujetos de especial protección constitucional— al negarles el acceso oportuno, continuo y efectivo a los servicios, insumos y tecnologías en salud ordenados por el médico tratante, a partir de barreras y restricciones administrativas.",
+      "tema_juridico": "Sujetos de especial protección — Flexibilización del juicio de procedibilidad",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "tutela_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_t_377_2000": {
+      "aliases": [
+        "T-377/2000",
+        "sentencia T-377/2000",
+        "t-377 de 2000",
+        "sentencia t-377 de 2000",
+        "Derecho de petición como derecho fundamental autónomo"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-377 de 2000",
+      "fecha": "2000-04-06",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2000/t-377-00.htm",
+      "extracto_relevante": "El derecho de petición es fundamental y determinante para la efectividad de los mecanismos de la democracia participativa. Además, mediante él se garantizan otros derechos constitucionales, como los derechos a la información, a la participación política, a la libertad y otros.",
+      "tema_juridico": "Derecho de petición como derecho fundamental autónomo",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_t_249_2009": {
+      "aliases": [
+        "T-249/2009",
+        "sentencia T-249/2009",
+        "t-249 de 2009",
+        "sentencia t-249 de 2009",
+        "Derecho de petición frente a particulares — EPS y entidades de salud"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-249 de 2009",
+      "fecha": "2009-04-02",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2009/t-249-09.htm",
+      "extracto_relevante": "El derecho de petición también es exigible frente a particulares cuando el ciudadano se encuentra en situación de indefensión o subordinación respecto de ellos.",
+      "tema_juridico": "Derecho de petición frente a particulares — EPS y entidades de salud",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_t_581a_2011": {
+      "aliases": [
+        "T-581A/2011",
+        "sentencia T-581A/2011",
+        "t-581a de 2011",
+        "sentencia t-581a de 2011",
+        "Respuesta de fondo — Evasivas o dilatorias vulneran el derecho de petición"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-581A de 2011",
+      "fecha": "2011-07-25",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2011/t-581a-11.htm",
+      "extracto_relevante": "Una respuesta que no resuelve de fondo lo pedido o que resulta evasiva equivale a una no-respuesta y vulnera el derecho fundamental de petición.",
+      "tema_juridico": "Respuesta de fondo — Evasivas o dilatorias vulneran el derecho de petición",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_t_760_2008": {
+      "aliases": [
+        "T-760/2008",
+        "sentencia T-760/2008",
+        "t-760 de 2008",
+        "sentencia t-760 de 2008",
+        "Carta de derechos del usuario — Deber de información de las EPS"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-760 de 2008",
+      "fecha": "2008-07-31",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2008/t-760-08.htm",
+      "extracto_relevante": "El derecho a la salud comprende la protección al derecho a la información, mediante la distribución a las personas afiliadas de una carta de derechos de los usuarios y una carta de desempeño. Las EPS tienen el deber de garantizar que sus afiliados conozcan los servicios disponibles, el procedimiento de autorización y los mecanismos de reclamación.",
+      "tema_juridico": "Carta de derechos del usuario — Deber de información de las EPS",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_su_508_2020": {
+      "aliases": [
+        "SU-508/2020",
+        "sentencia SU-508/2020",
+        "su-508 de 2020",
+        "sentencia su-508 de 2020",
+        "Derecho al diagnóstico como respuesta de la EPS — Concepto y etapas"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia SU-508 de 2020",
+      "fecha": "2020-12-07",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2020/su508-20.htm",
+      "extracto_relevante": "El derecho al diagnóstico, como componente integral del derecho fundamental a la salud, implica una valoración técnica, científica y oportuna que defina con claridad el estado de salud del paciente y los tratamientos médicos que requiere. Está compuesto por tres etapas: identificación, valoración y prescripción.",
+      "tema_juridico": "Derecho al diagnóstico como respuesta de la EPS — Concepto y etapas",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_t_195_2021": {
+      "aliases": [
+        "T-195/2021",
+        "sentencia T-195/2021",
+        "t-195 de 2021",
+        "sentencia t-195 de 2021",
+        "EPS del régimen subsidiado — Acceso a medicamentos domicilio — COVID-19"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-195 de 2021",
+      "fecha": "2021-06-24",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2021/t-195-21.htm",
+      "extracto_relevante": "Las EPS tienen la obligación de garantizar el acceso prioritario y eficaz a los servicios de salud, específicamente respecto a aquellos grupos poblacionales que padecen enfermedades de base, a los que no pueden serle impuestas situaciones de carácter procedimental que representen un deterioro en su salud por la suspensión, negación o interrupción definitiva de un servicio.",
+      "tema_juridico": "EPS del régimen subsidiado — Acceso a medicamentos domicilio — COVID-19",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_t_302_2020": {
+      "aliases": [
+        "T-302/2020",
+        "sentencia T-302/2020",
+        "t-302 de 2020",
+        "sentencia t-302 de 2020",
+        "Derecho a la información en salud — Deber de información al usuario"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-302 de 2020",
+      "fecha": "2020-07-27",
+      "url_verificada": "https://www.corteconstitucional.gov.co/Relatoria/2020/T-302-20.htm",
+      "extracto_relevante": "El deber de información previa, expresa y verificable es una obligación de las entidades que prestan servicios al público. Su incumplimiento vulnera los derechos fundamentales del usuario a la información y al debido proceso contractual.",
+      "tema_juridico": "Derecho a la información en salud — Deber de información al usuario",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_t_086_2024": {
+      "aliases": [
+        "T-086/2024",
+        "sentencia T-086/2024",
+        "t-086 de 2024",
+        "sentencia t-086 de 2024",
+        "Solicitud previa a la EPS como requisito para la tutela — Excepciones"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-086 de 2024",
+      "fecha": "2024-03-07",
+      "url_verificada": "https://www.corteconstitucional.gov.co/Relatoria/2024/T-086-24.htm",
+      "extracto_relevante": "El Plan de Beneficios en Salud cubre todo servicio o medicamento que no esté expresamente excluido. El derecho al diagnóstico protege la salud en los casos en que no existe orden del médico tratante, cuando a partir de los hechos se advierte un indicio razonable de afectación a la salud.",
+      "tema_juridico": "Solicitud previa a la EPS como requisito para la tutela — Excepciones",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_t_423_2019": {
+      "aliases": [
+        "T-423/2019",
+        "sentencia T-423/2019",
+        "t-423 de 2019",
+        "sentencia t-423 de 2019",
+        "Portabilidad médica — EPS debe garantizar acceso en cualquier municipio"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-423 de 2019",
+      "fecha": "2019-09-19",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2019/t-423-19.htm",
+      "extracto_relevante": "Las entidades a cargo de prestar servicios de salud violan el derecho a la salud de sus usuarios si no toman medidas para garantizar el acceso a los medicamentos prescritos en el municipio de residencia de la persona.",
+      "tema_juridico": "Portabilidad médica — EPS debe garantizar acceso en cualquier municipio",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_pqrs_peticion_salud_t_268_2023": {
+      "aliases": [
+        "T-268/2023",
+        "sentencia T-268/2023",
+        "t-268 de 2023",
+        "sentencia t-268 de 2023",
+        "PQRS en salud — EPS debe tramitar las solicitudes dentro del PBS de forma perentoria"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-268 de 2023",
+      "fecha": "2023-07-19",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2023/T-268-23.htm",
+      "extracto_relevante": "La EPS debería adelantar de manera perentoria el trámite para la autorización y prestación del servicio solicitado y justificado, bajo criterios de oportunidad y calidad al encontrarse dentro del PBS. El actuar de la EPS vulnera el derecho fundamental a la salud en sus características de accesibilidad, integralidad, continuidad y oportunidad.",
+      "tema_juridico": "PQRS en salud — EPS debe tramitar las solicitudes dentro del PBS de forma perentoria",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "peticion_salud",
+        "tutela_salud"
+      ]
+    },
+    "salud_desacato_salud_t_763_1998": {
+      "aliases": [
+        "T-763/1998",
+        "sentencia T-763/1998",
+        "t-763 de 1998",
+        "sentencia t-763 de 1998",
+        "Desacato — Distinción entre cumplimiento del fallo e incidente de desacato"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-763 de 1998",
+      "fecha": "1998-12-04",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/1998/t-763-98.htm",
+      "extracto_relevante": "Lo normal es que dentro del término que señale el fallo de tutela, la orden sea cumplida. Pero, si excepcionalmente la autoridad responsable incumple, el juez de tutela debe agotar los siguientes pasos obligatorios: a. Dirigirse al superior del responsable para que lo haga cumplir y abra procedimiento disciplinario; b. si pasan 48 horas y aún no se cumple, ordenar proceso contra el superior.",
+      "tema_juridico": "Desacato — Distinción entre cumplimiento del fallo e incidente de desacato",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_desacato_salud_su_168_2017": {
+      "aliases": [
+        "SU-168/2017",
+        "sentencia SU-168/2017",
+        "su-168 de 2017",
+        "sentencia su-168 de 2017",
+        "Desacato y cumplimiento son complementarios y no excluyentes"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia SU-168 de 2017",
+      "fecha": "2017-03-16",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2017/su168-17.htm",
+      "extracto_relevante": "El incidente de desacato y el cumplimiento del fallo son dos figuras complementarias y no excluyentes. El juez debe verificar el cumplimiento del fallo y, simultáneamente, adelantar el incidente de desacato cuando el incumplimiento es manifiesto.",
+      "tema_juridico": "Desacato y cumplimiento son complementarios y no excluyentes",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_desacato_salud_t_482_2013": {
+      "aliases": [
+        "T-482/2013",
+        "sentencia T-482/2013",
+        "t-482 de 2013",
+        "sentencia t-482 de 2013",
+        "Defecto fáctico del juez en desacato — EPS con cumplimientos tardíos que agravan la salud"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-482 de 2013",
+      "fecha": "2013-07-26",
+      "url_verificada": "https://www.corteconstitucional.gov.co/RELATORIA/2013/T-482-13.htm",
+      "extracto_relevante": "Existe incumplimiento por parte de la EPS cuando hay prestaciones pendientes y cumplimientos tardíos que han agravado la situación de salud del menor. El incumplimiento de las sentencias judiciales constituye una transgresión del derecho fundamental de acceso a la justicia, el cual incluye el derecho a obtener el cumplimiento de las decisiones consagradas en las sentencias de tutela.",
+      "tema_juridico": "Defecto fáctico del juez en desacato — EPS con cumplimientos tardíos que agravan la salud",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_desacato_salud_t_760_2008": {
+      "aliases": [
+        "T-760/2008",
+        "sentencia T-760/2008",
+        "t-760 de 2008",
+        "sentencia t-760 de 2008",
+        "Agilizar la ejecución de sentencias de tutela en salud — Orden estructural"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-760 de 2008",
+      "fecha": "2008-07-31",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2008/t-760-08.htm",
+      "extracto_relevante": "La Corte Constitucional ordena adoptar medidas para agilizar la ejecución de las sentencias de tutela, dado que la demora en el cumplimiento de los fallos es una de las causas de las fallas estructurales en el sistema de protección del derecho fundamental a la salud.",
+      "tema_juridico": "Agilizar la ejecución de sentencias de tutela en salud — Orden estructural",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_desacato_salud_t_252_2024": {
+      "aliases": [
+        "T-252/2024",
+        "sentencia T-252/2024",
+        "t-252 de 2024",
+        "sentencia t-252 de 2024",
+        "Compulsar copias a Supersalud por incumplimiento sistemático de EPS"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-252 de 2024",
+      "fecha": "2024-07-02",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-252-24.htm",
+      "extracto_relevante": "La Corte estimó necesario expresar su preocupación, hacer un llamado de atención a las EPS y compulsar copias de todos los expedientes bajo revisión y de la presente sentencia a la Superintendencia Nacional de Salud, por la actuación de algunas EPS en el marco del proceso de tutela al no contestar los requerimientos de los jueces constitucionales.",
+      "tema_juridico": "Compulsar copias a Supersalud por incumplimiento sistemático de EPS",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_desacato_salud_t_380_2024": {
+      "aliases": [
+        "T-380/2024",
+        "sentencia T-380/2024",
+        "t-380 de 2024",
+        "sentencia t-380 de 2024",
+        "Conminación a la EPS para el futuro — Prevención de nuevas vulneraciones"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-380 de 2024",
+      "fecha": "2024-09-11",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-380-24.htm",
+      "extracto_relevante": "La Corte conminó a la EPS para que, en lo sucesivo, se abstuviese de incurrir en las acciones u omisiones que dieron origen a la acción de tutela y que cumpliese, de manera oportuna, las prescripciones médicas formuladas a la accionante, en las condiciones dispuestas por el médico tratante.",
+      "tema_juridico": "Conminación a la EPS para el futuro — Prevención de nuevas vulneraciones",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_desacato_salud_t_268_2023": {
+      "aliases": [
+        "T-268/2023",
+        "sentencia T-268/2023",
+        "t-268 de 2023",
+        "sentencia t-268 de 2023",
+        "Incumplimiento por omisión — EPS que no tramita la solicitud del médico"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-268 de 2023",
+      "fecha": "2023-07-19",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2023/T-268-23.htm",
+      "extracto_relevante": "Hay absoluta claridad de la existencia de una prescripción médica en la que se ordena el servicio, procedente para el tratamiento del paciente, donde la EPS omitió darle el trámite correspondiente. El actuar de la EPS vulnera el derecho fundamental a la salud en sus características de accesibilidad, integralidad, continuidad y oportunidad.",
+      "tema_juridico": "Incumplimiento por omisión — EPS que no tramita la solicitud del médico",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_desacato_salud_t_014_2024": {
+      "aliases": [
+        "T-014/2024",
+        "sentencia T-014/2024",
+        "t-014 de 2024",
+        "sentencia t-014 de 2024",
+        "Negligencia de la EPS como requisito para tratamiento integral — Dos condiciones"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-014 de 2024",
+      "fecha": "2024-01-25",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2024/t-014-24.htm",
+      "extracto_relevante": "Para acceder al tratamiento integral deben verificarse: (i) que la EPS haya actuado con negligencia en la prestación del servicio, como ocurre, por ejemplo, cuando demora de manera injustificada el suministro de medicamentos, la programación de procedimientos quirúrgicos o la realización de tratamientos; y (ii) que existan las órdenes correspondientes, emitidas por el médico, especificando los servicios que necesita el paciente.",
+      "tema_juridico": "Negligencia de la EPS como requisito para tratamiento integral — Dos condiciones",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_desacato_salud_t_092_2018": {
+      "aliases": [
+        "T-092/2018",
+        "sentencia T-092/2018",
+        "t-092 de 2018",
+        "sentencia t-092 de 2018",
+        "Incumplimiento de deber de distribución de medicamentos — Barrera de acceso"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-092 de 2018",
+      "fecha": "2018-03-12",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2018/T-092-18.htm",
+      "extracto_relevante": "La entidad accionada vulneró el derecho a la salud de la accionante por generar barreras para la entrega de medicamentos en el municipio de residencia de una persona que se desplaza en silla de ruedas. Cualquier restricción injustificada al acceso a la información y a los servicios de salud debe entenderse como una práctica abusiva.",
+      "tema_juridico": "Incumplimiento de deber de distribución de medicamentos — Barrera de acceso",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    },
+    "salud_desacato_salud_t_195_2021": {
+      "aliases": [
+        "T-195/2021",
+        "sentencia T-195/2021",
+        "t-195 de 2021",
+        "sentencia t-195 de 2021",
+        "Obligación de información sobre el cumplimiento — EPS debe reportar al juez"
+      ],
+      "tipo_fuente": "jurisprudencia",
+      "corporacion": "Corte Constitucional",
+      "numero_sentencia_o_norma": "Sentencia T-195 de 2021",
+      "fecha": "2021-06-24",
+      "url_verificada": "https://www.corteconstitucional.gov.co/relatoria/2021/t-195-21.htm",
+      "extracto_relevante": "Las EPS tienen la obligación de garantizar el acceso prioritario y eficaz a los servicios de salud, y de informar al juez constitucional el cumplimiento de las órdenes dentro del término establecido en el fallo. La omisión de este deber de información puede ser considerada como incumplimiento.",
+      "tema_juridico": "Obligación de información sobre el cumplimiento — EPS debe reportar al juez",
+      "nivel_confiabilidad": "alto",
+      "source_level": 1,
+      "uso": [
+        "salud",
+        "desacato_salud",
+        "impugnacion_salud"
+      ]
+    }
+  }
 }

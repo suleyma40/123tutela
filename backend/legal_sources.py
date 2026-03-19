@@ -634,6 +634,18 @@ def _get_verified_source_registry() -> dict[str, dict[str, Any]]:
     }
 
 
+def _usage_source_keys(*tags: str) -> list[str]:
+    wanted = {str(tag or "").strip().lower() for tag in tags if str(tag or "").strip()}
+    if not wanted:
+        return []
+    matched: list[str] = []
+    for key, entry in _get_verified_source_registry().items():
+        usage = {str(item or "").strip().lower() for item in (entry.get("uso") or []) if str(item or "").strip()}
+        if usage & wanted:
+            matched.append(key)
+    return matched
+
+
 def _extract_legal_references(document: str) -> list[str]:
     text = str(document or "")
     patterns = [
@@ -747,6 +759,14 @@ def resolve_verified_legal_support(
     category_key = _lower(category)
     if category_key == "salud":
         desired_keys.extend(["constitucion_art_49", "ley_1751_2015"])
+        if "desacato" in action_key:
+            desired_keys.extend(_usage_source_keys("desacato_salud"))
+        elif "impugn" in action_key:
+            desired_keys.extend(_usage_source_keys("impugnacion_salud"))
+        elif "peticion" in action_key:
+            desired_keys.extend(_usage_source_keys("peticion_salud"))
+        else:
+            desired_keys.extend(_usage_source_keys("tutela_salud"))
     elif category_key == "bancos":
         desired_keys.extend(["ley_1328_2009", "ley_1266_2008"])
     elif category_key == "datos":
