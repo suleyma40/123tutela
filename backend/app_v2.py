@@ -293,6 +293,10 @@ def _normalize_payment_order(order: dict[str, Any]) -> PaymentOrderResponse:
     )
 
 
+def _lower(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
 def _normalize_submission_signature(
     signature: dict[str, Any] | None,
     *,
