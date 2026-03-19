@@ -24,7 +24,16 @@ def _join_texts(*parts: Any) -> str:
 
 def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflow_type: str) -> dict[str, Any] | None:
     acting_capacity = _lower(intake.get("acting_capacity"))
-    if acting_capacity and acting_capacity != "nombre_propio" and not _text(intake.get("represented_person_name")):
+    attachment_suggestions = ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
+    represented_person_name = _text(intake.get("represented_person_name")) or _text(attachment_suggestions.get("represented_person_name"))
+    represented_person_age = (
+        _text(intake.get("represented_person_age"))
+        or _text(intake.get("represented_person_birth_date"))
+        or _text(attachment_suggestions.get("represented_person_age"))
+        or _text(attachment_suggestions.get("represented_person_birth_date"))
+    )
+    represented_person_document = _text(intake.get("represented_person_document")) or _text(attachment_suggestions.get("represented_person_document"))
+    if acting_capacity and acting_capacity != "nombre_propio" and not represented_person_name:
         return {
             "id": "represented_person_name",
             "question": "Como se llama el paciente o la persona afectada por quien presentas este caso?",
@@ -32,13 +41,21 @@ def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflo
             "multiline": False,
             "why": "Necesitamos identificar claramente a la persona protegida en el documento.",
         }
-    if acting_capacity and acting_capacity != "nombre_propio" and not _text(intake.get("represented_person_age")):
+    if acting_capacity and acting_capacity != "nombre_propio" and not represented_person_age:
         return {
-            "id": "represented_person_age",
-            "question": "Que edad tiene el paciente o la persona afectada?",
-            "placeholder": "Ej: 8 anos",
+            "id": "represented_person_identity",
+            "question": "Confirma la identificacion del menor o representado: edad o fecha de nacimiento y, si la tienes, numero de documento.",
+            "placeholder": "Ej: 10 anos, nacido el 14/05/2015, TI 1022334455",
             "multiline": False,
-            "why": "La edad ayuda a sustentar proteccion especial y urgencia medica.",
+            "why": "La tutela debe identificar con precision al menor o representado protegido por el juez.",
+        }
+    if acting_capacity and acting_capacity != "nombre_propio" and represented_person_name and not represented_person_document:
+        return {
+            "id": "represented_person_document",
+            "question": "Si la tienes a la mano, cual es la tarjeta de identidad, NUIP o documento del menor o representado?",
+            "placeholder": "Ej: TI 1022334455",
+            "multiline": False,
+            "why": "Esto mejora la identificacion exacta del paciente en el documento.",
         }
     if not (_text(intake.get("target_entity")) or _text(intake.get("eps_name"))):
         return {

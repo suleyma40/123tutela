@@ -1477,6 +1477,8 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
             identity_bits.append(f"nacido el {represented_person_birth_date}")
         if represented_person_document:
             identity_bits.append(f"identificado con documento No. {represented_person_document}")
+        elif represented_person_name:
+            identity_bits.append("identificado conforme al registro civil aportado como anexo")
         age_fragment = f", {', '.join(identity_bits)}" if identity_bits else ""
         role = "actuando en representacion"
         if represented_person_relationship:

@@ -1042,7 +1042,15 @@ def build_final_validation(
             and has_medical_support_context
         )
         if _text(intake.get("acting_capacity")) and _lower(intake.get("acting_capacity")) != "nombre_propio":
-            if not _text(intake.get("represented_person_name")):
+            attachment_suggestions = ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
+            represented_person_name = _text(intake.get("represented_person_name")) or _text(attachment_suggestions.get("represented_person_name"))
+            represented_person_age = (
+                _text(intake.get("represented_person_age"))
+                or _text(intake.get("represented_person_birth_date"))
+                or _text(attachment_suggestions.get("represented_person_age"))
+                or _text(attachment_suggestions.get("represented_person_birth_date"))
+            )
+            if not represented_person_name:
                 blocking_issues.append("La tutela debe identificar con claridad a la persona representada o al menor afectado.")
                 actionable_gaps.append(
                     _build_actionable_gap(
@@ -1052,7 +1060,7 @@ def build_final_validation(
                         recommended_action=recommended_action,
                     )
                 )
-            if not _text(intake.get("represented_person_age")):
+            if not represented_person_age:
                 blocking_issues.append("La tutela debe indicar la edad o fecha de nacimiento de la persona representada.")
                 actionable_gaps.append(
                     _build_actionable_gap(
