@@ -551,6 +551,8 @@ def _is_ai_owned_quality_issue(issue: object) -> bool:
     ai_owned_patterns = (
         "jurisprudencia",
         "soporte oficial verificado",
+        "referencias juridicas no verificadas automaticamente",
+        "citas no verificadas",
         "fuentes verificadas",
         "sustento juridico",
         "sustento jurídico",

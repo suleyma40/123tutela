@@ -118,6 +118,8 @@ def _is_ai_owned_quality_issue(issue: object) -> bool:
     markers = [
         "jurisprudencia sin soporte oficial",
         "soporte jurisprudencial",
+        "referencias juridicas no verificadas automaticamente",
+        "citas no verificadas",
         "fuentes verificadas",
         "fuente verificada",
         "sustento juridico",
