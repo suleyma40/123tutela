@@ -112,12 +112,18 @@ SIMPLE_SIGNATURE_CONSENT_TEXT = (
 )
 
 ADDON_PRICES_COP = {
+    "filing_bundle": 9_900,
     "filing_auto": 34_000,
     "filing_guide": 17_000,
     "follow_up": 17_000,
 }
 
 ADDON_ORDER_CONFIG = {
+    "filing_bundle": {
+        "code": "addon_filing_bundle",
+        "name": "Radicación y seguimiento",
+        "description": "Paquete de radicación por 123tutela y seguimiento posterior del expediente.",
+    },
     "filing_auto": {
         "code": "addon_filing_auto",
         "name": "Radicacion por 123tutela",
@@ -629,14 +635,18 @@ def _payment_entitlements_from_orders(orders: list[dict[str, Any]]) -> dict[str,
     approved = [item for item in orders if _lower(item.get("status")) == "approved"]
     approved_codes = {_lower(item.get("product_code")) for item in approved}
     document_paid = bool(approved)
+    filing_bundle_paid = "addon_filing_bundle" in approved_codes
     filing_paid = any(
-        bool(item.get("include_filing")) or _lower(item.get("product_code")) == "addon_filing_auto"
+        bool(item.get("include_filing"))
+        or _lower(item.get("product_code")) == "addon_filing_auto"
+        or filing_bundle_paid
         for item in approved
     )
     guide_paid = filing_paid or "addon_filing_guide" in approved_codes
-    follow_up_paid = "addon_follow_up" in approved_codes
+    follow_up_paid = filing_bundle_paid or "addon_follow_up" in approved_codes
     return {
         "document_paid": document_paid,
+        "filing_bundle_paid": filing_bundle_paid,
         "filing_auto_paid": filing_paid,
         "filing_guide_paid": guide_paid,
         "follow_up_paid": follow_up_paid,
@@ -1542,7 +1552,7 @@ def create_wompi_checkout_session(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fue posible determinar el adicional a cobrar.")
         product_code = config["code"]
         product_name = config["name"]
-        include_filing = add_on_type == "filing_auto"
+        include_filing = add_on_type in {"filing_auto", "filing_bundle"}
         amount_cop = ADDON_PRICES_COP[add_on_type]
         amount_in_cents = amount_cop_to_cents(amount_cop)
         reference = build_reference(case_id, product_code)
@@ -1556,7 +1566,7 @@ def create_wompi_checkout_session(
         amount_cop = product.price_with_filing_cop if payload.include_filing else product.price_cop
         amount_in_cents = amount_cop_to_cents(amount_cop)
         reference = build_reference(case_id, product.code)
-        product_name = product.name if not payload.include_filing else f"{product.name} + radicación"
+        product_name = product.name if not payload.include_filing else f"{product.name} + radicacion y seguimiento"
         product_code = product.code
         include_filing = payload.include_filing
         description = product.short_description
@@ -1835,12 +1845,12 @@ def submit_case(
     if payload.mode == "auto" and not payment_entitlements.get("filing_auto_paid"):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Debes pagar el adicional de radicación por nosotros antes de ejecutar este envío.",
+            detail="Debes pagar el paquete de radicacion y seguimiento antes de ejecutar este envio.",
         )
     if payload.mode == "manual_contact" and not payment_entitlements.get("filing_guide_paid"):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Debes pagar el adicional de guía de radicación antes de usar esta opción.",
+            detail="Debes pagar el paquete activo de radicacion antes de usar esta opcion.",
         )
 
     status_value = "enviado"

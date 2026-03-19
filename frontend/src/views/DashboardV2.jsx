@@ -2961,10 +2961,9 @@ function GuidedIntakeFields({
 }
 
 function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPayment, onReconcilePayment, onRefreshCase, loading }) {
-  const [includeFiling, setIncludeFiling] = useState(false);
+  const [includeFiling, setIncludeFiling] = useState(true);
   const [paymentMessage, setPaymentMessage] = useState("");
   const [selectedCode, setSelectedCode] = useState("");
-  const [selectedAddOn, setSelectedAddOn] = useState("filing_auto");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [latestReference, setLatestReference] = useState("");
 
@@ -2997,22 +2996,11 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
   );
   const paymentEntitlements = caseItem?.submission_summary?.payment_entitlements || {};
   const isBasePaid = caseItem?.payment_status === "pagado";
-  const addOnCatalog = [
-    { id: "filing_auto", label: "Radicar por mí", price_cop: 34000, description: "123tutela ejecuta la radicación cuando el canal lo permite y deja trazabilidad en el panel.", paid: !!paymentEntitlements.filing_auto_paid },
-    { id: "filing_guide", label: "Dame la guía", price_cop: 17000, description: "Recibes la guía operativa para radicar tú misma con pasos y canal sugerido.", paid: !!paymentEntitlements.filing_guide_paid },
-    { id: "follow_up", label: "Seguimiento", price_cop: 17000, description: "Servicio adicional para acompañar novedades posteriores del expediente.", paid: !!paymentEntitlements.follow_up_paid },
-  ];
-  const selectedAddOnConfig = addOnCatalog.find((item) => item.id === selectedAddOn) || addOnCatalog[0];
+  const bundlePaid = !!paymentEntitlements.filing_bundle_paid || (!!paymentEntitlements.filing_auto_paid && !!paymentEntitlements.follow_up_paid);
   const paymentOffer = useMemo(
     () => buildPaymentOfferCopy(caseItem?.recommended_action, caseItem?.category),
     [caseItem?.recommended_action, caseItem?.category]
   );
-
-  useEffect(() => {
-    if (!isBasePaid) return;
-    const firstPending = addOnCatalog.find((item) => !item.paid);
-    setSelectedAddOn(firstPending?.id || "filing_auto");
-  }, [isBasePaid, paymentEntitlements.filing_auto_paid, paymentEntitlements.filing_guide_paid, paymentEntitlements.follow_up_paid]);
 
   const launchWidget = (checkout) =>
     new Promise((resolve, reject) => {
@@ -3065,7 +3053,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
           const reconciled = await onReconcilePayment({ transaction_id: transactionId, reference });
           if (reconciled?.status === "approved") {
             await onRefreshCase(caseItem.id);
-            setPaymentMessage("Pago aprobado. Ya puedes generar el documento final.");
+            setPaymentMessage("Pago aprobado. Ya puedes continuar.");
             return;
           }
         } catch {
@@ -3075,7 +3063,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
       const order = await onGetPayment(reference);
       if (order.status === "approved") {
         await onRefreshCase(caseItem.id);
-        setPaymentMessage("Pago aprobado. Ya puedes generar el documento final.");
+        setPaymentMessage("Pago aprobado. Ya puedes continuar.");
         return;
       }
       if (["declined", "error", "voided"].includes(order.status)) {
@@ -3086,7 +3074,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
     await onRefreshCase(caseItem.id);
-    setPaymentMessage("El pago quedó en validación. Refresca en unos segundos para ver el estado final.");
+    setPaymentMessage("El pago quedo en validacion. Refresca en unos segundos para ver el estado final.");
   };
 
   const startPayment = async () => {
@@ -3095,14 +3083,14 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
       return;
     }
     if (!consentAccepted) {
-      setPaymentMessage("Debes aceptar los términos, privacidad y condiciones del pago antes de continuar.");
+      setPaymentMessage("Debes aceptar los terminos, privacidad y condiciones del pago antes de continuar.");
       return;
     }
     setPaymentMessage("");
     const session = await onCreateWompiSession(
       caseItem.id,
       isBasePaid
-        ? { add_on_type: selectedAddOnConfig.id }
+        ? { add_on_type: "filing_bundle" }
         : {
           product_code: selectedProduct.code,
           include_filing: includeFiling,
@@ -3111,7 +3099,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
     setLatestReference(session.order.reference);
     const widgetResult = await launchWidget(session.checkout);
     const transactionId = widgetResult?.transaction?.id || widgetResult?.id || widgetResult?.transactionId || widgetResult?.transaction_id || "";
-    setPaymentMessage("Pago iniciado. Esperando confirmación segura de Wompi.");
+    setPaymentMessage("Pago iniciado. Esperando confirmacion segura de Wompi.");
     await pollPayment(session.order.reference, transactionId);
   };
 
@@ -3119,48 +3107,40 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
     return null;
   }
 
-  const finalPrice = isBasePaid
-    ? selectedAddOnConfig?.price_cop
-    : includeFiling ? selectedProduct?.price_with_filing_cop : selectedProduct?.price_cop;
+  const finalPrice = isBasePaid ? 9900 : includeFiling ? selectedProduct?.price_with_filing_cop : selectedProduct?.price_cop;
   const filingPrice = selectedProduct ? selectedProduct.price_with_filing_cop - selectedProduct.price_cop : 0;
-  const isTestPricing = true;
 
   return (
-    <SessionCard title={title} subtitle={isBasePaid ? "Tu documento ya está activo. Aquí pagas solo servicios adicionales." : "El análisis es gratis. Pagas solo cuando decides activar el documento final."}>
+    <SessionCard title={title} subtitle={isBasePaid ? "Tu documento ya esta activo. Aqui agregas un solo paquete adicional." : "El analisis es gratis. Te llevamos a una compra principal simple."}>
       <div style={{ display: "grid", gap: 14 }}>
         <div style={{ padding: 16, borderRadius: 16, background: "linear-gradient(135deg, #EEF4FF 0%, #F8FBFF 100%)", border: "1px solid #BFDBFE" }}>
-          <div style={{ fontWeight: 800, color: C.text }}>{isBasePaid ? "Servicios adicionales del expediente" : paymentOffer.headline}</div>
+          <div style={{ fontWeight: 800, color: C.text }}>{isBasePaid ? "Activa radicacion y seguimiento" : paymentOffer.headline}</div>
           <div style={{ color: C.textMuted, marginTop: 8 }}>
-            {isBasePaid ? "El documento ya quedó pagado. Si quieres que 123tutela radique por ti, te entregue la guía o haga seguimiento posterior, debes pagar ese adicional antes de usarlo." : paymentOffer.body}
+            {isBasePaid
+              ? "El documento ya quedo pagado. Si quieres que 123tutela radique por ti y te acompañe con el seguimiento inicial, activas un solo paquete."
+              : paymentOffer.body}
           </div>
         </div>
+
         {isBasePaid ? (
           <div className="glass-card" style={{ padding: 18, display: "grid", gap: 14 }}>
-            <Field label="Servicio adicional">
-              <select
-                value={selectedAddOn}
-                onChange={(event) => setSelectedAddOn(event.target.value)}
-                style={{ width: "100%", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
-              >
-                {addOnCatalog.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-              <strong style={{ color: C.text }}>{selectedAddOnConfig.label}</strong>
-              <Badge color={selectedAddOnConfig.paid ? C.success : C.primary}>
-                {selectedAddOnConfig.paid ? "Pagado" : (finalPrice || 0).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}
+              <strong style={{ color: C.text }}>Paquete de radicacion y seguimiento</strong>
+              <Badge color={bundlePaid ? C.success : C.primary}>
+                {bundlePaid ? "Activado" : (finalPrice || 0).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}
               </Badge>
             </div>
-            <div style={{ color: C.textMuted }}>{selectedAddOnConfig.description}</div>
+            <div style={{ color: C.textMuted }}>
+              Incluye la radicacion por 123tutela cuando el canal lo permita, comprobante en panel y seguimiento inicial del expediente.
+            </div>
             <div style={{ display: "grid", gap: 8 }}>
-              {addOnCatalog.map((item) => (
-                <div key={item.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 12, borderRadius: 12, background: "#F8FAFD", border: `1px solid ${C.border}`, color: C.text }}>
-                  <span>{item.label}</span>
-                  <strong style={{ color: item.paid ? C.success : C.text }}>{item.paid ? "Pagado" : item.price_cop.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}</strong>
+              {[
+                "Radicacion por 123tutela cuando el canal este disponible.",
+                "Comprobante o radicado visible en el panel cuando exista.",
+                "Seguimiento inicial para revisar respuesta, admision o requerimientos.",
+              ].map((item) => (
+                <div key={item} style={{ display: "flex", gap: 12, padding: 12, borderRadius: 12, background: "#F8FAFD", border: `1px solid ${C.border}`, color: C.text }}>
+                  <span>{item}</span>
                 </div>
               ))}
             </div>
@@ -3191,48 +3171,44 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
                 <div style={{ color: C.textMuted, marginTop: 10 }}>{selectedProduct.short_description}</div>
                 <div style={{ color: C.textMuted, marginTop: 10 }}>{selectedProduct.detailed_description}</div>
                 <div style={{ marginTop: 12, color: C.text, fontSize: 14 }}>
-                  Incluye análisis gratis, informe del derecho vulnerado y documento completo después del pago.
+                  Incluye analisis gratis, estrategia y documento completo despues del pago.
                 </div>
-                {isTestPricing && (
-                  <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#F0FDF4", border: "1px solid #86EFAC", color: "#166534", fontSize: 13, fontWeight: 700 }}>
-                    Precio temporal de prueba. Al cierre de pruebas volverán los valores comerciales finales.
-                  </div>
-                )}
                 <label style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 16, color: C.text }}>
                   <input type="checkbox" checked={includeFiling} onChange={(event) => setIncludeFiling(event.target.checked)} />
-                  Agregar radicación por nosotros
+                  Agregar radicacion y seguimiento
                   <strong>+{filingPrice.toLocaleString("es-CO")} COP</strong>
                 </label>
                 <div style={{ color: C.textMuted, fontSize: 13, marginTop: 10 }}>
-                  Si compras radicación, la plataforma intenta gestionar el envío o la radicación y te entrega comprobante cuando aplique.
+                  Si activas el paquete, 123tutela intenta gestionar la radicacion, te comparte el comprobante cuando exista y deja seguimiento inicial en tu panel.
                 </div>
                 <div style={{ marginTop: 16, padding: 14, borderRadius: 14, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>LO QUE RECIBES AL PAGAR</div>
+                  <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>LO QUE RECIBES</div>
                   <div style={{ display: "grid", gap: 8, marginTop: 10, color: C.text }}>
                     {paymentOffer.unlocks.map((line, index) => (
                       <div key={`${selectedProduct.code}-unlock-${index}`}>{index + 1}. {line}</div>
                     ))}
-                    <div>4. {includeFiling ? "Gestión de radicación por parte de la plataforma cuando el caso lo permita." : "Opción de firma y radicación disponible después de activar el documento."}</div>
+                    <div>4. {includeFiling ? "Radicacion y seguimiento inicial por parte de la plataforma cuando el caso lo permita." : "Firma y radicacion disponibles despues de activar el documento."}</div>
                   </div>
                 </div>
               </div>
             )}
           </>
         )}
+
         <div style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
           <strong style={{ color: C.primary }}>Pago seguro con Wompi.</strong>
           <div style={{ marginTop: 6, color: C.textMuted, fontSize: 13 }}>
-            El cobro se procesa a través de Wompi. La activación final del servicio depende de la confirmación segura del pago por webhook.
+            El cobro se procesa a traves de Wompi. La activacion final del servicio depende de la confirmacion segura del pago por webhook.
           </div>
         </div>
         <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 4, color: C.text }}>
           <input type="checkbox" checked={consentAccepted} onChange={(event) => setConsentAccepted(event.target.checked)} />
           <span style={{ fontSize: 14, lineHeight: 1.6 }}>
-            Confirmo que entiendo qué estoy comprando, acepto los términos y la política de privacidad, y autorizo el procesamiento del pago mediante Wompi.
+            Confirmo que entiendo que estoy comprando, acepto los terminos y la politica de privacidad, y autorizo el procesamiento del pago mediante Wompi.
           </span>
         </label>
         <div style={{ color: C.textMuted, fontSize: 13 }}>
-          Consulta: <a href="/terminos" style={{ color: C.primary }}>Términos</a> · <a href="/privacidad" style={{ color: C.primary }}>Privacidad</a> · <a href="/contacto" style={{ color: C.primary }}>Contacto</a>
+          Consulta: <a href="/terminos" style={{ color: C.primary }}>Terminos</a> · <a href="/privacidad" style={{ color: C.primary }}>Privacidad</a> · <a href="/contacto" style={{ color: C.primary }}>Contacto</a>
         </div>
         {latestReference && (
           <div style={{ color: C.textMuted, fontSize: 13, marginTop: 6 }}>
@@ -3240,8 +3216,8 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
           </div>
         )}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Button onClick={startPayment} disabled={loading || (isBasePaid && !!selectedAddOnConfig?.paid)} icon={CreditCard}>
-            {isBasePaid ? (selectedAddOnConfig?.paid ? "Servicio ya pagado" : `Pagar ${selectedAddOnConfig?.label}`) : "Pagar con Wompi"}
+          <Button onClick={startPayment} disabled={loading || (isBasePaid && bundlePaid)} icon={CreditCard}>
+            {isBasePaid ? (bundlePaid ? "Paquete ya activado" : "Activar radicacion y seguimiento") : includeFiling ? "Activar documento + radicacion" : "Activar documento"}
           </Button>
         </div>
         {paymentMessage && <div style={{ color: C.textMuted }}>{paymentMessage}</div>}
@@ -3434,7 +3410,6 @@ function DetailPanel({
     ? "Radicado registrado"
     : formatDeliveryStatusLabel(deliveryResult.status || submissionSummary.last_channel || "");
   const filingAutoPaid = !!paymentEntitlements.filing_auto_paid;
-  const filingGuidePaid = !!paymentEntitlements.filing_guide_paid;
   const signatureReady =
     documentReviewed &&
     signatureAccepted &&
@@ -4130,7 +4105,7 @@ function DetailPanel({
             {flowStep === 3 && (
               <div style={{ padding: 22, borderRadius: 22, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
                 <div style={{ fontSize: 24, fontWeight: 800, color: C.text }}>Siguiente paso: radicacion</div>
-                <div style={{ marginTop: 8, color: C.textMuted }}>Puedes radicar tu mismo, pedir la guia o dejar que nosotros lo hagamos por ti.</div>
+                <div style={{ marginTop: 8, color: C.textMuted }}>Puedes radicar tu misma o activar el paquete para que nosotros lo hagamos por ti.</div>
                 <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 14 }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Confirmacion final antes del envio</div>
@@ -4181,21 +4156,17 @@ function DetailPanel({
                     Antes del envio debes revisar el documento completo y confirmar la firma simple.
                   </div>
                 )}
-                {(!filingAutoPaid || !filingGuidePaid) && (
+                {!filingAutoPaid && (
                   <div style={{ marginTop: 14, padding: 14, borderRadius: 16, background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412", lineHeight: 1.6 }}>
-                    {[
-                      !filingAutoPaid ? "Para usar 'Radicar por mí' debes pagar primero el adicional de radicación." : "",
-                      !filingGuidePaid ? "Para usar 'Dame la guía' debes pagar primero el adicional de guía." : "",
-                    ].filter(Boolean).join(" ")}
+                    Para usar la radicacion por 123tutela debes activar primero el paquete de radicacion y seguimiento.
                   </div>
                 )}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 18 }}>
-                  <Button disabled={!signatureReady || !filingAutoPaid} onClick={() => onSubmitCase({ mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed, judicial_destination_confirmed: !requiresJudicialConfirmation || judicialDestinationConfirmed })}>Radicar por mi (+$34.000)</Button>
-                  <Button disabled={!signatureReady || !filingGuidePaid} variant="outline" onClick={() => onSubmitCase({ mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed, judicial_destination_confirmed: !requiresJudicialConfirmation || judicialDestinationConfirmed })}>Dame la guia (+$17.000)</Button>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginTop: 18 }}>
+                  <Button disabled={!signatureReady || !filingAutoPaid} onClick={() => onSubmitCase({ mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed, judicial_destination_confirmed: !requiresJudicialConfirmation || judicialDestinationConfirmed })}>Radicar por mi (+$9.900)</Button>
                   <Button disabled={!signatureReady} variant="ghost" style={{ background: "#F8FAFD", border: `1px solid ${C.border}` }} onClick={() => onManualRadicado({ radicado: radicadoManual || `AUTO-${Date.now()}`, notes: buildSubmissionSignatureNote(signatureForm, radicadoNote || "Usuario decidio radicar por su cuenta."), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed })}>Yo lo radico por mi cuenta</Button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
-                  <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o canal para la guia" />
+                  <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o canal de apoyo interno" />
                   <TextInput value={submissionNote} onChange={(event) => setSubmissionNote(event.target.value)} placeholder="Notas para la radicacion" />
                   <TextInput value={radicadoManual} onChange={(event) => setRadicadoManual(event.target.value)} placeholder="Radicado manual si lo haces tu" />
                   <TextInput value={radicadoNote} onChange={(event) => setRadicadoNote(event.target.value)} placeholder="Notas del cierre manual" />
@@ -5464,15 +5435,13 @@ export default function DashboardV2(props) {
                         Antes de enviar debes abrir el expediente, revisar el documento y guardar la firma simple.
                       </div>
                     )}
-                    {(!activePaymentEntitlements.filing_auto_paid || !activePaymentEntitlements.filing_guide_paid) && (
+                    {!activePaymentEntitlements.filing_auto_paid && (
                       <div style={{ padding: 12, borderRadius: 14, background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412" }}>
-                        {!activePaymentEntitlements.filing_auto_paid ? "El envío automático requiere pago adicional de radicación. " : ""}
-                        {!activePaymentEntitlements.filing_guide_paid ? "La guía requiere pago adicional antes de habilitar esta opción." : ""}
+                        El envio automatico requiere que el paquete de radicacion y seguimiento ya este pago.
                       </div>
                     )}
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                       <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: { ...persistedSignaturePayload, accepted: true, consent_version: persistedSignature.consent_version || SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: persistedSignature.consent_text || SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!activeCaseDetail.case.generated_document || !persistedSignatureReady || !activePaymentEntitlements.filing_auto_paid}>Ejecutar envio automatico</Button>
-                      <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: { ...persistedSignaturePayload, accepted: true, consent_version: persistedSignature.consent_version || SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: persistedSignature.consent_text || SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady || !activePaymentEntitlements.filing_guide_paid}>Usar contacto manual</Button>
                       <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: { ...persistedSignaturePayload, accepted: true, consent_version: persistedSignature.consent_version || SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: persistedSignature.consent_text || SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Activar modo presencial</Button>
                     </div>
                   </div>
@@ -5509,7 +5478,7 @@ export default function DashboardV2(props) {
           "Pago: solo después del pago aprobado se activa el documento final.",
           "Radicación automática: se usa cuando existe un canal confiable en la base operativa.",
           "Fallback manual: si no hay canal digital seguro, te guiamos por contacto manual o presencial.",
-          "Seguimiento: después del radicado verás qué puede pasar y cuál sería el siguiente cobro por continuidad, si aplica.",
+          "Seguimiento: despues del radicado veras novedades y siguientes pasos desde el panel.",
         ].map((item) => <div key={item} className="glass-card" style={{ padding: 18, color: C.text }}>{item}</div>)}
       </div>
     ),

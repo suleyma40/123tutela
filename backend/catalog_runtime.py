@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-FILING_PRICE_COP = 12_000
+FILING_PRICE_COP = 9_900
 CURRENCY = "COP"
 
 
@@ -56,7 +56,7 @@ PRODUCTS: tuple[Product, ...] = (
     Product(
         code="derecho_peticion",
         name="Derecho de peticion",
-        price_cop=14_900,
+        price_cop=79_900,
         short_description="Solicitud formal para pedir respuesta, informacion, copias o una actuacion concreta.",
         detailed_description="Documento juridico estructurado para exigir una respuesta oficial dentro de los terminos legales aplicables.",
         next_step_hint="Si no responden o vulneran derechos fundamentales, el siguiente paso frecuente es una tutela.",
@@ -96,7 +96,7 @@ PRODUCTS: tuple[Product, ...] = (
     Product(
         code="accion_tutela",
         name="Accion de tutela",
-        price_cop=19_900,
+        price_cop=79_900,
         short_description="Documento para proteger derechos fundamentales cuando existe amenaza o vulneracion urgente.",
         detailed_description="Tutela completa con hechos, fundamentos constitucionales, jurisprudencia y pretensiones listas para presentar.",
         next_step_hint="Los pasos posteriores mas comunes son impugnacion o incidente de desacato.",
@@ -104,7 +104,7 @@ PRODUCTS: tuple[Product, ...] = (
     Product(
         code="impugnacion_tutela",
         name="Impugnacion de tutela",
-        price_cop=19_900,
+        price_cop=79_900,
         short_description="Recurso para controvertir una decision de tutela cuando fue negada o limitada.",
         detailed_description="Documento completo para solicitar revision de la decision de tutela con base en errores, omisiones o valoracion juridica insuficiente.",
         next_step_hint="Luego corresponde hacer seguimiento a la decision de segunda instancia.",
@@ -112,7 +112,7 @@ PRODUCTS: tuple[Product, ...] = (
     Product(
         code="incidente_desacato",
         name="Incidente de desacato",
-        price_cop=24_900,
+        price_cop=79_900,
         short_description="Documento para denunciar incumplimiento de un fallo de tutela.",
         detailed_description="Escrito para pedir al juez medidas frente al incumplimiento de una orden judicial ya emitida en tutela.",
         next_step_hint="Despues se hace seguimiento al cumplimiento del fallo y a las ordenes del juez.",

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-FILING_PRICE_COP = 34_000
+FILING_PRICE_COP = 9_900
 CURRENCY = "COP"
 
 
@@ -64,7 +64,7 @@ PRODUCTS: tuple[Product, ...] = (
     Product(
         code="derecho_peticion",
         name="Derecho de petición",
-        price_cop=38_900,
+        price_cop=79_900,
         short_description="Solicitud formal para pedir respuesta, información, copias o una actuación concreta.",
         detailed_description="Documento jurídico estructurado para exigir una respuesta oficial dentro de los términos legales aplicables.",
         next_step_hint="Si no responden o vulneran derechos fundamentales, el siguiente paso frecuente es una tutela.",
@@ -104,7 +104,7 @@ PRODUCTS: tuple[Product, ...] = (
     Product(
         code="accion_tutela",
         name="Acción de tutela",
-        price_cop=72_900,
+        price_cop=79_900,
         short_description="Documento para proteger derechos fundamentales cuando existe amenaza o vulneración urgente.",
         detailed_description="Tutela completa con hechos, fundamentos constitucionales, jurisprudencia y pretensiones listas para presentar.",
         next_step_hint="Los pasos posteriores más comunes son impugnación o incidente de desacato.",
@@ -112,7 +112,7 @@ PRODUCTS: tuple[Product, ...] = (
     Product(
         code="impugnacion_tutela",
         name="Impugnación de tutela",
-        price_cop=72_900,
+        price_cop=79_900,
         short_description="Recurso para controvertir una decisión de tutela cuando fue negada o limitada.",
         detailed_description="Documento completo para solicitar revisión de la decisión de tutela con base en errores, omisiones o valoración jurídica insuficiente.",
         next_step_hint="Luego corresponde hacer seguimiento a la decisión de segunda instancia.",
