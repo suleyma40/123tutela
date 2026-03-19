@@ -136,10 +136,73 @@ GENERATION_BRIEFS: dict[str, dict[str, Any]] = {
 }
 
 
-def get_generation_brief(recommended_action: str | None, workflow_type: str | None = None) -> dict[str, Any]:
+HEALTH_GENERATION_BRIEFS: dict[str, dict[str, Any]] = {
+    "accion de tutela": {
+        "tone": "firme, tecnico y clinicamente situado, con urgencia real y sin dramatizacion artificial",
+        "narrative_focus": [
+            "identificar diagnostico, servicio ordenado, fecha de orden y barrera concreta de la EPS",
+            "conectar riesgo actual del paciente con la omision administrativa",
+            "explicar procedencia e inmediatez a partir de hechos medicos y soporte cargado",
+            "pedir orden judicial especifica, medible y de cumplimiento inmediato",
+        ],
+        "must_include": [
+            "eps o ips accionada",
+            "diagnostico o condicion medica",
+            "servicio o tratamiento ordenado",
+            "barrera concreta de la eps",
+            "riesgo actual del paciente",
+        ],
+    },
+    "derecho de peticion": {
+        "tone": "respetuoso, clinicamente preciso y exigente en respuesta de fondo",
+        "narrative_focus": [
+            "identificar eps o ips, diagnostico y servicio de salud requerido",
+            "mostrar gestion previa y solicitud concreta de autorizacion o respuesta",
+            "pedir respuesta medible y fecha cierta de prestacion del servicio",
+        ],
+        "must_include": [
+            "eps o ips destinataria",
+            "servicio de salud requerido",
+            "solicitudes claras",
+            "termino legal de respuesta",
+        ],
+    },
+    "impugnacion de tutela": {
+        "tone": "tecnico, clinico y de contradiccion puntual del fallo",
+        "narrative_focus": [
+            "identificar el fallo impugnado y el error concreto del juez",
+            "resaltar el riesgo medico actual no protegido por la decision",
+            "pedir revocatoria o modificacion con orden especifica en salud",
+        ],
+        "must_include": [
+            "fallo impugnado",
+            "motivo concreto de desacuerdo",
+            "riesgo actual del paciente",
+        ],
+    },
+    "incidente de desacato": {
+        "tone": "contundente, probatorio y centrado en incumplimiento de orden de salud",
+        "narrative_focus": [
+            "identificar fallo, orden medica o servicio incumplido",
+            "mostrar que la barrera persiste pese a la orden judicial",
+            "pedir cumplimiento inmediato y medidas correctivas",
+        ],
+        "must_include": [
+            "fallo identificado",
+            "orden incumplida",
+            "incumplimiento actual",
+            "afectacion actual en salud",
+        ],
+    },
+}
+
+
+def get_generation_brief(recommended_action: str | None, workflow_type: str | None = None, category: str | None = None) -> dict[str, Any]:
     rule = get_document_rule(recommended_action, workflow_type)
     action_key = rule["action_key"]
-    brief = GENERATION_BRIEFS.get(
+    category_key = _normalize_text(category or "")
+    health_override = HEALTH_GENERATION_BRIEFS.get(action_key) if category_key == "salud" else None
+    brief = health_override or GENERATION_BRIEFS.get(
         action_key,
         {
             "tone": "claro, serio y accionable",
@@ -181,6 +244,11 @@ SECTION_ALIASES: dict[str, list[str]] = {
     "destinatario": ["destinatario", "senores", "doctor", "doctora", "atencion:"],
     "identificacion del consumidor financiero": ["identificacion del consumidor financiero"],
     "identificacion del peticionario": ["identificacion del peticionario"],
+    "competencia y reparto": ["competencia y reparto", "i. competencia y reparto"],
+    "identificacion del accionante y del accionado": ["identificacion del accionante y del accionado", "ii. identificacion del accionante y del accionado"],
+    "derechos fundamentales vulnerados": ["derechos fundamentales vulnerados", "iv. derechos fundamentales vulnerados"],
+    "procedencia": ["procedencia", "vi. procedencia"],
+    "juramento de no temeridad": ["juramento de no temeridad", "ix. juramento de no temeridad"],
     "hechos y contexto": ["hechos y contexto", "hechos", "hechos relevantes", "ii. hechos"],
     "fundamento del reclamo": ["fundamento del reclamo", "fundamentos de derecho", "fundamento juridico", "iii. fundamentos de derecho"],
     "fundamento del derecho de peticion": ["fundamento del derecho de peticion", "fundamentos de derecho", "iii. fundamentos de derecho"],
@@ -215,9 +283,11 @@ def _has_required_section(text: str, section: str) -> bool:
 def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str, Any]:
     recommended_action = case.get("recommended_action")
     workflow_type = case.get("workflow_type")
+    category = case.get("categoria") or case.get("category")
     rule = get_document_rule(recommended_action, workflow_type)
-    brief = get_generation_brief(recommended_action, workflow_type)
+    brief = get_generation_brief(recommended_action, workflow_type, category)
     lowered = str(document or "").lower()
+    normalized_document = _normalize_text(str(document or ""))
     blocking_issues: list[str] = []
     warnings: list[str] = []
     strengths: list[str] = []
@@ -291,6 +361,7 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         strengths.append("Las referencias juridicas detectadas coinciden con el registro verificable de la app.")
 
     action_key = rule["action_key"]
+    health_block = _normalize_text(category or "") == "salud"
     if action_key == "accion de tutela":
         if not _contains_any(lowered, ["no temeridad", "juramento"]):
             legal_score -= 8
@@ -322,6 +393,40 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         if not _contains_any(lowered, ["incumplimiento", "orden incumplida", "fallo de tutela"]):
             legal_score -= 8
             blocking_issues.append("El desacato no describe con precision el incumplimiento actual.")
+
+    if health_block:
+        if action_key in {"accion de tutela", "derecho de peticion", "impugnacion de tutela", "incidente de desacato"}:
+            if not _contains_any(normalized_document, ["eps", "ips", "entidad accionada", "nueva eps", "sura", "sanitas"]):
+                factual_score -= 6
+                blocking_issues.append("El documento de salud debe identificar claramente la EPS o IPS responsable.")
+            if not _contains_any(normalized_document, ["diagnostico", "condicion medica", "condicion de salud", "patologia", "enfermedad"]):
+                factual_score -= 6
+                warnings.append("Conviene hacer mas visible el diagnostico o condicion medica principal.")
+            if not _contains_any(normalized_document, ["medicamento", "examen", "procedimiento", "servicio de salud", "tratamiento", "autorizacion"]):
+                factual_score -= 6
+                blocking_issues.append("El documento de salud debe individualizar el servicio, examen, medicamento o tratamiento requerido.")
+            if not _contains_any(normalized_document, ["riesgo", "agravamiento", "deterioro", "afectacion actual", "vida digna", "salud"]):
+                legal_score -= 4
+                warnings.append("Conviene reforzar el riesgo actual del paciente para darle mayor fuerza al documento de salud.")
+        if action_key == "accion de tutela":
+            if not _contains_any(normalized_document, ["ley estatutaria 1751", "ley 1751", "articulo 49", "articulo 86", "decreto 2591"]):
+                legal_score -= 8
+                blocking_issues.append("La tutela en salud debe apoyarse al menos en el articulo 49, el articulo 86, la Ley 1751 o el Decreto 2591.")
+            if not _contains_any(normalized_document, ["nego", "negó", "silencio", "no autoriz", "demoro", "barrera", "omision"]):
+                factual_score -= 4
+                warnings.append("La tutela en salud debe describir con mayor precision la barrera concreta de la EPS.")
+        elif action_key == "derecho de peticion":
+            if not _contains_any(normalized_document, ["ley 1755", "termino legal", "respuesta de fondo"]):
+                legal_score -= 4
+                warnings.append("El derecho de peticion en salud debe dejar mas visible la obligacion de respuesta de fondo.")
+        elif action_key == "impugnacion de tutela":
+            if not _contains_any(normalized_document, ["fallo", "impugnacion", "segunda instancia", "revocar", "modificar"]):
+                legal_score -= 6
+                blocking_issues.append("La impugnacion de salud debe identificar mejor el fallo y la solicitud a segunda instancia.")
+        elif action_key == "incidente de desacato":
+            if not _contains_any(normalized_document, ["desacato", "incumplimiento", "orden judicial", "cumplimiento inmediato"]):
+                legal_score -= 6
+                blocking_issues.append("El desacato en salud debe mostrar la orden judicial incumplida y pedir cumplimiento inmediato.")
 
     total_score = max(0, structure_score + legal_score + factual_score + remedies_score + operability_score)
     llm_qa = score_document_with_claude(

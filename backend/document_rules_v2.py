@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.agent_orchestrator import relax_health_tutela_blockers
 from backend.document_rules import get_document_rule
 
 
@@ -66,12 +67,15 @@ def evaluate_document_rule(
         uploaded_evidence = facts.get("uploaded_evidence_files") or []
         health_tutela_context = (
             _normalize(str(intake.get("category") or facts.get("category") or "")) == "salud"
+            or bool(str(intake.get("target_entity") or "").strip())
             or bool(str(intake.get("eps_name") or "").strip())
             or bool(str(intake.get("diagnosis") or "").strip())
         )
         ai_can_infer_health_urgency = health_tutela_context and all(
             str(intake.get(field) or "").strip()
-            for field in ("eps_name", "diagnosis", "treatment_needed")
+            for field in ("diagnosis", "treatment_needed")
+        ) and bool(
+            str(intake.get("target_entity") or intake.get("eps_name") or "").strip()
         ) and (
             bool(uploaded_evidence)
             or bool(str(intake.get("medical_order_date") or "").strip())
@@ -116,6 +120,8 @@ def evaluate_document_rule(
     elif action_key == "accion de cumplimiento":
         if not any(word in full_text for word in ["ley", "decreto", "resolucion", "acto administrativo"]):
             blocking_issues.append("La accion de cumplimiento exige identificar la norma o el acto incumplido.")
+
+    blocking_issues = relax_health_tutela_blockers(blocking_issues, facts)
 
     return {
         "rule": rule,

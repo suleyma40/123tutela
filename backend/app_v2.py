@@ -17,6 +17,7 @@ from backend.case_architecture import (
     collect_pending_questions,
     evaluate_tutela_procedencia,
 )
+from backend.agent_orchestrator import build_health_agent_state, relax_health_tutela_blockers
 from backend.config import settings
 from backend.document_quality import evaluate_generated_document
 from backend.entity_directory import search_entity_directory
@@ -531,6 +532,15 @@ def _refresh_verified_case_context(case: dict[str, Any]) -> dict[str, Any]:
         source_validation_policy=source_validation_policy,
     )
     legal_analysis["legal_basis_verified_summary"] = source_validation_policy["legal_basis_verified_summary"]
+    agent_state = build_health_agent_state(
+        category=case.get("categoria") or case.get("category") or "",
+        workflow_type=case.get("workflow_type") or "",
+        recommended_action=case.get("recommended_action") or "",
+        description=case.get("descripcion") or "",
+        facts=facts,
+    )
+    if agent_state:
+        facts["agent_state"] = agent_state
     case["facts"] = facts
     case["legal_analysis"] = legal_analysis
     return case
@@ -615,6 +625,15 @@ def _enrich_architecture_outputs(
     enriched_facts["pending_questions"] = pending_questions
     enriched_facts["dx_result"] = dx_result
     enriched_facts["layer_outputs"] = layer_outputs
+    agent_state = build_health_agent_state(
+        category=category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        description=description,
+        facts=enriched_facts,
+    )
+    if agent_state:
+        enriched_facts["agent_state"] = agent_state
 
     enriched_legal_analysis = dict(legal_analysis or {})
     enriched_legal_analysis = sanitize_legal_analysis(
@@ -630,6 +649,123 @@ def _enrich_architecture_outputs(
     enriched_routing["requires_human_review"] = dx_result.get("requires_human_review", False)
     enriched_routing["urgency_level"] = dx_result.get("urgency_level")
     return enriched_facts, enriched_legal_analysis, enriched_routing
+
+
+def _rehydrate_case_intelligence(case: dict[str, Any]) -> dict[str, Any]:
+    category = case.get("categoria") or case.get("category") or ""
+    case_id = str(case["id"])
+    prior_actions = [item["id"] for item in (case.get("prerequisites") or []) if item.get("completed")]
+    attachment_records = repository.list_files_for_case(case_id)
+    attachment_context = build_attachment_context(attachment_records)
+    description = case.get("descripcion") or ""
+    enriched_description = enrich_description_with_attachment_context(description, attachment_context)
+    existing_facts = case.get("facts") or {}
+    enriched_form_data = _merge_form_with_attachment_suggestions(
+        form_data=(existing_facts.get("intake_form") or {}),
+        description=enriched_description,
+        category=category,
+        attachment_context=attachment_context,
+    )
+    facts = _merge_intake_into_facts(
+        existing_facts=existing_facts,
+        form_data=enriched_form_data,
+        description=enriched_description,
+        category=category,
+    )
+    legal_analysis = case.get("legal_analysis") or {}
+    workflow = infer_workflow(
+        category=category,
+        description=enriched_description,
+        facts=facts,
+        legal_analysis=legal_analysis,
+        prior_actions=prior_actions,
+    )
+    routing = build_routing(
+        category=category,
+        city=case.get("usuario_ciudad") or "",
+        department=case.get("usuario_departamento") or "",
+        facts=facts,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+    )
+    strategy = build_strategy_text(
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        legal_analysis=legal_analysis,
+        warnings=workflow["warnings"],
+    )
+    intake_review = validate_intake(
+        category=category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        description=enriched_description,
+        facts=facts,
+        prior_actions=prior_actions,
+    )
+    preview_gate = validate_submission_readiness(
+        category=category,
+        description=enriched_description,
+        facts=facts,
+        prior_actions=prior_actions,
+    )
+    document_rule_review = evaluate_document_rule(
+        recommended_action=workflow["recommended_action"],
+        workflow_type=workflow["workflow_type"],
+        description=enriched_description,
+        facts=facts,
+    )
+    facts["intake_review"] = intake_review
+    facts["preview_gate"] = preview_gate
+    facts["document_rule_review"] = document_rule_review
+    facts["attachment_intelligence"] = attachment_context
+    facts["autofill_suggestions"] = enriched_form_data.get("_autofill") or {}
+    facts, legal_analysis, routing = _enrich_architecture_outputs(
+        category=category,
+        description=enriched_description,
+        workflow=workflow,
+        facts=facts,
+        legal_analysis=legal_analysis,
+        routing=routing,
+        intake_review=intake_review,
+        preview_gate=preview_gate,
+        document_rule_review=document_rule_review,
+        prior_actions=prior_actions,
+    )
+    combined_warnings = (
+        workflow["warnings"]
+        + intake_review.get("blocking_issues", [])
+        + intake_review.get("warnings", [])
+        + preview_gate.get("blocking_issues", [])
+        + preview_gate.get("warnings", [])
+        + document_rule_review.get("blocking_issues", [])
+        + document_rule_review.get("warnings", [])
+        + facts.get("dx_result", {}).get("blocking_reasons", [])
+        + facts.get("dx_result", {}).get("warnings", [])
+    )
+    updated = repository.update_case_intake(
+        case_id,
+        workflow_type=workflow["workflow_type"],
+        description=enriched_description,
+        facts=facts,
+        legal_analysis=legal_analysis,
+        routing=routing,
+        prerequisites=workflow["prerequisites"],
+        warnings=list(dict.fromkeys(combined_warnings)),
+        recommended_action=workflow["recommended_action"],
+        strategy_text=strategy,
+    )
+    return updated or {
+        **case,
+        "workflow_type": workflow["workflow_type"],
+        "descripcion": enriched_description,
+        "facts": facts,
+        "legal_analysis": legal_analysis,
+        "routing": routing,
+        "prerequisites": workflow["prerequisites"],
+        "warnings": list(dict.fromkeys(combined_warnings)),
+        "recommended_action": workflow["recommended_action"],
+        "strategy_text": strategy,
+    }
 
 
 def _reconcile_case_payment(case: dict[str, Any]) -> dict[str, Any]:
@@ -1080,7 +1216,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
             "viability": (result["facts"].get("dx_result") or {}).get("viability_preliminary"),
         },
     )
-    return _snapshot_case_detail(case)
+    return _snapshot_case_detail(_rehydrate_case_intelligence(case))
 
 
 @app.get("/cases", response_model=list[CaseResponse])
@@ -1366,12 +1502,25 @@ def generate_document(
         legal_analysis=case.get("legal_analysis") or {},
         intake_form=intake_form,
     )
+    refreshed_agent_state = build_health_agent_state(
+        category=case.get("categoria") or case.get("category") or "",
+        workflow_type=case.get("workflow_type") or "",
+        recommended_action=case.get("recommended_action") or "",
+        description=case.get("descripcion") or "",
+        facts=facts,
+    )
+    if refreshed_agent_state:
+        facts["agent_state"] = refreshed_agent_state
     case["facts"] = facts
     document_rule_review = evaluate_document_rule(
         recommended_action=case.get("recommended_action"),
         workflow_type=case.get("workflow_type"),
         description=case.get("descripcion") or "",
         facts=facts,
+    )
+    document_rule_review["blocking_issues"] = relax_health_tutela_blockers(
+        list(document_rule_review.get("blocking_issues") or []),
+        facts,
     )
     if document_rule_review.get("blocking_issues"):
         raise HTTPException(
@@ -1745,6 +1894,7 @@ async def upload_case_evidence(
         actor_id=str(current_user["id"]),
         payload={"file_id": str(record["id"]), "note": note},
     )
+    _rehydrate_case_intelligence(case)
     return _normalize_file(record)
 
 

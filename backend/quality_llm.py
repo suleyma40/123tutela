@@ -23,6 +23,7 @@ def score_document_with_claude(
             "recommended_action": case.get("recommended_action"),
             "rights": (case.get("legal_analysis") or {}).get("derechos_vulnerados") or [],
             "verified_sources": ((case.get("facts") or {}).get("source_validation_policy") or {}).get("verified_sources") or [],
+            "agent_state": ((case.get("facts") or {}).get("agent_state") or {}),
         },
         "base_review": base_review,
         "document": document,
@@ -32,6 +33,7 @@ def score_document_with_claude(
             "Bloquea solo si el documento es riesgoso, inventa soporte o omite elementos esenciales.",
             "Si faltan citas verificadas, indica que el sistema debe reforzarlas internamente.",
             "Si el documento ya es radicable y solo tiene mejoras menores de estilo, no reduzcas severamente el puntaje.",
+            "Si es un caso de salud, valora con prioridad diagnostico, servicio requerido, barrera de EPS/IPS y riesgo actual del paciente.",
             "Responde solo JSON con: adjusted_score, blocking_issues, warnings, strengths, improvements, verdict.",
         ],
     }

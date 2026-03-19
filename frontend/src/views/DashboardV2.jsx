@@ -2925,12 +2925,21 @@ function DetailPanel({
   const isTutelaFlow = normalizedDetailAction === "accion de tutela";
   const missingFields = getPostPayMissingFields(effectivePostPayForm, item);
   const backendPendingQuestions = item.pending_questions || item.facts?.pending_questions || [];
+  const healthAgentState = item.facts?.agent_state || {};
+  const useBackendHealthAgent = item.payment_status === "pagado" && (item.category || "").toLowerCase() === "salud" && !!healthAgentState?.enabled;
   const autofillSuggestions = item.facts?.autofill_suggestions || {};
-  const missingQuestions = [
-    ...backendPendingQuestions.map((question) => question?.question).filter(Boolean),
-    ...getPostPayQuestionPrompts(effectivePostPayForm, item),
-  ].filter((value, index, array) => array.indexOf(value) === index);
-  const interviewSteps = buildPostPayInterviewSteps(effectivePostPayForm, item);
+  const missingQuestions = (
+    useBackendHealthAgent
+      ? (
+        healthAgentState.can_generate
+          ? []
+          : [...(healthAgentState.user_owned_missing || []), ...backendPendingQuestions.map((question) => question?.question).filter(Boolean)]
+      )
+      : [...backendPendingQuestions.map((question) => question?.question).filter(Boolean), ...getPostPayQuestionPrompts(effectivePostPayForm, item)]
+  ).filter((value, index, array) => array.indexOf(value) === index);
+  const interviewSteps = useBackendHealthAgent
+    ? (healthAgentState.can_generate ? [] : (healthAgentState.next_prompt ? [healthAgentState.next_prompt] : []))
+    : buildPostPayInterviewSteps(effectivePostPayForm, item);
   const activeInterviewStep = interviewSteps[0] || null;
   const checklist = buildDocumentChecklist(item, review, files);
   const whatsappCopy = effectivePostPayForm.phone || item.user_phone || "";
@@ -2974,7 +2983,11 @@ function DetailPanel({
     signatureForm.document_number.trim().length >= 6 &&
     signatureForm.city.trim().length > 2 &&
     signatureForm.date.trim().length > 4;
-  const chatGenerationBlocked = loading || item.payment_status !== "pagado" || !!activeInterviewStep;
+  const chatGenerationBlocked = loading || item.payment_status !== "pagado" || (useBackendHealthAgent ? !healthAgentState.can_generate : !!activeInterviewStep);
+  const suppressHealthAgentError = useBackendHealthAgent
+    && healthAgentState.can_generate
+    && /todavia faltan datos minimos|todavía faltan datos mínimos|tutela necesita/i.test(String(actionError || ""));
+  const visibleActionError = suppressHealthAgentError ? "" : actionError;
 
   useEffect(() => {
     setSignatureForm((current) => ({
@@ -2995,7 +3008,17 @@ function DetailPanel({
     const nextAnswer = interviewDraft.trim();
     if (!nextAnswer) return;
     if (activeInterviewStep) {
-      setPostPayForm((current) => ({ ...current, [activeInterviewStep.id]: nextAnswer }));
+      setPostPayForm((current) => (
+        Object.prototype.hasOwnProperty.call(current, activeInterviewStep.id)
+          ? { ...current, [activeInterviewStep.id]: nextAnswer }
+          : {
+              ...current,
+              case_story: [current.case_story, nextAnswer].filter(Boolean).join("\n"),
+            }
+      ));
+      if (!Object.prototype.hasOwnProperty.call(postPayForm, activeInterviewStep.id)) {
+        setRegenerationContext((current) => [current, nextAnswer].filter(Boolean).join("\n\n"));
+      }
     } else {
       setRegenerationContext((current) => [current, nextAnswer].filter(Boolean).join("\n\n"));
       setPostPayForm((current) => ({
@@ -3237,6 +3260,7 @@ function DetailPanel({
                 postPayChatMode ? (
                 <PaidCaseAgentWorkspace
                   item={item}
+                  agentState={healthAgentState}
                   activeInterviewStep={activeInterviewStep}
                   interviewDraft={interviewDraft}
                   setInterviewDraft={setInterviewDraft}
@@ -3665,6 +3689,7 @@ function DetailPanel({
 
 function PaidCaseAgentWorkspace({
   item,
+  agentState = {},
   activeInterviewStep,
   interviewDraft,
   setInterviewDraft,
@@ -3693,14 +3718,15 @@ function PaidCaseAgentWorkspace({
       <div style={{ padding: 18, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", display: "grid", gap: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: C.primary }}>AGENTE DEL CASO</div>
-          <Badge color={activeInterviewStep ? C.primary : C.success}>
-            {activeInterviewStep ? "Faltan respuestas del chat" : "Chat completo"}
-          </Badge>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Badge color={C.primary}>Chat activo</Badge>
+            {agentState.can_generate && <Badge color={C.success}>Listo para redactar</Badge>}
+          </div>
         </div>
         <div style={{ color: C.text, fontWeight: 700, lineHeight: 1.65 }}>
           {activeInterviewStep
             ? activeInterviewStep.question
-            : "El agente ya tiene lo minimo para seguir, pero puedes agregar cualquier dato nuevo y lo incorporare al expediente antes de redactar."}
+            : agentState.summary || "El agente ya tiene lo minimo para seguir, pero puedes agregar cualquier dato nuevo y lo incorporare al expediente antes de redactar."}
         </div>
         {activeInterviewStep ? (
           activeInterviewStep.multiline ? (
@@ -3745,6 +3771,25 @@ function PaidCaseAgentWorkspace({
             El agente formula las preguntas jurídicamente útiles y se encarga de detectar riesgo actual, barrera de la EPS, urgencia, procedencia y argumentación.
           </div>
         </div>
+        {!!agentState?.documents_available?.length && (
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>BLOQUE SALUD</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {agentState.documents_available.map((doc) => (
+                <Badge key={doc.code} color={doc.recommended_action === item.recommended_action ? C.success : C.textMuted}>
+                  {doc.name}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+        {!!agentState?.ai_owned_tasks?.length && (
+          <div style={{ padding: 12, borderRadius: 14, background: "#F8FAFD", border: `1px solid ${C.border}`, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+            El agente se encarga internamente de:
+            {" "}
+            {agentState.ai_owned_tasks.join(" · ")}.
+          </div>
+        )}
       </div>
 
       <div style={{ padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
@@ -3775,7 +3820,9 @@ function PaidCaseAgentWorkspace({
         <div style={{ color: C.textMuted, fontSize: 13 }}>
           {activeInterviewStep
             ? "Primero responde la pregunta actual del agente."
-            : `Puedes generar el ${String(item.recommended_action || item.workflow_type || "documento").toLowerCase()} o seguir agregando contexto por el chat.`}
+            : agentState.can_generate
+              ? `Puedes generar el ${String(item.recommended_action || item.workflow_type || "documento").toLowerCase()} o seguir agregando contexto por el chat.`
+              : "El agente sigue activo y te hará falta una respuesta factual más antes de redactar."}
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Button variant="secondary" onClick={onSaveFlowDraft} disabled={loading}>
@@ -4385,10 +4432,10 @@ export default function DashboardV2(props) {
                 {loading ? "Analizando..." : "Generar preview"}
               </Button>
             </div>
-            {actionError && (
-              <div style={{ color: C.danger, background: "#FEF2F2", border: "1px solid #FECACA", padding: 14, borderRadius: 14 }}>
-                {actionError}
-              </div>
+            {visibleActionError && (
+                <div style={{ color: C.danger, background: "#FEF2F2", border: "1px solid #FECACA", padding: 14, borderRadius: 14 }}>
+                {visibleActionError}
+                </div>
             )}
             <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
               El sistema usa tus datos del paso 1 y tu relato del paso 2 para construir el analisis. Si faltan datos, te lo dira antes de avanzar.
@@ -5124,7 +5171,7 @@ export default function DashboardV2(props) {
           </Button>
         </div>
         <DashboardErrorBoundary>{content[activeTab]}</DashboardErrorBoundary>
-        {actionError && <div style={{ marginTop: 16, color: C.danger }}>{actionError}</div>}
+        {visibleActionError && <div style={{ marginTop: 16, color: C.danger }}>{visibleActionError}</div>}
       </main>
     </div>
   );

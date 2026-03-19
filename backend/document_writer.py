@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import re
 from typing import Any
 
+from backend.agent_registry import resolve_health_document
 from backend.document_rules import get_document_rule
 
 
@@ -490,6 +491,88 @@ def _generic_pretensions(case: dict[str, Any], action_key: str) -> list[str]:
     return ["Que se adopte la medida correctiva o de proteccion que corresponda conforme a los hechos narrados."]
 
 
+def _health_context(case: dict[str, Any]) -> dict[str, Any]:
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    legal_analysis = case.get("legal_analysis") or {}
+    routing = case.get("routing") or {}
+    primary = routing.get("primary_target") or {}
+    document_profile = resolve_health_document(
+        workflow_type=case.get("workflow_type"),
+        recommended_action=case.get("recommended_action"),
+    )
+    accionado = str(intake.get("target_entity") or primary.get("name") or _join_list(facts.get("entidades_involucradas"), fallback="Entidad accionada")).strip()
+    return {
+        "facts": facts,
+        "intake": intake,
+        "legal_analysis": legal_analysis,
+        "routing": routing,
+        "primary": primary,
+        "document_profile": document_profile,
+        "accionado": accionado,
+        "user_name": _person_name(case.get("usuario_nombre")),
+        "user_doc": case.get("usuario_documento") or "Sin documento registrado",
+        "user_email": case.get("usuario_email") or "Sin correo",
+        "user_phone": case.get("usuario_telefono") or "Sin telefono",
+        "address": case.get("usuario_direccion") or "Sin direccion registrada",
+        "city": _titleish_place(case.get("usuario_ciudad")),
+        "department": _titleish_place(case.get("usuario_departamento")),
+    }
+
+
+def _health_fact_lines(case: dict[str, Any]) -> list[str]:
+    ctx = _health_context(case)
+    intake = ctx["intake"]
+    facts = ctx["facts"]
+    chronology_lines = _dedupe_lines(_generic_facts(case))
+
+    acting_capacity = str(intake.get("acting_capacity") or "").strip()
+    represented_person_name = str(intake.get("represented_person_name") or "").strip()
+    represented_person_age = str(intake.get("represented_person_age") or "").strip()
+    target_entity = ctx["accionado"]
+    diagnosis = str(intake.get("diagnosis") or "").strip()
+    treatment_needed = str(intake.get("treatment_needed") or "").strip()
+    medical_order_date = str(intake.get("medical_order_date") or "").strip()
+    treating_doctor_name = str(intake.get("treating_doctor_name") or "").strip()
+    treating_ips_name = str(intake.get("treating_ips_name") or intake.get("ips_name") or "").strip()
+    eps_request_date = str(intake.get("eps_request_date") or "").strip()
+    eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
+    eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
+    eps_response_detail = str(intake.get("eps_response_detail") or "").strip()
+    urgency_detail = str(intake.get("urgency_detail") or intake.get("ongoing_harm") or "").strip()
+    special_protection = str(intake.get("special_protection") or "").strip()
+
+    lines: list[str] = []
+    if acting_capacity and acting_capacity != "nombre_propio" and represented_person_name:
+        age_fragment = f", de {represented_person_age}" if represented_person_age else ""
+        lines.append(f"La presente actuacion se promueve a favor de {represented_person_name}{age_fragment}, persona directamente afectada por la barrera en salud aqui denunciada.")
+    if medical_order_date and treatment_needed:
+        doctor_fragment = f" por el medico tratante {treating_doctor_name}" if treating_doctor_name else ""
+        ips_fragment = f", adscrito a {treating_ips_name}" if treating_ips_name else ""
+        diagnosis_fragment = f", con ocasion del diagnostico de {diagnosis}" if diagnosis else ""
+        lines.append(f"El dia {medical_order_date} fue ordenado{doctor_fragment}{ips_fragment} el servicio de salud consistente en {treatment_needed}{diagnosis_fragment}.")
+    elif diagnosis or treatment_needed:
+        diagnosis_fragment = f" por razon del diagnostico de {diagnosis}" if diagnosis else ""
+        service_fragment = treatment_needed or "un servicio de salud requerido"
+        lines.append(f"El caso gira alrededor de la necesidad de garantizar {service_fragment}{diagnosis_fragment}.")
+    if eps_request_date:
+        channel_fragment = f" a traves de {eps_request_channel}" if eps_request_channel else ""
+        reference_fragment = f", bajo el radicado o referencia {eps_request_reference}" if eps_request_reference else ""
+        lines.append(f"El dia {eps_request_date} se solicito formalmente ante {target_entity} la autorizacion o prestacion del servicio requerido{channel_fragment}{reference_fragment}.")
+    if eps_response_detail:
+        lines.append(f"Frente a dicha solicitud, la EPS o entidad accionada incurrio en la siguiente respuesta u omision: {_sentence(eps_response_detail)}")
+    if urgency_detail:
+        lines.append(f"En la actualidad persiste la siguiente afectacion o riesgo para el paciente: {_sentence(urgency_detail)}")
+    if special_protection and special_protection.lower() not in {"no aplica", "ninguno"}:
+        lines.append(f"La persona afectada se encuentra en condicion de especial proteccion constitucional: {special_protection}.")
+    if facts.get("agent_state", {}).get("analysis", {}).get("barrier_summary"):
+        for item in facts["agent_state"]["analysis"]["barrier_summary"]:
+            if item and item not in lines:
+                lines.append(_sentence(item))
+
+    return _dedupe_lines(lines + chronology_lines)
+
+
 def _build_financial_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     facts = case.get("facts") or {}
     intake = facts.get("intake_form") or {}
@@ -826,6 +909,96 @@ Telefono: {user_phone}
 """
 
 
+def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
+    ctx = _health_context(case)
+    facts = ctx["facts"]
+    intake = ctx["intake"]
+    legal_analysis = ctx["legal_analysis"]
+    target = ctx["accionado"]
+    contact = str(ctx["primary"].get("contact") or intake.get("target_pqrs_email") or intake.get("target_website") or "Canal oficial de atencion").strip()
+    chronology = _health_fact_lines(case)
+    evidence_items = _uploaded_evidence_items(case)
+    verified_basis = str(
+        legal_analysis.get("legal_basis_verified_summary")
+        or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
+    ).strip()
+    diagnosis = str(intake.get("diagnosis") or "").strip()
+    treatment_needed = str(intake.get("treatment_needed") or "").strip()
+    request_lines = [
+        f"RESPONDER de fondo, de manera clara, congruente y completa, la solicitud relacionada con {treatment_needed or 'el servicio de salud requerido'}.",
+        f"AUTORIZAR y GARANTIZAR oportunamente {treatment_needed or 'el servicio de salud ordenado'}."
+        if treatment_needed
+        else "AUTORIZAR y GARANTIZAR oportunamente el servicio de salud requerido.",
+        "INFORMAR por escrito la fecha, canal y condiciones en que se prestara el servicio ordenado.",
+        f"REMITIR la respuesta al correo {ctx['user_email']} y al telefono {ctx['user_phone']}.",
+    ]
+    legal_basis_text = (
+        "La presente peticion se formula en ejercicio del articulo 23 de la Constitucion Politica, de la Ley 1755 de 2015 y de la Ley Estatutaria 1751 de 2015, "
+        "normas que obligan a la entidad destinataria a responder de fondo y a remover barreras administrativas que impidan el acceso oportuno al servicio de salud requerido."
+    )
+    if diagnosis:
+        legal_basis_text = f"{legal_basis_text} El caso se relaciona con el diagnostico de {diagnosis}."
+    if verified_basis:
+        legal_basis_text = f"{legal_basis_text} {verified_basis}".strip()
+    header_date = (
+        datetime.now()
+        .strftime("%d de %B de %Y")
+        .replace("January", "enero")
+        .replace("February", "febrero")
+        .replace("March", "marzo")
+        .replace("April", "abril")
+        .replace("May", "mayo")
+        .replace("June", "junio")
+        .replace("July", "julio")
+        .replace("August", "agosto")
+        .replace("September", "septiembre")
+        .replace("October", "octubre")
+        .replace("November", "noviembre")
+        .replace("December", "diciembre")
+    )
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    intro = (
+        f"Yo, {ctx['user_name']}, persona mayor de edad, titular de la cedula de ciudadania No. {ctx['user_doc']}, con domicilio en {ctx['address']}, {ctx['city']}, {ctx['department']}, "
+        f"correo electronico {ctx['user_email']} y telefono {ctx['user_phone']}, presento DERECHO DE PETICION en interes particular contra {target}."
+    )
+    return f"""{ctx['city'] or 'Colombia'}, {header_date}
+Señores
+{target.upper()}
+Canal oficial o sugerido: {contact}
+
+Asunto: DERECHO DE PETICION PARA GARANTIZAR SERVICIO DE SALUD
+
+I. IDENTIFICACION DEL PETICIONARIO
+{intro}
+
+II. HECHOS Y CONTEXTO
+{_numbered_lines(chronology)}
+
+III. FUNDAMENTO DEL DERECHO DE PETICION
+{legal_basis_text}
+
+IV. SOLICITUDES NUMERADAS
+{_numbered_lines(_dedupe_lines(request_lines))}
+
+V. TERMINO LEGAL DE RESPUESTA
+De conformidad con la Ley 1755 de 2015, la entidad destinataria debe emitir una respuesta de fondo, clara, congruente y oportuna dentro del termino legal aplicable a esta peticion.
+
+VI. PRUEBAS Y ANEXOS
+{_numbered_lines(evidence_items)}
+
+VII. NOTIFICACIONES
+Solicito que toda respuesta, decision o requerimiento relacionado con esta peticion se remita al correo {ctx['user_email']}, al telefono {ctx['user_phone']} y, si aplica, a la direccion fisica {ctx['address']}, {ctx['city']}, {ctx['department']}.
+
+Constancia de generacion: {generated_at}
+
+Atentamente,
+{ctx['user_name']}
+CC: {ctx['user_doc']}
+Correo: {ctx['user_email']}
+Telefono: {ctx['user_phone']}
+"""
+
+
 def _build_tutela_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     facts = case.get("facts") or {}
     intake = facts.get("intake_form") or {}
@@ -968,6 +1141,213 @@ Telefono: {user_phone}
 """
 
 
+def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
+    ctx = _health_context(case)
+    facts = ctx["facts"]
+    intake = ctx["intake"]
+    legal_analysis = ctx["legal_analysis"]
+    chronology_lines = _health_fact_lines(case)
+    evidence_items = _uploaded_evidence_items(case)
+    rights = _join_list(
+        legal_analysis.get("derechos_vulnerados"),
+        fallback="los derechos fundamentales a la salud y a la vida digna",
+    )
+    verified_basis = str(
+        legal_analysis.get("legal_basis_verified_summary")
+        or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
+    ).strip()
+    diagnosis = str(intake.get("diagnosis") or "").strip()
+    treatment_needed = str(intake.get("treatment_needed") or "").strip()
+    subsidiarity = _sentence(
+        intake.get("tutela_other_means_detail")
+        or intake.get("eps_response_detail")
+        or "La accion de tutela resulta procedente porque la gestion previa ante la EPS no soluciono la barrera actual y la proteccion no admite mas demora.",
+        "La accion de tutela resulta procedente porque la gestion previa ante la EPS no soluciono la barrera actual y la proteccion no admite mas demora.",
+    )
+    immediacy = _sentence(
+        intake.get("tutela_immediacy_detail")
+        or intake.get("urgency_detail")
+        or intake.get("ongoing_harm")
+        or "La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.",
+        "La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.",
+    )
+    no_temerity = _sentence(
+        intake.get("tutela_no_temperity_detail")
+        or intake.get("tutela_oath_statement")
+        or "Bajo la gravedad del juramento manifiesto que no he presentado otra accion de tutela por los mismos hechos, derechos y pretensiones, salvo lo que se informe expresamente en este escrito.",
+        "Bajo la gravedad del juramento manifiesto manifiesto que no he presentado otra accion de tutela por los mismos hechos, derechos y pretensiones.",
+    )
+    legal_basis_text = (
+        "La presente accion de tutela se sustenta en el articulo 86 de la Constitucion Politica, el articulo 49 superior, la Ley Estatutaria 1751 de 2015 y el Decreto 2591 de 1991, "
+        "en cuanto imponen la proteccion inmediata del derecho fundamental a la salud cuando una EPS o IPS impone barreras que impiden el acceso oportuno al servicio ordenado."
+    )
+    if diagnosis:
+        legal_basis_text = f"{legal_basis_text} El diagnostico reportado en este caso es {diagnosis}."
+    if verified_basis:
+        legal_basis_text = f"{legal_basis_text} {verified_basis}".strip()
+    tutela_requests = _dedupe_lines([
+        f"AMPARAR de manera inmediata {rights}.",
+        (
+            f"ORDENAR a {ctx['accionado']} que autorice, programe y garantice de forma efectiva {treatment_needed}."
+            if treatment_needed
+            else f"ORDENAR a {ctx['accionado']} que autorice, programe y garantice de forma efectiva el servicio de salud requerido."
+        ),
+        "ORDENAR que la entidad accionada informe a este despacho y a la parte accionante el cumplimiento integral de lo resuelto.",
+    ])
+    if str(intake.get("special_protection") or "").strip() and str(intake.get("special_protection")).strip().lower() not in {"no aplica", "ninguno"}:
+        tutela_requests.append("DAR aplicacion preferente al principio de proteccion reforzada por tratarse de una persona con especial proteccion constitucional.")
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return f"""Señor Juez Constitucional (Reparto)
+{ctx['city']}, {ctx['department']}
+
+Referencia: ACCION DE TUTELA PARA LA PROTECCION DE {rights.upper()}
+
+I. COMPETENCIA Y REPARTO
+Por la naturaleza de los hechos expuestos y la necesidad de proteccion inmediata de derechos fundamentales, solicito el reparto de esta accion de tutela al despacho competente.
+
+II. IDENTIFICACION DEL ACCIONANTE Y DEL ACCIONADO
+Yo, {ctx['user_name']}, persona mayor de edad, titular de la cedula de ciudadania No. {ctx['user_doc']}, con domicilio en {ctx['address']}, {ctx['city']}, {ctx['department']}, correo electronico {ctx['user_email']} y telefono {ctx['user_phone']}, actuando en nombre propio o en representacion de la persona afectada segun lo expuesto en los hechos, presento accion de tutela contra {ctx['accionado']}, con fundamento en el articulo 86 de la Constitucion Politica y el Decreto 2591 de 1991.
+
+III. HECHOS CRONOLOGICOS
+{_numbered_lines(chronology_lines)}
+
+IV. DERECHOS FUNDAMENTALES VULNERADOS
+Conforme a los hechos narrados, considero comprometidos los siguientes derechos fundamentales: {rights}.
+
+V. FUNDAMENTO JURIDICO
+{legal_basis_text}
+
+VI. PROCEDENCIA
+Subsidiariedad: {subsidiarity}
+
+Inmediatez: {immediacy}
+
+VII. PRETENSIONES
+{_numbered_lines(tutela_requests)}
+
+VIII. PRUEBAS Y ANEXOS
+{_numbered_lines(evidence_items)}
+
+IX. JURAMENTO DE NO TEMERIDAD
+{no_temerity}
+
+X. NOTIFICACIONES
+Solicito que las notificaciones del presente tramite sean remitidas al correo {ctx['user_email']}, al telefono {ctx['user_phone']} y, si aplica, a la direccion fisica {ctx['address']}, {ctx['city']}, {ctx['department']}.
+
+Constancia de generacion: {generated_at}
+
+Atentamente,
+{ctx['user_name']}
+CC: {ctx['user_doc']}
+Correo: {ctx['user_email']}
+Telefono: {ctx['user_phone']}
+"""
+
+
+def _build_health_impugnacion_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
+    ctx = _health_context(case)
+    intake = ctx["intake"]
+    facts = ctx["facts"]
+    legal_analysis = ctx["legal_analysis"]
+    chronology_lines = _health_fact_lines(case)
+    ruling_date = str(intake.get("tutela_ruling_date") or "").strip() or "fecha que debe precisarse con la notificacion del fallo"
+    appeal_reason = str(intake.get("tutela_appeal_reason") or "").strip() or "El fallo no valoro integralmente la urgencia del caso ni la barrera actual de la EPS."
+    verified_basis = str(
+        legal_analysis.get("legal_basis_verified_summary")
+        or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
+    ).strip()
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return f"""Señor Juez Constitucional de Segunda Instancia
+{ctx['city']}, {ctx['department']}
+
+Referencia: IMPUGNACION DE TUTELA EN SALUD
+
+I. IDENTIFICACION DEL FALLO IMPUGNADO
+Por medio del presente escrito impugno el fallo de tutela notificado el {ruling_date}, relacionado con el expediente de salud promovido contra {ctx['accionado']}.
+
+II. PARTES
+Accionante: {ctx['user_name']}, CC {ctx['user_doc']}
+Accionada: {ctx['accionado']}
+
+III. HECHOS RELEVANTES DEL TRAMITE
+{_numbered_lines(chronology_lines)}
+
+IV. RAZONES DE IMPUGNACION
+1. El fallo impugnado no valoro de manera suficiente la afectacion actual del paciente ni la necesidad de proteccion inmediata.
+2. Motivo principal de desacuerdo: {_sentence(appeal_reason)}
+3. La decision cuestionada no agoto una lectura integral de los soportes medicos y de la barrera administrativa impuesta por la entidad accionada.
+
+V. FUNDAMENTO JURIDICO
+La impugnacion se presenta al amparo del articulo 86 de la Constitucion Politica y del Decreto 2591 de 1991, en procura de una segunda revision judicial integral del caso. {verified_basis}
+
+VI. SOLICITUDES A LA SEGUNDA INSTANCIA
+1. REVOCAR o MODIFICAR el fallo impugnado en lo desfavorable a la parte accionante.
+2. CONCEDER la proteccion integral de los derechos fundamentales comprometidos.
+3. ORDENAR a {ctx['accionado']} el cumplimiento efectivo de la prestacion en salud requerida.
+
+VII. PRUEBAS Y ANEXOS
+{_numbered_lines(_uploaded_evidence_items(case))}
+
+VIII. NOTIFICACIONES
+Solicito que las notificaciones se remitan al correo {ctx['user_email']}, al telefono {ctx['user_phone']} y, si aplica, a la direccion fisica {ctx['address']}, {ctx['city']}, {ctx['department']}.
+
+Constancia de generacion: {generated_at}
+
+Atentamente,
+{ctx['user_name']}
+CC: {ctx['user_doc']}
+"""
+
+
+def _build_health_desacato_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
+    ctx = _health_context(case)
+    intake = ctx["intake"]
+    facts = ctx["facts"]
+    legal_analysis = ctx["legal_analysis"]
+    chronology_lines = _health_fact_lines(case)
+    ruling_date = str(intake.get("tutela_ruling_date") or "").strip() or "fecha que debe precisarse con el fallo"
+    noncompliance = str(intake.get("tutela_noncompliance_detail") or "").strip() or "La entidad accionada no ha cumplido integralmente la orden judicial de salud y la barrera persiste."
+    verified_basis = str(
+        legal_analysis.get("legal_basis_verified_summary")
+        or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
+    ).strip()
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return f"""Señor Juez Constitucional de Primera Instancia
+{ctx['city']}, {ctx['department']}
+
+Referencia: INCIDENTE DE DESACATO EN SALUD
+
+I. IDENTIFICACION DEL FALLO Y DE LA ORDEN INCUMPLIDA
+Promuevo incidente de desacato respecto del fallo de tutela notificado el {ruling_date}, proferido dentro del tramite adelantado contra {ctx['accionado']}, por cuanto la orden judicial de garantizar el servicio de salud requerido no ha sido cumplida.
+
+II. HECHOS POSTERIORES AL FALLO
+{_numbered_lines(chronology_lines)}
+
+III. INCUMPLIMIENTO ACTUAL
+{_sentence(noncompliance)}
+
+IV. FUNDAMENTO JURIDICO
+El presente incidente se formula con fundamento en el articulo 86 de la Constitucion Politica y en el regimen del Decreto 2591 de 1991 aplicable al desacato por incumplimiento de fallos de tutela. {verified_basis}
+
+V. SOLICITUDES
+1. DECLARAR que existe incumplimiento del fallo de tutela referido.
+2. ORDENAR el cumplimiento inmediato e integral de la decision judicial.
+3. ADOPTAR las medidas correctivas y sancionatorias a que haya lugar frente al responsable del incumplimiento.
+
+VI. PRUEBAS Y ANEXOS
+{_numbered_lines(_uploaded_evidence_items(case))}
+
+VII. NOTIFICACIONES
+Solicito que las notificaciones se remitan al correo {ctx['user_email']}, al telefono {ctx['user_phone']} y, si aplica, a la direccion fisica {ctx['address']}, {ctx['city']}, {ctx['department']}.
+
+Constancia de generacion: {generated_at}
+
+Atentamente,
+{ctx['user_name']}
+CC: {ctx['user_doc']}
+"""
+
+
 def _build_generic_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     facts = case.get("facts") or {}
     insights = facts.get("document_insights") or {}
@@ -1025,6 +1405,16 @@ Telefono: {user_phone}
 
 def build_document(case: dict[str, Any]) -> str:
     rule = get_document_rule(case.get("recommended_action"), case.get("workflow_type"))
+    is_health_block = str(case.get("categoria") or case.get("category") or "").strip().lower() == "salud"
+    if is_health_block:
+        if rule["action_key"] == "accion de tutela":
+            return _build_health_tutela_document(case, rule)
+        if rule["action_key"] == "impugnacion de tutela":
+            return _build_health_impugnacion_document(case, rule)
+        if rule["action_key"] == "incidente de desacato":
+            return _build_health_desacato_document(case, rule)
+        if "derecho de peticion" in rule["action_key"]:
+            return _build_health_petition_document(case, rule)
     if rule["action_key"] == "accion de tutela":
         return _build_tutela_document(case, rule)
     if rule["action_key"] in {"reclamacion financiera", "derecho de peticion financiero"}:
