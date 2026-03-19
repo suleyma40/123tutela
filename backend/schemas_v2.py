@@ -153,6 +153,7 @@ class EntityAutocompleteResponse(BaseModel):
 class WompiCheckoutSessionRequest(BaseModel):
     product_code: str | None = Field(default=None, min_length=3, max_length=80)
     include_filing: bool = False
+    add_on_type: str | None = Field(default=None, pattern="^(filing_auto|filing_guide|follow_up)$")
 
 
 class PaymentOrderResponse(BaseModel):

@@ -111,6 +111,30 @@ SIMPLE_SIGNATURE_CONSENT_TEXT = (
     "y metadatos tecnicos del envio disponibles en el sistema."
 )
 
+ADDON_PRICES_COP = {
+    "filing_auto": 34_000,
+    "filing_guide": 17_000,
+    "follow_up": 17_000,
+}
+
+ADDON_ORDER_CONFIG = {
+    "filing_auto": {
+        "code": "addon_filing_auto",
+        "name": "Radicacion por 123tutela",
+        "description": "Gestion de radicacion por parte de 123tutela cuando el canal lo permita.",
+    },
+    "filing_guide": {
+        "code": "addon_filing_guide",
+        "name": "Guia de radicacion",
+        "description": "Entrega de guia operativa para que la persona usuaria radique el documento.",
+    },
+    "follow_up": {
+        "code": "addon_follow_up",
+        "name": "Seguimiento del caso",
+        "description": "Seguimiento posterior de novedades y trazabilidad del expediente.",
+    },
+}
+
 
 def _normalize_user(user: dict[str, Any]) -> UserResponse:
     safe_user = {key: value for key, value in user.items() if key != "password_hash"}
@@ -599,6 +623,24 @@ def _refresh_verified_case_context(case: dict[str, Any]) -> dict[str, Any]:
         legal_analysis=legal_analysis,
         source_validation_policy=source_validation_policy,
     )
+
+
+def _payment_entitlements_from_orders(orders: list[dict[str, Any]]) -> dict[str, Any]:
+    approved = [item for item in orders if _lower(item.get("status")) == "approved"]
+    approved_codes = {_lower(item.get("product_code")) for item in approved}
+    document_paid = bool(approved)
+    filing_paid = any(
+        bool(item.get("include_filing")) or _lower(item.get("product_code")) == "addon_filing_auto"
+        for item in approved
+    )
+    guide_paid = filing_paid or "addon_filing_guide" in approved_codes
+    follow_up_paid = "addon_follow_up" in approved_codes
+    return {
+        "document_paid": document_paid,
+        "filing_auto_paid": filing_paid,
+        "filing_guide_paid": guide_paid,
+        "follow_up_paid": follow_up_paid,
+    }
     legal_analysis["legal_basis_verified_summary"] = source_validation_policy["legal_basis_verified_summary"]
     agent_state = build_health_agent_state(
         category=case.get("categoria") or case.get("category") or "",
@@ -885,8 +927,13 @@ def _reconcile_case_payment(case: dict[str, Any]) -> dict[str, Any]:
 def _snapshot_case_detail(case: dict[str, Any]) -> CaseDetailResponse:
     case = _reconcile_case_payment(case)
     files = repository.list_files_for_case(str(case["id"]))
+    orders = repository.list_payment_orders_for_case(str(case["id"]))
     attempts = repository.list_submission_attempts(str(case["id"]))
     events = repository.list_case_events(str(case["id"]))
+    case["submission_summary"] = {
+        **(case.get("submission_summary") or {}),
+        "payment_entitlements": _payment_entitlements_from_orders(orders),
+    }
     return CaseDetailResponse(
         case=_normalize_case(case),
         files=[_normalize_file(item) for item in files],
@@ -1485,32 +1532,48 @@ def create_wompi_checkout_session(
     case = repository.get_case_for_user(case_id, str(current_user["id"]))
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
+    if case.get("payment_status") == "pagado" and not payload.add_on_type:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este trámite ya tiene el pago base aprobado.")
+
     if case.get("payment_status") == "pagado":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este trámite ya tiene un pago aprobado.")
+        add_on_type = _lower(payload.add_on_type)
+        config = ADDON_ORDER_CONFIG.get(add_on_type)
+        if not config:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fue posible determinar el adicional a cobrar.")
+        product_code = config["code"]
+        product_name = config["name"]
+        include_filing = add_on_type == "filing_auto"
+        amount_cop = ADDON_PRICES_COP[add_on_type]
+        amount_in_cents = amount_cop_to_cents(amount_cop)
+        reference = build_reference(case_id, product_code)
+        description = config["description"]
+    else:
+        product_code = payload.product_code or suggest_product_code(case.get("recommended_action"))
+        product = get_product(product_code or "")
+        if not product:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fue posible determinar el producto a cobrar.")
 
-    product_code = payload.product_code or suggest_product_code(case.get("recommended_action"))
-    product = get_product(product_code or "")
-    if not product:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fue posible determinar el producto a cobrar.")
-
-    amount_cop = product.price_with_filing_cop if payload.include_filing else product.price_cop
-    amount_in_cents = amount_cop_to_cents(amount_cop)
-    reference = build_reference(case_id, product.code)
-    product_name = product.name if not payload.include_filing else f"{product.name} + radicación"
+        amount_cop = product.price_with_filing_cop if payload.include_filing else product.price_cop
+        amount_in_cents = amount_cop_to_cents(amount_cop)
+        reference = build_reference(case_id, product.code)
+        product_name = product.name if not payload.include_filing else f"{product.name} + radicación"
+        product_code = product.code
+        include_filing = payload.include_filing
+        description = product.short_description
     checkout = build_checkout_payload(
         reference=reference,
         amount_in_cents=amount_in_cents,
         product_name=product_name,
-        description=product.short_description,
+        description=description,
         customer_email=current_user["email"],
     )
     order = repository.create_payment_order(
         case_id=case_id,
         user_id=str(current_user["id"]),
         environment=settings.wompi_environment,
-        product_code=product.code,
+        product_code=product_code,
         product_name=product_name,
-        include_filing=payload.include_filing,
+        include_filing=include_filing,
         amount_cop=amount_cop,
         amount_in_cents=amount_in_cents,
         currency="COP",
@@ -1524,9 +1587,10 @@ def create_wompi_checkout_session(
         actor_id=str(current_user["id"]),
         payload={
             "reference": reference,
-            "product_code": product.code,
+            "product_code": product_code,
             "product_name": product_name,
-            "include_filing": payload.include_filing,
+            "include_filing": include_filing,
+            "add_on_type": payload.add_on_type,
             "amount_cop": amount_cop,
         },
     )
@@ -1740,6 +1804,7 @@ def submit_case(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Genera el documento antes de radicar.")
     signature = _normalize_submission_signature(payload.signature, reviewed_document=payload.reviewed_document, request=request)
     submission_policy = get_submission_policy(case)
+    payment_entitlements = _payment_entitlements_from_orders(repository.list_payment_orders_for_case(case_id))
     allowed_modes = submission_policy.get("allowed_modes") or ["auto", "manual_contact", "presencial"]
     if payload.mode not in allowed_modes:
         raise HTTPException(
@@ -1766,6 +1831,16 @@ def submit_case(
                 "Este envio apunta a un juzgado o correo real de reparto. "
                 "Debes confirmar expresamente que verificaste el documento final y que autorizas enviar a un destino judicial real."
             ),
+        )
+    if payload.mode == "auto" and not payment_entitlements.get("filing_auto_paid"):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Debes pagar el adicional de radicación por nosotros antes de ejecutar este envío.",
+        )
+    if payload.mode == "manual_contact" and not payment_entitlements.get("filing_guide_paid"):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Debes pagar el adicional de guía de radicación antes de usar esta opción.",
         )
 
     status_value = "enviado"
