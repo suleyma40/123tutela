@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import re
 from typing import Any
+import unicodedata
 
 from backend.agent_registry import resolve_health_document
 from backend.document_rules import get_document_rule
@@ -41,6 +42,13 @@ def _sentence(value: str | None, fallback: str = "No informado.") -> str:
     if text[-1] not in ".;:":
         text += "."
     return text
+
+
+def _normalize_writer_text(value: str) -> str:
+    text = str(value or "")
+    normalized = unicodedata.normalize("NFKD", text)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"\s+", " ", ascii_text).strip().lower()
 
 
 def _list_from_insights(value: Any) -> list[str]:
@@ -510,30 +518,160 @@ def _health_context(case: dict[str, Any]) -> dict[str, Any]:
         "primary": primary,
         "document_profile": document_profile,
         "accionado": accionado,
-        "user_name": _person_name(case.get("usuario_nombre")),
-        "user_doc": case.get("usuario_documento") or "Sin documento registrado",
-        "user_email": case.get("usuario_email") or "Sin correo",
-        "user_phone": case.get("usuario_telefono") or "Sin telefono",
-        "address": case.get("usuario_direccion") or "Sin direccion registrada",
-        "city": _titleish_place(case.get("usuario_ciudad")),
-        "department": _titleish_place(case.get("usuario_departamento")),
+        "user_name": _person_name(case.get("usuario_nombre") or intake.get("full_name")),
+        "user_doc": case.get("usuario_documento") or intake.get("document_number") or "Sin documento registrado",
+        "user_email": case.get("usuario_email") or intake.get("email") or "Sin correo",
+        "user_phone": case.get("usuario_telefono") or intake.get("phone") or "Sin telefono",
+        "address": case.get("usuario_direccion") or intake.get("address") or "Sin direccion registrada",
+        "city": _titleish_place(case.get("usuario_ciudad") or intake.get("city")),
+        "department": _titleish_place(case.get("usuario_departamento") or intake.get("department")),
     }
+
+
+def _infer_health_patient_name(case: dict[str, Any]) -> str:
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    direct = str(intake.get("represented_person_name") or "").strip()
+    if direct:
+        return _person_name(direct)
+    uploaded_files = facts.get("uploaded_evidence_files") or []
+    token_counts: dict[str, int] = {}
+    ignored = {
+        "registro",
+        "medicamentos",
+        "medicamento",
+        "ayudas",
+        "diagnosticas",
+        "diagnosticos",
+        "diagnostico",
+        "historia",
+        "clinica",
+        "clinico",
+        "orden",
+        "formula",
+        "respuesta",
+        "eps",
+        "pdf",
+        "png",
+        "jpg",
+        "jpeg",
+        "doc",
+        "docx",
+    }
+    for file_info in uploaded_files:
+        raw_name = str((file_info or {}).get("original_name") or "")
+        cleaned = re.sub(r"\.[A-Za-z0-9]+$", "", raw_name)
+        parts = re.findall(r"[A-Za-zÁÉÍÓÚáéíóúÑñ]{3,}", cleaned)
+        for part in parts:
+            lowered = part.lower()
+            if lowered in ignored:
+                continue
+            token_counts[lowered] = token_counts.get(lowered, 0) + 1
+    if not token_counts:
+        return ""
+    winner = max(token_counts.items(), key=lambda item: (item[1], len(item[0])))
+    return _person_name(winner[0]) if winner[1] >= 1 else ""
+
+
+def _infer_health_relationship(case: dict[str, Any], patient_name: str) -> str:
+    if not patient_name:
+        return ""
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    explicit = str(intake.get("represented_person_relationship") or "").strip()
+    if explicit:
+        return explicit
+    description = _normalize_writer_text(str(case.get("descripcion") or ""))
+    if "mi hijo" in description or "mi hija" in description:
+        return "madre y acudiente"
+    acting_capacity = str(intake.get("acting_capacity") or "").strip().lower()
+    special_protection = str(intake.get("special_protection") or "").strip().lower()
+    if acting_capacity and acting_capacity != "nombre_propio" and special_protection == "menor de edad":
+        return "acudiente"
+    return ""
+
+
+def _filtered_health_context_lines(case: dict[str, Any]) -> list[str]:
+    raw = _dedupe_lines(_generic_facts(case))
+    filtered: list[str] = []
+    banned_fragments = (
+        "la persona usuaria informa",
+        "los hitos temporales informados",
+        "las referencias temporales relevantes",
+        "se identifica como entidad o destinatario involucrado",
+        "frente a dicha gestion previa",
+        "mi hijo",
+        "mi hija",
+    )
+    for item in raw:
+        lowered = item.lower()
+        if any(fragment in lowered for fragment in banned_fragments):
+            continue
+        if lowered.startswith("hace ") and "eps" in lowered and ("medicamento" in lowered or "medicamentos" in lowered):
+            continue
+        filtered.append(item)
+    return filtered
+
+
+def _line_keywords(value: str) -> set[str]:
+    stopwords = {
+        "ante",
+        "bajo",
+        "cada",
+        "como",
+        "con",
+        "contra",
+        "cuando",
+        "dicho",
+        "dicha",
+        "desde",
+        "donde",
+        "esta",
+        "este",
+        "esta",
+        "frente",
+        "hace",
+        "para",
+        "pero",
+        "porque",
+        "quien",
+        "sobre",
+        "sigue",
+        "tiene",
+        "tutela",
+        "salud",
+    }
+    tokens = re.findall(r"[a-z0-9]{4,}", _normalize_writer_text(value))
+    return {token for token in tokens if token not in stopwords}
+
+
+def _is_redundant_health_line(candidate: str, existing: list[str]) -> bool:
+    candidate_tokens = _line_keywords(candidate)
+    if not candidate_tokens:
+        return False
+    for line in existing:
+        line_tokens = _line_keywords(line)
+        overlap = candidate_tokens & line_tokens
+        if len(overlap) >= max(3, int(len(candidate_tokens) * 0.6)):
+            return True
+    return False
 
 
 def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     ctx = _health_context(case)
     intake = ctx["intake"]
     facts = ctx["facts"]
-    chronology_lines = _dedupe_lines(_generic_facts(case))
+    chronology_lines = _filtered_health_context_lines(case)
 
     acting_capacity = str(intake.get("acting_capacity") or "").strip()
-    represented_person_name = str(intake.get("represented_person_name") or "").strip()
+    represented_person_name = _infer_health_patient_name(case)
+    represented_person_relationship = _infer_health_relationship(case, represented_person_name)
     represented_person_age = str(intake.get("represented_person_age") or "").strip()
     target_entity = ctx["accionado"]
     diagnosis = str(intake.get("diagnosis") or "").strip()
     treatment_needed = str(intake.get("treatment_needed") or "").strip()
     medical_order_date = str(intake.get("medical_order_date") or "").strip()
-    treating_doctor_name = str(intake.get("treating_doctor_name") or "").strip()
+    treating_doctor_name = str(intake.get("treating_doctor_name") or intake.get("treating_physician") or "").strip()
     treating_ips_name = str(intake.get("treating_ips_name") or intake.get("ips_name") or "").strip()
     eps_request_date = str(intake.get("eps_request_date") or "").strip()
     eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
@@ -543,9 +681,10 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     special_protection = str(intake.get("special_protection") or "").strip()
 
     lines: list[str] = []
-    if acting_capacity and acting_capacity != "nombre_propio" and represented_person_name:
+    if represented_person_name and (acting_capacity and acting_capacity != "nombre_propio" or str(intake.get("special_protection") or "").strip().lower() == "menor de edad"):
         age_fragment = f", de {represented_person_age}" if represented_person_age else ""
-        lines.append(f"La presente actuacion se promueve a favor de {represented_person_name}{age_fragment}, persona directamente afectada por la barrera en salud aqui denunciada.")
+        relationship_fragment = f", en calidad de {represented_person_relationship}" if represented_person_relationship else ""
+        lines.append(f"La presente actuacion se promueve a favor de {represented_person_name}{age_fragment}, persona directamente afectada por la barrera en salud aqui denunciada{relationship_fragment}.")
     if medical_order_date and treatment_needed:
         doctor_fragment = f" por el medico tratante {treating_doctor_name}" if treating_doctor_name else ""
         ips_fragment = f", adscrito a {treating_ips_name}" if treating_ips_name else ""
@@ -570,7 +709,11 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
             if item and item not in lines:
                 lines.append(_sentence(item))
 
-    return _dedupe_lines(lines + chronology_lines)
+    merged = list(lines)
+    for item in chronology_lines:
+        if not _is_redundant_health_line(item, merged):
+            merged.append(item)
+    return _dedupe_lines(merged)
 
 
 def _health_jurisprudence_lines(case: dict[str, Any], *, limit: int = 4) -> list[str]:
@@ -1185,25 +1328,56 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     ).strip()
     diagnosis = str(intake.get("diagnosis") or "").strip()
     treatment_needed = str(intake.get("treatment_needed") or "").strip()
+    represented_person_name = _infer_health_patient_name(case)
+    represented_person_relationship = _infer_health_relationship(case, represented_person_name)
+    represented_person_age = str(intake.get("represented_person_age") or "").strip()
+    special_protection = str(intake.get("special_protection") or "").strip()
+    eps_request_date = str(intake.get("eps_request_date") or "").strip()
+    eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
+    eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
+    eps_response_detail = str(intake.get("eps_response_detail") or "").strip()
+    urgency_detail = str(
+        intake.get("urgency_detail")
+        or intake.get("ongoing_harm")
+        or intake.get("tutela_immediacy_detail")
+        or ""
+    ).strip()
+    description_lower = str(case.get("descripcion") or "").lower()
+    represented_fragment = ""
+    if represented_person_name:
+        age_fragment = f", de {represented_person_age}" if represented_person_age else ""
+        role = "actuando en representacion"
+        if represented_person_relationship:
+            role = f"actuando en calidad de {represented_person_relationship}"
+        elif special_protection.lower() == "menor de edad":
+            role = "actuando como acudiente"
+        represented_fragment = f", {role} de {represented_person_name}{age_fragment}, persona directamente afectada por la barrera en salud descrita"
+    subsidiarity_base = (
+        str(intake.get("tutela_other_means_detail") or "").strip()
+        or (
+            f"El dia {eps_request_date} se solicito ante {ctx['accionado']} la autorizacion o prestacion de {treatment_needed or 'el servicio de salud requerido'}"
+            + (f" a traves de {eps_request_channel}" if eps_request_channel else "")
+            + (f", bajo el radicado o referencia {eps_request_reference}" if eps_request_reference else "")
+            + "."
+            if eps_request_date
+            else ""
+        )
+        or (
+            f"Frente a esa gestion previa, la entidad accionada incurrio en la siguiente respuesta u omision: {_sentence(eps_response_detail)}"
+            if eps_response_detail
+            else ""
+        )
+        or "La gestion previa ante la EPS no removio la barrera actual ni garantizo el acceso oportuno al servicio ordenado."
+    )
     subsidiarity = _sentence(
-        intake.get("tutela_other_means_detail")
-        or intake.get("eps_response_detail")
-        or "La accion de tutela resulta procedente porque la gestion previa ante la EPS no soluciono la barrera actual y la proteccion no admite mas demora.",
+        f"{subsidiarity_base} Los mecanismos ordinarios ante la EPS o de reclamacion administrativa no resultan eficaces en este caso concreto, porque la proteccion requerida es inmediata y no admite una espera adicional sin agravamiento del dano.",
         "La accion de tutela resulta procedente porque la gestion previa ante la EPS no soluciono la barrera actual y la proteccion no admite mas demora.",
     )
     immediacy = _sentence(
-        intake.get("tutela_immediacy_detail")
-        or intake.get("urgency_detail")
-        or intake.get("ongoing_harm")
-        or "La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.",
+        f"{_sentence(urgency_detail or 'La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.', fallback='La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.')} La accion se presenta para evitar un perjuicio irremediable derivado de la falta de entrega o autorizacion oportuna del servicio de salud ordenado.",
         "La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.",
     )
-    no_temerity = _sentence(
-        intake.get("tutela_no_temperity_detail")
-        or intake.get("tutela_oath_statement")
-        or "Bajo la gravedad del juramento manifiesto que no he presentado otra accion de tutela por los mismos hechos, derechos y pretensiones, salvo lo que se informe expresamente en este escrito.",
-        "Bajo la gravedad del juramento manifiesto manifiesto que no he presentado otra accion de tutela por los mismos hechos, derechos y pretensiones.",
-    )
+    no_temerity = "Bajo la gravedad del juramento manifiesto que no he interpuesto otra accion de tutela por los mismos hechos, derechos y contra la misma entidad accionada, en los terminos del articulo 17 del Decreto 2591 de 1991."
     legal_basis_text = (
         "La presente accion de tutela se sustenta en el articulo 86 de la Constitucion Politica, el articulo 49 superior, la Ley Estatutaria 1751 de 2015 y el Decreto 2591 de 1991, "
         "en cuanto imponen la proteccion inmediata del derecho fundamental a la salud cuando una EPS o IPS impone barreras que impiden el acceso oportuno al servicio ordenado."
@@ -1212,16 +1386,28 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
         legal_basis_text = f"{legal_basis_text} El diagnostico reportado en este caso es {diagnosis}."
     if verified_basis:
         legal_basis_text = f"{legal_basis_text} {verified_basis}".strip()
+    provisional_measure = bool(
+        urgency_detail
+        or special_protection.lower() == "menor de edad"
+        or "hospital" in description_lower
+        or "hospital" in urgency_detail.lower()
+    )
     tutela_requests = _dedupe_lines([
         f"AMPARAR de manera inmediata {rights}.",
+        (
+            f"ORDENAR como medida provisional a {ctx['accionado']} que, dentro de las cuarenta y ocho (48) horas siguientes a la notificacion de la providencia, autorice, entregue y garantice de manera efectiva {treatment_needed}."
+            if provisional_measure and treatment_needed
+            else ""
+        ),
         (
             f"ORDENAR a {ctx['accionado']} que autorice, programe y garantice de forma efectiva {treatment_needed}."
             if treatment_needed
             else f"ORDENAR a {ctx['accionado']} que autorice, programe y garantice de forma efectiva el servicio de salud requerido."
         ),
+        "GARANTIZAR el tratamiento integral, continuo y oportuno que determine el medico tratante, de conformidad con el principio de integralidad aplicable en salud.",
         "ORDENAR que la entidad accionada informe a este despacho y a la parte accionante el cumplimiento integral de lo resuelto.",
     ])
-    if str(intake.get("special_protection") or "").strip() and str(intake.get("special_protection")).strip().lower() not in {"no aplica", "ninguno"}:
+    if special_protection and special_protection.lower() not in {"no aplica", "ninguno"}:
         tutela_requests.append("DAR aplicacion preferente al principio de proteccion reforzada por tratarse de una persona con especial proteccion constitucional.")
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return f"""Señor Juez Constitucional (Reparto)
@@ -1233,7 +1419,7 @@ I. COMPETENCIA Y REPARTO
 Por la naturaleza de los hechos expuestos y la necesidad de proteccion inmediata de derechos fundamentales, solicito el reparto de esta accion de tutela al despacho competente.
 
 II. IDENTIFICACION DEL ACCIONANTE Y DEL ACCIONADO
-Yo, {ctx['user_name']}, persona mayor de edad, titular de la cedula de ciudadania No. {ctx['user_doc']}, con domicilio en {ctx['address']}, {ctx['city']}, {ctx['department']}, correo electronico {ctx['user_email']} y telefono {ctx['user_phone']}, actuando en nombre propio o en representacion de la persona afectada segun lo expuesto en los hechos, presento accion de tutela contra {ctx['accionado']}, con fundamento en el articulo 86 de la Constitucion Politica y el Decreto 2591 de 1991.
+Yo, {ctx['user_name']}, persona mayor de edad, titular de la cedula de ciudadania No. {ctx['user_doc']}, con domicilio en {ctx['address']}, {ctx['city']}, {ctx['department']}, correo electronico {ctx['user_email']} y telefono {ctx['user_phone']}{represented_fragment}, presento accion de tutela contra {ctx['accionado']}, con fundamento en el articulo 86 de la Constitucion Politica y el Decreto 2591 de 1991.
 
 III. HECHOS CRONOLOGICOS
 {_numbered_lines(chronology_lines)}
@@ -1252,16 +1438,19 @@ Subsidiariedad: {subsidiarity}
 
 Inmediatez: {immediacy}
 
-VII. PRETENSIONES
+VII. SOLICITUD DE MEDIDA PROVISIONAL
+Con fundamento en el articulo 7 del Decreto 2591 de 1991, solicito que se adopte medida provisional inmediata para evitar la prolongacion del dano actual mientras se decide de fondo la presente accion, en especial mediante la entrega, autorizacion o prestacion urgente del servicio de salud requerido.
+
+VIII. PRETENSIONES
 {_numbered_lines(tutela_requests)}
 
-VIII. PRUEBAS Y ANEXOS
+IX. PRUEBAS Y ANEXOS
 {_numbered_lines(evidence_items)}
 
-IX. JURAMENTO DE NO TEMERIDAD
+X. JURAMENTO DE NO TEMERIDAD
 {no_temerity}
 
-X. NOTIFICACIONES
+XI. NOTIFICACIONES
 Solicito que las notificaciones del presente tramite sean remitidas al correo {ctx['user_email']}, al telefono {ctx['user_phone']} y, si aplica, a la direccion fisica {ctx['address']}, {ctx['city']}, {ctx['department']}.
 
 Constancia de generacion: {generated_at}
