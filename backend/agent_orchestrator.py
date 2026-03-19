@@ -32,6 +32,14 @@ def _looks_partial_person_name(value: str) -> bool:
     return sum(1 for part in parts if len(part) > 1) < 2
 
 
+def _represented_identity_is_complete(*, name: str, age_or_birth: str, document: str) -> bool:
+    if _looks_partial_person_name(name):
+        return False
+    if not _text(age_or_birth):
+        return False
+    return bool(_text(document))
+
+
 def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflow_type: str) -> dict[str, Any] | None:
     acting_capacity = _lower(intake.get("acting_capacity"))
     attachment_suggestions = ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
@@ -155,6 +163,16 @@ def build_health_agent_state(
     uploaded_files = facts.get("uploaded_evidence_files") or []
     attachment_names = attachment_context.get("evidence_names") or []
     document_profile = resolve_health_document(workflow_type=workflow_type, recommended_action=recommended_action)
+    attachment_suggestions = (attachment_context.get("typed_suggestions") or {})
+    acting_capacity = _lower(intake.get("acting_capacity"))
+    represented_person_name = _text(intake.get("represented_person_name")) or _text(attachment_suggestions.get("represented_person_name"))
+    represented_person_age = (
+        _text(intake.get("represented_person_age"))
+        or _text(intake.get("represented_person_birth_date"))
+        or _text(attachment_suggestions.get("represented_person_age"))
+        or _text(attachment_suggestions.get("represented_person_birth_date"))
+    )
+    represented_person_document = _text(intake.get("represented_person_document")) or _text(attachment_suggestions.get("represented_person_document"))
 
     target_entity = _text(intake.get("target_entity") or intake.get("eps_name"))
     diagnosis = _text(intake.get("diagnosis"))
@@ -191,6 +209,12 @@ def build_health_agent_state(
             has_risk_context
             or has_barrier_context
             or _lower(intake.get("special_protection")) not in {"", "no aplica", "ninguno"}
+        )
+    if workflow_type == "tutela" and acting_capacity and acting_capacity != "nombre_propio":
+        can_generate = can_generate and _represented_identity_is_complete(
+            name=represented_person_name,
+            age_or_birth=represented_person_age,
+            document=represented_person_document,
         )
 
     inferred_risk = []
