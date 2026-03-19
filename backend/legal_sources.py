@@ -615,7 +615,7 @@ def _extract_legal_references(document: str) -> list[str]:
         r"\b(?:T|SU|C)-\d{1,4}[A-Z]?(?:/\d{2,4})?\b",
         r"\bLey\s+\d{1,4}\s+de\s+\d{4}\b",
         r"\bDecreto\s+\d{1,4}\s+de\s+\d{4}\b",
-        r"\b(?:Art(?:iculo|\.)?)\s+\d{1,3}\b",
+        r"\b(?:Art(?:iculo|ículo|\.?)?)\s+\d{1,3}\b",
         r"\bCircular(?:\s+Externa)?\s+\d{1,3}\s+de\s+\d{4}\b",
     ]
     found: list[str] = []
@@ -631,19 +631,26 @@ def _article_reference_is_contextually_verified(
     verified_names: set[str],
 ) -> bool:
     normalized = _lower(reference).strip()
+    normalized = normalized.replace("art.", "articulo ").replace("art ", "articulo ")
+    normalized = normalized.replace("artículo", "articulo")
     if not normalized.startswith("articulo"):
         return False
     article_number = re.findall(r"\d{1,3}", normalized)
     if not article_number:
         return False
     number = article_number[0]
-    lowered_document = _lower(document)
+    lowered_document = _lower(document).replace("artículo", "articulo")
     contextual_patterns = [
         rf"articulo\s+{number}\s+de\s+la\s+ley\s+\d{{1,4}}\s+de\s+\d{{4}}",
+        rf"art\.\s*{number}\s+de\s+la\s+ley\s+\d{{1,4}}\s+de\s+\d{{4}}",
         rf"articulo\s+{number}\s+del\s+decreto\s+\d{{1,4}}\s+de\s+\d{{4}}",
         rf"articulo\s+{number}\s+de\s+decreto\s+\d{{1,4}}\s+de\s+\d{{4}}",
+        rf"art\.\s*{number}\s+del\s+decreto\s+\d{{1,4}}\s+de\s+\d{{4}}",
+        rf"art\.\s*{number}\s+de\s+decreto\s+\d{{1,4}}\s+de\s+\d{{4}}",
         rf"articulo\s+{number}\s+de\s+la\s+constitucion",
         rf"articulo\s+{number}\s+de\s+la\s+constitucion\s+politica",
+        rf"art\.\s*{number}\s+de\s+la\s+constitucion",
+        rf"art\.\s*{number}\s+de\s+la\s+constitucion\s+politica",
     ]
     snippets: list[str] = []
     for pattern in contextual_patterns:

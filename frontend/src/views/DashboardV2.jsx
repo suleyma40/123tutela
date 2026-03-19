@@ -3686,7 +3686,7 @@ function PaidCaseAgentWorkspace({
       <div>
         <div style={{ color: C.text, fontSize: 24, fontWeight: 800 }}>Habla con el agente juridico de tu caso</div>
         <div style={{ marginTop: 6, color: C.textMuted, lineHeight: 1.7 }}>
-          Ya no tienes que llenar el formulario largo. El agente conoce la ruta legal, revisa tus anexos y te hara una pregunta a la vez hasta dejar el expediente listo para redactar.
+          Ya no tienes que llenar el formulario largo. El agente conoce la ruta legal, revisa tus anexos, identifica el riesgo actual del paciente y la barrera que esta imponiendo la EPS, y te hara una pregunta a la vez hasta dejar el expediente listo para redactar.
         </div>
       </div>
 
@@ -3742,7 +3742,7 @@ function PaidCaseAgentWorkspace({
             {activeInterviewStep ? "Guardar respuesta y seguir" : "Agregar al expediente"}
           </Button>
           <div style={{ color: C.textMuted, fontSize: 13 }}>
-            El agente formula las preguntas jurídicamente útiles y se encarga de la urgencia, procedencia y argumentación.
+            El agente formula las preguntas jurídicamente útiles y se encarga de detectar riesgo actual, barrera de la EPS, urgencia, procedencia y argumentación.
           </div>
         </div>
       </div>
