@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 import { Badge, Button, Field, SessionCard, TextArea, TextInput } from "../ui";
-import { C, CATEGORIES } from "../theme";
+import { ACTIVE_CASE_CATEGORIES, C, CATEGORIES } from "../theme";
 
 const iconMap = {
   Heart,
@@ -203,7 +203,7 @@ export default function Dashboard({
       {step === 1 && (
         <SessionCard title="1. Selecciona la categoría" subtitle="Esto orienta la búsqueda normativa y el destino operativo.">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-            {CATEGORIES.map((item) => {
+            {ACTIVE_CASE_CATEGORIES.map((item) => {
               const Icon = iconMap[item.icon];
               return (
                 <button

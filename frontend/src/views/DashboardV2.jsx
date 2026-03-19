@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Briefcase, CreditCard, FileText, HelpCircle, Lay
 
 import { api } from "../lib/api";
 import { Badge, Button, Field, SessionCard, TextArea, TextInput } from "../ui";
-import { C, CATEGORIES } from "../theme";
+import { ACTIVE_CASE_CATEGORIES, C } from "../theme";
 
 const priorActionMap = {
   Salud: [
@@ -4401,7 +4401,7 @@ export default function DashboardV2(props) {
               </div>
             )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              {CATEGORIES.map((item) => (
+              {ACTIVE_CASE_CATEGORIES.map((item) => (
                 <button
                   key={item.label}
                   onClick={() => setForm((current) => ({ ...current, category: item.label, prior_actions: [] }))}
@@ -4411,6 +4411,9 @@ export default function DashboardV2(props) {
                   <div style={{ color: C.textMuted, marginTop: 6, fontSize: 14 }}>{item.desc}</div>
                 </button>
               ))}
+            </div>
+            <div style={{ color: C.textMuted, fontSize: 13 }}>
+              Por ahora solo estamos habilitando casos de salud mientras terminamos de estabilizar los demas bloques.
             </div>
             <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", display: "grid", gap: 10 }}>
               <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>{writingGuide.title.toUpperCase()}</div>

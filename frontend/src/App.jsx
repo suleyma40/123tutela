@@ -373,11 +373,6 @@ const Dashboard = ({ onBack, user, onLogout }) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
               {[
                 { label: 'Salud', icon: Stethoscope, color: '#EF4444' },
-                { label: 'Laboral', icon: Briefcase, color: '#F59E0B' },
-                { label: 'Bancos', icon: Building2, color: '#8B5CF6' },
-                { label: 'Servicios', icon: Zap, color: '#06B6D4' },
-                { label: 'Consumidor', icon: ShoppingCart, color: '#10B981' },
-                { label: 'Datos', icon: Lock, color: '#EC4899' },
               ].map(cat => (
                 <div 
                   key={cat.label} 
@@ -396,6 +391,9 @@ const Dashboard = ({ onBack, user, onLogout }) => {
                   <div style={{ fontWeight: 700 }}>{cat.label}</div>
                 </div>
               ))}
+            </div>
+            <div style={{ marginTop: 16, color: 'rgba(255,255,255,0.72)', fontSize: 14 }}>
+              Por ahora solo estamos mostrando casos de salud mientras estabilizamos los demas bloques.
             </div>
           </div>
         );

@@ -22,3 +22,4 @@ export const CATEGORIES = [
   { label: "Consumidor", title: "Consumidor", desc: "Garantías, devoluciones y fallas de producto o servicio.", icon: "ShoppingCart", color: "#10B981" },
   { label: "Datos", title: "Datos Personales", desc: "Habeas data, corrección o eliminación de información.", icon: "Shield", color: "#EC4899" },
 ];
+export const ACTIVE_CASE_CATEGORIES = CATEGORIES.filter((item) => item.label === "Salud");
