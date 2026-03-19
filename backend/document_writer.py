@@ -51,6 +51,13 @@ def _normalize_writer_text(value: str) -> str:
     return re.sub(r"\s+", " ", ascii_text).strip().lower()
 
 
+def _title_sentence(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return text[:1].upper() + text[1:]
+
+
 def _list_from_insights(value: Any) -> list[str]:
     if isinstance(value, list):
         return [str(item).strip() for item in value if str(item).strip()]
@@ -602,10 +609,16 @@ def _filtered_health_context_lines(case: dict[str, Any]) -> list[str]:
         "frente a dicha gestion previa",
         "mi hijo",
         "mi hija",
+        "correo pqrs sugerido",
+        "con anterioridad, la persona usuaria presento reclamacion directa",
+        "relato detallado",
     )
     for item in raw:
         lowered = item.lower()
         if any(fragment in lowered for fragment in banned_fragments):
+            continue
+        stripped = lowered.strip(" .;:")
+        if stripped in {"guardo silencio", "guardó silencio", "no respondieron", "no respondio", "no respondió"}:
             continue
         if lowered.startswith("hace ") and "eps" in lowered and ("medicamento" in lowered or "medicamentos" in lowered):
             continue
@@ -657,6 +670,53 @@ def _is_redundant_health_line(candidate: str, existing: list[str]) -> bool:
     return False
 
 
+def _clean_health_raw_text(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = re.sub(r"(?i)^relato detallado:\s*", "", text).strip()
+    text = re.sub(r"(?i)^correo pqrs sugerido:\s*\S+\s*", "", text).strip()
+    if _normalize_writer_text(text) in {"guardo silencio", "guardó silencio", "no respondieron", "no respondio", "no respondió"}:
+        return text.lower()
+    return text
+
+
+def _formalize_health_response(value: str) -> str:
+    cleaned = _clean_health_raw_text(value)
+    normalized = _normalize_writer_text(cleaned)
+    if not cleaned:
+        return ""
+    if normalized in {"guardo silencio", "guardó silencio"}:
+        return "La EPS guardo silencio y no emitio respuesta de fondo frente a la solicitud presentada."
+    if normalized in {"no respondieron", "no respondio", "no respondió"}:
+        return "La EPS no emitio respuesta de fondo frente a la solicitud presentada."
+    return _sentence(_title_sentence(cleaned), fallback="")
+
+
+def _formalize_health_urgency(case: dict[str, Any], value: str) -> str:
+    cleaned = _clean_health_raw_text(value)
+    if not cleaned:
+        return ""
+    intake = (case.get("facts") or {}).get("intake_form") or {}
+    diagnosis = str(intake.get("diagnosis") or "").strip()
+    treatment = str(intake.get("treatment_needed") or "").strip()
+    normalized = _normalize_writer_text(cleaned)
+    parts: list[str] = []
+    if "hace 3 meses" in normalized:
+        parts.append("A la fecha de presentacion de esta accion, han transcurrido mas de tres (3) meses sin que la EPS garantice el suministro oportuno del servicio ordenado")
+    elif "hace 2 meses" in normalized:
+        parts.append("A la fecha de presentacion de esta accion, han transcurrido mas de dos (2) meses sin que la EPS garantice el suministro oportuno del servicio ordenado")
+    if "hospital" in normalized:
+        parts.append("el paciente permanece hospitalizado")
+    if treatment:
+        parts.append(f"sin acceso efectivo a {treatment}")
+    if diagnosis:
+        parts.append(f"lo que agrava el manejo clinico de {diagnosis}")
+    if parts:
+        return _sentence(", ".join(dict.fromkeys(parts)), fallback="")
+    return _sentence(_title_sentence(cleaned), fallback="")
+
+
 def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     ctx = _health_context(case)
     intake = ctx["intake"]
@@ -676,8 +736,8 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     eps_request_date = str(intake.get("eps_request_date") or "").strip()
     eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
     eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
-    eps_response_detail = str(intake.get("eps_response_detail") or "").strip()
-    urgency_detail = str(intake.get("urgency_detail") or intake.get("ongoing_harm") or "").strip()
+    eps_response_detail = _formalize_health_response(str(intake.get("eps_response_detail") or "").strip())
+    urgency_detail = _formalize_health_urgency(case, str(intake.get("urgency_detail") or intake.get("ongoing_harm") or "").strip())
     special_protection = str(intake.get("special_protection") or "").strip()
 
     lines: list[str] = []
@@ -706,8 +766,9 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
         lines.append(f"La persona afectada se encuentra en condicion de especial proteccion constitucional: {special_protection}.")
     if facts.get("agent_state", {}).get("analysis", {}).get("barrier_summary"):
         for item in facts["agent_state"]["analysis"]["barrier_summary"]:
-            if item and item not in lines:
-                lines.append(_sentence(item))
+            formal_item = _formalize_health_response(str(item or "").strip())
+            if formal_item and not _is_redundant_health_line(formal_item, lines):
+                lines.append(formal_item)
 
     merged = list(lines)
     for item in chronology_lines:
@@ -1335,12 +1396,13 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     eps_request_date = str(intake.get("eps_request_date") or "").strip()
     eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
     eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
-    eps_response_detail = str(intake.get("eps_response_detail") or "").strip()
-    urgency_detail = str(
+    eps_response_detail = _formalize_health_response(str(intake.get("eps_response_detail") or "").strip())
+    urgency_detail = _formalize_health_urgency(
+        case,
         intake.get("urgency_detail")
         or intake.get("ongoing_harm")
         or intake.get("tutela_immediacy_detail")
-        or ""
+        or "",
     ).strip()
     description_lower = str(case.get("descripcion") or "").lower()
     represented_fragment = ""
@@ -1353,7 +1415,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
             role = "actuando como acudiente"
         represented_fragment = f", {role} de {represented_person_name}{age_fragment}, persona directamente afectada por la barrera en salud descrita"
     subsidiarity_base = (
-        str(intake.get("tutela_other_means_detail") or "").strip()
+        _clean_health_raw_text(str(intake.get("tutela_other_means_detail") or "").strip())
         or (
             f"El dia {eps_request_date} se solicito ante {ctx['accionado']} la autorizacion o prestacion de {treatment_needed or 'el servicio de salud requerido'}"
             + (f" a traves de {eps_request_channel}" if eps_request_channel else "")
