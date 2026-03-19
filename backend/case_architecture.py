@@ -920,6 +920,8 @@ def build_final_validation(
     actionable_gaps: list[dict[str, Any]] = []
     high_priority_questions = _get_actionable_high_priority_questions(case)
     route = ((case.get("routing") or {}).get("case_route") or (facts.get("dx_result") or {}).get("route") or "").strip()
+    agent_state = facts.get("agent_state") or {}
+    agent_can_generate = bool(agent_state.get("can_generate"))
 
     if not _text(case.get("recommended_action")):
         blocking_issues.append("No esta claramente definido el tipo de accion o documento.")
@@ -929,9 +931,9 @@ def build_final_validation(
 
     if not _text(facts.get("pretension_concreta")) and not _has_any(lowered, ["solicito", "pretension", "solicitudes"]):
         blocking_issues.append("Las pretensiones no corresponden claramente al caso o siguen siendo vagas.")
-    if route == "C":
+    if route == "C" and not agent_can_generate:
         blocking_issues.append("El expediente aun no esta en ruta automatizable. Debe completar preguntas o pasar revision previa antes de entregar.")
-    if high_priority_questions:
+    if high_priority_questions and not agent_can_generate:
         blocking_issues.append("Faltan datos criticos del caso antes de entregar el documento final.")
         for question in high_priority_questions:
             actionable_gaps.append(
