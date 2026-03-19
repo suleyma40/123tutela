@@ -29,6 +29,9 @@ const C = {
 };
 
 const N8N_WEBHOOK_URL = "https://n8ntutela.123tutelaapp.com/webhook/webhook-casos";
+const ANALYZE_API_BASE =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? "https://api.123tutelaapp.com" : "http://localhost:8000");
 
 // ─── Shared Components ───
 const Badge = ({ children, color = C.primary }) => (
@@ -345,7 +348,7 @@ const Dashboard = ({ onBack, user, onLogout }) => {
 
     try {
       // Call the new 3-layer Legal Analyzer
-      const res = await axios.post("http://localhost:8000/analyze", {
+      const res = await axios.post(`${ANALYZE_API_BASE}/analyze`, {
         description: userMsg,
       });
       

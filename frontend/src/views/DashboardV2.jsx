@@ -900,7 +900,9 @@ const buildWritingGuide = (category) => {
 };
 
 const shortDate = (value) => new Date(value).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
-const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const apiBase =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? "https://api.123tutelaapp.com" : "http://localhost:8000");
 const widgetScriptUrl = "https://checkout.wompi.co/widget.js";
 
 const normalizeMentionedDates = (value) => {
