@@ -499,6 +499,41 @@ def _build_target_from_intake(facts: dict[str, Any], recommended_action: str) ->
     }
 
 
+def _judicial_target_scope(target: dict[str, Any] | None, city: str, department: str) -> str:
+    if not target or _lower(target.get("type")) != "juzgado":
+        return "non_judicial"
+    metadata = target.get("metadata") or {}
+    target_city = _lower(metadata.get("municipio"))
+    target_department = _lower(metadata.get("departamento"))
+    code = _lower(metadata.get("codigo"))
+    if code == "nac-001":
+        return "national"
+    if target_city and target_city == _lower(city):
+        return "local"
+    if target_department and target_department == _lower(department):
+        return "department"
+    return "mismatch"
+
+
+def _judicial_territorial_note(target: dict[str, Any] | None, city: str, department: str) -> str | None:
+    scope = _judicial_target_scope(target, city, department)
+    metadata = (target or {}).get("metadata") or {}
+    target_city = metadata.get("municipio")
+    target_department = metadata.get("departamento")
+    if scope == "local":
+        return f"Se priorizo un canal judicial de {city}."
+    if scope == "department":
+        return f"No encontramos un canal exacto para {city}; se priorizo un canal judicial de {department}."
+    if scope == "national":
+        return "No encontramos un canal territorial mejor posicionado y se uso el fallback nacional oficial."
+    if scope == "mismatch":
+        return (
+            f"El destino judicial sugerido pertenece a {target_city or 'otro municipio'}"
+            f"{', ' + target_department if target_department else ''}. Revisa este destino antes de enviar."
+        )
+    return None
+
+
 def build_routing(
     *,
     category: str,
@@ -564,6 +599,9 @@ def build_routing(
         "channel": primary_target.get("channel") if primary_target else "manual",
         "automatable": bool(primary_target and primary_target.get("automatable")),
         "genera_radicado": bool(primary_target and primary_target.get("genera_radicado")),
+        "target_scope": _judicial_target_scope(primary_target, city, department),
+        "territorial_match": _judicial_target_scope(primary_target, city, department) != "mismatch",
+        "territorial_note": _judicial_territorial_note(primary_target, city, department),
         "subject": subject,
         "fallback": {
             "mode": fallback_mode,
@@ -789,6 +827,9 @@ def build_submission_guidance(
         },
         "routing_snapshot": {
             "destination_name": (routing.get("primary_target") or {}).get("name"),
+            "destination_scope": routing.get("target_scope"),
+            "territorial_match": routing.get("territorial_match"),
+            "territorial_note": routing.get("territorial_note"),
             "destination_channel": channel,
             "radicado": radicado,
         },

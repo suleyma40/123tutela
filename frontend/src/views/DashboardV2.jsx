@@ -3339,6 +3339,15 @@ function DetailPanel({
   const detailViability = getViabilityConfig(detailDx);
   const detailPrimaryTarget = item.routing?.primary_target || {};
   const requiresJudicialConfirmation = detailPrimaryTarget?.type === "juzgado";
+  const judicialTerritorialNote = item.routing?.territorial_note || guidance.routing_snapshot?.territorial_note || "";
+  const judicialTerritorialMismatch = requiresJudicialConfirmation && item.routing?.territorial_match === false;
+  const judicialScopeLabelMap = {
+    local: "Destino local",
+    department: "Destino departamental",
+    national: "Fallback nacional",
+    mismatch: "Revisar destino",
+  };
+  const judicialScopeLabel = judicialScopeLabelMap[item.routing?.target_scope] || "";
   const detailRoutingChannel = getRoutingChannelLabel(item.routing?.channel || detailPrimaryTarget?.channel);
   const detailRoutingContact = detailPrimaryTarget?.contact || effectivePostPayForm.target_pqrs_email || effectivePostPayForm.target_website || effectivePostPayForm.target_phone || "Canal por confirmar";
   const detailRouteSteps = [
@@ -3568,6 +3577,11 @@ function DetailPanel({
                   <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.5 }}>
                     {item.routing?.subject || "Asunto se ajusta automaticamente al documento."}
                   </div>
+                  {!!judicialScopeLabel && (
+                    <div style={{ marginTop: 10, color: judicialTerritorialMismatch ? C.danger : C.primary, fontSize: 13, fontWeight: 800 }}>
+                      {judicialScopeLabel}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -4071,6 +4085,11 @@ function DetailPanel({
                       Si ya revisaste el documento, puedes confirmar aqui mismo la revision y la firma electronica simple para desbloquear la radicacion.
                     </div>
                   </div>
+                  {!!judicialTerritorialNote && (
+                    <div style={{ padding: 14, borderRadius: 14, background: judicialTerritorialMismatch ? "#FEF2F2" : "#EEF4FF", border: judicialTerritorialMismatch ? "1px solid #FECACA" : "1px solid #BFDBFE", color: judicialTerritorialMismatch ? "#991B1B" : C.text, lineHeight: 1.6 }}>
+                      {judicialTerritorialNote}
+                    </div>
+                  )}
                   <label style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.text }}>
                     <input type="checkbox" checked={documentReviewed} onChange={(event) => setDocumentReviewed(event.target.checked)} />
                     <span style={{ lineHeight: 1.6 }}>Ya verifique el documento completo y autorizo continuar con la radicacion.</span>
@@ -4096,7 +4115,11 @@ function DetailPanel({
                   {requiresJudicialConfirmation && (
                     <label style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.text }}>
                       <input type="checkbox" checked={judicialDestinationConfirmed} onChange={(event) => setJudicialDestinationConfirmed(event.target.checked)} />
-                      <span style={{ lineHeight: 1.6 }}>Confirmo que este envio va a un juzgado o correo real de reparto, que ya verifique el documento final y que autorizo expresamente ese envio judicial.</span>
+                      <span style={{ lineHeight: 1.6 }}>
+                        {judicialTerritorialMismatch
+                          ? "Confirmo que revise el destino judicial sugerido, que entiendo que no coincide exactamente con la ciudad del caso y que aun asi autorizo este envio."
+                          : "Confirmo que este envio va a un juzgado o correo real de reparto, que ya verifique el documento final y que autorizo expresamente ese envio judicial."}
+                      </span>
                     </label>
                   )}
                 </div>
@@ -4136,6 +4159,11 @@ function DetailPanel({
                     <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{guidance.next_step_suggestion || "Espera la respuesta de la entidad o del juzgado."}</div>
                   </div>
                 </div>
+                {!!judicialTerritorialNote && (
+                  <div style={{ marginTop: 14, padding: 14, borderRadius: 16, background: judicialTerritorialMismatch ? "#FEF2F2" : "#F8FAFD", border: judicialTerritorialMismatch ? "1px solid #FECACA" : `1px solid ${C.border}`, color: judicialTerritorialMismatch ? "#991B1B" : C.text, lineHeight: 1.6 }}>
+                    {judicialTerritorialNote}
+                  </div>
+                )}
                 {!!guidance.judicial_radicado_note && (
                   <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412", lineHeight: 1.6 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>SOBRE ESTE COMPROBANTE</div>
