@@ -2179,6 +2179,7 @@ function GuidedIntakeFields({
 }) {
   const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const writingAid = getWritingAid(form.category);
+  const isHealthAgentLed = form.category === "Salud";
   const isPetitionTrack = ["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category);
   const interviewSteps = buildGuidedIntakeInterviewSteps(form);
   const activeInterviewStep = interviewSteps[0] || null;
@@ -2199,6 +2200,74 @@ function GuidedIntakeFields({
     setField(activeInterviewStep.id, assistantDraft.trim());
     setAssistantDraft("");
   };
+
+  if (isHealthAgentLed) {
+    return (
+      <div style={{ display: "grid", gap: 16 }}>
+        <div className="glass-card" style={{ padding: 18, background: "#FCFDFF" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>ENTREVISTA GUIADA POR IA</div>
+          <div style={{ marginTop: 10, color: C.text, fontWeight: 700 }}>
+            El agente juridico dirige el interrogatorio del caso. Ya no tienes que llenar todo el formulario manualmente.
+          </div>
+          {!!missingFields.length && (
+            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {missingFields.map((item) => <Badge key={item} color={C.warning}>Falta: {item}</Badge>)}
+            </div>
+          )}
+          <div style={{ marginTop: 12, color: C.textMuted, fontSize: 13, lineHeight: 1.7 }}>
+            Ayuda de redaccion: {writingAid}
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>AGENTE DEL CASO</div>
+            {!!interviewSteps.length && <Badge color={C.primary}>Pregunta 1 de {interviewSteps.length}</Badge>}
+          </div>
+          <div style={{ color: C.text, fontWeight: 700, lineHeight: 1.6 }}>
+            {activeInterviewStep
+              ? activeInterviewStep.question
+              : "El agente ya tiene lo minimo para continuar. Si quieres, puedes ampliar el relato general antes de generar el analisis."}
+          </div>
+          {activeInterviewStep ? (
+            activeInterviewStep.multiline ? (
+              <TextArea
+                value={assistantDraft}
+                onChange={(event) => setAssistantDraft(event.target.value)}
+                placeholder={activeInterviewStep.placeholder}
+                style={{ minHeight: 96 }}
+              />
+            ) : (
+              <TextInput
+                value={assistantDraft}
+                onChange={(event) => setAssistantDraft(event.target.value)}
+                placeholder={activeInterviewStep.placeholder}
+              />
+            )
+          ) : (
+            <TextArea
+              value={form.description}
+              onChange={(event) => setField("description", event.target.value)}
+              placeholder="Si quieres, agrega aqui mas contexto clinico, fechas o hechos que ayuden al agente."
+              style={{ minHeight: 96 }}
+            />
+          )}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            {activeInterviewStep ? (
+              <Button variant="secondary" onClick={answerInterviewStep} disabled={!assistantDraft.trim()}>
+                Guardar respuesta y seguir
+              </Button>
+            ) : (
+              <Badge color={C.success}>El agente ya consolido lo minimo para seguir</Badge>
+            )}
+            <div style={{ color: C.textMuted, fontSize: 13 }}>
+              El agente pregunta primero lo mas importante para que el analisis y el documento salgan mejor.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
