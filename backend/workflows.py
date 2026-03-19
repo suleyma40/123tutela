@@ -788,8 +788,10 @@ def build_submission_guidance(
     radicado_destination_note = "El radicado o comprobante definitivo depende del canal usado y de la respuesta de la entidad."
     if any(token in lowered_action for token in ["tutela", "impugnacion", "desacato"]):
         radicado_destination_note = (
-            f"En tramites judiciales, la novedad puede llegar por distintos canales: al correo del cliente informado en la tutela, por llamada de la EPS o del juzgado, "
-            f"o a respuestas operativas en {settings.radications_email}. Si la persona usuaria recibe la novedad directamente, debe reportarla o subir la evidencia para actualizar el panel."
+            "En tramites judiciales, el comprobante visible aqui corresponde al cierre registrado por la plataforma cuando existe. "
+            "Las novedades del juzgado o de la EPS pueden llegar directamente al correo o al telefono informado por la persona usuaria. "
+            f"Si recibes una respuesta, requerimiento o decision por fuera del panel, debes reportarla o subir la evidencia para actualizar el seguimiento. "
+            f"Si una respuesta operativa llega a {settings.radications_email}, tambien la reflejaremos en el expediente."
         )
     elif "peticion" in lowered_action:
         radicado_destination_note = (

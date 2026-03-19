@@ -4199,7 +4199,9 @@ function DetailPanel({
                 {!!guidance.judicial_radicado_note && (
                   <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412", lineHeight: 1.6 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>SOBRE ESTE COMPROBANTE</div>
-                    <div style={{ marginTop: 8 }}>{guidance.judicial_radicado_note}</div>
+                    <div style={{ marginTop: 8 }}>
+                      Este comprobante corresponde al registro que la plataforma pudo guardar para tu expediente. Si el juzgado, la EPS o la entidad te responde directamente a tu correo o por llamada, debes reportarlo o subir la evidencia para mantener el seguimiento actualizado.
+                    </div>
                   </div>
                 )}
                 <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text, lineHeight: 1.7 }}>

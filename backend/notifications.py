@@ -120,7 +120,7 @@ def _post_radicado_user_guidance(case: dict[str, Any], guidance: dict[str, Any])
             f"en {settings.support_email} para actualizar el expediente."
         ),
         "customer_copy": (
-            "Recibiras este correo con copia del documento enviado y, cuando exista, el comprobante o radicado disponible. "
+            "Recibiras este correo con copia del documento enviado y, cuando exista, el comprobante disponible en el expediente. "
             "Si el juzgado, la EPS o la entidad te responde a tu correo o por llamada directa, esa novedad no entra sola al panel: debes reportarla o subir la evidencia."
         ),
         "product": product,
