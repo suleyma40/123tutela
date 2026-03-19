@@ -298,27 +298,51 @@ const SIMPLE_SIGNATURE_CONSENT_VERSION = "ses_v1";
 const SIMPLE_SIGNATURE_CONSENT_TEXT =
   "Autorizo a 123tutela para usar mi firma electronica simple en la radicacion o envio del documento generado para este caso. Confirmo que revise el contenido final antes de aceptarlo, que los datos de identificacion y ciudad que suministro son correctos, y que esta aceptacion expresa representa mi voluntad de presentar este documento por medios electronicos en el canal aplicable. Entiendo que la plataforma conservara evidencia basica de esta aceptacion, incluida la fecha y hora, la version del consentimiento y metadatos tecnicos del envio disponibles en el sistema.";
 
-const formatSignatureEvidence = (signature = {}) => {
-  const rows = [
-    { label: "Metodo", value: signature.signature_method || "firma_electronica_simple" },
-    { label: "Firmante", value: signature.full_name || "" },
-    { label: "Documento", value: signature.document_number || "" },
-    { label: "Ciudad declarada", value: signature.city || "" },
-    { label: "Fecha declarada", value: signature.date || "" },
-    { label: "Aceptacion registrada", value: signature.accepted_at || "" },
-    { label: "Version de consentimiento", value: signature.consent_version || "" },
-    { label: "IP registrada", value: signature.ip_address || "" },
-  ];
-  return rows.filter((item) => item.value);
+const timelineEventLabelMap = {
+  case_created: "Expediente creado",
+  evidence_uploaded: "Prueba agregada",
+  document_generated: "Documento generado",
+  document_regenerated: "Documento actualizado",
+  signed_submission_ready: "Documento firmado",
+  submission_requested: "Radicacion solicitada",
+  submission_sent: "Documento enviado",
+  filing_completed: "Radicacion registrada",
+  manual_filing_reported: "Radicacion reportada",
+  judicial_update_reported: "Novedad reportada",
 };
 
-const formatSignedArtifacts = (artifacts = {}) => {
-  const rows = [
-    { label: "DOCX firmado", value: artifacts.docx_filename || "" },
-    { label: "PDF firmado", value: artifacts.pdf_filename || "" },
-    { label: "Generado", value: artifacts.generated_at || "" },
-  ];
-  return rows.filter((item) => item.value);
+const hiddenTimelineEventTypes = new Set([
+  "payment_order_created",
+  "payment_link_created",
+  "payment_reference_created",
+  "payment_status_checked",
+  "case_viewed",
+]);
+
+const isMeaningfulTimelineEvent = (event = {}) => {
+  const type = String(event.event_type || "").toLowerCase();
+  return !!type && !hiddenTimelineEventTypes.has(type);
+};
+
+const formatTimelineEventLabel = (event = {}) => {
+  const type = String(event.event_type || "").toLowerCase();
+  return timelineEventLabelMap[type] || String(type || "evento").replaceAll("_", " ");
+};
+
+const formatTimelineEventDetail = (event = {}) => {
+  if (event.payload?.radicado) return `Comprobante o radicado: ${event.payload.radicado}.`;
+  if (event.payload?.destination_name) return `Destino: ${event.payload.destination_name}.`;
+  if (event.payload?.channel) return `Canal usado: ${getRoutingChannelLabel(event.payload.channel)}.`;
+  if (event.payload?.status) return `Estado: ${String(event.payload.status).replaceAll("_", " ")}.`;
+  return "Novedad registrada en tu expediente.";
+};
+
+const formatDeliveryStatusLabel = (status = "") => {
+  const normalized = String(status || "").toLowerCase();
+  if (["sent", "success", "delivered"].includes(normalized)) return "Enviado";
+  if (["pending", "queued", "processing"].includes(normalized)) return "En proceso";
+  if (["error", "failed"].includes(normalized)) return "Requiere revision";
+  return normalized ? normalized.replaceAll("_", " ") : "Pendiente";
 };
 
 const buildPostPayDescription = (form, caseItem) => {
@@ -3273,8 +3297,6 @@ function DetailPanel({
   const submissionAttempts = detail.submission_attempts || [];
   const timelineEvents = detail.timeline || [];
   const guidance = submissionSummary.guidance || {};
-  const signedArtifacts = submissionSummary.signed_artifacts || {};
-  const signatureEvidence = submissionSummary.signature || {};
   const deliveryResult = submissionSummary.delivery_result || {};
   const review = documentReview || submissionSummary.document_quality || null;
   const effectivePostPayForm = mergeDetectedFormValues(postPayForm, item.facts?.intake_form || item.facts?.autofill_suggestions || {});
@@ -3343,7 +3365,14 @@ function DetailPanel({
     { id: 4, label: "Radicacion" },
   ];
   const visibleSubmissionAttempts = submissionAttempts.slice(0, 5);
-  const visibleTimelineEvents = timelineEvents.slice(0, 6);
+  const visibleTimelineEvents = timelineEvents.filter(isMeaningfulTimelineEvent).slice(0, 4);
+  const primarySubmissionAttempt = visibleSubmissionAttempts.find((attempt) => {
+    const status = String(attempt?.response_payload?.delivery_result?.status || attempt?.status || "").toLowerCase();
+    return ["sent", "success", "delivered"].includes(status) || !!attempt?.radicado;
+  }) || visibleSubmissionAttempts[0] || null;
+  const deliveryStatusLabel = submissionSummary.radicado
+    ? "Radicado registrado"
+    : formatDeliveryStatusLabel(deliveryResult.status || submissionSummary.last_channel || "");
   const signatureReady =
     documentReviewed &&
     signatureAccepted &&
@@ -3357,9 +3386,6 @@ function DetailPanel({
     && healthAgentState.can_generate
     && /todavia faltan datos minimos|todavía faltan datos mínimos|tutela necesita/i.test(String(actionError || ""));
   const visibleActionError = suppressHealthAgentError ? "" : actionError;
-  const signatureEvidenceRows = formatSignatureEvidence(signatureEvidence);
-  const signedArtifactRows = formatSignedArtifacts(signedArtifacts);
-
   useEffect(() => {
     setSignatureForm((current) => ({
       ...current,
@@ -4095,178 +4121,73 @@ function DetailPanel({
 
             {flowStep >= 4 && (
               <div style={{ padding: 22, borderRadius: 22, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Comprobante y seguimiento</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginTop: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RADICADO</div>
-                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{submissionSummary.radicado || "Pendiente de confirmacion"}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>DESTINO</div>
-                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{(guidance.routing_snapshot || {}).destination_name || item.routing?.primary_target?.name || "Entidad"}</div>
-                  </div>
-                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Seguimiento de tu caso</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginTop: 16 }}>
-                  <div style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>FIRMA REGISTRADA</div>
-                    <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
-                      {signatureEvidence.accepted ? "Firma electronica simple aceptada" : "Sin firma registrada"}
-                    </div>
-                    <div style={{ marginTop: 8, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-                      {signatureEvidence.consent_version ? `Consentimiento ${signatureEvidence.consent_version}.` : "Aun no hay evidencia de consentimiento."}
-                    </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>COMPROBANTE</div>
+                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{submissionSummary.radicado || "Aun no visible"}</div>
                   </div>
-                  <div style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ENVIO</div>
-                    <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
-                      {deliveryResult.status || submissionSummary.last_channel || "Pendiente"}
-                    </div>
-                    <div style={{ marginTop: 8, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-                      {guidance.proof_type ? `Evidencia principal: ${guidance.proof_type}.` : "Aun no hay comprobante de envio visible."}
-                    </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ESTADO ACTUAL</div>
+                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{deliveryStatusLabel}</div>
                   </div>
-                  <div style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RADICADO</div>
-                    <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
-                      {submissionSummary.radicado || "Pendiente de confirmacion"}
-                    </div>
-                    <div style={{ marginTop: 8, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-                      {submissionSummary.radicado ? "Este numero identifica el cierre operativo registrado en el caso." : "El envio existe, pero el numero de radicado puede quedar pendiente segun el canal."}
-                    </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>SIGUIENTE PASO</div>
+                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{guidance.next_step_suggestion || "Espera la respuesta de la entidad o del juzgado."}</div>
                   </div>
                 </div>
-                {!!signatureEvidenceRows.length && (
-                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>EVIDENCIA DE FIRMA</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-                      {signatureEvidenceRows.map((row) => (
-                        <div key={row.label}>
-                          <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>{row.label}</div>
-                          <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{row.value}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {!!signatureEvidence.consent_text && (
-                      <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-                        Texto aceptado: {signatureEvidence.consent_text}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {!!signedArtifactRows.length && (
-                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ARTEFACTOS FIRMADOS</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-                      {signedArtifactRows.map((row) => (
-                        <div key={row.label}>
-                          <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>{row.label}</div>
-                          <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{row.value}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {!!guidance.judicial_radicado_note && (
                   <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412", lineHeight: 1.6 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>SOBRE EL RADICADO</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>SOBRE ESTE COMPROBANTE</div>
                     <div style={{ marginTop: 8 }}>{guidance.judicial_radicado_note}</div>
                   </div>
                 )}
                 <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text, lineHeight: 1.7 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.primary }}>COMO HACER SEGUIMIENTO DESDE EL PANEL</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.primary }}>COMO HACER SEGUIMIENTO</div>
                   <div style={{ marginTop: 8 }}>
-                    El panel muestra lo que el sistema ya conoce: envio realizado, comprobante, radicado registrado y eventos del expediente.
-                    Si el juzgado, la EPS o la entidad te responde a tu propio correo, te llama o te pide algo por fuera del sistema, esa novedad no entra sola:
-                    debes reportarla o subir la evidencia para dejar trazabilidad y definir el siguiente paso.
+                    Revisa aqui si ya hay comprobante, respuesta o una novedad registrada. Si el juzgado, la EPS o la entidad te escribe a tu correo, te llama o te pide algo por fuera de la plataforma, debes reportarlo o subir la evidencia para que el seguimiento quede completo y podamos definir el siguiente paso.
                   </div>
                 </div>
-                {!!guidance.operational_mailboxes && (
-                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>BUZONES OPERATIVOS</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RADICACIONES</div>
-                        <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{guidance.operational_mailboxes.radications}</div>
-                        <div style={{ marginTop: 4, color: C.textMuted, fontSize: 12, lineHeight: 1.5 }}>Toda radicacion por correo sale desde este buzon.</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>NOTIFICACIONES</div>
-                        <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{guidance.operational_mailboxes.notifications}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>SOPORTE</div>
-                        <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{guidance.operational_mailboxes.support}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {!!visibleSubmissionAttempts.length && (
+                {!!primarySubmissionAttempt && (
                   <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>TRAZABILIDAD DE ENVIO</div>
-                    {visibleSubmissionAttempts.map((attempt) => {
-                      const attemptDelivery = attempt.response_payload?.delivery_result || {};
-                      const attemptSender = attemptDelivery.from_email || guidance.operational_mailboxes?.radications || guidance.operational_mailboxes?.notifications || "Buzon operativo";
-                      const attemptReplyTo = attemptDelivery.reply_to || "Sin reply-to registrado";
-                      return (
-                        <div key={attempt.id} style={{ padding: 14, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 8 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                            <div style={{ color: C.text, fontWeight: 800 }}>{attempt.subject || attempt.destination_name || "Intento de envio"}</div>
-                            <Badge color={attempt.status === "success" || attemptDelivery.status === "sent" ? C.success : attempt.status === "error" || attemptDelivery.status === "error" ? C.danger : C.primary}>
-                              {attemptDelivery.status || attempt.status}
-                            </Badge>
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-                            <div>
-                              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ENVIADO DESDE</div>
-                              <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{attemptSender}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>DESTINO</div>
-                              <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{attempt.destination_contact || attempt.destination_name || "Pendiente"}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RESPUESTA A</div>
-                              <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{attemptReplyTo}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>FECHA</div>
-                              <div style={{ marginTop: 4, color: C.text, fontWeight: 700 }}>{shortDate(attempt.created_at)}</div>
-                            </div>
-                          </div>
-                          {(attempt.radicado || attempt.error_text || attemptDelivery.reason) && (
-                            <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-                              {attempt.radicado ? `Radicado asociado: ${attempt.radicado}. ` : ""}
-                              {attempt.error_text || attemptDelivery.reason || ""}
-                            </div>
-                          )}
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ULTIMO MOVIMIENTO REGISTRADO</div>
+                    <div style={{ padding: 14, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                        <div style={{ color: C.text, fontWeight: 800 }}>{primarySubmissionAttempt.destination_name || "Radicacion registrada"}</div>
+                        <Badge color={submissionSummary.radicado ? C.success : C.primary}>
+                          {deliveryStatusLabel}
+                        </Badge>
+                      </div>
+                      <div style={{ color: C.textMuted, lineHeight: 1.6 }}>
+                        {primarySubmissionAttempt.created_at ? `Registrado el ${shortDate(primarySubmissionAttempt.created_at)}.` : "Ya registramos una novedad reciente en tu expediente."}
+                        {" "}
+                        {submissionSummary.radicado ? `Comprobante asociado: ${submissionSummary.radicado}.` : ""}
+                      </div>
+                      {(primarySubmissionAttempt.destination_contact || primarySubmissionAttempt.destination_name) && (
+                        <div style={{ color: C.text, fontWeight: 700, wordBreak: "break-word" }}>
+                          Destino: {primarySubmissionAttempt.destination_name || primarySubmissionAttempt.destination_contact}
                         </div>
-                      );
-                    })}
+                      )}
+                    </div>
                   </div>
                 )}
                 {!!visibleTimelineEvents.length && (
                   <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
-                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>LINEA DE TIEMPO</div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ULTIMAS NOVEDADES</div>
                     {visibleTimelineEvents.map((event) => (
                       <div key={event.id} style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 12, alignItems: "start", paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
                         <div style={{ color: C.textMuted, fontSize: 13 }}>{shortDate(event.created_at)}</div>
                         <div style={{ display: "grid", gap: 4 }}>
-                          <div style={{ color: C.text, fontWeight: 700 }}>{String(event.event_type || "evento").replaceAll("_", " ")}</div>
-                          <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-                            {event.payload?.radicado
-                              ? `Radicado: ${event.payload.radicado}.`
-                              : event.payload?.channel
-                                ? `Canal: ${event.payload.channel}.`
-                                : event.payload?.status
-                                  ? `Estado: ${event.payload.status}.`
-                                  : "Evento registrado en el expediente."}
-                          </div>
+                          <div style={{ color: C.text, fontWeight: 700 }}>{formatTimelineEventLabel(event)}</div>
+                          <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>{formatTimelineEventDetail(event)}</div>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-                <div style={{ marginTop: 14, color: C.textMuted }}>{guidance.post_radicado_copy?.body || "Tu haces el seguimiento de la respuesta con este comprobante."}</div>
+                <div style={{ marginTop: 14, color: C.textMuted, lineHeight: 1.7 }}>
+                  {guidance.post_radicado_copy?.body || "Te enviaremos copia del documento y cualquier comprobante disponible. Si recibes una llamada, correo o requerimiento directo, repórtalo desde el caso para mantener actualizado el seguimiento."}
+                </div>
               </div>
             )}
           </div>

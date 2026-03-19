@@ -783,9 +783,8 @@ def build_submission_guidance(
         "post_radicado_copy": {
             "headline": "Tu tramite fue enviado y ya puedes seguirlo desde tu panel.",
             "body": (
-                f"Recibiras por correo una copia del documento enviado y, cuando exista, el comprobante disponible. "
-                f"Las copias al cliente salen desde {settings.notifications_email}. Si el juzgado, la EPS o la entidad responde al correo del cliente informado en el documento o por llamada directa, "
-                "debes reportar esa novedad para que el seguimiento quede actualizado en tu panel."
+                "Recibiras por correo una copia del documento enviado y, cuando exista, el comprobante disponible. "
+                "Si el juzgado, la EPS o la entidad responde a tu correo o por llamada directa, debes reportar esa novedad para mantener actualizado el seguimiento en tu panel."
             ),
         },
         "routing_snapshot": {
