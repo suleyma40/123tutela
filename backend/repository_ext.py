@@ -791,9 +791,9 @@ def search_court_targets(city: str, department: str) -> list[dict[str, Any]]:
            OR UPPER(departamento) = UPPER(%(department)s)
         ORDER BY
             CASE
-                WHEN UPPER(codigo_interno) = 'NAC-001' THEN 0
-                WHEN UPPER(municipio) = UPPER(%(city)s) THEN 1
-                WHEN UPPER(departamento) = UPPER(%(department)s) THEN 2
+                WHEN UPPER(municipio) = UPPER(%(city)s) THEN 0
+                WHEN UPPER(departamento) = UPPER(%(department)s) THEN 1
+                WHEN UPPER(codigo_interno) = 'NAC-001' THEN 2
                 ELSE 3
             END,
             created_at ASC
