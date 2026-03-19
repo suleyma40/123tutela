@@ -52,6 +52,9 @@ SECONDARY_JURISPRUDENCE_DOMAINS = {
     "vlex.com.co",
 }
 
+HEALTH_ALLOWED_CONSTITUTIONAL_ARTICLES = {"articulo 11", "articulo 13", "articulo 44", "articulo 47", "articulo 49", "articulo 86"}
+HEALTH_ALLOWED_DECREE_2591_ARTICLES = {"articulo 7", "articulo 14", "articulo 17", "articulo 27", "articulo 42", "articulo 52"}
+
 
 def _domain_from_url(value: Any) -> str:
     url = _text(value)
@@ -701,6 +704,19 @@ def _article_reference_is_contextually_verified(
     return False
 
 
+def _health_reference_is_allowlisted(reference: str, *, document: str, source_validation_policy: dict[str, Any]) -> bool:
+    category_key = _lower(source_validation_policy.get("category_key") or source_validation_policy.get("category"))
+    if category_key != "salud":
+        return False
+    normalized = _normalize_legal_text(reference)
+    lowered_document = _normalize_legal_text(document)
+    if normalized in HEALTH_ALLOWED_CONSTITUTIONAL_ARTICLES and ("constitucion" in lowered_document or "superior" in lowered_document):
+        return True
+    if normalized in HEALTH_ALLOWED_DECREE_2591_ARTICLES and "decreto 2591 de 1991" in lowered_document:
+        return True
+    return False
+
+
 def validate_document_citations(
     *,
     document: str,
@@ -721,7 +737,12 @@ def validate_document_citations(
     for reference in detected_references:
         normalized = _normalize_legal_text(reference)
         entry = _match_registry_entry(reference)
-        if entry or normalized in verified_names or _article_reference_is_contextually_verified(reference, document=document, verified_names=verified_names):
+        if (
+            entry
+            or normalized in verified_names
+            or _article_reference_is_contextually_verified(reference, document=document, verified_names=verified_names)
+            or _health_reference_is_allowlisted(reference, document=document, source_validation_policy=source_validation_policy)
+        ):
             verified_detected.append(reference)
         else:
             unresolved_detected.append(reference)
@@ -834,6 +855,7 @@ def resolve_verified_legal_support(
         "warnings": warnings,
         "research_status": "completed" if verified_sources else "insufficient_verified_support",
         "action_key": action_key or _lower(category),
+        "category_key": category_key,
     }
 
 
