@@ -24,6 +24,15 @@ def _numbered_lines(items: list[str]) -> str:
     return "\n".join(f"{index}. {item}" for index, item in enumerate(items, start=1))
 
 
+def _split_numbered_requests(value: str | None) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    parts = re.split(r"(?:^|\s)(?:\d+[\.\)])\s*", text)
+    clean = [_sentence(_title_sentence(item.strip()), fallback="").strip() for item in parts if item.strip()]
+    return [item for item in clean if item]
+
+
 def _paragraph_lines(items: list[str], fallback: str = "Sin informacion adicional registrada.") -> str:
     items = [str(item).strip() for item in items if str(item).strip()]
     if not items:
@@ -280,8 +289,27 @@ def _financial_amount_breakdown(case: dict[str, Any], intake: dict[str, Any]) ->
 
 def _uploaded_evidence_items(case: dict[str, Any]) -> list[str]:
     facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
     uploaded_files = facts.get("uploaded_evidence_files") or []
     items = ["Copia del documento de identidad de la persona firmante."]
+    evidence_summary = str(intake.get("evidence_summary") or intake.get("supporting_documents") or "").strip()
+    if evidence_summary:
+        items.append(f"Soportes reportados por la persona usuaria: {_sentence(evidence_summary)}")
+    medical_order_date = str(intake.get("medical_order_date") or "").strip()
+    treating_doctor_name = str(intake.get("treating_doctor_name") or "").strip()
+    if medical_order_date or treating_doctor_name:
+        doctor_fragment = f" suscrita por {treating_doctor_name}" if treating_doctor_name else ""
+        date_fragment = f" de fecha {medical_order_date}" if medical_order_date else ""
+        items.append(f"Orden o formula medica{doctor_fragment}{date_fragment}.")
+    if str(intake.get("tutela_court_name") or "").strip():
+        court_name = str(intake.get("tutela_court_name") or "").strip()
+        ruling_date = str(intake.get("tutela_ruling_date") or "").strip()
+        date_fragment = f" de fecha {ruling_date}" if ruling_date else ""
+        items.append(f"Copia del fallo de tutela proferido por {court_name}{date_fragment}.")
+    if str(intake.get("tutela_order_summary") or "").strip():
+        items.append(f"Constancia de la orden judicial cuyo cumplimiento se exige: {_sentence(str(intake.get('tutela_order_summary') or '').strip())}")
+    if str(intake.get("tutela_noncompliance_detail") or "").strip():
+        items.append("Soportes del incumplimiento actual del fallo de tutela o de la persistencia de la barrera en salud.")
     for file_info in uploaded_files:
         name = _clean_uploaded_file_label(str((file_info or {}).get("original_name") or "").strip())
         if name:
@@ -661,6 +689,7 @@ def _filtered_health_context_lines(case: dict[str, Any]) -> list[str]:
         "correo pqrs sugerido",
         "con anterioridad, la persona usuaria presento reclamacion directa",
         "relato detallado",
+        "la ia ya puede reconstruir",
     )
     for item in raw:
         lowered = item.lower()
@@ -768,7 +797,6 @@ def _formalize_health_urgency(case: dict[str, Any], value: str) -> str:
     if "hidroxiurea" in normalized_treatment:
         parts.append("al permanecer suspendido el medicamento formulado por hematologia")
     if parts:
-        parts.append("configurandose un perjuicio irremediable por el riesgo de agravamiento clinico y la interrupcion del manejo ordenado")
         return _sentence(", ".join(dict.fromkeys(parts)), fallback="")
     return _sentence(_title_sentence(cleaned), fallback="")
 
@@ -833,6 +861,11 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     if facts.get("agent_state", {}).get("analysis", {}).get("barrier_summary"):
         for item in facts["agent_state"]["analysis"]["barrier_summary"]:
             formal_item = _formalize_health_response(str(item or "").strip())
+            normalized_item = _normalize_writer_text(formal_item)
+            if not formal_item:
+                continue
+            if normalized_item.startswith("de la narracion del caso") or "barrera administrativa atribuible a la eps" in normalized_item:
+                continue
             if formal_item and not _is_redundant_health_line(formal_item, lines):
                 lines.append(formal_item)
 
@@ -1210,14 +1243,15 @@ def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) 
     contact = str(ctx["primary"].get("contact") or intake.get("target_pqrs_email") or intake.get("target_website") or "Canal oficial de atencion").strip()
     chronology = _health_fact_lines(case)
     evidence_items = _uploaded_evidence_items(case)
-    jurisprudence_lines = _health_jurisprudence_lines(case, limit=3)
+    jurisprudence_lines = _health_jurisprudence_lines(case, limit=1)
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
     ).strip()
     diagnosis = str(intake.get("diagnosis") or "").strip()
     treatment_needed = str(intake.get("treatment_needed") or "").strip()
-    request_lines = [
+    explicit_request_lines = _split_numbered_requests(str(intake.get("numbered_requests") or "").strip())
+    request_lines = explicit_request_lines or [
         f"RESPONDER de fondo, de manera clara, congruente y completa, la solicitud relacionada con {treatment_needed or 'el servicio de salud requerido'}.",
         f"AUTORIZAR y GARANTIZAR oportunamente {treatment_needed or 'el servicio de salud ordenado'}."
         if treatment_needed
@@ -1610,7 +1644,15 @@ def _build_health_impugnacion_document(case: dict[str, Any], rule: dict[str, Any
     legal_analysis = ctx["legal_analysis"]
     chronology_lines = _health_fact_lines(case)
     ruling_date = str(intake.get("tutela_ruling_date") or "").strip() or "fecha que debe precisarse con la notificacion del fallo"
+    court_name = str(intake.get("tutela_court_name") or "").strip() or "el despacho judicial que decidio la primera instancia"
+    ruling_result = str(intake.get("tutela_decision_result") or "").strip() or "decision desfavorable a la parte accionante"
     appeal_reason = str(intake.get("tutela_appeal_reason") or "").strip() or "El fallo no valoro integralmente la urgencia del caso ni la barrera actual de la EPS."
+    treatment_needed = str(intake.get("treatment_needed") or "").strip() or "el servicio de salud requerido"
+    diagnosis = str(intake.get("diagnosis") or "").strip()
+    urgency_detail = _formalize_health_urgency(
+        case,
+        intake.get("urgency_detail") or intake.get("ongoing_harm") or "",
+    ).strip()
     jurisprudence_lines = _health_jurisprudence_lines(case, limit=3)
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
@@ -1623,7 +1665,7 @@ def _build_health_impugnacion_document(case: dict[str, Any], rule: dict[str, Any
 Referencia: IMPUGNACION DE TUTELA EN SALUD
 
 I. IDENTIFICACION DEL FALLO IMPUGNADO
-Por medio del presente escrito impugno el fallo de tutela notificado el {ruling_date}, relacionado con el expediente de salud promovido contra {ctx['accionado']}.
+Por medio del presente escrito impugno el fallo de tutela proferido por {court_name} y notificado el {ruling_date}, relacionado con el expediente de salud promovido contra {ctx['accionado']}. La decision controvertida correspondio a: {ruling_result}.
 
 II. PARTES
 Accionante: {ctx['user_name']}, CC {ctx['user_doc']}
@@ -1633,9 +1675,15 @@ III. HECHOS RELEVANTES DEL TRAMITE
 {_numbered_lines(chronology_lines)}
 
 IV. RAZONES DE IMPUGNACION
-1. El fallo impugnado no valoro de manera suficiente la afectacion actual del paciente ni la necesidad de proteccion inmediata.
+1. El fallo impugnado no valoro de manera suficiente la afectacion actual del paciente ni la necesidad de proteccion inmediata frente a {treatment_needed}.
 2. Motivo principal de desacuerdo: {_sentence(appeal_reason)}
 3. La decision cuestionada no agoto una lectura integral de los soportes medicos y de la barrera administrativa impuesta por la entidad accionada.
+4. {f"El caso involucra el diagnostico de {diagnosis}, circunstancia que exigia un examen reforzado de continuidad, oportunidad y riesgo actual." if diagnosis else "El expediente exigia un examen reforzado de continuidad, oportunidad y riesgo actual en salud."}
+5. {(
+    f"La afectacion actual persiste porque {str(_sentence(urgency_detail, fallback='')).strip().rstrip('.').lower()}."
+    if urgency_detail
+    else "La afectacion actual persiste, por lo que la proteccion judicial sigue siendo necesaria y oportuna."
+)}
 
 V. FUNDAMENTO JURIDICO
 La impugnacion se presenta al amparo del articulo 86 de la Constitucion Politica y del Decreto 2591 de 1991, en procura de una segunda revision judicial integral del caso. {verified_basis}
@@ -1646,7 +1694,8 @@ Jurisprudencia verificable aplicable:
 VI. SOLICITUDES A LA SEGUNDA INSTANCIA
 1. REVOCAR o MODIFICAR el fallo impugnado en lo desfavorable a la parte accionante.
 2. CONCEDER la proteccion integral de los derechos fundamentales comprometidos.
-3. ORDENAR a {ctx['accionado']} el cumplimiento efectivo de la prestacion en salud requerida.
+3. ORDENAR a {ctx['accionado']} el cumplimiento efectivo de la prestacion en salud requerida, en especial {treatment_needed}.
+4. VALORAR integralmente la historia clinica, la orden medica y el riesgo actual que permanece vigente.
 
 VII. PRUEBAS Y ANEXOS
 {_numbered_lines(_uploaded_evidence_items(case))}
@@ -1669,7 +1718,10 @@ def _build_health_desacato_document(case: dict[str, Any], rule: dict[str, Any]) 
     legal_analysis = ctx["legal_analysis"]
     chronology_lines = _health_fact_lines(case)
     ruling_date = str(intake.get("tutela_ruling_date") or "").strip() or "fecha que debe precisarse con el fallo"
+    court_name = str(intake.get("tutela_court_name") or "").strip() or "el juzgado de primera instancia"
+    order_summary = str(intake.get("tutela_order_summary") or "").strip() or "garantizar el servicio de salud requerido"
     noncompliance = str(intake.get("tutela_noncompliance_detail") or "").strip() or "La entidad accionada no ha cumplido integralmente la orden judicial de salud y la barrera persiste."
+    treatment_needed = str(intake.get("treatment_needed") or "").strip() or "el servicio de salud requerido"
     jurisprudence_lines = _health_jurisprudence_lines(case, limit=3)
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
@@ -1682,7 +1734,7 @@ def _build_health_desacato_document(case: dict[str, Any], rule: dict[str, Any]) 
 Referencia: INCIDENTE DE DESACATO EN SALUD
 
 I. IDENTIFICACION DEL FALLO Y DE LA ORDEN INCUMPLIDA
-Promuevo incidente de desacato respecto del fallo de tutela notificado el {ruling_date}, proferido dentro del tramite adelantado contra {ctx['accionado']}, por cuanto la orden judicial de garantizar el servicio de salud requerido no ha sido cumplida.
+Promuevo incidente de desacato respecto del fallo de tutela proferido por {court_name} y notificado el {ruling_date}, dentro del tramite adelantado contra {ctx['accionado']}, por cuanto la orden judicial consistente en {order_summary} no ha sido cumplida.
 
 II. HECHOS POSTERIORES AL FALLO
 {_numbered_lines(chronology_lines)}
@@ -1690,21 +1742,25 @@ II. HECHOS POSTERIORES AL FALLO
 III. INCUMPLIMIENTO ACTUAL
 {_sentence(noncompliance)}
 
-IV. FUNDAMENTO JURIDICO
+IV. ORDEN JUDICIAL DESATENDIDA
+La orden cuyo cumplimiento se solicita de manera inmediata consistio en {order_summary}, relacionada con {treatment_needed}. Pese a la notificacion del fallo, la barrera en salud persiste y la afectacion del paciente continua.
+
+V. FUNDAMENTO JURIDICO
 El presente incidente se formula con fundamento en el articulo 86 de la Constitucion Politica y en el regimen del Decreto 2591 de 1991 aplicable al desacato por incumplimiento de fallos de tutela. {verified_basis}
 
 Jurisprudencia verificable aplicable:
 {_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. El sistema priorizo soporte normativo y de desacato verificable para exigir cumplimiento inmediato."}
 
-V. SOLICITUDES
+VI. SOLICITUDES
 1. DECLARAR que existe incumplimiento del fallo de tutela referido.
 2. ORDENAR el cumplimiento inmediato e integral de la decision judicial.
-3. ADOPTAR las medidas correctivas y sancionatorias a que haya lugar frente al responsable del incumplimiento.
+3. REQUERIR a la entidad y al funcionario responsable para que acrediten cumplimiento efectivo, inmediato y verificable.
+4. ADOPTAR las medidas correctivas y sancionatorias a que haya lugar frente al responsable del incumplimiento.
 
-VI. PRUEBAS Y ANEXOS
+VII. PRUEBAS Y ANEXOS
 {_numbered_lines(_uploaded_evidence_items(case))}
 
-VII. NOTIFICACIONES
+VIII. NOTIFICACIONES
 Solicito que las notificaciones se remitan al correo {ctx['user_email']}, al telefono {ctx['user_phone']} y, si aplica, a la direccion fisica {ctx['address']}, {ctx['city']}, {ctx['department']}.
 
 Constancia de generacion: {generated_at}

@@ -5,6 +5,7 @@ from typing import Any
 from uuid import uuid4
 
 from backend import repository_ext as repository
+from backend.config import settings
 from backend.document_writer import build_document as build_document_from_template
 
 
@@ -77,6 +78,214 @@ def _contains_any(text: str, keywords: list[str]) -> bool:
     return any(keyword in text for keyword in keywords)
 
 
+def _text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _lower(value: Any) -> str:
+    return _text(value).lower()
+
+
+def _health_intake_text(facts: dict[str, Any], *keys: str) -> str:
+    intake = (facts or {}).get("intake_form") or {}
+    for key in keys:
+        value = _text(intake.get(key))
+        if value:
+            return value
+    return ""
+
+
+def _contains_health_urgency_signal(text: str) -> bool:
+    negative_markers = [
+        "no es una urgencia",
+        "no hay urgencia",
+        "no es urgente",
+        "sin urgencia",
+        "no hay un riesgo vital",
+        "no existe riesgo vital",
+        "ya no hay urgencia",
+        "ya no hay una urgencia",
+        "ya no hay una urgencia actual",
+        "ya no existe urgencia",
+    ]
+    if any(marker in text for marker in negative_markers):
+        return False
+    return _contains_any(
+        text,
+        [
+            "urgencia",
+            "grave",
+            "riesgo",
+            "perjuicio irremediable",
+            "vida",
+            "dolor",
+            "agrav",
+            "empeor",
+            "uci",
+            "cirugia",
+            "cirugía",
+            "hospitalizacion",
+            "hospitalización",
+            "crisis",
+        ],
+    )
+
+
+def _contains_health_continuity_signal(text: str) -> bool:
+    return _contains_any(
+        text,
+        [
+            "continuidad del tratamiento",
+            "sin medicamento",
+            "sin tratamiento",
+            "suspension del tratamiento",
+            "suspensión del tratamiento",
+            "interrupcion del tratamiento",
+            "interrupción del tratamiento",
+            "dosis pendiente",
+            "quimioterapia",
+            "dialisis",
+            "diálisis",
+            "terapia continua",
+            "control prioritario",
+            "seguimiento oncologico",
+            "seguimiento oncológico",
+        ],
+    )
+
+
+def _contains_special_protection_signal(text: str) -> bool:
+    return _contains_any(
+        text,
+        [
+            "menor",
+            "menor de edad",
+            "nino",
+            "niño",
+            "nina",
+            "niña",
+            "adolescente",
+            "embarazada",
+            "gestante",
+            "adulto mayor",
+            "discapacidad",
+            "cancer",
+            "cáncer",
+            "enfermedad huerfana",
+            "enfermedad huérfana",
+        ],
+    )
+
+
+def _health_text_supports_urgency(*parts: str) -> bool:
+    joined = " ".join(part for part in parts if part).lower()
+    if not joined:
+        return False
+    return _contains_health_urgency_signal(joined) or _contains_health_continuity_signal(joined)
+
+
+def _contains_health_resolved_signal(text: str) -> bool:
+    return _contains_any(
+        text,
+        [
+            "ya autorizo",
+            "ya autorizó",
+            "ya autorizaron",
+            "ya programo",
+            "ya programó",
+            "ya programaron",
+            "ya agendaron",
+            "ya entregaron",
+            "ya resolvieron",
+            "caso resuelto",
+            "problema resuelto",
+            "ya emitio autorizacion",
+            "ya emitió autorización",
+        ],
+    )
+
+
+def _infer_health_workflow(
+    *,
+    facts: dict[str, Any],
+    lowered: str,
+    prior_actions: list[str],
+    all_required_done: bool,
+    urgent: bool,
+) -> tuple[str, str, list[str]]:
+    intake = (facts or {}).get("intake_form") or {}
+    warnings: list[str] = []
+
+    target_entity = _health_intake_text(facts, "target_entity", "eps_name")
+    diagnosis = _health_intake_text(facts, "diagnosis")
+    treatment_needed = _health_intake_text(facts, "treatment_needed")
+    urgency_detail = _health_intake_text(facts, "urgency_detail", "current_harm", "ongoing_harm", "tutela_immediacy_detail")
+    prior_claim = _lower(intake.get("prior_claim"))
+    prior_claim_result = _health_intake_text(facts, "prior_claim_result", "eps_response_detail", "tutela_other_means_detail")
+    tutela_ruling_date = _health_intake_text(facts, "tutela_ruling_date")
+    tutela_order_summary = _health_intake_text(facts, "tutela_order_summary")
+    tutela_decision_result = _health_intake_text(facts, "tutela_decision_result")
+    tutela_appeal_reason = _health_intake_text(facts, "tutela_appeal_reason")
+    tutela_noncompliance_detail = _health_intake_text(facts, "tutela_noncompliance_detail")
+    special_protection = _lower(intake.get("special_protection") or intake.get("tutela_special_protection_detail"))
+    current_harm = _health_intake_text(facts, "current_harm", "ongoing_harm", "urgency_detail", "tutela_immediacy_detail")
+    continuity_detail = _health_intake_text(facts, "treatment_needed", "urgency_detail", "current_harm", "ongoing_harm")
+
+    has_health_core = bool(target_entity and (diagnosis or treatment_needed))
+    has_medical_support = bool(
+        _health_intake_text(facts, "medical_order_date", "treating_doctor_name", "supporting_documents", "evidence_summary")
+    ) or _contains_any(lowered, ["orden medica", "formula", "historia clinica", "historia clínica", "medico", "médico"])
+    has_barrier = bool(prior_claim_result or _health_intake_text(facts, "eps_request_date", "eps_request_reference")) or _contains_any(
+        lowered,
+        ["negar", "negaron", "negada", "demora", "demoraron", "silencio", "sin respuesta", "no autorizan", "no autorizan", "no entregan", "no entregaron", "barrera", "suspendieron", "no agendan", "eps", "ips"],
+    )
+    has_continuity_risk = bool(continuity_detail) and _contains_health_continuity_signal(_lower(continuity_detail) + " " + lowered)
+    has_urgency = _health_text_supports_urgency(urgency_detail, current_harm, lowered) or urgent or has_continuity_risk
+    has_special_protection = special_protection not in {"", "no aplica", "ninguno"} or _contains_special_protection_signal(lowered)
+    has_resolved_signal = _contains_health_resolved_signal(lowered)
+    prior_claim_done = all_required_done or bool(prior_actions) or prior_claim in {"si", "sí", "reclame", "reclamo", "radicado"} or bool(
+        _health_intake_text(facts, "eps_request_date", "eps_request_reference", "eps_request_channel")
+    )
+    urgency_without_waiting = has_urgency and (has_special_protection or has_continuity_risk or _contains_health_urgency_signal(_lower(current_harm) + " " + lowered))
+
+    has_prior_ruling = bool(tutela_ruling_date or tutela_order_summary or tutela_decision_result) or _contains_any(
+        lowered,
+        ["fallo de tutela", "sentencia de tutela", "juzgado", "despacho", "decision de tutela", "decisión de tutela"],
+    )
+    has_desacato_signal = bool(tutela_noncompliance_detail) or _contains_any(
+        lowered,
+        ["desacato", "incumplimiento del fallo", "no ha cumplido el fallo", "sigue sin cumplir", "orden judicial incumplida"],
+    )
+    has_impugnacion_signal = bool(tutela_appeal_reason) or _contains_any(
+        lowered,
+        ["impugnacion", "impugnación", "impugnar", "fallo negado", "fallo improcedente", "decision injusta", "decisión injusta"],
+    )
+
+    if has_prior_ruling and has_desacato_signal:
+        return "desacato", "Incidente de desacato", warnings
+    if has_prior_ruling and has_impugnacion_signal:
+        return "impugnacion", "Impugnacion de tutela", warnings
+
+    if has_resolved_signal and not has_continuity_risk and not urgency_without_waiting:
+        warnings.append("El relato sugiere que la barrera principal ya fue superada; conviene revisar si el caso sigue vivo o si ahora corresponde solo trazabilidad, peticion o seguimiento.")
+        return "derecho_peticion", "Derecho de peticion a EPS", warnings
+
+    if has_health_core and has_barrier and has_medical_support and (has_urgency or has_special_protection):
+        if not prior_claim_done:
+            if urgency_without_waiting:
+                warnings.append("Se recomienda tutela en salud aunque la via previa no este completa, porque el expediente muestra urgencia reforzada o continuidad de tratamiento que no deberia esperar.")
+            else:
+                warnings.append("Se recomienda tutela por urgencia en salud, pero conviene dejar mejor explicada la gestion previa ante la EPS o por que no era exigible esperar.")
+        return "tutela", "Accion de tutela", warnings
+
+    if has_health_core and has_barrier and prior_claim_done:
+        warnings.append("Se conserva derecho de peticion como ruta inicial mientras se refuerza la urgencia o el dano actual para una tutela en salud.")
+        return "derecho_peticion", "Derecho de peticion a EPS", warnings
+
+    warnings.append("Antes de tutela en salud, la via previa ante EPS debe quedar documentada salvo urgencia manifiesta.")
+    return "derecho_peticion", "Derecho de peticion a EPS", warnings
+
+
 def normalize_prior_actions(prior_actions: list[str], category: str) -> list[dict[str, Any]]:
     config = CATEGORY_CONFIG.get(category, {})
     completed = set(prior_actions)
@@ -113,13 +322,14 @@ def infer_workflow(
     has_tutela_signal = _contains_any(lowered, ["tutela", "derecho fundamental", "minimo vital", "mínimo vital", "vida", "salud", "urgencia", "riesgo", "perjuicio irremediable"])
 
     if category == "Salud":
-        if all_required_done or urgent:
-            workflow_type = "tutela"
-            recommended_action = "Accion de tutela"
-        else:
-            workflow_type = "derecho_peticion"
-            recommended_action = "Derecho de peticion a EPS"
-            warnings.append("Antes de tutela en salud, la via previa ante EPS debe quedar documentada salvo urgencia manifiesta.")
+        workflow_type, recommended_action, health_warnings = _infer_health_workflow(
+            facts=facts,
+            lowered=lowered,
+            prior_actions=prior_actions,
+            all_required_done=all_required_done,
+            urgent=urgent,
+        )
+        warnings.extend(health_warnings)
     elif category == "Datos":
         if all_required_done and has_habeas_signal:
             workflow_type = "tutela"
@@ -302,14 +512,19 @@ def build_routing(
     entity_names = [str(item).strip() for item in entities if str(item).strip()]
     rules = _rule_lookup()
 
+    judicial_workflows = {"tutela", "impugnacion", "desacato"}
     targets: list[dict[str, Any]] = []
-    if workflow_type == "tutela":
+    if workflow_type in judicial_workflows:
         targets.extend(_build_target_from_court(item) for item in repository.search_court_targets(city, department))
     else:
         intake_target = _build_target_from_intake(facts, recommended_action)
-        if intake_target:
+        entity_targets = [_build_target_from_entity(item) for item in repository.search_entities(category, entity_names)]
+        entity_targets = [item for item in entity_targets if item.get("name")]
+        if intake_target and intake_target.get("contact"):
             targets.append(intake_target)
-        targets.extend(_build_target_from_entity(item) for item in repository.search_entities(category, entity_names))
+        targets.extend(entity_targets)
+        if intake_target and not intake_target.get("contact"):
+            targets.append(intake_target)
 
     primary_target = targets[0] if targets else None
     fallback_mode = "none"
@@ -381,6 +596,93 @@ def build_strategy_text(
     )
 
 
+def get_submission_policy(case: dict[str, Any]) -> dict[str, Any]:
+    category = _lower(case.get("categoria") or case.get("category"))
+    workflow_type = _lower(case.get("workflow_type"))
+    recommended_action = _lower(case.get("recommended_action"))
+    routing = case.get("routing") or {}
+    automatable = bool(routing.get("automatable"))
+    destination_channel = str((routing.get("primary_target") or {}).get("channel") or routing.get("channel") or "manual")
+
+    if category != "salud":
+        preferred_mode = "auto" if automatable else "manual_contact"
+        return {
+            "scope": "general",
+            "allowed_modes": ["auto", "manual_contact", "presencial"],
+            "preferred_mode": preferred_mode,
+            "auto_allowed": automatable,
+            "requires_assisted_filing": False,
+            "customer_evidence_channels": ["panel", "email"] if case.get("usuario_email") else ["panel"],
+            "minimum_internal_evidence": ["intento_de_radicacion", "canal_usado", "destino", "timestamp"],
+            "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
+            "summary": "La politica general permite envio automatico cuando existe canal confiable; de lo contrario, procede radicacion asistida o presencial.",
+            "destination_channel": destination_channel,
+        }
+
+    if "derecho de peticion" in recommended_action or workflow_type == "derecho_peticion":
+        preferred_mode = "auto" if automatable else "manual_contact"
+        return {
+            "scope": "salud",
+            "document_family": "derecho_peticion_salud",
+            "allowed_modes": ["auto", "manual_contact", "presencial"],
+            "preferred_mode": preferred_mode,
+            "auto_allowed": automatable,
+            "requires_assisted_filing": not automatable,
+            "customer_evidence_channels": ["panel", "email"] if case.get("usuario_email") else ["panel"],
+            "minimum_internal_evidence": ["correo_o_portal_destino", "acuse_o_radicado", "timestamp", "artefactos_firmados"],
+            "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
+            "summary": "El derecho de peticion en salud puede enviarse en automatico solo si existe un canal digital confiable de la entidad; en caso contrario, debe pasar a contacto asistido o presentacion presencial.",
+            "destination_channel": destination_channel,
+        }
+
+    if "impugnacion" in recommended_action or workflow_type == "impugnacion":
+        preferred_mode = "auto" if automatable else "manual_contact"
+        return {
+            "scope": "salud",
+            "document_family": "impugnacion_tutela_salud",
+            "allowed_modes": ["auto", "manual_contact", "presencial"],
+            "preferred_mode": preferred_mode,
+            "auto_allowed": automatable,
+            "requires_assisted_filing": not automatable,
+            "customer_evidence_channels": ["panel", "email"] if case.get("usuario_email") else ["panel"],
+            "minimum_internal_evidence": ["despacho_destino", "contacto_usado", "constancia_envio_o_radicado", "timestamp", "artefactos_firmados"],
+            "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
+            "summary": "La impugnacion de tutela en salud puede salir en automatico cuando exista un canal judicial confiable; en caso contrario, pasa a contacto asistido o presencial.",
+            "destination_channel": destination_channel,
+        }
+
+    if "desacato" in recommended_action or workflow_type == "desacato":
+        preferred_mode = "auto" if automatable else "manual_contact"
+        return {
+            "scope": "salud",
+            "document_family": "desacato_salud",
+            "allowed_modes": ["auto", "manual_contact", "presencial"],
+            "preferred_mode": preferred_mode,
+            "auto_allowed": automatable,
+            "requires_assisted_filing": not automatable,
+            "customer_evidence_channels": ["panel", "email"] if case.get("usuario_email") else ["panel"],
+            "minimum_internal_evidence": ["juzgado_origen", "contacto_usado", "constancia_envio_o_radicado", "timestamp", "artefactos_firmados"],
+            "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
+            "summary": "El incidente de desacato en salud puede salir en automatico cuando exista un canal judicial confiable; en caso contrario, pasa a contacto asistido o presencial.",
+            "destination_channel": destination_channel,
+        }
+
+    preferred_mode = "auto" if automatable else "manual_contact"
+    return {
+        "scope": "salud",
+        "document_family": "tutela_salud",
+        "allowed_modes": ["auto", "manual_contact", "presencial"],
+        "preferred_mode": preferred_mode,
+        "auto_allowed": automatable,
+        "requires_assisted_filing": not automatable,
+        "customer_evidence_channels": ["panel", "email"] if case.get("usuario_email") else ["panel"],
+        "minimum_internal_evidence": ["despacho_destino", "contacto_usado", "constancia_envio_o_radicado", "timestamp", "artefactos_firmados"],
+        "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
+        "summary": "La accion de tutela en salud puede radicarse en automatico cuando exista un canal judicial confiable, incluido el correo nacional de reparto o correos judiciales de respaldo; si no, pasa a contacto asistido o presencial.",
+        "destination_channel": destination_channel,
+    }
+
+
 def build_submission_guidance(
     *,
     case: dict[str, Any],
@@ -391,7 +693,9 @@ def build_submission_guidance(
     workflow_type = str(case.get("workflow_type") or "")
     recommended_action = str(case.get("recommended_action") or "")
     user_email = case.get("usuario_email")
+    user_phone = case.get("usuario_telefono")
     routing = case.get("routing") or {}
+    submission_policy = get_submission_policy(case)
     proof_type = "constancia_manual"
     if radicado:
         proof_type = "numero_radicado"
@@ -429,20 +733,54 @@ def build_submission_guidance(
     delivery_channels = ["panel"]
     if user_email:
         delivery_channels.append("email")
+    customer_copy_channels = ["panel"]
+    if user_email:
+        customer_copy_channels.append("email")
+    if user_phone:
+        customer_copy_channels.append("whatsapp_pending")
+
+    lowered_action = recommended_action.lower()
+    radicado_destination_note = "El radicado o comprobante definitivo depende del canal usado y de la respuesta de la entidad."
+    if any(token in lowered_action for token in ["tutela", "impugnacion", "desacato"]):
+        radicado_destination_note = (
+            f"En tramites judiciales automaticos, el radicado o acuse puede llegar primero al buzon {settings.radications_email} "
+            "usado para la radicacion y, segun el despacho, tambien al correo del cliente si fue incluido en el escrito o en el envio."
+        )
+    elif "peticion" in lowered_action:
+        radicado_destination_note = (
+            f"En peticiones a EPS o entidades de salud, el acuse o radicado suele llegar al canal desde el que se envio o al correo informado para notificaciones, "
+            f"incluido {settings.notifications_email} cuando ese sea el remitente operativo."
+        )
 
     return {
         "mode": mode,
         "channel": channel,
+        "submission_policy": submission_policy,
         "proof_type": proof_type,
-        "proof_delivery_channels": delivery_channels,
+        "proof_delivery_channels": submission_policy.get("customer_evidence_channels") or delivery_channels,
+        "customer_copy_channels": customer_copy_channels,
         "customer_notification_channel": "email" if user_email else "panel",
         "evolution_api_role": "notificacion_al_cliente" if user_email else "pendiente",
+        "whatsapp_copy_status": "pending_integration" if user_phone else "not_available",
+        "operational_mailboxes": {
+            "radications": settings.radications_email,
+            "support": settings.support_email,
+            "notifications": settings.notifications_email,
+        },
+        "notification_provider": settings.notification_provider,
+        "mail_hosting_provider": "hostinger",
         "estimated_response_window": estimated_response_window,
         "next_step_suggestion": next_step,
         "continuity_offers": continuity,
+        "judicial_radicado_note": radicado_destination_note,
         "post_radicado_copy": {
             "headline": "Tu tramite fue enviado y ya puedes seguirlo desde tu panel.",
-            "body": "Te enviaremos el comprobante disponible y el siguiente paso sugerido segun la respuesta o el silencio de la entidad.",
+            "body": (
+                f"Recibiras copia del documento y del comprobante disponible por los canales habilitados. "
+                f"Las copias operativas salen desde {settings.notifications_email}. Los buzones siguen gestionados en Hostinger y {settings.notification_provider.title()} se usa para mejorar entregabilidad; "
+                f"si el juzgado o la entidad responde directamente al envio, "
+                f"el radicado puede llegar primero a {settings.radications_email} y luego reflejarse en tu panel."
+            ),
         },
         "routing_snapshot": {
             "destination_name": (routing.get("primary_target") or {}).get("name"),

@@ -22,12 +22,20 @@ def _build_signed_text(document_text: str, signature: dict[str, Any], *, radicad
         str(document_text or "").strip(),
         "",
         "",
-        "Firma simple para radicacion",
+        "Firma electronica simple para radicacion",
         f"Nombre: {signature.get('full_name') or ''}",
         f"Documento: {signature.get('document_number') or ''}",
         f"Ciudad: {signature.get('city') or ''}",
         f"Fecha: {signature.get('date') or ''}",
+        f"Metodo: {signature.get('signature_method') or 'firma_electronica_simple'}",
+        f"Fecha y hora de aceptacion: {signature.get('accepted_at') or ''}",
+        f"Version de consentimiento: {signature.get('consent_version') or ''}",
+        f"Consentimiento: {signature.get('consent_text') or ''}",
     ]
+    if signature.get("ip_address"):
+        lines.append(f"IP de aceptacion: {signature.get('ip_address')}")
+    if signature.get("user_agent"):
+        lines.append(f"User-Agent: {signature.get('user_agent')}")
     if radicado:
         lines.append(f"Radicado interno: {radicado}")
     return "\n".join(lines).strip() + "\n"
@@ -41,10 +49,18 @@ def _generate_docx_bytes(document_text: str, signature: dict[str, Any], *, radic
     for paragraph_text in str(document_text or "").splitlines():
         document.add_paragraph(paragraph_text)
     document.add_paragraph("")
-    document.add_paragraph("Firma simple para radicacion")
+    document.add_paragraph("Firma electronica simple para radicacion")
     document.add_paragraph(signature.get("full_name") or "")
     document.add_paragraph(f"Documento: {signature.get('document_number') or ''}")
     document.add_paragraph(f"{signature.get('city') or ''}, {signature.get('date') or ''}")
+    document.add_paragraph(f"Metodo: {signature.get('signature_method') or 'firma_electronica_simple'}")
+    document.add_paragraph(f"Fecha y hora de aceptacion: {signature.get('accepted_at') or ''}")
+    document.add_paragraph(f"Version de consentimiento: {signature.get('consent_version') or ''}")
+    document.add_paragraph(f"Consentimiento: {signature.get('consent_text') or ''}")
+    if signature.get("ip_address"):
+        document.add_paragraph(f"IP de aceptacion: {signature.get('ip_address')}")
+    if signature.get("user_agent"):
+        document.add_paragraph(f"User-Agent: {signature.get('user_agent')}")
     if radicado:
         document.add_paragraph(f"Radicado interno: {radicado}")
 

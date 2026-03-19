@@ -65,10 +65,16 @@ class Settings:
     wompi_widget_url: str = os.getenv("WOMPI_WIDGET_URL", "https://checkout.wompi.co/widget.js")
     notification_from_email: str = os.getenv("NOTIFICATION_FROM_EMAIL", "")
     notification_reply_to: str = os.getenv("NOTIFICATION_REPLY_TO", "")
+    notification_provider: str = os.getenv("NOTIFICATION_PROVIDER", "resend")
+    radications_email: str = os.getenv("RADICATIONS_EMAIL", "radicaciones@123tutelaapp.com")
+    support_email: str = os.getenv("SUPPORT_EMAIL", "soporte@123tutelaapp.com")
+    notifications_email: str = os.getenv("NOTIFICATIONS_EMAIL", "notificaciones@123tutelaapp.com")
     notification_smtp_host: str = os.getenv("NOTIFICATION_SMTP_HOST", "")
     notification_smtp_port: int = int(os.getenv("NOTIFICATION_SMTP_PORT", "587"))
     notification_smtp_user: str = os.getenv("NOTIFICATION_SMTP_USER", "")
     notification_smtp_password: str = os.getenv("NOTIFICATION_SMTP_PASSWORD", "")
+    radications_smtp_user: str = os.getenv("RADICATIONS_SMTP_USER", "")
+    radications_smtp_password: str = os.getenv("RADICATIONS_SMTP_PASSWORD", "")
     notification_smtp_use_ssl: bool = os.getenv("NOTIFICATION_SMTP_USE_SSL", "false").lower() == "true"
     notification_smtp_use_starttls: bool = os.getenv("NOTIFICATION_SMTP_USE_STARTTLS", "true").lower() == "true"
     internal_admin_emails: list[str] = None  # type: ignore[assignment]

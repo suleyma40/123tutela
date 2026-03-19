@@ -11,11 +11,43 @@ from backend.config import settings
 from backend.storage import absolute_path
 
 
+def _notification_sender_email() -> str:
+    return settings.notification_from_email or settings.notifications_email
+
+
+def _notification_reply_to_email() -> str:
+    return settings.notification_reply_to or settings.support_email
+
+
+def _notification_smtp_user() -> str:
+    return settings.notification_smtp_user or _notification_sender_email()
+
+
+def _notification_smtp_password() -> str:
+    return settings.notification_smtp_password
+
+
+def _radication_sender_email() -> str:
+    return settings.radications_email
+
+
+def _radication_reply_to_email() -> str:
+    return settings.radications_email
+
+
+def _radication_smtp_user() -> str:
+    return settings.radications_smtp_user or settings.notification_smtp_user or _radication_sender_email()
+
+
+def _radication_smtp_password() -> str:
+    return settings.radications_smtp_password or settings.notification_smtp_password
+
+
 def _is_email_configured() -> bool:
     return bool(
         settings.notification_smtp_host
         and settings.notification_smtp_port
-        and settings.notification_from_email
+        and (_notification_sender_email() or _radication_sender_email())
     )
 
 
@@ -75,11 +107,12 @@ Panel del cliente:
 def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], guidance: dict[str, Any]) -> dict[str, Any]:
     attempted_at = datetime.now(timezone.utc).isoformat()
     base_result = {
-        "provider": "smtp",
+        "provider": settings.notification_provider,
+        "transport": "smtp",
         "attempted_at": attempted_at,
         "recipient": recipient,
-        "from_email": settings.notification_from_email,
-        "reply_to": settings.notification_reply_to,
+        "from_email": _notification_sender_email(),
+        "reply_to": _notification_reply_to_email(),
     }
     if not recipient:
         return {**base_result, "status": "skipped", "reason": "missing_recipient"}
@@ -89,10 +122,10 @@ def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], gui
     content = build_post_radicado_email(case, guidance)
     message = EmailMessage()
     message["Subject"] = content["subject"]
-    message["From"] = settings.notification_from_email
+    message["From"] = _notification_sender_email()
     message["To"] = recipient
-    if settings.notification_reply_to:
-        message["Reply-To"] = settings.notification_reply_to
+    if _notification_reply_to_email():
+        message["Reply-To"] = _notification_reply_to_email()
     message.set_content(content["text"])
     message.add_alternative(content["html"], subtype="html")
 
@@ -105,8 +138,8 @@ def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], gui
                 context=context,
                 timeout=20,
             ) as server:
-                if settings.notification_smtp_user:
-                    server.login(settings.notification_smtp_user, settings.notification_smtp_password)
+                if _notification_smtp_user():
+                    server.login(_notification_smtp_user(), _notification_smtp_password())
                 server.send_message(message)
         else:
             with smtplib.SMTP(
@@ -116,8 +149,8 @@ def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], gui
             ) as server:
                 if settings.notification_smtp_use_starttls:
                     server.starttls(context=ssl.create_default_context())
-                if settings.notification_smtp_user:
-                    server.login(settings.notification_smtp_user, settings.notification_smtp_password)
+                if _notification_smtp_user():
+                    server.login(_notification_smtp_user(), _notification_smtp_password())
                 server.send_message(message)
     except Exception as exc:  # pragma: no cover
         return {
@@ -145,11 +178,12 @@ def send_signed_submission_email(
 ) -> dict[str, Any]:
     attempted_at = datetime.now(timezone.utc).isoformat()
     base_result = {
-        "provider": "smtp",
+        "provider": settings.notification_provider,
+        "transport": "smtp",
         "attempted_at": attempted_at,
         "recipient": recipient,
-        "from_email": settings.notification_from_email,
-        "reply_to": reply_to or settings.notification_reply_to,
+        "from_email": _radication_sender_email(),
+        "reply_to": reply_to or _radication_reply_to_email(),
     }
     if not recipient:
         return {**base_result, "status": "skipped", "reason": "missing_recipient"}
@@ -158,10 +192,10 @@ def send_signed_submission_email(
 
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = settings.notification_from_email
+    message["From"] = _radication_sender_email()
     message["To"] = recipient
-    if reply_to or settings.notification_reply_to:
-        message["Reply-To"] = reply_to or settings.notification_reply_to
+    if reply_to or _radication_reply_to_email():
+        message["Reply-To"] = reply_to or _radication_reply_to_email()
     message.set_content(body_text)
     message.add_alternative(body_html, subtype="html")
 
@@ -183,15 +217,15 @@ def send_signed_submission_email(
         if settings.notification_smtp_use_ssl:
             context = ssl.create_default_context()
             with smtplib.SMTP_SSL(settings.notification_smtp_host, settings.notification_smtp_port, context=context, timeout=20) as server:
-                if settings.notification_smtp_user:
-                    server.login(settings.notification_smtp_user, settings.notification_smtp_password)
+                if _radication_smtp_user():
+                    server.login(_radication_smtp_user(), _radication_smtp_password())
                 server.send_message(message)
         else:
             with smtplib.SMTP(settings.notification_smtp_host, settings.notification_smtp_port, timeout=20) as server:
                 if settings.notification_smtp_use_starttls:
                     server.starttls(context=ssl.create_default_context())
-                if settings.notification_smtp_user:
-                    server.login(settings.notification_smtp_user, settings.notification_smtp_password)
+                if _radication_smtp_user():
+                    server.login(_radication_smtp_user(), _radication_smtp_password())
                 server.send_message(message)
     except Exception as exc:  # pragma: no cover
         return {

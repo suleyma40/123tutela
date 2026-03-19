@@ -42,6 +42,10 @@ def _represented_identity_is_complete(*, name: str, age_or_birth: str, document:
 
 def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflow_type: str) -> dict[str, Any] | None:
     acting_capacity = _lower(intake.get("acting_capacity"))
+    target_entity = _text(intake.get("target_entity"))
+    eps_name = _text(intake.get("eps_name"))
+    prior_claim = _lower(intake.get("prior_claim"))
+    prior_claim_detail = _text(intake.get("prior_claim_result") or intake.get("eps_response_detail") or intake.get("tutela_other_means_detail"))
     attachment_suggestions = ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
     represented_person_name = _text(intake.get("represented_person_name")) or _text(attachment_suggestions.get("represented_person_name"))
     represented_person_age = (
@@ -52,6 +56,33 @@ def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflo
     )
     represented_person_document = _text(intake.get("represented_person_document")) or _text(attachment_suggestions.get("represented_person_document"))
     identity_support_unreadable = _lower(attachment_suggestions.get("identity_support_unreadable")) == "si"
+    special_protection = _lower(intake.get("special_protection"))
+    continuity_text = _join_texts(intake.get("treatment_needed"), intake.get("urgency_detail"), intake.get("ongoing_harm"), facts.get("hechos_principales"))
+    continuity_case = _has_any(_lower(continuity_text), ["continuidad", "sin medicamento", "sin tratamiento", "suspension", "suspensión", "interrupcion", "interrupción", "quimioterapia", "dialisis", "diálisis"])
+    if target_entity and eps_name and _lower(target_entity) != _lower(eps_name):
+        return {
+            "id": "target_entity",
+            "question": f"Veo dos entidades distintas en el caso: '{target_entity}' y '{eps_name}'. Cual es la EPS o IPS correcta contra la que va el documento?",
+            "placeholder": "Escribe un solo nombre oficial de la EPS o IPS correcta",
+            "multiline": False,
+            "why": "La entidad accionada esta inconsistente y debe quedar unica antes de redactar.",
+        }
+    if prior_claim in {"no", "aun no", "aún no", "no_aun_no"} and prior_claim_detail:
+        return {
+            "id": "prior_claim",
+            "question": "Marcaste que no habia gestion previa, pero el relato si menciona solicitud, radicado o respuesta de la EPS. Confirma cual de las dos versiones es la correcta.",
+            "placeholder": "Ej: si hubo PQRS el 3 de marzo y respondieron..., o no hubo ninguna gestion previa",
+            "multiline": True,
+            "why": "La via previa del caso esta contradictoria y hay que corregirla antes de cerrar la procedencia.",
+        }
+    if acting_capacity == "nombre_propio" and (represented_person_name or represented_person_age or represented_person_document):
+        return {
+            "id": "acting_capacity",
+            "question": "El expediente trae datos de un menor o representado, pero la calidad del accionante sigue en nombre propio. Confirma si presentas el caso por ti o por otra persona.",
+            "placeholder": "Ej: madre del menor / padre / agente oficioso / nombre propio",
+            "multiline": False,
+            "why": "Hay que aclarar quien es la persona protegida y en que calidad actua quien presenta el caso.",
+        }
     if acting_capacity and acting_capacity != "nombre_propio" and not represented_person_name:
         return {
             "id": "represented_person_name",
@@ -99,6 +130,22 @@ def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflo
             "placeholder": "Ej: hidroxiurea 500 mg cada 8 horas por 6 meses",
             "multiline": False,
             "why": "El juez o la EPS deben saber que servicio concreto se esta pidiendo.",
+        }
+    if continuity_case and not _text(intake.get("ongoing_harm")):
+        return {
+            "id": "ongoing_harm",
+            "question": "Explica que pasa si se interrumpe ese tratamiento o si siguen sin entregar el servicio hoy.",
+            "placeholder": "Ej: aumenta el dolor, reaparecen crisis, se pierde continuidad clinica o hay riesgo de complicacion",
+            "multiline": True,
+            "why": "La continuidad del tratamiento debe quedar explicada como riesgo actual para sostener mejor la tutela en salud.",
+        }
+    if special_protection not in {"", "no aplica", "ninguno"} and not _text(intake.get("tutela_special_protection_detail")):
+        return {
+            "id": "tutela_special_protection_detail",
+            "question": "Cuenta por que el paciente tiene especial proteccion y como esa condicion agrava la urgencia del caso.",
+            "placeholder": "Ej: es menor de edad, esta embarazada, tiene discapacidad o enfermedad grave y no puede esperar",
+            "multiline": True,
+            "why": "La proteccion reforzada ayuda a justificar por que este caso no deberia esperar otra gestion.",
         }
     if not (
         _text(intake.get("medical_order_date"))
@@ -190,6 +237,10 @@ def build_health_agent_state(
         lowered,
         ["nego", "negó", "silencio", "sin respuesta", "demoro", "demoró", "no agendo", "no autorizo", "no autorizó", "barrera", "eps"],
     )
+    has_continuity_context = _has_any(
+        lowered,
+        ["continuidad", "sin medicamento", "sin tratamiento", "suspension", "suspensión", "interrupcion", "interrupción", "quimioterapia", "dialisis", "diálisis"],
+    )
     has_risk_context = any(
         _text(intake.get(field))
         for field in ("urgency_detail", "ongoing_harm", "tutela_immediacy_detail", "tutela_special_protection_detail")
@@ -208,6 +259,7 @@ def build_health_agent_state(
         can_generate = can_generate and bool(
             has_risk_context
             or has_barrier_context
+            or has_continuity_context
             or _lower(intake.get("special_protection")) not in {"", "no aplica", "ninguno"}
         )
     if workflow_type == "tutela" and acting_capacity and acting_capacity != "nombre_propio":
@@ -224,12 +276,14 @@ def build_health_agent_state(
         inferred_risk.append(_text(intake.get("urgency_detail")))
     elif has_risk_context:
         inferred_risk.append("Los soportes y el relato ya permiten inferir riesgo actual o afectacion en curso.")
+    if has_continuity_context:
+        inferred_risk.append("Se detecta continuidad de tratamiento comprometida, lo que refuerza la urgencia del caso.")
 
     inferred_barrier = []
     if _text(intake.get("eps_response_detail")):
         inferred_barrier.append(_text(intake.get("eps_response_detail")))
     elif has_barrier_context:
-        inferred_barrier.append("La IA ya puede reconstruir la barrera de la EPS con el relato, fechas y anexos cargados.")
+        inferred_barrier.append("De la narracion del caso, las fechas relevantes y los soportes aportados se advierte una barrera administrativa atribuible a la EPS.")
 
     ready_state = can_generate
     summary = (

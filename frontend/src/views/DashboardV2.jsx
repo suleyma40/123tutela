@@ -285,13 +285,40 @@ const buildActionableGaps = (caseItem = {}, pendingQuestions = []) => {
 
 const buildSubmissionSignatureNote = (signatureForm = {}, baseNote = "") => {
   const signatureLine = [
-    "Firma simple:",
+    "Firma electronica simple:",
     signatureForm.full_name || "sin nombre",
     signatureForm.document_number || "sin cc",
     signatureForm.city || "sin ciudad",
     signatureForm.date || "sin fecha",
   ].join(" | ");
   return [baseNote || "", signatureLine].filter(Boolean).join(" || ").slice(0, 500);
+};
+
+const SIMPLE_SIGNATURE_CONSENT_VERSION = "ses_v1";
+const SIMPLE_SIGNATURE_CONSENT_TEXT =
+  "Autorizo a 123tutela para usar mi firma electronica simple en la radicacion o envio del documento generado para este caso. Confirmo que revise el contenido final antes de aceptarlo, que los datos de identificacion y ciudad que suministro son correctos, y que esta aceptacion expresa representa mi voluntad de presentar este documento por medios electronicos en el canal aplicable. Entiendo que la plataforma conservara evidencia basica de esta aceptacion, incluida la fecha y hora, la version del consentimiento y metadatos tecnicos del envio disponibles en el sistema.";
+
+const formatSignatureEvidence = (signature = {}) => {
+  const rows = [
+    { label: "Metodo", value: signature.signature_method || "firma_electronica_simple" },
+    { label: "Firmante", value: signature.full_name || "" },
+    { label: "Documento", value: signature.document_number || "" },
+    { label: "Ciudad declarada", value: signature.city || "" },
+    { label: "Fecha declarada", value: signature.date || "" },
+    { label: "Aceptacion registrada", value: signature.accepted_at || "" },
+    { label: "Version de consentimiento", value: signature.consent_version || "" },
+    { label: "IP registrada", value: signature.ip_address || "" },
+  ];
+  return rows.filter((item) => item.value);
+};
+
+const formatSignedArtifacts = (artifacts = {}) => {
+  const rows = [
+    { label: "DOCX firmado", value: artifacts.docx_filename || "" },
+    { label: "PDF firmado", value: artifacts.pdf_filename || "" },
+    { label: "Generado", value: artifacts.generated_at || "" },
+  ];
+  return rows.filter((item) => item.value);
 };
 
 const buildPostPayDescription = (form, caseItem) => {
@@ -817,9 +844,11 @@ const buildWritingGuide = (category) => {
       title: "Para salud o tutela por salud, cuenta esto",
       bullets: [
         "Diagnostico, medicamento, examen o procedimiento pendiente.",
-        "Desde cuando la EPS o IPS no responde o incumple.",
+        "Desde cuando la EPS o IPS no responde, niega o interrumpe el servicio.",
         "Orden medica, formula o incapacidad si existe.",
-        "Como te afecta hoy: dolor, riesgo, suspension del tratamiento o minimo vital.",
+        "Si el tratamiento se interrumpio, explica que pasa hoy por esa suspension.",
+        "Si el paciente es menor, embarazada, tiene discapacidad o enfermedad grave, dilo expresamente.",
+        "Como te afecta hoy: dolor, riesgo, suspension del tratamiento, empeoramiento o minimo vital.",
       ],
     };
   }
@@ -1200,23 +1229,24 @@ const buildStructuredDescription = (form) => {
 const getGuidedIntakeMissing = (form, files = []) => {
   const missing = [];
 
-  if (!form.target_entity.trim()) missing.push("Entidad o destinatario");
-  if (!form.event_date.trim()) missing.push("Fecha o periodo");
-  if (!form.concrete_request.trim()) missing.push("Solicitud concreta");
-  if (!form.response_channel.trim()) missing.push("Canal de respuesta");
-  if (!hasEvidenceAvailable(form, files)) missing.push("Pruebas o soportes disponibles");
-
   if (form.category === "Salud") {
-    if (!form.eps_name.trim()) missing.push("EPS");
+    if (!form.target_entity.trim() && !form.eps_name.trim()) missing.push("EPS, IPS o entidad de salud");
     if (!form.diagnosis.trim()) missing.push("Diagnostico o condicion medica");
     if (!form.treatment_needed.trim()) missing.push("Tratamiento, orden o servicio requerido");
-    if (!form.urgency_detail.trim()) missing.push("Que sigue pasando hoy al paciente");
+    if (!form.urgency_detail.trim() && !form.current_harm.trim()) missing.push("Que sigue pasando hoy al paciente");
     if (form.acting_capacity !== "nombre_propio") {
       if (!form.represented_person_name.trim()) missing.push("Nombre del menor o paciente representado");
       if (!form.represented_person_age.trim()) missing.push("Edad o fecha de nacimiento del paciente representado");
       if (!form.represented_person_document.trim()) missing.push("Documento del menor o paciente representado");
     }
+    return missing;
   }
+
+  if (!form.target_entity.trim()) missing.push("Entidad o destinatario");
+  if (!form.event_date.trim()) missing.push("Fecha o periodo");
+  if (!form.concrete_request.trim()) missing.push("Solicitud concreta");
+  if (!form.response_channel.trim()) missing.push("Canal de respuesta");
+  if (!hasEvidenceAvailable(form, files)) missing.push("Pruebas o soportes disponibles");
 
   if (form.category === "Datos") {
     if (!form.disputed_data.trim()) missing.push("Dato o reporte cuestionado");
@@ -1282,6 +1312,7 @@ const getPreviewGateIssues = (form, files = []) => {
   const issues = [];
   const descriptionLength = form.description.trim().length;
   const harmLength = form.current_harm.trim().length;
+  const urgencyLength = form.urgency_detail.trim().length;
   const evidenceLength = form.evidence_summary.trim().length;
   const evidenceSummaryFromFiles = summarizeUploadedEvidence(files);
   const effectiveEvidenceLength = evidenceLength || evidenceSummaryFromFiles.length;
@@ -1290,11 +1321,11 @@ const getPreviewGateIssues = (form, files = []) => {
     issues.push("El relato libre todavia es muy corto. Describe mejor que paso, en que orden y con que fechas.");
   }
 
-  if (harmLength < 25) {
+  if (form.category !== "Salud" && harmLength < 25) {
     issues.push("Debes explicar mejor la afectacion actual o el riesgo concreto que justifica el documento.");
   }
 
-  if (effectiveEvidenceLength < 20) {
+  if (form.category !== "Salud" && effectiveEvidenceLength < 20) {
     issues.push("Falta explicar que pruebas, soportes o documentos tienes disponibles.");
   }
 
@@ -1302,7 +1333,7 @@ const getPreviewGateIssues = (form, files = []) => {
     issues.push("Todavia no reportas una gestion previa. Revisa si primero conviene un derecho de peticion o una reclamacion formal.");
   }
 
-  if (form.category === "Salud" && form.urgency_detail.trim().length < 20) {
+  if (form.category === "Salud" && urgencyLength < 20 && harmLength < 25) {
     issues.push("En salud falta contar mejor que sigue pasando hoy al paciente y que afectacion continua sin el servicio.");
   }
 
@@ -1371,6 +1402,192 @@ const getWritingAid = (category) => {
 
 const buildGuidedIntakeInterviewSteps = (form) => {
   const action = normalizeAction(form.recommended_action);
+  if (form.category === "Salud") {
+    const loweredHealthText = [
+      form.description,
+      form.case_story,
+      form.urgency_detail,
+      form.current_harm,
+      form.ongoing_harm,
+      form.prior_claim_result,
+      form.eps_response_detail,
+      form.tutela_other_means_detail,
+      form.tutela_immediacy_detail,
+      form.tutela_special_protection_detail,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const contradictionSteps = [];
+    if (form.target_entity.trim() && form.eps_name.trim() && normalizeAction(form.target_entity) !== normalizeAction(form.eps_name)) {
+      contradictionSteps.push({
+        id: "target_entity",
+        question: `Veo dos entidades distintas en tu caso: "${form.target_entity}" y "${form.eps_name}". Cual es la EPS o IPS correcta contra la que va el documento?`,
+        placeholder: "Escribe un solo nombre oficial de la EPS o IPS correcta",
+        multiline: false,
+        show: true,
+      });
+    }
+    if (form.prior_claim === "no" && (form.prior_claim_result.trim() || form.eps_response_detail.trim() || form.tutela_other_means_detail.trim())) {
+      contradictionSteps.push({
+        id: "prior_claim_result",
+        question: "Marcaste que no hubo gestion previa, pero ya aparece una solicitud o respuesta de la EPS. Aclara que paso realmente.",
+        placeholder: "Ej: si hubo PQRS el 3 de marzo y respondieron..., o no hubo ninguna gestion previa",
+        multiline: true,
+        show: true,
+      });
+    }
+    if (form.acting_capacity === "nombre_propio" && (form.represented_person_name.trim() || form.represented_person_age.trim() || form.represented_person_document.trim())) {
+      contradictionSteps.push({
+        id: "acting_capacity",
+        question: "El caso trae datos de otra persona, pero sigue marcado en nombre propio. Confirma si presentas este caso por ti o por alguien mas.",
+        placeholder: "Ej: nombre propio, madre del menor, acudiente, agente oficioso",
+        multiline: false,
+        show: true,
+      });
+    }
+    if (["no aplica", "ninguno"].includes(normalizeAction(form.special_protection)) && form.tutela_special_protection_detail.trim()) {
+      contradictionSteps.push({
+        id: "special_protection",
+        question: "Marcaste que no aplica proteccion especial, pero el relato si menciona una condicion reforzada. Que opcion describe mejor al paciente?",
+        placeholder: "Ej: Menor de edad, Adulto mayor, Embarazada, Discapacidad, No aplica",
+        multiline: false,
+        show: true,
+      });
+    }
+    if (
+      (loweredHealthText.includes("ya autorizaron") || loweredHealthText.includes("ya entregaron") || loweredHealthText.includes("ya resolvieron") || loweredHealthText.includes("solucionado")) &&
+      (form.urgency_detail.trim() || form.current_harm.trim())
+    ) {
+      contradictionSteps.push({
+        id: "urgency_detail",
+        question: "Tu relato mezcla una posible solucion ya cumplida con una urgencia actual. Aclara exactamente que parte sigue incumplida hoy.",
+        placeholder: "Ej: autorizaron una parte, pero aun no entregan el medicamento / ya resolvieron todo",
+        multiline: true,
+        show: true,
+      });
+    }
+
+    const healthSteps = [];
+    if (form.acting_capacity !== "nombre_propio") {
+      healthSteps.push(
+        {
+          id: "represented_person_name",
+          question: "Como se llama el menor o la persona afectada por quien presentas el caso?",
+          placeholder: "Ej: Jeronimo Perez Lopez",
+          multiline: false,
+          show: !form.represented_person_name.trim(),
+        },
+        {
+          id: "represented_person_age",
+          question: "Que edad tiene o cual es la fecha de nacimiento del menor o representado?",
+          placeholder: "Ej: 7 anos / 12 de abril de 2018",
+          multiline: false,
+          show: !form.represented_person_age.trim(),
+        },
+        {
+          id: "represented_person_document",
+          question: "Si la tienes a la mano, cual es la TI, NUIP o documento del menor o representado?",
+          placeholder: "Ej: TI 1022334455",
+          multiline: false,
+          show: !form.represented_person_document.trim(),
+        }
+      );
+    }
+
+    healthSteps.push(
+      {
+        id: "target_entity",
+        question: "Cual EPS, IPS o entidad de salud esta causando hoy el problema?",
+        placeholder: "Ej: Nueva EPS, Sura EPS, Sanitas, Hospital X",
+        multiline: false,
+        show: !form.target_entity.trim() && !form.eps_name.trim(),
+      },
+      {
+        id: "diagnosis",
+        question: "Cual es el diagnostico o la condicion medica principal del paciente?",
+        placeholder: "Ej: cancer de seno, anemia falciforme, insuficiencia renal, embarazo de alto riesgo",
+        multiline: false,
+        show: !form.diagnosis.trim(),
+      },
+      {
+        id: "treatment_needed",
+        question: "Que medicamento, examen, cita, terapia, cirugia o tratamiento necesitas exactamente?",
+        placeholder: "Ej: autorizacion de resonancia, entrega de medicamento, quimioterapia, terapia integral",
+        multiline: true,
+        show: !form.treatment_needed.trim(),
+      },
+      {
+        id: "urgency_detail",
+        question: "Que sigue pasando hoy al paciente y por que no se puede esperar mas, especialmente si el tratamiento se interrumpio?",
+        placeholder: "Ej: dolor intenso, empeoramiento, crisis frecuentes, suspension del tratamiento, riesgo para embarazo o para un menor",
+        multiline: true,
+        show: !form.urgency_detail.trim() && !form.current_harm.trim(),
+      },
+      {
+        id: "evidence_summary",
+        question: "Que soporte medico tienes hoy o puedes describir ya: orden medica, formula, historia clinica, autorizacion, negacion o radicado?",
+        placeholder: "Ej: orden del 4 de marzo, formula medica, historia clinica PDF, respuesta de la EPS",
+        multiline: true,
+        show: !form.evidence_summary.trim() && !form.supporting_documents.trim(),
+      },
+      {
+        id: "prior_claim_result",
+        question: "Cuando pidieron el servicio, que hizo la EPS o la entidad: nego, guardo silencio, demoro, no agendo o puso otra barrera?",
+        placeholder: "Ej: negaron por no PBS, no respondieron al radicado, no asignaron cita, dejaron vencer la autorizacion",
+        multiline: true,
+        show: !form.prior_claim_result.trim() && !form.eps_response_detail.trim(),
+      },
+      {
+        id: "concrete_request",
+        question: "Que necesitas que ordenen o entreguen exactamente para resolver el caso?",
+        placeholder: "Ej: autorizar el examen, entregar medicamento continuo, programar cirugia, responder de fondo",
+        multiline: true,
+        show: !form.concrete_request.trim(),
+      }
+    );
+
+    if (action === "accion de tutela") {
+      healthSteps.push(
+        {
+          id: "tutela_special_protection_detail",
+          question: "Si el paciente es menor, esta embarazada, tiene discapacidad o una condicion grave, explica por que eso vuelve mas urgente el caso.",
+          placeholder: "Ej: es un menor de edad con tratamiento continuo / embarazo de alto riesgo / discapacidad con dependencia funcional",
+          multiline: true,
+          show:
+            (!form.tutela_special_protection_detail.trim() && normalizeAction(form.special_protection) !== "no aplica")
+            || (!form.tutela_special_protection_detail.trim() && !!form.represented_person_name.trim()),
+        },
+        {
+          id: "tutela_other_means_detail",
+          question: "Que hiciste antes para resolverlo y por que eso no alcanzo a proteger al paciente?",
+          placeholder: "Ej: radique PQRS, llame varias veces y la EPS siguio sin autorizar ni agendar",
+          multiline: true,
+          show: !form.tutela_other_means_detail.trim(),
+        },
+        {
+          id: "tutela_immediacy_detail",
+          question: "Por que la tutela se presenta ahora y que riesgo actual sigue vigente?",
+          placeholder: "Ej: la negativa es reciente y el dano sigue ocurriendo hoy",
+          multiline: true,
+          show: !form.tutela_immediacy_detail.trim(),
+        },
+        {
+          id: "tutela_no_temperity_detail",
+          question: "Ya hubo otra tutela por este mismo problema o esta es la primera?",
+          placeholder: "Ej: no he presentado otra tutela por estos mismos hechos y derechos",
+          multiline: true,
+          show: !form.tutela_no_temperity_detail.trim() && !form.prior_tutela.trim(),
+        }
+      );
+    }
+
+    return [...contradictionSteps, ...healthSteps.filter((step) => step.show)].filter((step, index, array) =>
+      array.findIndex((candidate) => candidate.id === step.id) === index,
+    );
+  }
+
   const steps = [
     {
       id: "target_entity",
@@ -2183,6 +2400,7 @@ function GuidedIntakeFields({
   const isPetitionTrack = ["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category);
   const interviewSteps = buildGuidedIntakeInterviewSteps(form);
   const activeInterviewStep = interviewSteps[0] || null;
+  const isCorrectionStep = activeInterviewStep && ["target_entity", "prior_claim_result", "acting_capacity", "special_protection", "urgency_detail"].includes(activeInterviewStep.id);
   const [assistantDraft, setAssistantDraft] = useState("");
   const evidenceHints = evidenceTypeHints[form.category] || evidenceTypeHints.default;
   const assistantProgress = interviewSteps.length ? `1 de ${interviewSteps.length}` : null;
@@ -2197,7 +2415,25 @@ function GuidedIntakeFields({
 
   const answerInterviewStep = () => {
     if (!activeInterviewStep || !assistantDraft.trim()) return;
-    setField(activeInterviewStep.id, assistantDraft.trim());
+    const value = assistantDraft.trim();
+    if (form.category === "Salud" && activeInterviewStep.id === "target_entity") {
+      setForm((current) => ({ ...current, target_entity: value, eps_name: current.eps_name || value }));
+    } else if (form.category === "Salud" && activeInterviewStep.id === "prior_claim_result") {
+      setForm((current) => ({
+        ...current,
+        prior_claim_result: value,
+        eps_response_detail: current.eps_response_detail || value,
+        prior_claim: current.prior_claim === "no" ? "si" : current.prior_claim,
+      }));
+    } else if (form.category === "Salud" && activeInterviewStep.id === "evidence_summary") {
+      setForm((current) => ({
+        ...current,
+        evidence_summary: value,
+        supporting_documents: current.supporting_documents || value,
+      }));
+    } else {
+      setField(activeInterviewStep.id, value);
+    }
     setAssistantDraft("");
   };
 
@@ -2217,12 +2453,22 @@ function GuidedIntakeFields({
           <div style={{ marginTop: 12, color: C.textMuted, fontSize: 13, lineHeight: 1.7 }}>
             Ayuda de redaccion: {writingAid}
           </div>
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Badge color={C.primary}>Continuidad del tratamiento</Badge>
+            <Badge color={C.primary}>Menor de edad</Badge>
+            <Badge color={C.primary}>Embarazo de riesgo</Badge>
+            <Badge color={C.primary}>Discapacidad</Badge>
+            <Badge color={C.primary}>Dolor o empeoramiento actual</Badge>
+          </div>
         </div>
 
         <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", display: "grid", gap: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>AGENTE DEL CASO</div>
-            {!!interviewSteps.length && <Badge color={C.primary}>Pregunta 1 de {interviewSteps.length}</Badge>}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {!!interviewSteps.length && <Badge color={C.primary}>Pregunta 1 de {interviewSteps.length}</Badge>}
+              {isCorrectionStep && <Badge color={C.warning}>Corrigiendo inconsistencia</Badge>}
+            </div>
           </div>
           <div style={{ color: C.text, fontWeight: 700, lineHeight: 1.6 }}>
             {activeInterviewStep
@@ -3011,6 +3257,7 @@ function DetailPanel({
     document_number: "",
     city: "Bogota",
     date: new Date().toLocaleDateString("es-CO"),
+    consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION,
   });
 
   if (!detail) {
@@ -3019,7 +3266,12 @@ function DetailPanel({
 
   const { case: item, files } = detail;
   const submissionSummary = item.submission_summary || {};
+  const submissionAttempts = detail.submission_attempts || [];
+  const timelineEvents = detail.timeline || [];
   const guidance = submissionSummary.guidance || {};
+  const signedArtifacts = submissionSummary.signed_artifacts || {};
+  const signatureEvidence = submissionSummary.signature || {};
+  const deliveryResult = submissionSummary.delivery_result || {};
   const review = documentReview || submissionSummary.document_quality || null;
   const effectivePostPayForm = mergeDetectedFormValues(postPayForm, item.facts?.intake_form || item.facts?.autofill_suggestions || {});
   const rights = item.legal_analysis?.derechos_vulnerados || [];
@@ -3085,6 +3337,8 @@ function DetailPanel({
     { id: 3, label: "Documento listo" },
     { id: 4, label: "Radicacion" },
   ];
+  const visibleSubmissionAttempts = submissionAttempts.slice(0, 5);
+  const visibleTimelineEvents = timelineEvents.slice(0, 6);
   const signatureReady =
     documentReviewed &&
     signatureAccepted &&
@@ -3097,14 +3351,18 @@ function DetailPanel({
     && healthAgentState.can_generate
     && /todavia faltan datos minimos|todavía faltan datos mínimos|tutela necesita/i.test(String(actionError || ""));
   const visibleActionError = suppressHealthAgentError ? "" : actionError;
+  const signatureEvidenceRows = formatSignatureEvidence(signatureEvidence);
+  const signedArtifactRows = formatSignedArtifacts(signedArtifacts);
 
   useEffect(() => {
     setSignatureForm((current) => ({
       ...current,
       full_name: effectivePostPayForm.full_name || item.user_name || current.full_name,
       document_number: effectivePostPayForm.document_number || item.user_document || current.document_number,
+      city: effectivePostPayForm.city || item.user_city || current.city,
+      date: current.date || new Date().toLocaleDateString("es-CO"),
     }));
-  }, [effectivePostPayForm.full_name, effectivePostPayForm.document_number, item.user_name, item.user_document]);
+  }, [effectivePostPayForm.full_name, effectivePostPayForm.document_number, effectivePostPayForm.city, item.user_name, item.user_document, item.user_city]);
 
   const uploadEvidence = async (event) => {
     const file = event.target.files?.[0];
@@ -3655,8 +3913,10 @@ function DetailPanel({
                       <span style={{ lineHeight: 1.6 }}>Ya revise el documento completo y puedo pasar a la firma.</span>
                     </label>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Firma simple para el envio</div>
-                      <div style={{ marginTop: 6, color: C.textMuted }}>Nombre, cedula, ciudad y fecha como validacion previa del envio.</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Firma electronica simple para el envio</div>
+                      <div style={{ marginTop: 6, color: C.textMuted }}>
+                        Nombre, cedula, ciudad y fecha como aceptacion expresa del documento revisado. La app guarda esta aceptacion con trazabilidad tecnica basica.
+                      </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
                       <Field label="Nombre completo">
@@ -3674,8 +3934,15 @@ function DetailPanel({
                     </div>
                     <label style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.text }}>
                       <input type="checkbox" checked={signatureAccepted} onChange={(event) => setSignatureAccepted(event.target.checked)} />
-                      <span style={{ lineHeight: 1.6 }}>Autorizo el uso de esta firma simple y confirmo que el documento final ya fue revisado.</span>
+                      <span style={{ lineHeight: 1.6 }}>Acepto el consentimiento de firma electronica simple version {SIMPLE_SIGNATURE_CONSENT_VERSION}.</span>
                     </label>
+                    <div style={{ padding: 14, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}`, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                      <div style={{ fontWeight: 800, color: C.text, marginBottom: 8 }}>Texto de consentimiento</div>
+                      <div>{SIMPLE_SIGNATURE_CONSENT_TEXT}</div>
+                      <div style={{ marginTop: 10 }}>
+                        La evidencia guardada incluye nombre, documento, ciudad, fecha declarada, aceptacion, version del consentimiento y metadatos tecnicos basicos del envio.
+                      </div>
+                    </div>
                     {!signatureReady && (
                       <div style={{ padding: 14, borderRadius: 16, background: "#FFF7ED", border: "1px solid #FED7AA", color: "#9A3412" }}>
                         La firma y la radicacion se habilitan cuando revisas el documento completo y completas esta confirmacion.
@@ -3737,7 +4004,9 @@ function DetailPanel({
                     <Button variant="ghost" style={{ background: "#EEF4FF", color: C.primary }} onClick={() => onViewDocument(item)}>Ver en lenguaje simple</Button>
                   </div>
                   <div style={{ padding: 16, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
-                    El PDF ya fue enviado a tu WhatsApp {whatsappCopy || "registrado"}.
+                    {guidance.customer_copy_channels?.includes("email")
+                      ? `Te enviaremos copia del documento al correo del caso desde ${guidance.operational_mailboxes?.notifications || "notificaciones@123tutelaapp.com"}${guidance.mail_hosting_provider ? ` con buzon gestionado en ${String(guidance.mail_hosting_provider).toUpperCase()}` : ""}${guidance.notification_provider ? ` y entregabilidad reforzada con ${String(guidance.notification_provider).toUpperCase()}` : ""}${guidance.whatsapp_copy_status === "pending_integration" ? " y dejaremos WhatsApp como canal pendiente de integracion operativa" : ""}.`
+                      : "La copia del documento queda visible en tu panel. Si habilitamos mas canales, apareceran aqui."}
                   </div>
                 </div>
               )}
@@ -3769,9 +4038,9 @@ function DetailPanel({
                   </div>
                 )}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 18 }}>
-                  <Button disabled={!signatureReady} onClick={() => onSubmitCase({ mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })}>Radicar por mi (+$34.000)</Button>
-                  <Button disabled={!signatureReady} variant="outline" onClick={() => onSubmitCase({ mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })}>Dame la guia (+$17.000)</Button>
-                  <Button disabled={!signatureReady} variant="ghost" style={{ background: "#F8FAFD", border: `1px solid ${C.border}` }} onClick={() => onManualRadicado({ radicado: radicadoManual || `AUTO-${Date.now()}`, notes: buildSubmissionSignatureNote(signatureForm, radicadoNote || "Usuario decidio radicar por su cuenta."), signature: { ...signatureForm, accepted: signatureAccepted }, reviewed_document: documentReviewed })}>Yo lo radico por mi cuenta</Button>
+                  <Button disabled={!signatureReady} onClick={() => onSubmitCase({ mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed })}>Radicar por mi (+$34.000)</Button>
+                  <Button disabled={!signatureReady} variant="outline" onClick={() => onSubmitCase({ mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed })}>Dame la guia (+$17.000)</Button>
+                  <Button disabled={!signatureReady} variant="ghost" style={{ background: "#F8FAFD", border: `1px solid ${C.border}` }} onClick={() => onManualRadicado({ radicado: radicadoManual || `AUTO-${Date.now()}`, notes: buildSubmissionSignatureNote(signatureForm, radicadoNote || "Usuario decidio radicar por su cuenta."), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed })}>Yo lo radico por mi cuenta</Button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
                   <TextInput value={manualContact} onChange={(event) => setManualContact(event.target.value)} placeholder="Correo o canal para la guia" />
@@ -3795,6 +4064,158 @@ function DetailPanel({
                     <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{(guidance.routing_snapshot || {}).destination_name || item.routing?.primary_target?.name || "Entidad"}</div>
                   </div>
                 </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginTop: 16 }}>
+                  <div style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>FIRMA REGISTRADA</div>
+                    <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                      {signatureEvidence.accepted ? "Firma electronica simple aceptada" : "Sin firma registrada"}
+                    </div>
+                    <div style={{ marginTop: 8, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                      {signatureEvidence.consent_version ? `Consentimiento ${signatureEvidence.consent_version}.` : "Aun no hay evidencia de consentimiento."}
+                    </div>
+                  </div>
+                  <div style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ENVIO</div>
+                    <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                      {deliveryResult.status || submissionSummary.last_channel || "Pendiente"}
+                    </div>
+                    <div style={{ marginTop: 8, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                      {guidance.proof_type ? `Evidencia principal: ${guidance.proof_type}.` : "Aun no hay comprobante de envio visible."}
+                    </div>
+                  </div>
+                  <div style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RADICADO</div>
+                    <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                      {submissionSummary.radicado || "Pendiente de confirmacion"}
+                    </div>
+                    <div style={{ marginTop: 8, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                      {submissionSummary.radicado ? "Este numero identifica el cierre operativo registrado en el caso." : "El envio existe, pero el numero de radicado puede quedar pendiente segun el canal."}
+                    </div>
+                  </div>
+                </div>
+                {!!signatureEvidenceRows.length && (
+                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>EVIDENCIA DE FIRMA</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+                      {signatureEvidenceRows.map((row) => (
+                        <div key={row.label}>
+                          <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>{row.label}</div>
+                          <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{row.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {!!signatureEvidence.consent_text && (
+                      <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                        Texto aceptado: {signatureEvidence.consent_text}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!!signedArtifactRows.length && (
+                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ARTEFACTOS FIRMADOS</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                      {signedArtifactRows.map((row) => (
+                        <div key={row.label}>
+                          <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>{row.label}</div>
+                          <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{row.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {!!guidance.judicial_radicado_note && (
+                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412", lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>SOBRE EL RADICADO</div>
+                    <div style={{ marginTop: 8 }}>{guidance.judicial_radicado_note}</div>
+                  </div>
+                )}
+                {!!guidance.operational_mailboxes && (
+                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>BUZONES OPERATIVOS</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RADICACIONES</div>
+                        <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{guidance.operational_mailboxes.radications}</div>
+                        <div style={{ marginTop: 4, color: C.textMuted, fontSize: 12, lineHeight: 1.5 }}>Toda radicacion por correo sale desde este buzon.</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>NOTIFICACIONES</div>
+                        <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{guidance.operational_mailboxes.notifications}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>SOPORTE</div>
+                        <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{guidance.operational_mailboxes.support}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!!visibleSubmissionAttempts.length && (
+                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>TRAZABILIDAD DE ENVIO</div>
+                    {visibleSubmissionAttempts.map((attempt) => {
+                      const attemptDelivery = attempt.response_payload?.delivery_result || {};
+                      const attemptSender = attemptDelivery.from_email || guidance.operational_mailboxes?.radications || guidance.operational_mailboxes?.notifications || "Buzon operativo";
+                      const attemptReplyTo = attemptDelivery.reply_to || "Sin reply-to registrado";
+                      return (
+                        <div key={attempt.id} style={{ padding: 14, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                            <div style={{ color: C.text, fontWeight: 800 }}>{attempt.subject || attempt.destination_name || "Intento de envio"}</div>
+                            <Badge color={attempt.status === "success" || attemptDelivery.status === "sent" ? C.success : attempt.status === "error" || attemptDelivery.status === "error" ? C.danger : C.primary}>
+                              {attemptDelivery.status || attempt.status}
+                            </Badge>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ENVIADO DESDE</div>
+                              <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{attemptSender}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>DESTINO</div>
+                              <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{attempt.destination_contact || attempt.destination_name || "Pendiente"}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RESPUESTA A</div>
+                              <div style={{ marginTop: 4, color: C.text, fontWeight: 700, wordBreak: "break-word" }}>{attemptReplyTo}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>FECHA</div>
+                              <div style={{ marginTop: 4, color: C.text, fontWeight: 700 }}>{shortDate(attempt.created_at)}</div>
+                            </div>
+                          </div>
+                          {(attempt.radicado || attempt.error_text || attemptDelivery.reason) && (
+                            <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                              {attempt.radicado ? `Radicado asociado: ${attempt.radicado}. ` : ""}
+                              {attempt.error_text || attemptDelivery.reason || ""}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {!!visibleTimelineEvents.length && (
+                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>LINEA DE TIEMPO</div>
+                    {visibleTimelineEvents.map((event) => (
+                      <div key={event.id} style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 12, alignItems: "start", paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+                        <div style={{ color: C.textMuted, fontSize: 13 }}>{shortDate(event.created_at)}</div>
+                        <div style={{ display: "grid", gap: 4 }}>
+                          <div style={{ color: C.text, fontWeight: 700 }}>{String(event.event_type || "evento").replaceAll("_", " ")}</div>
+                          <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                            {event.payload?.radicado
+                              ? `Radicado: ${event.payload.radicado}.`
+                              : event.payload?.channel
+                                ? `Canal: ${event.payload.channel}.`
+                                : event.payload?.status
+                                  ? `Estado: ${event.payload.status}.`
+                                  : "Evento registrado en el expediente."}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ marginTop: 14, color: C.textMuted }}>{guidance.post_radicado_copy?.body || "Tu haces el seguimiento de la respuesta con este comprobante."}</div>
               </div>
             )}
@@ -4982,16 +5403,16 @@ export default function DashboardV2(props) {
                       </div>
                     )}
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: persistedSignaturePayload, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!activeCaseDetail.case.generated_document || !persistedSignatureReady}>Ejecutar envio automatico</Button>
-                      <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: persistedSignaturePayload, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Usar contacto manual</Button>
-                      <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: persistedSignaturePayload, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Activar modo presencial</Button>
+                      <Button onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "auto", notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: { ...persistedSignaturePayload, accepted: true, consent_version: persistedSignature.consent_version || SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: persistedSignature.consent_text || SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!activeCaseDetail.case.generated_document || !persistedSignatureReady}>Ejecutar envio automatico</Button>
+                      <Button variant="outline" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: { ...persistedSignaturePayload, accepted: true, consent_version: persistedSignature.consent_version || SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: persistedSignature.consent_text || SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Usar contacto manual</Button>
+                      <Button variant="ghost" onClick={() => onSubmitCase(activeCaseDetail.case.id, { mode: "presencial", notes: buildSubmissionSignatureNote(persistedSignaturePayload, submissionNote), signature: { ...persistedSignaturePayload, accepted: true, consent_version: persistedSignature.consent_version || SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: persistedSignature.consent_text || SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Activar modo presencial</Button>
                     </div>
                   </div>
                   <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.textMuted }}>RADICADO MANUAL Y EVIDENCIA</div>
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                       <TextInput value={radicadoManual} onChange={(event) => setRadicadoManual(event.target.value)} placeholder="Numero de radicado manual" />
-                      <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: buildSubmissionSignatureNote(persistedSignaturePayload, radicadoNote), signature: persistedSignaturePayload, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Registrar radicado manual</Button>
+                      <Button variant="secondary" onClick={() => onManualRadicado(activeCaseDetail.case.id, { radicado: radicadoManual, notes: buildSubmissionSignatureNote(persistedSignaturePayload, radicadoNote), signature: { ...persistedSignaturePayload, accepted: true, consent_version: persistedSignature.consent_version || SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: persistedSignature.consent_text || SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: !!persistedSignature.reviewed_document })} disabled={!persistedSignatureReady}>Registrar radicado manual</Button>
                     </div>
                     <TextArea value={radicadoNote} onChange={(event) => setRadicadoNote(event.target.value)} placeholder="Notas del radicado manual" style={{ minHeight: 80 }} />
                     <input id="evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />

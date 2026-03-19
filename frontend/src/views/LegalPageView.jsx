@@ -147,6 +147,24 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
                   Cuando escribas, incluye el correo de la cuenta y la referencia del pago o el identificador del expediente.
                 </p>
               </div>
+              <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.accent, fontWeight: 800 }}>
+                  <Mail size={18} />
+                  radicaciones@123tutelaapp.com
+                </div>
+                <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
+                  Buzon operativo para envios judiciales y recepcion inicial de acuses o radicados cuando el despacho responde al canal de salida.
+                </p>
+              </div>
+              <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.primary, fontWeight: 800 }}>
+                  <Mail size={18} />
+                  notificaciones@123tutelaapp.com
+                </div>
+                <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
+                  Remitente operativo para copias al cliente, avisos del expediente y comprobantes que luego tambien quedan visibles en el panel.
+                </p>
+              </div>
             </div>
           )}
         </div>

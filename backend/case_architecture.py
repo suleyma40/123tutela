@@ -288,6 +288,15 @@ def evaluate_tutela_procedencia(
     special_protection = _lower(intake.get("special_protection"))
     prior_tutela = _lower(intake.get("prior_tutela") or intake.get("prior_tutela_reason"))
     prior_claim = _lower(intake.get("prior_claim") or intake.get("prior_claim_result"))
+    continuity_text = _lower(" ".join([case_story, _text(intake.get("treatment_needed")), _text(intake.get("ongoing_harm")), _text(intake.get("urgency_detail"))]))
+    continuity_risk = _has_any(
+        continuity_text,
+        ["continuidad", "sin medicamento", "sin tratamiento", "suspension", "suspensión", "interrupcion", "interrupción", "quimioterapia", "dialisis", "diálisis"],
+    )
+    reinforced_urgency = _has_any(
+        text,
+        ["menor", "embarazada", "gestante", "discapacidad", "adulto mayor", "cancer", "cáncer", "enfermedad huérfana", "enfermedad huerfana"],
+    ) or (special_protection and special_protection not in {"no aplica", "ninguno"})
 
     causales: list[str] = []
     faltantes: list[str] = []
@@ -312,11 +321,13 @@ def evaluate_tutela_procedencia(
         causales.append("Riesgo de inmediatez")
 
     subsidiariedad = "alta" if prior_actions or prior_claim in {"si", "sí", "reclame", "reclamo", "radicado"} else "media"
-    if subsidiariedad != "alta" and not _has_any(text, ["urgencia", "grave", "riesgo", "perjuicio irremediable", "menor", "embarazada", "discapacidad"]):
+    if continuity_risk and subsidiariedad != "alta":
+        warnings.append("Hay continuidad de tratamiento comprometida; la falta de via previa completa no deberia leerse con el mismo rigor que en un caso ordinario.")
+    if subsidiariedad != "alta" and not _has_any(text, ["urgencia", "grave", "riesgo", "perjuicio irremediable", "menor", "embarazada", "discapacidad"]) and not continuity_risk and not reinforced_urgency:
         causales.append("Subsidiariedad incompleta")
         faltantes.append("Explicar gestion previa o por que la tutela es urgente pese a no haber otra via agotada.")
 
-    perjuicio_irremediable = "alta" if _has_any(text, ["urgencia", "grave", "riesgo", "perjuicio irremediable", "vida", "salud", "minimo vital"]) else "media"
+    perjuicio_irremediable = "alta" if _has_any(text, ["urgencia", "grave", "riesgo", "perjuicio irremediable", "vida", "salud", "minimo vital"]) or continuity_risk or reinforced_urgency else "media"
     if perjuicio_irremediable != "alta":
         warnings.append("Conviene explicar mejor que dano sigue ocurriendo hoy o por que el caso sigue siendo urgente.")
 
@@ -359,6 +370,8 @@ def evaluate_tutela_procedencia(
 
     if special_protection and special_protection not in {"no aplica", "ninguno"}:
         warnings.append("Hay sujeto de especial proteccion; conviene dejarlo claro porque refuerza la urgencia del caso.")
+    if continuity_risk:
+        warnings.append("Se detecta continuidad de tratamiento comprometida, lo que refuerza la procedencia urgente de la tutela en salud.")
 
     return {
         "procedencia": procedencia,

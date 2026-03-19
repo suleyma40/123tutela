@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import re
 from pathlib import Path
 from typing import Any
@@ -84,6 +85,7 @@ from backend.workflows import (
     build_routing,
     build_strategy_text,
     generate_radicado,
+    get_submission_policy,
     infer_workflow,
     user_profile_complete,
 )
@@ -99,6 +101,15 @@ app.add_middleware(
 )
 
 analyzer = LegalAnalyzer(settings.knowledge_base_json)
+
+SIMPLE_SIGNATURE_CONSENT_VERSION = "ses_v1"
+SIMPLE_SIGNATURE_CONSENT_TEXT = (
+    "Autorizo a 123tutela para usar mi firma electronica simple en la radicacion o envio del documento generado para este caso. "
+    "Confirmo que revise el contenido final antes de aceptarlo, que los datos de identificacion y ciudad que suministro son correctos, "
+    "y que esta aceptacion expresa representa mi voluntad de presentar este documento por medios electronicos en el canal aplicable. "
+    "Entiendo que la plataforma conservara evidencia basica de esta aceptacion, incluida la fecha y hora, la version del consentimiento "
+    "y metadatos tecnicos del envio disponibles en el sistema."
+)
 
 
 def _normalize_user(user: dict[str, Any]) -> UserResponse:
@@ -252,8 +263,30 @@ def _normalize_payment_order(order: dict[str, Any]) -> PaymentOrderResponse:
     )
 
 
-def _normalize_submission_signature(signature: dict[str, Any] | None, *, reviewed_document: bool) -> dict[str, Any]:
+def _normalize_submission_signature(
+    signature: dict[str, Any] | None,
+    *,
+    reviewed_document: bool,
+    request: Request | None = None,
+) -> dict[str, Any]:
     data = dict(signature or {})
+    accepted_at = str(data.get("accepted_at") or "").strip() or datetime.now(timezone.utc).isoformat()
+    consent_version = str(data.get("consent_version") or SIMPLE_SIGNATURE_CONSENT_VERSION).strip()
+    consent_text = str(
+        data.get("consent_text")
+        or SIMPLE_SIGNATURE_CONSENT_TEXT
+    ).strip()
+    ip_address = ""
+    user_agent = ""
+    if request is not None:
+        try:
+            ip_address = str((request.client.host if request.client else "") or "").strip()
+        except Exception:
+            ip_address = ""
+        try:
+            user_agent = str(request.headers.get("user-agent") or "").strip()
+        except Exception:
+            user_agent = ""
     normalized = {
         "full_name": str(data.get("full_name") or "").strip(),
         "document_number": str(data.get("document_number") or "").strip(),
@@ -261,6 +294,12 @@ def _normalize_submission_signature(signature: dict[str, Any] | None, *, reviewe
         "date": str(data.get("date") or "").strip(),
         "accepted": bool(data.get("accepted") or data.get("accept") or data.get("acepta_terminos") or data.get("accepted_terms")),
         "reviewed_document": bool(reviewed_document),
+        "accepted_at": accepted_at,
+        "consent_version": consent_version,
+        "consent_text": consent_text,
+        "signature_method": "firma_electronica_simple",
+        "ip_address": ip_address,
+        "user_agent": user_agent,
     }
     if len(normalized["full_name"]) < 4 or len(normalized["document_number"]) < 6 or len(normalized["city"]) < 2 or len(normalized["date"]) < 4:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La firma simple esta incompleta.")
@@ -735,9 +774,12 @@ def _rehydrate_case_intelligence(case: dict[str, Any]) -> dict[str, Any]:
     )
     preview_gate = validate_submission_readiness(
         category=category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
         description=enriched_description,
         facts=facts,
         prior_actions=prior_actions,
+        stage="save",
     )
     document_rule_review = evaluate_document_rule(
         recommended_action=workflow["recommended_action"],
@@ -1031,9 +1073,12 @@ def analysis_preview(
     )
     preview_gate = validate_submission_readiness(
         category=payload.category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
         description=enriched_description,
         facts=result["facts"],
         prior_actions=payload.prior_actions,
+        stage="preview",
     )
     document_rule_review = evaluate_document_rule(
         recommended_action=workflow["recommended_action"],
@@ -1151,9 +1196,12 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
     )
     preview_gate = validate_submission_readiness(
         category=payload.category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
         description=enriched_description,
         facts=result["facts"],
         prior_actions=payload.prior_actions,
+        stage="preview",
     )
     document_rule_review = evaluate_document_rule(
         recommended_action=workflow["recommended_action"],
@@ -1323,9 +1371,12 @@ def update_case_intake(
     )
     preview_gate = validate_submission_readiness(
         category=category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
         description=enriched_description,
         facts=facts,
         prior_actions=prior_actions,
+        stage="save",
     )
     document_rule_review = evaluate_document_rule(
         recommended_action=workflow["recommended_action"],
@@ -1543,6 +1594,21 @@ def generate_document(
     if refreshed_agent_state:
         facts["agent_state"] = refreshed_agent_state
     case["facts"] = facts
+    generation_gate = validate_submission_readiness(
+        category=case.get("categoria") or case.get("category") or "",
+        workflow_type=case.get("workflow_type") or "",
+        recommended_action=case.get("recommended_action") or "",
+        description=case.get("descripcion") or "",
+        facts=facts,
+        prior_actions=[item["id"] for item in (case.get("prerequisites") or []) if item.get("completed")],
+        stage="generate",
+    )
+    if generation_gate.get("blocking_issues"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Todavia faltan datos minimos para generar este documento: "
+            + " | ".join(generation_gate["blocking_issues"]),
+        )
     document_rule_review = evaluate_document_rule(
         recommended_action=case.get("recommended_action"),
         workflow_type=case.get("workflow_type"),
@@ -1662,6 +1728,7 @@ def generate_document(
 def submit_case(
     case_id: str,
     payload: CaseSubmitRequest,
+    request: Request = None,
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> CaseDetailResponse:
     case = repository.get_case_for_user(case_id, str(current_user["id"]))
@@ -1671,7 +1738,17 @@ def submit_case(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debes registrar el pago antes de radicar.")
     if not case.get("generated_document"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Genera el documento antes de radicar.")
-    signature = _normalize_submission_signature(payload.signature, reviewed_document=payload.reviewed_document)
+    signature = _normalize_submission_signature(payload.signature, reviewed_document=payload.reviewed_document, request=request)
+    submission_policy = get_submission_policy(case)
+    allowed_modes = submission_policy.get("allowed_modes") or ["auto", "manual_contact", "presencial"]
+    if payload.mode not in allowed_modes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Este documento no admite ese modo de radicacion en la fase actual. "
+                f"Modo recomendado: {submission_policy.get('preferred_mode') or 'manual_contact'}."
+            ),
+        )
 
     routing = case.get("routing") or {}
     primary = routing.get("primary_target") or {}
@@ -1699,6 +1776,14 @@ def submit_case(
     signed_delivery_result: dict[str, Any] = {"status": "pending"}
 
     if payload.mode == "auto":
+        if not submission_policy.get("auto_allowed"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "La radicacion automatica no esta habilitada para este documento en salud. "
+                    f"Usa {submission_policy.get('preferred_mode') or 'manual_contact'}."
+                ),
+            )
         if not routing.get("automatable") or not destination_contact:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este caso no tiene canal automático confiable.")
         if routing.get("genera_radicado"):
@@ -1721,7 +1806,6 @@ def submit_case(
                     {"relative_path": signed_artifacts.get("docx_relative_path", ""), "filename": signed_artifacts.get("docx_filename", "documento_firmado.docx"), "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
                     {"relative_path": signed_artifacts.get("pdf_relative_path", ""), "filename": signed_artifacts.get("pdf_filename", "documento_firmado.pdf"), "mime_type": "application/pdf"},
                 ],
-                reply_to=case.get("usuario_email"),
             )
         attempt_status = "success"
     elif payload.mode == "manual_contact":
@@ -1749,7 +1833,6 @@ def submit_case(
                     {"relative_path": signed_artifacts.get("docx_relative_path", ""), "filename": signed_artifacts.get("docx_filename", "documento_firmado.docx"), "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
                     {"relative_path": signed_artifacts.get("pdf_relative_path", ""), "filename": signed_artifacts.get("pdf_filename", "documento_firmado.pdf"), "mime_type": "application/pdf"},
                 ],
-                reply_to=case.get("usuario_email"),
             )
         attempt_status = "manual_contact"
     else:
@@ -1786,6 +1869,7 @@ def submit_case(
             "signature": signature,
             "signed_artifacts": signed_artifacts,
             "delivery_result": signed_delivery_result,
+            "submission_policy": submission_policy,
             "guidance": build_submission_guidance(case=case, mode=payload.mode, channel=channel, radicado=radicado),
         },
     )
@@ -1822,6 +1906,7 @@ def submit_case(
 def register_manual_radicado(
     case_id: str,
     payload: ManualRadicadoRequest,
+    request: Request = None,
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> CaseDetailResponse:
     case = repository.get_case_for_user(case_id, str(current_user["id"]))
@@ -1830,7 +1915,7 @@ def register_manual_radicado(
     if not case.get("generated_document"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Genera el documento antes de registrar el radicado.")
 
-    signature = _normalize_submission_signature(payload.signature, reviewed_document=payload.reviewed_document)
+    signature = _normalize_submission_signature(payload.signature, reviewed_document=payload.reviewed_document, request=request)
     signed_artifacts = create_signed_submission_artifacts(
         case_id=case_id,
         recommended_action=str(case.get("recommended_action") or case.get("workflow_type") or "documento"),
@@ -1863,6 +1948,7 @@ def register_manual_radicado(
             "manual_notes": payload.notes,
             "signature": signature,
             "signed_artifacts": signed_artifacts,
+            "submission_policy": get_submission_policy(case),
             "guidance": build_submission_guidance(case=case, mode="manual_contact", channel="manual_record", radicado=payload.radicado),
         },
     )
