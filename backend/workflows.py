@@ -750,8 +750,8 @@ def build_submission_guidance(
     radicado_destination_note = "El radicado o comprobante definitivo depende del canal usado y de la respuesta de la entidad."
     if any(token in lowered_action for token in ["tutela", "impugnacion", "desacato"]):
         radicado_destination_note = (
-            f"En tramites judiciales automaticos, el radicado o acuse puede llegar primero al buzon {settings.radications_email} "
-            "usado para la radicacion y, segun el despacho, tambien al correo del cliente si fue incluido en el escrito o en el envio."
+            f"En tramites judiciales, la novedad puede llegar por distintos canales: al correo del cliente informado en la tutela, por llamada de la EPS o del juzgado, "
+            f"o a respuestas operativas en {settings.radications_email}. Si la persona usuaria recibe la novedad directamente, debe reportarla o subir la evidencia para actualizar el panel."
         )
     elif "peticion" in lowered_action:
         radicado_destination_note = (
@@ -783,10 +783,9 @@ def build_submission_guidance(
         "post_radicado_copy": {
             "headline": "Tu tramite fue enviado y ya puedes seguirlo desde tu panel.",
             "body": (
-                f"Recibiras copia del documento y del comprobante disponible por los canales habilitados. "
-                f"Las copias operativas salen desde {settings.notifications_email}. Los buzones siguen gestionados en Hostinger y {settings.notification_provider.title()} se usa para mejorar entregabilidad; "
-                f"si el juzgado o la entidad responde directamente al envio, "
-                f"el radicado puede llegar primero a {settings.radications_email} y luego reflejarse en tu panel."
+                f"Recibiras por correo una copia del documento enviado y, cuando exista, el comprobante disponible. "
+                f"Las copias al cliente salen desde {settings.notifications_email}. Si el juzgado, la EPS o la entidad responde al correo del cliente informado en el documento o por llamada directa, "
+                "debes reportar esa novedad para que el seguimiento quede actualizado en tu panel."
             ),
         },
         "routing_snapshot": {

@@ -51,6 +51,23 @@ def _is_email_configured() -> bool:
     )
 
 
+def _attach_files(message: EmailMessage, attachments: list[dict[str, str]] | None = None) -> list[str]:
+    attached_files: list[str] = []
+    for item in attachments or []:
+        relative_path = str(item.get("relative_path") or "").strip()
+        filename = str(item.get("filename") or Path(relative_path).name or "adjunto.bin").strip()
+        mime_type = str(item.get("mime_type") or "application/octet-stream").strip()
+        if not relative_path:
+            continue
+        file_path = absolute_path(relative_path)
+        if not file_path.exists():
+            continue
+        maintype, _, subtype = mime_type.partition("/")
+        message.add_attachment(file_path.read_bytes(), maintype=maintype or "application", subtype=subtype or "octet-stream", filename=filename)
+        attached_files.append(filename)
+    return attached_files
+
+
 def _post_radicado_user_guidance(case: dict[str, Any], guidance: dict[str, Any]) -> dict[str, Any]:
     submission_policy = guidance.get("submission_policy") or {}
     document_family = str(submission_policy.get("document_family") or "").lower()
@@ -103,9 +120,9 @@ def _post_radicado_user_guidance(case: dict[str, Any], guidance: dict[str, Any])
             f"en {settings.support_email} para actualizar el expediente."
         ),
         "customer_copy": (
-            f"Las copias al cliente salen desde {settings.notifications_email}. "
-            f"Si el juzgado o la entidad responde directamente al canal de envio, la primera novedad puede llegar a {settings.radications_email} "
-            "y luego reflejarse en tu panel."
+            f"Recibiras este correo con copia del documento enviado y, cuando exista, el comprobante o radicado disponible. "
+            "Si el juzgado, la EPS o la entidad responde al correo del cliente informado en el documento o por llamada directa, "
+            "esa novedad no entra sola al panel: debes reportarla o subir la evidencia para dejar trazabilidad."
         ),
         "product": product,
         "destination": destination,
@@ -219,6 +236,22 @@ def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], gui
         message["Reply-To"] = _notification_reply_to_email()
     message.set_content(content["text"])
     message.add_alternative(content["html"], subtype="html")
+    signed_artifacts = ((case.get("submission_summary") or {}).get("signed_artifacts") or {})
+    attached_files = _attach_files(
+        message,
+        attachments=[
+            {
+                "relative_path": signed_artifacts.get("docx_relative_path", ""),
+                "filename": signed_artifacts.get("docx_filename", "documento_firmado.docx"),
+                "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            },
+            {
+                "relative_path": signed_artifacts.get("pdf_relative_path", ""),
+                "filename": signed_artifacts.get("pdf_filename", "documento_firmado.pdf"),
+                "mime_type": "application/pdf",
+            },
+        ],
+    )
 
     try:
         if settings.notification_smtp_use_ssl:
@@ -249,12 +282,14 @@ def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], gui
             "status": "error",
             "reason": str(exc),
             "subject": content["subject"],
+            "attachments": attached_files,
         }
 
     return {
         **base_result,
         "status": "sent",
         "subject": content["subject"],
+        "attachments": attached_files,
     }
 
 
@@ -290,19 +325,7 @@ def send_signed_submission_email(
     message.set_content(body_text)
     message.add_alternative(body_html, subtype="html")
 
-    attached_files: list[str] = []
-    for item in attachments or []:
-        relative_path = str(item.get("relative_path") or "").strip()
-        filename = str(item.get("filename") or Path(relative_path).name or "adjunto.bin").strip()
-        mime_type = str(item.get("mime_type") or "application/octet-stream").strip()
-        if not relative_path:
-            continue
-        file_path = absolute_path(relative_path)
-        if not file_path.exists():
-            continue
-        maintype, _, subtype = mime_type.partition("/")
-        message.add_attachment(file_path.read_bytes(), maintype=maintype or "application", subtype=subtype or "octet-stream", filename=filename)
-        attached_files.append(filename)
+    attached_files = _attach_files(message, attachments)
 
     try:
         if settings.notification_smtp_use_ssl:

@@ -4011,7 +4011,7 @@ function DetailPanel({
                   </div>
                   <div style={{ padding: 16, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
                     {guidance.customer_copy_channels?.includes("email")
-                      ? `Te enviaremos copia del documento al correo del caso desde ${guidance.operational_mailboxes?.notifications || "notificaciones@123tutelaapp.com"}${guidance.mail_hosting_provider ? ` con buzon gestionado en ${String(guidance.mail_hosting_provider).toUpperCase()}` : ""}${guidance.notification_provider ? ` y entregabilidad reforzada con ${String(guidance.notification_provider).toUpperCase()}` : ""}${guidance.whatsapp_copy_status === "pending_integration" ? " y dejaremos WhatsApp como canal pendiente de integracion operativa" : ""}.`
+                      ? `Te enviaremos al correo del caso una copia del documento enviado y, cuando exista, el comprobante disponible desde ${guidance.operational_mailboxes?.notifications || "notificaciones@123tutelaapp.com"}. Si el juzgado o la EPS responde al correo del cliente o por llamada directa, debes reportarlo para que el seguimiento quede actualizado en tu panel.`
                       : "La copia del documento queda visible en tu panel. Si habilitamos mas canales, apareceran aqui."}
                   </div>
                 </div>
@@ -4172,6 +4172,14 @@ function DetailPanel({
                     <div style={{ marginTop: 8 }}>{guidance.judicial_radicado_note}</div>
                   </div>
                 )}
+                <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text, lineHeight: 1.7 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.primary }}>COMO HACER SEGUIMIENTO DESDE EL PANEL</div>
+                  <div style={{ marginTop: 8 }}>
+                    El panel muestra lo que el sistema ya conoce: envio realizado, comprobante, radicado registrado y eventos del expediente.
+                    Si el juzgado, la EPS o la entidad te responde a tu propio correo, te llama o te pide algo por fuera del sistema, esa novedad no entra sola:
+                    debes reportarla o subir la evidencia para dejar trazabilidad y definir el siguiente paso.
+                  </div>
+                </div>
                 {!!guidance.operational_mailboxes && (
                   <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
                     <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>BUZONES OPERATIVOS</div>
