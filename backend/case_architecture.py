@@ -949,6 +949,59 @@ def build_final_validation(
         warnings.append("La IA debe reforzar o depurar internamente el soporte jurisprudencial antes de la entrega final.")
 
     if "accion de tutela" in recommended_action:
+        uploaded_evidence_files = _list(facts.get("uploaded_evidence_files"))
+        uploaded_evidence_text = " ".join(str(item).strip() for item in uploaded_evidence_files if _text(item))
+        special_protection_value = _lower(intake.get("special_protection"))
+        has_current_health_facts = any(
+            _text(intake.get(field))
+            for field in (
+                "urgency_detail",
+                "ongoing_harm",
+                "eps_response_detail",
+                "tutela_immediacy_detail",
+                "tutela_other_means_detail",
+                "tutela_special_protection_detail",
+            )
+        ) or (
+            _text(intake.get("special_protection")) and special_protection_value not in {"no aplica", "ninguno"}
+        ) or _has_any(
+            text,
+            ["riesgo", "dolor", "agrav", "empeor", "crisis", "urgencias", "hospital", "sin medicamento", "sin examen", "sin tratamiento"],
+        )
+        has_health_barrier_context = any(
+            _text(intake.get(field))
+            for field in (
+                "eps_response_detail",
+                "eps_request_date",
+                "eps_request_reference",
+                "eps_request_channel",
+                "tutela_other_means_detail",
+                "previous_response",
+            )
+        ) or _lower(intake.get("prior_claim")) in {"si", "sí", "no", "aun no", "aún no"} or _has_any(
+            text,
+            ["nego", "negó", "no respondio", "no respondió", "demoro", "demoró", "no agendo", "sin autorizacion", "sin autorización"],
+        )
+        has_medical_support_context = bool(uploaded_evidence_files) or any(
+            _text(intake.get(field))
+            for field in (
+                "medical_order_date",
+                "treating_doctor_name",
+                "treating_ips_name",
+            )
+        ) or _has_any(
+            _lower(uploaded_evidence_text),
+            ["historia", "orden", "formula", "fórmula", "diagnostico", "diagnóstico", "medicamento", "ayudas diagnosticas", "ayudas diagnósticas"],
+        )
+        ai_can_complete_health_tutela = (
+            _lower(case.get("categoria")) == "salud"
+            and bool(_text(intake.get("target_entity")) or _text(intake.get("eps_name")))
+            and bool(_text(intake.get("diagnosis")))
+            and bool(_text(intake.get("treatment_needed")))
+            and has_current_health_facts
+            and has_health_barrier_context
+            and has_medical_support_context
+        )
         if _text(intake.get("acting_capacity")) and _lower(intake.get("acting_capacity")) != "nombre_propio":
             if not _text(intake.get("represented_person_name")):
                 blocking_issues.append("La tutela debe identificar con claridad a la persona representada o al menor afectado.")
@@ -970,7 +1023,7 @@ def build_final_validation(
                         recommended_action=recommended_action,
                     )
                 )
-        if not _text(intake.get("tutela_other_means_detail")):
+        if not _text(intake.get("tutela_other_means_detail")) and not ai_can_complete_health_tutela:
             blocking_issues.append("Antes de entregar la tutela debe quedar claro que hiciste antes para resolverlo o por que eso no solucionaba el dano.")
             actionable_gaps.append(
                 _build_actionable_gap(
@@ -980,7 +1033,7 @@ def build_final_validation(
                     recommended_action=recommended_action,
                 )
             )
-        if not _text(intake.get("tutela_immediacy_detail")):
+        if not _text(intake.get("tutela_immediacy_detail")) and not ai_can_complete_health_tutela:
             blocking_issues.append("Antes de entregar la tutela debe quedar claro que dano o riesgo sigue ocurriendo hoy.")
             actionable_gaps.append(
                 _build_actionable_gap(
@@ -990,7 +1043,12 @@ def build_final_validation(
                     recommended_action=recommended_action,
                 )
             )
-        if not _text(intake.get("tutela_previous_action_detail")):
+        if (
+            not _text(intake.get("tutela_previous_action_detail"))
+            and not _text(intake.get("prior_tutela"))
+            and not _text(intake.get("prior_tutela_reason"))
+            and not ai_can_complete_health_tutela
+        ):
             blocking_issues.append("Antes de entregar la tutela debe quedar claro si ya hubo otra solicitud o tutela por este mismo problema.")
             actionable_gaps.append(
                 _build_actionable_gap(
@@ -1000,7 +1058,12 @@ def build_final_validation(
                     recommended_action=recommended_action,
                 )
             )
-        if not _text(intake.get("tutela_oath_statement")) and not _text(intake.get("tutela_no_temperity_detail")):
+        if (
+            not _text(intake.get("tutela_oath_statement"))
+            and not _text(intake.get("tutela_no_temperity_detail"))
+            and not _text(intake.get("prior_tutela"))
+            and not ai_can_complete_health_tutela
+        ):
             blocking_issues.append("Antes de entregar la tutela debe quedar claro si esta es la primera tutela por este problema o que paso con la anterior.")
             actionable_gaps.append(
                 _build_actionable_gap(
@@ -1041,22 +1104,6 @@ def build_final_validation(
                         recommended_action=recommended_action,
                     )
                 )
-            has_current_health_facts = any(
-                _text(intake.get(field))
-                for field in (
-                    "urgency_detail",
-                    "ongoing_harm",
-                    "eps_response_detail",
-                    "tutela_immediacy_detail",
-                    "tutela_other_means_detail",
-                    "tutela_special_protection_detail",
-                )
-            ) or (
-                _text(intake.get("special_protection")) and _lower(intake.get("special_protection")) not in {"no aplica", "ninguno"}
-            ) or _has_any(
-                text,
-                ["riesgo", "dolor", "agrav", "empeor", "crisis", "urgencias", "hospital", "sin medicamento", "sin examen", "sin tratamiento"],
-            )
             if not has_current_health_facts:
                 blocking_issues.append("En tutela de salud faltan hechos actuales del paciente: que sigue pasando hoy y que riesgo o afectacion continua sin el servicio.")
                 actionable_gaps.append(
@@ -1067,7 +1114,7 @@ def build_final_validation(
                         recommended_action=recommended_action,
                     )
                 )
-            if not _text(intake.get("medical_order_date")):
+            if not _text(intake.get("medical_order_date")) and not ai_can_complete_health_tutela:
                 blocking_issues.append("En tutela de salud falta la fecha de la orden medica o de la consulta donde se formulo el servicio.")
                 actionable_gaps.append(
                     _build_actionable_gap(
@@ -1077,7 +1124,7 @@ def build_final_validation(
                         recommended_action=recommended_action,
                     )
                 )
-            if not _text(intake.get("treating_doctor_name")):
+            if not _text(intake.get("treating_doctor_name")) and not ai_can_complete_health_tutela:
                 blocking_issues.append("En tutela de salud falta identificar el medico tratante que ordeno el servicio.")
                 actionable_gaps.append(
                     _build_actionable_gap(
@@ -1087,7 +1134,7 @@ def build_final_validation(
                         recommended_action=recommended_action,
                     )
                 )
-            if not _text(intake.get("eps_request_date")):
+            if not _text(intake.get("eps_request_date")) and not ai_can_complete_health_tutela:
                 blocking_issues.append("En tutela de salud falta la fecha en que solicitaste la autorizacion ante la EPS.")
                 actionable_gaps.append(
                     _build_actionable_gap(
@@ -1097,7 +1144,7 @@ def build_final_validation(
                         recommended_action=recommended_action,
                     )
                 )
-            if not _text(intake.get("eps_response_detail")):
+            if not _text(intake.get("eps_response_detail")) and not ai_can_complete_health_tutela:
                 blocking_issues.append("En tutela de salud falta explicar si la EPS nego, guardo silencio o impuso una barrera concreta.")
                 actionable_gaps.append(
                     _build_actionable_gap(
@@ -1106,6 +1153,10 @@ def build_final_validation(
                         prompt="Cuenta si la EPS nego, guardo silencio, demoro, no agendo o impuso otra barrera concreta.",
                         recommended_action=recommended_action,
                     )
+                )
+            if ai_can_complete_health_tutela:
+                warnings.append(
+                    "La IA completara internamente la urgencia, procedencia y la barrera de la EPS con base en anexos y contexto medico ya cargado."
                 )
     if "derecho de peticion" in recommended_action:
         if not _text(intake.get("numbered_requests")):

@@ -2992,8 +2992,17 @@ function DetailPanel({
   };
 
   const answerInterviewStep = () => {
-    if (!activeInterviewStep || !interviewDraft.trim()) return;
-    setPostPayForm((current) => ({ ...current, [activeInterviewStep.id]: interviewDraft.trim() }));
+    const nextAnswer = interviewDraft.trim();
+    if (!nextAnswer) return;
+    if (activeInterviewStep) {
+      setPostPayForm((current) => ({ ...current, [activeInterviewStep.id]: nextAnswer }));
+    } else {
+      setRegenerationContext((current) => [current, nextAnswer].filter(Boolean).join("\n\n"));
+      setPostPayForm((current) => ({
+        ...current,
+        case_story: [current.case_story, nextAnswer].filter(Boolean).join("\n"),
+      }));
+    }
     setInterviewDraft("");
   };
 
@@ -3232,6 +3241,7 @@ function DetailPanel({
                   interviewDraft={interviewDraft}
                   setInterviewDraft={setInterviewDraft}
                   answerInterviewStep={answerInterviewStep}
+                  regenerationContext={regenerationContext}
                   evidenceHints={evidenceHints}
                   evidenceNote={evidenceNote}
                   setEvidenceNote={setEvidenceNote}
@@ -3659,6 +3669,7 @@ function PaidCaseAgentWorkspace({
   interviewDraft,
   setInterviewDraft,
   answerInterviewStep,
+  regenerationContext = "",
   evidenceHints = [],
   evidenceNote = "",
   setEvidenceNote = () => {},
@@ -3689,7 +3700,7 @@ function PaidCaseAgentWorkspace({
         <div style={{ color: C.text, fontWeight: 700, lineHeight: 1.65 }}>
           {activeInterviewStep
             ? activeInterviewStep.question
-            : "El agente ya tiene lo minimo para seguir. Puedes guardar y generar el documento cuando quieras."}
+            : "El agente ya tiene lo minimo para seguir, pero puedes agregar cualquier dato nuevo y lo incorporare al expediente antes de redactar."}
         </div>
         {activeInterviewStep ? (
           activeInterviewStep.multiline ? (
@@ -3711,12 +3722,27 @@ function PaidCaseAgentWorkspace({
             El agente ya consolidó los hechos principales con tus respuestas y los soportes cargados.
           </div>
         )}
+        {!activeInterviewStep && (
+          <div style={{ display: "grid", gap: 10 }}>
+            <TextArea
+              value={interviewDraft}
+              onChange={(event) => setInterviewDraft(event.target.value)}
+              style={{ minHeight: 100 }}
+              placeholder="Agrega cualquier dato nuevo: sintomas actuales, barrera de la EPS, fechas, respuesta recibida o algo importante para el caso."
+            />
+            {!!regenerationContext.trim() && (
+              <div style={{ padding: 12, borderRadius: 14, background: "#F8FAFD", border: `1px solid ${C.border}`, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                Contexto adicional guardado para la siguiente generación.
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <Button variant="secondary" onClick={answerInterviewStep} disabled={!activeInterviewStep || !interviewDraft.trim()}>
-            Guardar respuesta y seguir
+          <Button variant="secondary" onClick={answerInterviewStep} disabled={!interviewDraft.trim()}>
+            {activeInterviewStep ? "Guardar respuesta y seguir" : "Agregar al expediente"}
           </Button>
           <div style={{ color: C.textMuted, fontSize: 13 }}>
-            El agente formula las preguntas juridicamente utiles y se encarga de la urgencia, procedencia y argumentacion.
+            El agente formula las preguntas jurídicamente útiles y se encarga de la urgencia, procedencia y argumentación.
           </div>
         </div>
       </div>
@@ -3749,7 +3775,7 @@ function PaidCaseAgentWorkspace({
         <div style={{ color: C.textMuted, fontSize: 13 }}>
           {activeInterviewStep
             ? "Primero responde la pregunta actual del agente."
-            : `Todo listo para generar el ${String(item.recommended_action || item.workflow_type || "documento").toLowerCase()}.`}
+            : `Puedes generar el ${String(item.recommended_action || item.workflow_type || "documento").toLowerCase()} o seguir agregando contexto por el chat.`}
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Button variant="secondary" onClick={onSaveFlowDraft} disabled={loading}>
