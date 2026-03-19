@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import smtplib
 import ssl
+import json
+import urllib.request
+import urllib.error
+import re
 from email.message import EmailMessage
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,6 +53,38 @@ def _is_email_configured() -> bool:
         and settings.notification_smtp_port
         and (_notification_sender_email() or _radication_sender_email())
     )
+
+
+def _is_whatsapp_configured() -> bool:
+    return bool(settings.evolution_base_url and settings.evolution_api_key and settings.evolution_instance)
+
+
+def _normalize_whatsapp_number(phone: str | None) -> str:
+    digits = re.sub(r"\D+", "", str(phone or ""))
+    if not digits:
+        return ""
+    if digits.startswith("57") and len(digits) >= 12:
+        return digits
+    if len(digits) == 10:
+        return f"57{digits}"
+    if digits.startswith("0") and len(digits) == 11:
+        return f"57{digits[1:]}"
+    return digits
+
+
+def _post_json(url: str, payload: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=20) as response:  # nosec - controlled host from env
+        body = response.read().decode("utf-8", errors="ignore")
+        try:
+            return json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            return {"raw": body}
 
 
 def _attach_files(message: EmailMessage, attachments: list[dict[str, str]] | None = None) -> list[str]:
@@ -211,6 +247,21 @@ Panel del cliente:
     return {"subject": subject, "text": text_body, "html": html_body}
 
 
+def build_post_radicado_whatsapp(case: dict[str, Any], guidance: dict[str, Any]) -> str:
+    helper = _post_radicado_user_guidance(case, guidance)
+    product = helper["product"]
+    radicado = ((guidance.get("routing_snapshot") or {}).get("radicado")) or "pendiente de confirmacion"
+    next_step = guidance.get("next_step_suggestion") or "Sigue el caso desde tu panel."
+    return (
+        f"123tutela: tu tramite fue enviado.\n\n"
+        f"Documento: {product}\n"
+        f"Radicado o comprobante: {radicado}\n"
+        f"Siguiente paso: {next_step}\n\n"
+        f"Si el juzgado, la EPS o la entidad te llama o te escribe por fuera del panel, repórtalo en tu expediente.\n"
+        f"Panel: {settings.frontend_url}"
+    )
+
+
 def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], guidance: dict[str, Any]) -> dict[str, Any]:
     attempted_at = datetime.now(timezone.utc).isoformat()
     base_result = {
@@ -289,6 +340,60 @@ def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], gui
         "status": "sent",
         "subject": content["subject"],
         "attachments": attached_files,
+    }
+
+
+def send_post_radicado_whatsapp(*, phone: str | None, case: dict[str, Any], guidance: dict[str, Any]) -> dict[str, Any]:
+    attempted_at = datetime.now(timezone.utc).isoformat()
+    normalized_phone = _normalize_whatsapp_number(phone)
+    base_result = {
+        "provider": "evolution",
+        "transport": "whatsapp",
+        "attempted_at": attempted_at,
+        "recipient": normalized_phone or phone,
+        "instance": settings.evolution_instance,
+    }
+    if not normalized_phone:
+        return {**base_result, "status": "skipped", "reason": "missing_phone"}
+    if not _is_whatsapp_configured():
+        return {**base_result, "status": "pending_configuration", "reason": "evolution_not_configured"}
+
+    version = str(settings.evolution_api_version or "v2").strip().lower()
+    base_url = settings.evolution_base_url.rstrip("/")
+    if version == "v1":
+        url = f"{base_url}/message/sendText/{settings.evolution_instance}"
+    else:
+        url = f"{base_url}/message/sendText/{settings.evolution_instance}"
+    payload = {
+        "number": normalized_phone,
+        "text": build_post_radicado_whatsapp(case, guidance),
+        "linkPreview": False,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": settings.evolution_api_key,
+    }
+    try:
+        response_payload = _post_json(url, payload, headers)
+    except urllib.error.HTTPError as exc:  # pragma: no cover
+        body = exc.read().decode("utf-8", errors="ignore")
+        return {
+            **base_result,
+            "status": "error",
+            "reason": f"http_{exc.code}",
+            "response_body": body[:500],
+        }
+    except Exception as exc:  # pragma: no cover
+        return {
+            **base_result,
+            "status": "error",
+            "reason": str(exc),
+        }
+
+    return {
+        **base_result,
+        "status": "sent",
+        "response_payload": response_payload,
     }
 
 

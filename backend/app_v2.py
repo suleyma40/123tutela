@@ -31,6 +31,7 @@ from backend.legal_sources import (
     sanitize_legal_analysis,
 )
 from backend.notifications import send_post_radicado_email
+from backend.notifications import send_post_radicado_whatsapp
 from backend.notifications import send_signed_submission_email
 from backend.submission_artifacts import create_signed_submission_artifacts
 from backend.schemas_v2 import (
@@ -213,15 +214,19 @@ def _apply_post_radicado_email_result(
     manual_contact: dict[str, Any] | None = None,
     guidance: dict[str, Any],
     email_result: dict[str, Any],
+    whatsapp_result: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     updater = repository.update_case_submission if manual_contact is not None else repository.update_case_status
+    merged_summary = {
+        **(base_case.get("submission_summary") or {}),
+        "guidance": guidance,
+        "post_radicado_email": email_result,
+    }
+    if whatsapp_result is not None:
+        merged_summary["post_radicado_whatsapp"] = whatsapp_result
     update_kwargs: dict[str, Any] = {
         "status": current_status,
-        "submission_summary": {
-            **(base_case.get("submission_summary") or {}),
-            "guidance": guidance,
-            "post_radicado_email": email_result,
-        },
+        "submission_summary": merged_summary,
     }
     if manual_contact is not None:
         update_kwargs["manual_contact"] = manual_contact
@@ -233,6 +238,14 @@ def _apply_post_radicado_email_result(
         actor_id=None,
         payload=email_result,
     )
+    if whatsapp_result is not None:
+        repository.create_event(
+            case_id=case_id,
+            event_type=f"post_radicado_whatsapp_{whatsapp_result.get('status') or 'processed'}",
+            actor_type="system",
+            actor_id=None,
+            payload=whatsapp_result,
+        )
     return updated
 
 
@@ -1983,6 +1996,7 @@ def submit_case(
         radicado=radicado,
     )
     email_result = send_post_radicado_email(recipient=updated.get("usuario_email"), case=updated, guidance=guidance)
+    whatsapp_result = send_post_radicado_whatsapp(phone=updated.get("usuario_telefono"), case=updated, guidance=guidance)
     updated = _apply_post_radicado_email_result(
         case_id=case_id,
         base_case=updated,
@@ -1990,6 +2004,7 @@ def submit_case(
         manual_contact=updated.get("manual_contact") or manual_contact,
         guidance=guidance,
         email_result=email_result,
+        whatsapp_result=whatsapp_result,
     )
 
     repository.create_event(
@@ -2062,12 +2077,14 @@ def register_manual_radicado(
         radicado=payload.radicado,
     )
     email_result = send_post_radicado_email(recipient=updated.get("usuario_email"), case=updated, guidance=guidance)
+    whatsapp_result = send_post_radicado_whatsapp(phone=updated.get("usuario_telefono"), case=updated, guidance=guidance)
     updated = _apply_post_radicado_email_result(
         case_id=case_id,
         base_case=updated,
         current_status=updated.get("estado") or "radicado",
         guidance=guidance,
         email_result=email_result,
+        whatsapp_result=whatsapp_result,
     )
 
     repository.create_event(
