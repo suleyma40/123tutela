@@ -4474,6 +4474,7 @@ export default function DashboardV2(props) {
   const [radicadoNote, setRadicadoNote] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
   const [regenerationReason, setRegenerationReason] = useState("");
+  const visibleActionError = actionError || "";
   const [regenerationContext, setRegenerationContext] = useState("");
   const [internalStatus, setInternalStatus] = useState("seguimiento");
   const [internalNote, setInternalNote] = useState("");
