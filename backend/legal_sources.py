@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -20,6 +21,22 @@ def _compact_reference(value: Any) -> str:
     text = re.sub(r"\bsentencia\b", "", text)
     text = re.sub(r"\bde\s+\d{4}\b", "", text)
     text = re.sub(r"[^a-z0-9]+", "", text)
+    return text.strip()
+
+
+def _strip_accents(value: Any) -> str:
+    text = _text(value)
+    if not text:
+        return ""
+    normalized = unicodedata.normalize("NFD", text)
+    return "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+
+
+def _normalize_legal_text(value: Any) -> str:
+    text = _strip_accents(value).lower()
+    text = text.replace("art.", "articulo ")
+    text = re.sub(r"\bart\s+", "articulo ", text)
+    text = re.sub(r"\s+", " ", text)
     return text.strip()
 
 
@@ -160,6 +177,9 @@ VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
             "constitucion politica art. 49",
             "constitucion politica art 49",
             "articulo 49 cp",
+            "articulo 49 de la constitucion",
+            "articulo 49 de la constitucion politica",
+            "articulo 49 superior",
             "derecho a la salud",
         ],
         "tipo_fuente": "norma",
@@ -178,6 +198,8 @@ VERIFIED_SOURCE_REGISTRY: dict[str, dict[str, Any]] = {
             "decreto 2591 de 1991",
             "decreto 2591 de 1991 articulo 14",
             "decreto 2591/1991 art. 14",
+            "articulo 14 del decreto 2591 de 1991",
+            "articulo 14 decreto 2591 de 1991",
             "contenido e informalidad de la solicitud de tutela",
         ],
         "tipo_fuente": "norma",
@@ -548,6 +570,7 @@ def _append_verified_entry(
 def _match_registry_entry(reference: str) -> dict[str, Any] | None:
     normalized = _lower(reference)
     compact = _compact_reference(reference)
+    is_ambiguous_article_only = bool(re.fullmatch(r"articulo\d{1,3}", compact))
     for entry in _get_verified_source_registry().values():
         aliases = [_lower(item) for item in entry.get("aliases", [])]
         compact_aliases = [_compact_reference(item) for item in entry.get("aliases", [])]
@@ -558,6 +581,8 @@ def _match_registry_entry(reference: str) -> dict[str, Any] | None:
             return entry
         if compact and compact_name == compact:
             return entry
+        if is_ambiguous_article_only:
+            continue
         if compact and compact_name.startswith(compact):
             return entry
         if compact and any(alias and alias.startswith(compact) for alias in compact_aliases):
@@ -630,16 +655,15 @@ def _article_reference_is_contextually_verified(
     document: str,
     verified_names: set[str],
 ) -> bool:
-    normalized = _lower(reference).strip()
+    normalized = _normalize_legal_text(reference)
     normalized = normalized.replace("art.", "articulo ").replace("art ", "articulo ")
-    normalized = normalized.replace("artículo", "articulo")
     if not normalized.startswith("articulo"):
         return False
     article_number = re.findall(r"\d{1,3}", normalized)
     if not article_number:
         return False
     number = article_number[0]
-    lowered_document = _lower(document).replace("artículo", "articulo")
+    lowered_document = _normalize_legal_text(document)
     contextual_patterns = [
         rf"articulo\s+{number}\s+de\s+la\s+ley\s+\d{{1,4}}\s+de\s+\d{{4}}",
         rf"art\.\s*{number}\s+de\s+la\s+ley\s+\d{{1,4}}\s+de\s+\d{{4}}",
@@ -651,6 +675,8 @@ def _article_reference_is_contextually_verified(
         rf"articulo\s+{number}\s+de\s+la\s+constitucion\s+politica",
         rf"art\.\s*{number}\s+de\s+la\s+constitucion",
         rf"art\.\s*{number}\s+de\s+la\s+constitucion\s+politica",
+        rf"articulo\s+{number}\s+superior",
+        rf"articulo\s+{number}\s+constitucional",
     ]
     snippets: list[str] = []
     for pattern in contextual_patterns:
@@ -681,7 +707,7 @@ def validate_document_citations(
     verified_detected: list[str] = []
     unresolved_detected: list[str] = []
     for reference in detected_references:
-        normalized = _lower(reference)
+        normalized = _normalize_legal_text(reference)
         entry = _match_registry_entry(reference)
         if entry or normalized in verified_names or _article_reference_is_contextually_verified(reference, document=document, verified_names=verified_names):
             verified_detected.append(reference)
