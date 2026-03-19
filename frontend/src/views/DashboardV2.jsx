@@ -3234,6 +3234,7 @@ function DetailPanel({
   setRegenerationReason = () => {},
   regenerationContext = "",
   setRegenerationContext = () => {},
+  actionError = "",
   loading,
   detailStepOverride = null,
   onSetDetailStep = () => {},
