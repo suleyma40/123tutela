@@ -1050,6 +1050,10 @@ def build_final_validation(
                 or _text(attachment_suggestions.get("represented_person_age"))
                 or _text(attachment_suggestions.get("represented_person_birth_date"))
             )
+            represented_person_document = (
+                _text(intake.get("represented_person_document"))
+                or _text(attachment_suggestions.get("represented_person_document"))
+            )
             if not represented_person_name:
                 blocking_issues.append("La tutela debe identificar con claridad a la persona representada o al menor afectado.")
                 actionable_gaps.append(
@@ -1067,6 +1071,16 @@ def build_final_validation(
                         field="represented_person_age",
                         label="Falta edad o fecha de nacimiento de la persona representada",
                         prompt="Indica la edad o fecha de nacimiento de la persona representada.",
+                        recommended_action=recommended_action,
+                    )
+                )
+            if not represented_person_document:
+                blocking_issues.append("La tutela debe indicar el documento de la persona representada o del menor afectado.")
+                actionable_gaps.append(
+                    _build_actionable_gap(
+                        field="represented_person_document",
+                        label="Falta el documento de la persona representada",
+                        prompt="Indica el registro civil, TI, NUIP o documento del menor o de la persona representada.",
                         recommended_action=recommended_action,
                     )
                 )

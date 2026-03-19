@@ -1214,6 +1214,7 @@ const getGuidedIntakeMissing = (form, files = []) => {
     if (form.acting_capacity !== "nombre_propio") {
       if (!form.represented_person_name.trim()) missing.push("Nombre del menor o paciente representado");
       if (!form.represented_person_age.trim()) missing.push("Edad o fecha de nacimiento del paciente representado");
+      if (!form.represented_person_document.trim()) missing.push("Documento del menor o paciente representado");
     }
   }
 
@@ -1264,6 +1265,7 @@ const getGuidedIntakeMissing = (form, files = []) => {
     if (form.acting_capacity !== "nombre_propio") {
       if (!form.represented_person_name.trim()) missing.push("Nombre de la persona representada");
       if (!form.represented_person_age.trim()) missing.push("Edad o fecha de nacimiento de la persona representada");
+      if (!form.represented_person_document.trim()) missing.push("Documento de la persona representada");
     }
   }
 
@@ -1466,6 +1468,15 @@ const buildGuidedIntakeInterviewSteps = (form) => {
         show:
           form.acting_capacity !== "nombre_propio" &&
           !form.represented_person_age?.trim(),
+      },
+      {
+        id: "represented_person_document",
+        question: "¿Cuál es el documento del menor o de la persona representada?",
+        placeholder: "Ej: Registro civil 12345678 / TI 1022334455 / NUIP 1234567890",
+        multiline: false,
+        show:
+          form.acting_capacity !== "nombre_propio" &&
+          !form.represented_person_document?.trim(),
       }
     );
   }
