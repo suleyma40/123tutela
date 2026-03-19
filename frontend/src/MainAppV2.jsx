@@ -308,6 +308,14 @@ export default function MainAppV2() {
       return response.data;
     }, "No fue posible registrar el radicado manual.");
 
+  const handleReportFollowUp = (caseId, payload) =>
+    withAction(async () => {
+      const response = await api.post(`/cases/${caseId}/follow-up`, payload, withAuth(session.token));
+      await refreshCollections(session.token, session.user.role);
+      setActiveCaseDetail(response.data);
+      return response.data;
+    }, "No fue posible registrar la novedad.");
+
   const handleUploadEvidence = (caseId, file, note = "") =>
     withAction(async () => {
       const formData = new FormData();
@@ -441,6 +449,7 @@ export default function MainAppV2() {
               onGenerateDocument={handleGenerateDocument}
               onSubmitCase={handleSubmitCase}
               onManualRadicado={handleManualRadicado}
+              onReportFollowUp={handleReportFollowUp}
               onUploadEvidence={handleUploadEvidence}
               onInternalStatus={handleInternalStatus}
               loading={loading}

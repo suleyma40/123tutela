@@ -211,6 +211,12 @@ class ManualRadicadoRequest(BaseModel):
     reviewed_document: bool = False
 
 
+class FollowUpReportRequest(BaseModel):
+    note: str = Field(min_length=8, max_length=1200)
+    source: str | None = Field(default=None, max_length=80)
+    received_at_label: str | None = Field(default=None, max_length=120)
+
+
 class InternalStatusUpdateRequest(BaseModel):
     status: str = Field(min_length=3, max_length=80)
     note: str | None = Field(default=None, max_length=500)

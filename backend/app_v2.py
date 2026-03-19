@@ -49,6 +49,7 @@ from backend.schemas_v2 import (
     InternalStatusUpdateRequest,
     LoginRequest,
     ManualRadicadoRequest,
+    FollowUpReportRequest,
     PaymentOrderResponse,
     PaymentConfirmationRequest,
     RegisterRequest,
@@ -2080,6 +2081,43 @@ def register_manual_radicado(
             "signature": signature,
             "signed_artifacts": signed_artifacts,
         },
+    )
+    return _snapshot_case_detail(updated)
+
+
+@app.post("/cases/{case_id}/follow-up", response_model=CaseDetailResponse)
+def report_case_follow_up(
+    case_id: str,
+    payload: FollowUpReportRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> CaseDetailResponse:
+    case = repository.get_case_for_user(case_id, str(current_user["id"]))
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tramite no encontrado.")
+
+    report_payload = {
+        "note": payload.note,
+        "source": payload.source,
+        "received_at_label": payload.received_at_label,
+        "reported_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = repository.update_case_status(
+        case_id,
+        status=case.get("estado") or "seguimiento",
+        submission_summary={
+            **(case.get("submission_summary") or {}),
+            "last_follow_up_report": report_payload,
+        },
+    )
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible registrar la novedad.")
+
+    repository.create_event(
+        case_id=case_id,
+        event_type="judicial_update_reported",
+        actor_type="user",
+        actor_id=str(current_user["id"]),
+        payload=report_payload,
     )
     return _snapshot_case_detail(updated)
 

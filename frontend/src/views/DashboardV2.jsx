@@ -3295,6 +3295,7 @@ function DetailPanel({
   onGenerateFromFlow,
   onSubmitCase,
   onManualRadicado,
+  onReportFollowUp = async () => {},
   onUploadEvidence = async () => {},
 }) {
   const [manualContact, setManualContact] = useState("");
@@ -3302,6 +3303,7 @@ function DetailPanel({
   const [radicadoManual, setRadicadoManual] = useState("");
   const [radicadoNote, setRadicadoNote] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
+  const [followUpNote, setFollowUpNote] = useState("");
   const [interviewDraft, setInterviewDraft] = useState("");
   const [documentReviewed, setDocumentReviewed] = useState(false);
   const [signatureAccepted, setSignatureAccepted] = useState(false);
@@ -4209,6 +4211,37 @@ function DetailPanel({
                   <div style={{ marginTop: 8 }}>
                     Revisa aqui si ya hay comprobante, respuesta o una novedad registrada. Si el juzgado, la EPS o la entidad te escribe a tu correo, te llama o te pide algo por fuera de la plataforma, debes reportarlo o subir la evidencia para que el seguimiento quede completo y podamos definir el siguiente paso.
                   </div>
+                </div>
+                <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
+                  <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>REPORTAR NOVEDAD</div>
+                  <div style={{ color: C.textMuted, lineHeight: 1.6 }}>
+                    Si recibiste una llamada, un correo, un requerimiento o cualquier respuesta nueva, repórtala aquí. Si tienes soporte, súbelo también.
+                  </div>
+                  <TextArea
+                    value={followUpNote}
+                    onChange={(event) => setFollowUpNote(event.target.value)}
+                    placeholder="Ejemplo: hoy me llamo la EPS, me pidieron formula actualizada, o el juzgado envio un requerimiento al correo."
+                    style={{ minHeight: 100 }}
+                  />
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <Button
+                      variant="secondary"
+                      disabled={loading || followUpNote.trim().length < 8}
+                      onClick={async () => {
+                        await onReportFollowUp({
+                          note: followUpNote.trim(),
+                          source: "cliente",
+                        });
+                        setFollowUpNote("");
+                      }}
+                    >
+                      Reportar novedad
+                    </Button>
+                    <Button variant="outline" onClick={() => document.getElementById("followup-evidence-upload").click()} icon={Upload}>
+                      Subir evidencia
+                    </Button>
+                  </div>
+                  <input id="followup-evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
                 </div>
                 {!!primarySubmissionAttempt && (
                   <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
