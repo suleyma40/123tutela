@@ -87,6 +87,61 @@ def _extract_attachment_suggestions(file_name: str, compact_text: str) -> dict[s
     attachment_type = _classify_attachment_type(file_name, compact_text)
     suggestions: dict[str, Any] = {"attachment_type": attachment_type}
 
+    represented_person_name = _pick_first(
+        [
+            r"\b(?:nombre del paciente|paciente|nombre|nombres y apellidos)[:\s]+([A-Za-zÁÉÍÓÚáéíóúÑñ ]{5,80})",
+        ],
+        compact_text,
+    )
+    if represented_person_name:
+        suggestions["represented_person_name"] = represented_person_name
+
+    represented_person_document = _pick_first(
+        [
+            r"\b(?:tarjeta de identidad|ti|registro civil|nuip|identificacion|identificación)[:\s#-]*([0-9.\-]{6,20})",
+        ],
+        compact_text,
+    )
+    if represented_person_document:
+        suggestions["represented_person_document"] = represented_person_document
+
+    birth_date = _pick_first(
+        [
+            r"\b(?:fecha de nacimiento|nacio el|nacimiento)[:\s]+([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})",
+            r"\b(?:fecha de nacimiento|nacio el|nacimiento)[:\s]+([0-9]{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+de\s+[0-9]{4})",
+        ],
+        compact_text,
+    )
+    if birth_date:
+        suggestions["represented_person_birth_date"] = birth_date
+        suggestions.setdefault("represented_person_age", birth_date)
+
+    age = _pick_first(
+        [
+            r"\bedad[:\s]+([0-9]{1,2}\s*(?:años|anos))\b",
+            r"\b([0-9]{1,2}\s*(?:años|anos))\b",
+        ],
+        compact_text,
+    )
+    if age and not suggestions.get("represented_person_age"):
+        suggestions["represented_person_age"] = age
+
+    physician = _pick_first(
+        [
+            r"\b(?:medico tratante|médico tratante|hematologo|hematólogo|doctor|doctora|dr\.|dra\.)[:\s]+([A-Za-zÁÉÍÓÚáéíóúÑñ ]{5,80})",
+        ],
+        compact_text,
+    )
+    if physician:
+        suggestions["treating_physician"] = physician
+
+    lowered_compact = compact_text.lower()
+    if any(term in lowered_compact for term in ["hospitalizado", "hospitalizacion", "hospitalización", "urgencias", "uci", "internado"]):
+        suggestions.setdefault(
+            "ongoing_harm",
+            "El paciente se encuentra hospitalizado o ha requerido atencion hospitalaria reciente, lo que evidencia un riesgo actual y la necesidad de proteccion inmediata.",
+        )
+
     if attachment_type == "radicado":
         suggestions["prior_claim"] = "si"
         radicado_date = _pick_first(
@@ -171,6 +226,11 @@ def _extract_attachment_suggestions(file_name: str, compact_text: str) -> dict[s
         )
         if treatment_needed:
             suggestions["treatment_needed"] = treatment_needed
+        if any(term in lowered_compact for term in ["hospitalizado", "hospitalizacion", "hospitalización", "crisis vasooclusiva", "riesgo vital", "sin suspender"]):
+            suggestions.setdefault(
+                "urgency_detail",
+                "La historia clinica y los soportes medicos muestran un riesgo actual para la salud del paciente, con necesidad de continuidad inmediata del tratamiento ordenado por el medico tratante.",
+            )
 
     if attachment_type == "reporte_riesgo":
         disputed_data = _pick_first(

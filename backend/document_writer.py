@@ -598,6 +598,55 @@ def _infer_health_relationship(case: dict[str, Any], patient_name: str) -> str:
     return ""
 
 
+def _health_patient_identity_fragments(case: dict[str, Any]) -> dict[str, str]:
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    attachment_context = facts.get("attachment_intelligence") or {}
+    autofill = intake.get("_autofill") or {}
+
+    name = _infer_health_patient_name(case)
+    age = str(
+        intake.get("represented_person_age")
+        or autofill.get("represented_person_age")
+        or (attachment_context.get("typed_suggestions") or {}).get("represented_person_age")
+        or ""
+    ).strip()
+    document_number = str(
+        intake.get("represented_person_document")
+        or autofill.get("represented_person_document")
+        or (attachment_context.get("typed_suggestions") or {}).get("represented_person_document")
+        or ""
+    ).strip()
+    birth_date = str(
+        intake.get("represented_person_birth_date")
+        or autofill.get("represented_person_birth_date")
+        or (attachment_context.get("typed_suggestions") or {}).get("represented_person_birth_date")
+        or ""
+    ).strip()
+    return {
+        "name": name,
+        "age": age or _infer_age_from_birth_date(birth_date),
+        "document": document_number,
+        "birth_date": birth_date,
+    }
+
+
+def _infer_age_from_birth_date(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    for pattern in ("%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y", "%d-%m-%y"):
+        try:
+            born = datetime.strptime(text, pattern)
+            today = datetime.now()
+            years = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+            if years >= 0:
+                return f"{years} anos"
+        except ValueError:
+            continue
+    return ""
+
+
 def _filtered_health_context_lines(case: dict[str, Any]) -> list[str]:
     raw = _dedupe_lines(_generic_facts(case))
     filtered: list[str] = []
@@ -713,6 +762,7 @@ def _formalize_health_urgency(case: dict[str, Any], value: str) -> str:
     if diagnosis:
         parts.append(f"lo que agrava el manejo clinico de {diagnosis}")
     if parts:
+        parts.append("configurandose un perjuicio irremediable por el riesgo de agravamiento clinico y la interrupcion del manejo ordenado")
         return _sentence(", ".join(dict.fromkeys(parts)), fallback="")
     return _sentence(_title_sentence(cleaned), fallback="")
 
@@ -724,9 +774,12 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     chronology_lines = _filtered_health_context_lines(case)
 
     acting_capacity = str(intake.get("acting_capacity") or "").strip()
-    represented_person_name = _infer_health_patient_name(case)
+    patient_identity = _health_patient_identity_fragments(case)
+    represented_person_name = patient_identity["name"]
     represented_person_relationship = _infer_health_relationship(case, represented_person_name)
-    represented_person_age = str(intake.get("represented_person_age") or "").strip()
+    represented_person_age = patient_identity["age"]
+    represented_person_document = patient_identity["document"]
+    represented_person_birth_date = patient_identity["birth_date"]
     target_entity = ctx["accionado"]
     diagnosis = str(intake.get("diagnosis") or "").strip()
     treatment_needed = str(intake.get("treatment_needed") or "").strip()
@@ -742,7 +795,14 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
 
     lines: list[str] = []
     if represented_person_name and (acting_capacity and acting_capacity != "nombre_propio" or str(intake.get("special_protection") or "").strip().lower() == "menor de edad"):
-        age_fragment = f", de {represented_person_age}" if represented_person_age else ""
+        identity_bits: list[str] = []
+        if represented_person_age:
+            identity_bits.append(f"de {represented_person_age}")
+        if represented_person_birth_date and represented_person_birth_date != represented_person_age:
+            identity_bits.append(f"nacido el {represented_person_birth_date}")
+        if represented_person_document:
+            identity_bits.append(f"identificado con documento No. {represented_person_document}")
+        age_fragment = f", {', '.join(identity_bits)}" if identity_bits else ""
         relationship_fragment = f", en calidad de {represented_person_relationship}" if represented_person_relationship else ""
         lines.append(f"La presente actuacion se promueve a favor de {represented_person_name}{age_fragment}, persona directamente afectada por la barrera en salud aqui denunciada{relationship_fragment}.")
     if medical_order_date and treatment_needed:
@@ -1389,9 +1449,12 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     ).strip()
     diagnosis = str(intake.get("diagnosis") or "").strip()
     treatment_needed = str(intake.get("treatment_needed") or "").strip()
-    represented_person_name = _infer_health_patient_name(case)
+    patient_identity = _health_patient_identity_fragments(case)
+    represented_person_name = patient_identity["name"]
     represented_person_relationship = _infer_health_relationship(case, represented_person_name)
-    represented_person_age = str(intake.get("represented_person_age") or "").strip()
+    represented_person_age = patient_identity["age"]
+    represented_person_document = patient_identity["document"]
+    represented_person_birth_date = patient_identity["birth_date"]
     special_protection = str(intake.get("special_protection") or "").strip()
     eps_request_date = str(intake.get("eps_request_date") or "").strip()
     eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
@@ -1407,7 +1470,14 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     description_lower = str(case.get("descripcion") or "").lower()
     represented_fragment = ""
     if represented_person_name:
-        age_fragment = f", de {represented_person_age}" if represented_person_age else ""
+        identity_bits: list[str] = []
+        if represented_person_age:
+            identity_bits.append(f"de {represented_person_age}")
+        if represented_person_birth_date and represented_person_birth_date != represented_person_age:
+            identity_bits.append(f"nacido el {represented_person_birth_date}")
+        if represented_person_document:
+            identity_bits.append(f"identificado con documento No. {represented_person_document}")
+        age_fragment = f", {', '.join(identity_bits)}" if identity_bits else ""
         role = "actuando en representacion"
         if represented_person_relationship:
             role = f"actuando en calidad de {represented_person_relationship}"
