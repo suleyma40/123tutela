@@ -200,6 +200,7 @@ class CaseSubmitRequest(BaseModel):
     notes: str | None = Field(default=None, max_length=500)
     signature: dict[str, Any] = Field(default_factory=dict)
     reviewed_document: bool = False
+    judicial_destination_confirmed: bool = False
 
 
 class ManualRadicadoRequest(BaseModel):

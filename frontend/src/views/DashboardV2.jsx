@@ -3255,6 +3255,7 @@ function DetailPanel({
   const [interviewDraft, setInterviewDraft] = useState("");
   const [documentReviewed, setDocumentReviewed] = useState(false);
   const [signatureAccepted, setSignatureAccepted] = useState(false);
+  const [judicialDestinationConfirmed, setJudicialDestinationConfirmed] = useState(false);
   const [signatureForm, setSignatureForm] = useState({
     full_name: "",
     document_number: "",
@@ -3315,6 +3316,7 @@ function DetailPanel({
   const actionableGaps = buildActionableGaps(item, backendPendingQuestions);
   const detailViability = getViabilityConfig(detailDx);
   const detailPrimaryTarget = item.routing?.primary_target || {};
+  const requiresJudicialConfirmation = detailPrimaryTarget?.type === "juzgado";
   const detailRoutingChannel = getRoutingChannelLabel(item.routing?.channel || detailPrimaryTarget?.channel);
   const detailRoutingContact = detailPrimaryTarget?.contact || effectivePostPayForm.target_pqrs_email || effectivePostPayForm.target_website || effectivePostPayForm.target_phone || "Canal por confirmar";
   const detailRouteSteps = [
@@ -3345,6 +3347,7 @@ function DetailPanel({
   const signatureReady =
     documentReviewed &&
     signatureAccepted &&
+    (!requiresJudicialConfirmation || judicialDestinationConfirmed) &&
     signatureForm.full_name.trim().length > 3 &&
     signatureForm.document_number.trim().length >= 6 &&
     signatureForm.city.trim().length > 2 &&
@@ -4064,6 +4067,12 @@ function DetailPanel({
                     <input type="checkbox" checked={signatureAccepted} onChange={(event) => setSignatureAccepted(event.target.checked)} />
                     <span style={{ lineHeight: 1.6 }}>Acepto el consentimiento de firma electronica simple version {SIMPLE_SIGNATURE_CONSENT_VERSION}.</span>
                   </label>
+                  {requiresJudicialConfirmation && (
+                    <label style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.text }}>
+                      <input type="checkbox" checked={judicialDestinationConfirmed} onChange={(event) => setJudicialDestinationConfirmed(event.target.checked)} />
+                      <span style={{ lineHeight: 1.6 }}>Confirmo que este envio va a un juzgado o correo real de reparto, que ya verifique el documento final y que autorizo expresamente ese envio judicial.</span>
+                    </label>
+                  )}
                 </div>
                 {!signatureReady && (
                   <div style={{ marginTop: 14, padding: 14, borderRadius: 16, background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B" }}>
@@ -4071,8 +4080,8 @@ function DetailPanel({
                   </div>
                 )}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 18 }}>
-                  <Button disabled={!signatureReady} onClick={() => onSubmitCase({ mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed })}>Radicar por mi (+$34.000)</Button>
-                  <Button disabled={!signatureReady} variant="outline" onClick={() => onSubmitCase({ mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed })}>Dame la guia (+$17.000)</Button>
+                  <Button disabled={!signatureReady} onClick={() => onSubmitCase({ mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed, judicial_destination_confirmed: !requiresJudicialConfirmation || judicialDestinationConfirmed })}>Radicar por mi (+$34.000)</Button>
+                  <Button disabled={!signatureReady} variant="outline" onClick={() => onSubmitCase({ mode: "manual_contact", manual_contact: manualContact, notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed, judicial_destination_confirmed: !requiresJudicialConfirmation || judicialDestinationConfirmed })}>Dame la guia (+$17.000)</Button>
                   <Button disabled={!signatureReady} variant="ghost" style={{ background: "#F8FAFD", border: `1px solid ${C.border}` }} onClick={() => onManualRadicado({ radicado: radicadoManual || `AUTO-${Date.now()}`, notes: buildSubmissionSignatureNote(signatureForm, radicadoNote || "Usuario decidio radicar por su cuenta."), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed })}>Yo lo radico por mi cuenta</Button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>

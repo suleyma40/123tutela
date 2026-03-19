@@ -603,6 +603,8 @@ def get_submission_policy(case: dict[str, Any]) -> dict[str, Any]:
     routing = case.get("routing") or {}
     automatable = bool(routing.get("automatable"))
     destination_channel = str((routing.get("primary_target") or {}).get("channel") or routing.get("channel") or "manual")
+    primary_target = routing.get("primary_target") or {}
+    requires_judicial_confirmation = str(primary_target.get("type") or "").lower() == "juzgado"
 
     if category != "salud":
         preferred_mode = "auto" if automatable else "manual_contact"
@@ -617,6 +619,7 @@ def get_submission_policy(case: dict[str, Any]) -> dict[str, Any]:
             "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
             "summary": "La politica general permite envio automatico cuando existe canal confiable; de lo contrario, procede radicacion asistida o presencial.",
             "destination_channel": destination_channel,
+            "requires_judicial_confirmation": requires_judicial_confirmation,
         }
 
     if "derecho de peticion" in recommended_action or workflow_type == "derecho_peticion":
@@ -633,6 +636,7 @@ def get_submission_policy(case: dict[str, Any]) -> dict[str, Any]:
             "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
             "summary": "El derecho de peticion en salud puede enviarse en automatico solo si existe un canal digital confiable de la entidad; en caso contrario, debe pasar a contacto asistido o presentacion presencial.",
             "destination_channel": destination_channel,
+            "requires_judicial_confirmation": requires_judicial_confirmation,
         }
 
     if "impugnacion" in recommended_action or workflow_type == "impugnacion":
@@ -649,6 +653,7 @@ def get_submission_policy(case: dict[str, Any]) -> dict[str, Any]:
             "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
             "summary": "La impugnacion de tutela en salud puede salir en automatico cuando exista un canal judicial confiable; en caso contrario, pasa a contacto asistido o presencial.",
             "destination_channel": destination_channel,
+            "requires_judicial_confirmation": requires_judicial_confirmation,
         }
 
     if "desacato" in recommended_action or workflow_type == "desacato":
@@ -665,6 +670,7 @@ def get_submission_policy(case: dict[str, Any]) -> dict[str, Any]:
             "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
             "summary": "El incidente de desacato en salud puede salir en automatico cuando exista un canal judicial confiable; en caso contrario, pasa a contacto asistido o presencial.",
             "destination_channel": destination_channel,
+            "requires_judicial_confirmation": requires_judicial_confirmation,
         }
 
     preferred_mode = "auto" if automatable else "manual_contact"
@@ -680,6 +686,7 @@ def get_submission_policy(case: dict[str, Any]) -> dict[str, Any]:
         "minimum_customer_evidence": ["panel", "correo"] if case.get("usuario_email") else ["panel"],
         "summary": "La accion de tutela en salud puede radicarse en automatico cuando exista un canal judicial confiable, incluido el correo nacional de reparto o correos judiciales de respaldo; si no, pasa a contacto asistido o presencial.",
         "destination_channel": destination_channel,
+        "requires_judicial_confirmation": requires_judicial_confirmation,
     }
 
 

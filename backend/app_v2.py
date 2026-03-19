@@ -1755,8 +1755,18 @@ def submit_case(
     channel = primary.get("channel") or routing.get("channel") or "manual"
     destination_name = primary.get("name")
     destination_contact = primary.get("contact")
+    is_judicial_destination = str(primary.get("type") or "").lower() == "juzgado"
     subject = routing.get("subject")
     cc_list = [case.get("usuario_email")] if case.get("usuario_email") else []
+
+    if payload.mode in {"auto", "manual_contact"} and is_judicial_destination and not payload.judicial_destination_confirmed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Este envio apunta a un juzgado o correo real de reparto. "
+                "Debes confirmar expresamente que verificaste el documento final y que autorizas enviar a un destino judicial real."
+            ),
+        )
 
     status_value = "enviado"
     manual_contact = {}
