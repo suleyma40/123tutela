@@ -22,6 +22,16 @@ def _join_texts(*parts: Any) -> str:
     return " ".join(_text(part) for part in parts if _text(part))
 
 
+def _looks_partial_person_name(value: str) -> bool:
+    text = _text(value)
+    if not text:
+        return False
+    parts = [part for part in re.split(r"\s+", text) if part]
+    if len(parts) <= 1:
+        return True
+    return sum(1 for part in parts if len(part) > 1) < 2
+
+
 def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflow_type: str) -> dict[str, Any] | None:
     acting_capacity = _lower(intake.get("acting_capacity"))
     attachment_suggestions = ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
@@ -33,6 +43,7 @@ def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflo
         or _text(attachment_suggestions.get("represented_person_birth_date"))
     )
     represented_person_document = _text(intake.get("represented_person_document")) or _text(attachment_suggestions.get("represented_person_document"))
+    identity_support_unreadable = _lower(attachment_suggestions.get("identity_support_unreadable")) == "si"
     if acting_capacity and acting_capacity != "nombre_propio" and not represented_person_name:
         return {
             "id": "represented_person_name",
@@ -41,11 +52,11 @@ def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflo
             "multiline": False,
             "why": "Necesitamos identificar claramente a la persona protegida en el documento.",
         }
-    if acting_capacity and acting_capacity != "nombre_propio" and not represented_person_age:
+    if acting_capacity and acting_capacity != "nombre_propio" and (not represented_person_age or _looks_partial_person_name(represented_person_name) or identity_support_unreadable):
         return {
             "id": "represented_person_identity",
-            "question": "Confirma la identificacion del menor o representado: edad o fecha de nacimiento y, si la tienes, numero de documento.",
-            "placeholder": "Ej: 10 anos, nacido el 14/05/2015, TI 1022334455",
+            "question": "Confirma la identificacion completa del menor o representado: nombre completo, edad o fecha de nacimiento y, si la tienes, numero de documento.",
+            "placeholder": "Ej: Jeronimo Perez Lopez, 10 anos, nacido el 14/05/2015, TI 1022334455",
             "multiline": False,
             "why": "La tutela debe identificar con precision al menor o representado protegido por el juez.",
         }

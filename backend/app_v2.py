@@ -387,6 +387,30 @@ def _extract_relevant_sentence(text: str, keywords: tuple[str, ...]) -> str:
     return ""
 
 
+def _parse_represented_person_identity(value: str) -> dict[str, str]:
+    text = str(value or "").strip()
+    if not text:
+        return {}
+    derived: dict[str, str] = {}
+    birth_date_match = re.search(r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b", text)
+    if birth_date_match:
+        derived["represented_person_birth_date"] = birth_date_match.group(1)
+    age_match = re.search(r"\b(\d{1,2}\s*(?:anos|años))\b", text, flags=re.IGNORECASE)
+    if age_match:
+        derived["represented_person_age"] = age_match.group(1)
+    document_match = re.search(r"\b(?:ti|nuip|rc|registro civil|documento)?\s*#?\s*([0-9.\-]{6,20})\b", text, flags=re.IGNORECASE)
+    if document_match:
+        derived["represented_person_document"] = document_match.group(1)
+    name_candidate = re.sub(r"\b(?:ti|nuip|rc|registro civil|documento)\b", " ", text, flags=re.IGNORECASE)
+    name_candidate = re.sub(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", " ", name_candidate)
+    name_candidate = re.sub(r"\b\d{1,2}\s*(?:anos|años)\b", " ", name_candidate, flags=re.IGNORECASE)
+    name_candidate = re.sub(r"[0-9.\-#]", " ", name_candidate)
+    name_candidate = re.sub(r"\s+", " ", name_candidate).strip(" ,.;:")
+    if len(name_candidate.split()) >= 2:
+        derived["represented_person_name"] = name_candidate
+    return derived
+
+
 def _derive_extra_autofill_fields(
     *,
     form_data: dict[str, Any],
@@ -466,6 +490,11 @@ def _merge_form_with_attachment_suggestions(
     attachment_context: dict[str, Any] | None,
 ) -> dict[str, Any]:
     merged = _resolve_entity_directory_prefill(form_data or {})
+    identity_blob = str(merged.get("represented_person_identity") or "").strip()
+    if identity_blob:
+        for key, value in _parse_represented_person_identity(identity_blob).items():
+            if value and not str(merged.get(key) or "").strip():
+                merged[key] = value
     category_key = str(category or "").strip().lower()
     suggestions = suggest_fields_from_context(
         category=category,

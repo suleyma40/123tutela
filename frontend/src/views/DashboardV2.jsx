@@ -100,7 +100,9 @@ const defaultIntakeFields = {
   acting_capacity: "nombre_propio",
   represented_person_name: "",
   represented_person_document: "",
+  represented_person_birth_date: "",
   represented_person_age: "",
+  represented_person_identity: "",
   represented_person_condition: "",
   petition_target_nature: "publica",
   petition_private_ground: "",
@@ -167,6 +169,29 @@ const hasEvidenceAvailable = (form, files = []) =>
   Boolean(form.evidence_summary.trim() || (files || []).length);
 
 const formatAutofillEntry = ([key, value]) => `${autofillFieldLabels[key] || key}: ${String(value)}`;
+
+const parseRepresentedPersonIdentity = (value = "") => {
+  const text = String(value || "").trim();
+  if (!text) return {};
+  const next = {};
+  const birthDateMatch = text.match(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b/);
+  if (birthDateMatch) next.represented_person_birth_date = birthDateMatch[1];
+  const ageMatch = text.match(/\b(\d{1,2}\s*(?:anos|años))\b/i);
+  if (ageMatch) next.represented_person_age = ageMatch[1];
+  const documentMatch = text.match(/\b(?:ti|nuip|rc|registro civil|documento)?\s*#?\s*([0-9.\-]{6,20})\b/i);
+  if (documentMatch) next.represented_person_document = documentMatch[1];
+  const nameCandidate = text
+    .replace(/\b(?:ti|nuip|rc|registro civil|documento)\b/gi, " ")
+    .replace(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g, " ")
+    .replace(/\b\d{1,2}\s*(?:anos|años)\b/gi, " ")
+    .replace(/[0-9.\-#]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (nameCandidate.split(" ").filter(Boolean).length >= 2) {
+    next.represented_person_name = nameCandidate;
+  }
+  return next;
+};
 
 const mergeDetectedFormValues = (currentForm = {}, detectedForm = {}) => {
   const next = { ...currentForm };
@@ -2938,7 +2963,11 @@ function DetailPanel({
       : [...backendPendingQuestions.map((question) => question?.question).filter(Boolean), ...getPostPayQuestionPrompts(effectivePostPayForm, item)]
   ).filter((value, index, array) => array.indexOf(value) === index);
   const interviewSteps = useBackendHealthAgent
-    ? (healthAgentState.can_generate ? [] : (healthAgentState.next_prompt ? [healthAgentState.next_prompt] : []))
+    ? (
+      healthAgentState.next_prompt
+        ? [healthAgentState.next_prompt]
+        : (healthAgentState.optional_prompt ? [healthAgentState.optional_prompt] : [])
+    )
     : buildPostPayInterviewSteps(effectivePostPayForm, item);
   const activeInterviewStep = interviewSteps[0] || null;
   const checklist = buildDocumentChecklist(item, review, files);
@@ -3008,14 +3037,23 @@ function DetailPanel({
     const nextAnswer = interviewDraft.trim();
     if (!nextAnswer) return;
     if (activeInterviewStep) {
-      setPostPayForm((current) => (
-        Object.prototype.hasOwnProperty.call(current, activeInterviewStep.id)
-          ? { ...current, [activeInterviewStep.id]: nextAnswer }
-          : {
-              ...current,
-              case_story: [current.case_story, nextAnswer].filter(Boolean).join("\n"),
-            }
-      ));
+      setPostPayForm((current) => {
+        if (activeInterviewStep.id === "represented_person_identity") {
+          return {
+            ...current,
+            represented_person_identity: nextAnswer,
+            ...parseRepresentedPersonIdentity(nextAnswer),
+          };
+        }
+        return (
+          Object.prototype.hasOwnProperty.call(current, activeInterviewStep.id)
+            ? { ...current, [activeInterviewStep.id]: nextAnswer }
+            : {
+                ...current,
+                case_story: [current.case_story, nextAnswer].filter(Boolean).join("\n"),
+              }
+        );
+      });
       if (!Object.prototype.hasOwnProperty.call(postPayForm, activeInterviewStep.id)) {
         setRegenerationContext((current) => [current, nextAnswer].filter(Boolean).join("\n\n"));
       }

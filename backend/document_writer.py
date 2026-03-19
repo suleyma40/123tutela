@@ -750,6 +750,8 @@ def _formalize_health_urgency(case: dict[str, Any], value: str) -> str:
     diagnosis = str(intake.get("diagnosis") or "").strip()
     treatment = str(intake.get("treatment_needed") or "").strip()
     normalized = _normalize_writer_text(cleaned)
+    normalized_diagnosis = _normalize_writer_text(diagnosis)
+    normalized_treatment = _normalize_writer_text(treatment)
     parts: list[str] = []
     if "hace 3 meses" in normalized:
         parts.append("A la fecha de presentacion de esta accion, han transcurrido mas de tres (3) meses sin que la EPS garantice el suministro oportuno del servicio ordenado")
@@ -761,6 +763,10 @@ def _formalize_health_urgency(case: dict[str, Any], value: str) -> str:
         parts.append(f"sin acceso efectivo a {treatment}")
     if diagnosis:
         parts.append(f"lo que agrava el manejo clinico de {diagnosis}")
+    if "falciform" in normalized_diagnosis:
+        parts.append("con riesgo de crisis dolorosas, anemia persistente y complicaciones clinicas asociadas a la interrupcion del manejo hematologico")
+    if "hidroxiurea" in normalized_treatment:
+        parts.append("al permanecer suspendido el medicamento formulado por hematologia")
     if parts:
         parts.append("configurandose un perjuicio irremediable por el riesgo de agravamiento clinico y la interrupcion del manejo ordenado")
         return _sentence(", ".join(dict.fromkeys(parts)), fallback="")

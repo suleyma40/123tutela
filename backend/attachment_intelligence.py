@@ -32,6 +32,19 @@ def _read_pdf(path: Path) -> str:
         return ""
 
 
+def _infer_name_from_filename(file_name: str) -> str:
+    stem = Path(str(file_name or "")).stem
+    cleaned = re.sub(r"[_\-]+", " ", stem)
+    cleaned = re.sub(r"\(\d+\)", " ", cleaned)
+    cleaned = re.sub(r"(?i)\b(registro|civil|tarjeta|identidad|documento|pdf|scan|escaneado|anexo)\b", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    parts = [part for part in cleaned.split(" ") if len(part) > 1]
+    if not parts:
+        return ""
+    candidate = " ".join(parts[:4]).strip()
+    return candidate.title() if len(candidate) >= 3 else ""
+
+
 def _read_docx(path: Path) -> str:
     if Document is None:
         return ""
@@ -86,6 +99,7 @@ def _classify_attachment_type(file_name: str, compact_text: str) -> str:
 def _extract_attachment_suggestions(file_name: str, compact_text: str) -> dict[str, Any]:
     attachment_type = _classify_attachment_type(file_name, compact_text)
     suggestions: dict[str, Any] = {"attachment_type": attachment_type}
+    lowered_name = str(file_name or "").lower()
 
     represented_person_name = _pick_first(
         [
@@ -93,6 +107,8 @@ def _extract_attachment_suggestions(file_name: str, compact_text: str) -> dict[s
         ],
         compact_text,
     )
+    if not represented_person_name and any(term in lowered_name for term in ["registro", "jeronimo", "tarjeta", "identidad"]):
+        represented_person_name = _infer_name_from_filename(file_name)
     if represented_person_name:
         suggestions["represented_person_name"] = represented_person_name
 
@@ -125,6 +141,8 @@ def _extract_attachment_suggestions(file_name: str, compact_text: str) -> dict[s
     )
     if age and not suggestions.get("represented_person_age"):
         suggestions["represented_person_age"] = age
+    if not compact_text and any(term in lowered_name for term in ["registro", "tarjeta", "identidad", "nuip"]):
+        suggestions["identity_support_unreadable"] = "si"
 
     physician = _pick_first(
         [
@@ -256,23 +274,23 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
 
     for item in file_records:
         text = extract_file_text(item)
-        if text:
-            compact = re.sub(r"\s+", " ", text).strip()
-            if compact:
-                file_name = str(item.get("original_name") or "").strip()
-                profile = _extract_attachment_suggestions(file_name, compact)
-                attachment_profiles.append(
-                    {
-                        "name": file_name,
-                        "type": profile.pop("attachment_type", "general"),
-                        "suggestions": profile,
-                    }
-                )
-                for key, value in profile.items():
-                    if value and not typed_suggestions.get(key):
-                        typed_suggestions[key] = value
-                combined_text_parts.append(compact[:2500])
-                extracted_chunks.append(f"Archivo {item.get('original_name')}: {compact[:500]}")
+        compact = re.sub(r"\s+", " ", text).strip() if text else ""
+        file_name = str(item.get("original_name") or "").strip()
+        profile = _extract_attachment_suggestions(file_name, compact)
+        if profile:
+            attachment_profiles.append(
+                {
+                    "name": file_name,
+                    "type": profile.pop("attachment_type", "general"),
+                    "suggestions": profile,
+                }
+            )
+            for key, value in profile.items():
+                if value and not typed_suggestions.get(key):
+                    typed_suggestions[key] = value
+        if compact:
+            combined_text_parts.append(compact[:2500])
+            extracted_chunks.append(f"Archivo {item.get('original_name')}: {compact[:500]}")
 
     combined_text = " ".join(combined_text_parts)
     lowered = combined_text.lower()
