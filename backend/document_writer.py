@@ -219,6 +219,67 @@ def _person_name(value: str | None) -> str:
     return text
 
 
+def _clean_health_person_name(value: str | None) -> str:
+    text = str(value or "").strip(" .,:;")
+    if not text:
+        return ""
+    lowered = _normalize_writer_text(text)
+    banned = (
+        "atencion",
+        "plan",
+        "historia clinica",
+        "medicamento",
+        "formula",
+        "ips",
+        "eps",
+        "aneurisma",
+        "consulta",
+        "servicio",
+    )
+    if any(fragment in lowered for fragment in banned):
+        return ""
+    tokens = re.findall(r"[A-Za-z]{2,}", unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii"))
+    if len(tokens) < 2:
+        return ""
+    return _person_name(" ".join(tokens[:4]))
+
+
+def _normalize_health_service_text(value: str | None) -> str:
+    text = str(value or "").strip(" .,:;")
+    if not text:
+        return ""
+    normalized = _normalize_writer_text(text)
+    replacements = {
+        "moujarou": "mounjaro",
+        "moujaro": "mounjaro",
+        "emdicamento": "medicamento",
+    }
+    for wrong, right in replacements.items():
+        normalized = normalized.replace(wrong, right)
+    normalized = re.sub(r"^el\s+", "", normalized).strip()
+    if not normalized:
+        return ""
+    words = normalized.split()
+    if len(words) <= 3:
+        return " ".join(word.capitalize() for word in words)
+    return normalized[:1].upper() + normalized[1:]
+
+
+def _health_attachment_suggestions(case: dict[str, Any]) -> dict[str, Any]:
+    facts = case.get("facts") or {}
+    return ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
+
+
+def _same_identity(name_a: str, name_b: str, doc_a: str, doc_b: str) -> bool:
+    normalized_a = _normalize_writer_text(name_a)
+    normalized_b = _normalize_writer_text(name_b)
+    digits_a = re.sub(r"\D", "", str(doc_a or ""))
+    digits_b = re.sub(r"\D", "", str(doc_b or ""))
+    if digits_a and digits_b:
+        return digits_a == digits_b
+    return bool(normalized_a and normalized_b and normalized_a == normalized_b)
+
+
 def _titleish_place(value: str | None) -> str:
     text = str(value or "").strip()
     if not text:
@@ -579,9 +640,13 @@ def _health_context(case: dict[str, Any]) -> dict[str, Any]:
 def _infer_health_patient_name(case: dict[str, Any]) -> str:
     facts = case.get("facts") or {}
     intake = facts.get("intake_form") or {}
-    direct = str(intake.get("represented_person_name") or "").strip()
+    attachment_suggestions = _health_attachment_suggestions(case)
+    direct = _clean_health_person_name(
+        intake.get("represented_person_name")
+        or attachment_suggestions.get("represented_person_name")
+    )
     if direct:
-        return _person_name(direct)
+        return direct
     uploaded_files = facts.get("uploaded_evidence_files") or []
     token_counts: dict[str, int] = {}
     ignored = {
@@ -618,7 +683,7 @@ def _infer_health_patient_name(case: dict[str, Any]) -> str:
     if not token_counts:
         return ""
     winner = max(token_counts.items(), key=lambda item: (item[1], len(item[0])))
-    return _person_name(winner[0]) if winner[1] >= 1 else ""
+    return _clean_health_person_name(winner[0]) if winner[1] >= 1 else ""
 
 
 def _infer_health_relationship(case: dict[str, Any], patient_name: str) -> str:
@@ -645,23 +710,24 @@ def _health_patient_identity_fragments(case: dict[str, Any]) -> dict[str, str]:
     attachment_context = facts.get("attachment_intelligence") or {}
     autofill = intake.get("_autofill") or {}
 
+    typed = _health_attachment_suggestions(case)
     name = _infer_health_patient_name(case)
     age = str(
         intake.get("represented_person_age")
         or autofill.get("represented_person_age")
-        or (attachment_context.get("typed_suggestions") or {}).get("represented_person_age")
+        or typed.get("represented_person_age")
         or ""
     ).strip()
     document_number = str(
         intake.get("represented_person_document")
         or autofill.get("represented_person_document")
-        or (attachment_context.get("typed_suggestions") or {}).get("represented_person_document")
+        or typed.get("represented_person_document")
         or ""
     ).strip()
     birth_date = str(
         intake.get("represented_person_birth_date")
         or autofill.get("represented_person_birth_date")
-        or (attachment_context.get("typed_suggestions") or {}).get("represented_person_birth_date")
+        or typed.get("represented_person_birth_date")
         or ""
     ).strip()
     return {
@@ -670,6 +736,29 @@ def _health_patient_identity_fragments(case: dict[str, Any]) -> dict[str, str]:
         "document": document_number,
         "birth_date": birth_date,
     }
+
+
+def _should_present_health_representation(case: dict[str, Any], patient_identity: dict[str, str]) -> bool:
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    represented_person_name = str(patient_identity.get("name") or "").strip()
+    represented_person_document = str(patient_identity.get("document") or "").strip()
+    if not represented_person_name and not represented_person_document:
+        return False
+    acting_capacity = str(intake.get("acting_capacity") or "").strip().lower()
+    special_protection = str(intake.get("special_protection") or "").strip().lower()
+    relationship = _infer_health_relationship(case, represented_person_name)
+    explicit_representation = bool(acting_capacity and acting_capacity != "nombre_propio")
+    user_name = str(case.get("usuario_nombre") or intake.get("full_name") or "").strip()
+    user_doc = str(case.get("usuario_documento") or intake.get("document_number") or "").strip()
+    different_person = not _same_identity(user_name, represented_person_name, user_doc, represented_person_document)
+    if relationship and different_person:
+        return True
+    if explicit_representation and different_person:
+        return True
+    if special_protection == "menor de edad" and different_person:
+        return True
+    return False
 
 
 def _infer_age_from_birth_date(value: str) -> str:
@@ -703,6 +792,9 @@ def _filtered_health_context_lines(case: dict[str, Any]) -> list[str]:
         "con anterioridad, la persona usuaria presento reclamacion directa",
         "relato detallado",
         "la ia ya puede reconstruir",
+        "tipo de peticion o enfoque principal",
+        "tipo de peticion",
+        "gestion previa resumida",
     )
     for item in raw:
         lowered = item.lower()
@@ -790,7 +882,9 @@ def _formalize_health_urgency(case: dict[str, Any], value: str) -> str:
         return ""
     intake = (case.get("facts") or {}).get("intake_form") or {}
     diagnosis = str(intake.get("diagnosis") or "").strip()
-    treatment = str(intake.get("treatment_needed") or "").strip()
+    treatment = _normalize_health_service_text(
+        intake.get("treatment_needed") or _health_attachment_suggestions(case).get("treatment_needed") or ""
+    )
     normalized = _normalize_writer_text(cleaned)
     normalized_diagnosis = _normalize_writer_text(diagnosis)
     normalized_treatment = _normalize_writer_text(treatment)
@@ -818,6 +912,7 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     ctx = _health_context(case)
     intake = ctx["intake"]
     facts = ctx["facts"]
+    attachment_suggestions = _health_attachment_suggestions(case)
     chronology_lines = _filtered_health_context_lines(case)
 
     acting_capacity = str(intake.get("acting_capacity") or "").strip()
@@ -828,20 +923,21 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     represented_person_document = patient_identity["document"]
     represented_person_birth_date = patient_identity["birth_date"]
     target_entity = ctx["accionado"]
-    diagnosis = str(intake.get("diagnosis") or "").strip()
-    treatment_needed = str(intake.get("treatment_needed") or "").strip()
-    medical_order_date = _normalize_health_display_date(str(intake.get("medical_order_date") or "").strip())
-    treating_doctor_name = str(intake.get("treating_doctor_name") or intake.get("treating_physician") or "").strip()
-    treating_ips_name = str(intake.get("treating_ips_name") or intake.get("ips_name") or "").strip()
-    eps_request_date = _normalize_health_display_date(str(intake.get("eps_request_date") or "").strip())
+    diagnosis = str(intake.get("diagnosis") or attachment_suggestions.get("diagnosis") or "").strip()
+    treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or attachment_suggestions.get("treatment_needed") or "")
+    medical_order_date = _normalize_health_display_date(str(intake.get("medical_order_date") or attachment_suggestions.get("medical_order_date") or "").strip())
+    treating_doctor_name = _clean_health_person_name(intake.get("treating_doctor_name") or intake.get("treating_physician") or attachment_suggestions.get("treating_doctor_name") or attachment_suggestions.get("treating_physician") or "")
+    treating_ips_name = str(intake.get("treating_ips_name") or intake.get("ips_name") or attachment_suggestions.get("treating_ips_name") or "").strip()
+    eps_request_date = _normalize_health_display_date(str(intake.get("eps_request_date") or attachment_suggestions.get("eps_request_date") or "").strip())
     eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
     eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
     eps_response_detail = _formalize_health_response(str(intake.get("eps_response_detail") or "").strip())
     urgency_detail = _formalize_health_urgency(case, str(intake.get("urgency_detail") or intake.get("ongoing_harm") or "").strip())
     special_protection = str(intake.get("special_protection") or "").strip()
+    has_representation = _should_present_health_representation(case, patient_identity)
 
     lines: list[str] = []
-    if represented_person_name and (acting_capacity and acting_capacity != "nombre_propio" or str(intake.get("special_protection") or "").strip().lower() == "menor de edad"):
+    if represented_person_name and has_representation:
         identity_bits: list[str] = []
         if represented_person_age:
             identity_bits.append(f"de {represented_person_age}")
@@ -1262,7 +1358,7 @@ def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) 
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
     ).strip()
     diagnosis = str(intake.get("diagnosis") or "").strip()
-    treatment_needed = str(intake.get("treatment_needed") or "").strip()
+    treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or _health_attachment_suggestions(case).get("treatment_needed") or "")
     explicit_request_lines = _split_numbered_requests(str(intake.get("numbered_requests") or "").strip())
     request_lines = explicit_request_lines or [
         f"RESPONDER de fondo, de manera clara, congruente y completa, la solicitud relacionada con {treatment_needed or 'el servicio de salud requerido'}.",
@@ -1390,7 +1486,7 @@ def _build_tutela_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
         medical_order_date = str(intake.get("medical_order_date") or "").strip()
         treating_doctor_name = str(intake.get("treating_doctor_name") or "").strip()
         treating_ips_name = str(intake.get("treating_ips_name") or intake.get("ips_name") or "").strip()
-        treatment_needed = str(intake.get("treatment_needed") or "").strip()
+        treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or _health_attachment_suggestions(case).get("treatment_needed") or "")
         diagnosis = str(intake.get("diagnosis") or "").strip()
         eps_request_date = str(intake.get("eps_request_date") or "").strip()
         eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
@@ -1488,6 +1584,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     ctx = _health_context(case)
     facts = ctx["facts"]
     intake = ctx["intake"]
+    attachment_suggestions = _health_attachment_suggestions(case)
     legal_analysis = ctx["legal_analysis"]
     chronology_lines = _health_fact_lines(case)
     evidence_items = _uploaded_evidence_items(case)
@@ -1500,8 +1597,8 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
         legal_analysis.get("legal_basis_verified_summary")
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
     ).strip()
-    diagnosis = str(intake.get("diagnosis") or "").strip()
-    treatment_needed = str(intake.get("treatment_needed") or "").strip()
+    diagnosis = str(intake.get("diagnosis") or attachment_suggestions.get("diagnosis") or "").strip()
+    treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or attachment_suggestions.get("treatment_needed") or "")
     patient_identity = _health_patient_identity_fragments(case)
     represented_person_name = patient_identity["name"]
     represented_person_relationship = _infer_health_relationship(case, represented_person_name)
@@ -1509,7 +1606,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     represented_person_document = patient_identity["document"]
     represented_person_birth_date = patient_identity["birth_date"]
     special_protection = str(intake.get("special_protection") or "").strip()
-    eps_request_date = _normalize_health_display_date(str(intake.get("eps_request_date") or "").strip())
+    eps_request_date = _normalize_health_display_date(str(intake.get("eps_request_date") or attachment_suggestions.get("eps_request_date") or "").strip())
     eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
     eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
     eps_response_detail = _formalize_health_response(str(intake.get("eps_response_detail") or "").strip())
@@ -1522,7 +1619,8 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     ).strip()
     description_lower = str(case.get("descripcion") or "").lower()
     represented_fragment = ""
-    if represented_person_name:
+    has_representation = _should_present_health_representation(case, patient_identity)
+    if represented_person_name and has_representation:
         identity_bits: list[str] = []
         if represented_person_age:
             identity_bits.append(f"de {represented_person_age}")
@@ -1531,7 +1629,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
             identity_bits.append(f"nacido el {normalized_birth_date}")
         if represented_person_document:
             identity_bits.append(f"identificado con documento No. {represented_person_document}")
-        elif represented_person_name:
+        elif special_protection.lower() == "menor de edad":
             identity_bits.append("identificado conforme al registro civil aportado como anexo")
         age_fragment = f", {', '.join(identity_bits)}" if identity_bits else ""
         role = "actuando en representacion"
@@ -1667,7 +1765,7 @@ def _build_health_impugnacion_document(case: dict[str, Any], rule: dict[str, Any
     court_name = str(intake.get("tutela_court_name") or "").strip() or "el despacho judicial que decidio la primera instancia"
     ruling_result = str(intake.get("tutela_decision_result") or "").strip() or "decision desfavorable a la parte accionante"
     appeal_reason = str(intake.get("tutela_appeal_reason") or "").strip() or "El fallo no valoro integralmente la urgencia del caso ni la barrera actual de la EPS."
-    treatment_needed = str(intake.get("treatment_needed") or "").strip() or "el servicio de salud requerido"
+    treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or _health_attachment_suggestions(case).get("treatment_needed") or "") or "el servicio de salud requerido"
     diagnosis = str(intake.get("diagnosis") or "").strip()
     urgency_detail = _formalize_health_urgency(
         case,
@@ -1741,7 +1839,7 @@ def _build_health_desacato_document(case: dict[str, Any], rule: dict[str, Any]) 
     court_name = str(intake.get("tutela_court_name") or "").strip() or "el juzgado de primera instancia"
     order_summary = str(intake.get("tutela_order_summary") or "").strip() or "garantizar el servicio de salud requerido"
     noncompliance = _sentence(str(intake.get("tutela_noncompliance_detail") or "").strip(), fallback="La entidad accionada no ha cumplido integralmente la orden judicial de salud y la barrera persiste.")
-    treatment_needed = str(intake.get("treatment_needed") or "").strip() or "el servicio de salud requerido"
+    treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or _health_attachment_suggestions(case).get("treatment_needed") or "") or "el servicio de salud requerido"
     jurisprudence_lines = _health_jurisprudence_lines(case, limit=2)
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")

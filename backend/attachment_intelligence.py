@@ -45,6 +45,63 @@ def _infer_name_from_filename(file_name: str) -> str:
     return candidate.title() if len(candidate) >= 3 else ""
 
 
+def _clean_person_candidate(value: str) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip(" .,:;")
+    if not text:
+        return ""
+    lowered = text.lower()
+    banned_fragments = (
+        "atencion",
+        "atención",
+        "plan",
+        "historia clinica",
+        "historia clínica",
+        "medicamento",
+        "formula",
+        "fórmula",
+        "ips",
+        "eps",
+        "aneurisma",
+        "consulta",
+        "servicio",
+    )
+    if any(fragment in lowered for fragment in banned_fragments):
+        return ""
+    if len(re.findall(r"[A-Za-zÁÉÍÓÚáéíóúÑñ]{2,}", text)) < 2:
+        return ""
+    return " ".join(part.capitalize() for part in text.split())
+
+
+def _normalize_health_service_candidate(value: str) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip(" .,:;")
+    if not text:
+        return ""
+    corrections = {
+        "moujarou": "Mounjaro",
+        "moujaro": "Mounjaro",
+        "mounjaro": "Mounjaro",
+        "emdicamento": "medicamento",
+    }
+    lowered = text.lower()
+    for wrong, right in corrections.items():
+        lowered = lowered.replace(wrong, right.lower())
+    text = re.sub(r"(?i)^el\\s+", "", lowered).strip()
+    words = text.split()
+    if len(words) <= 3 and all(word.replace("-", "").isalpha() for word in words):
+        return " ".join(word.capitalize() for word in words)
+    return text[:1].upper() + text[1:]
+
+
+def _clean_health_entity_candidate(value: str) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip(" .,:;")
+    if not text:
+        return ""
+    text = re.sub(r"(?i)^(ips|eps|clinica|hospital|centro medico)\s+", "", text).strip()
+    if len(text) < 3:
+        return ""
+    return " ".join(part.capitalize() for part in text.split())
+
+
 def _read_docx(path: Path) -> str:
     if Document is None:
         return ""
@@ -109,6 +166,7 @@ def _extract_attachment_suggestions(file_name: str, compact_text: str) -> dict[s
     )
     if not represented_person_name and any(term in lowered_name for term in ["registro", "jeronimo", "tarjeta", "identidad"]):
         represented_person_name = _infer_name_from_filename(file_name)
+    represented_person_name = _clean_person_candidate(represented_person_name)
     if represented_person_name:
         suggestions["represented_person_name"] = represented_person_name
 
@@ -150,6 +208,7 @@ def _extract_attachment_suggestions(file_name: str, compact_text: str) -> dict[s
         ],
         compact_text,
     )
+    physician = _clean_person_candidate(physician)
     if physician:
         suggestions["treating_physician"] = physician
 
@@ -243,7 +302,52 @@ def _extract_attachment_suggestions(file_name: str, compact_text: str) -> dict[s
             compact_text,
         )
         if treatment_needed:
-            suggestions["treatment_needed"] = treatment_needed
+            normalized_treatment = _normalize_health_service_candidate(treatment_needed)
+            if normalized_treatment:
+                suggestions["treatment_needed"] = normalized_treatment
+        if not suggestions.get("treatment_needed"):
+            direct_medication = _pick_first(
+                [
+                    r"\b(mounjaro|moujaro|moujarou|hidroxiurea|semaglutida|tirzepatida)\b",
+                    r"\b(?:prescribieron|prescribio|formularon|formulo|ordenaron|ordeno)\s+(?:el\s+)?(?:medicamento\s+)?([A-Za-z0-9 \-]{3,80})\b",
+                ],
+                compact_text,
+            )
+            normalized_direct_medication = _normalize_health_service_candidate(direct_medication)
+            if normalized_direct_medication:
+                suggestions["treatment_needed"] = normalized_direct_medication
+        medical_order_date = _pick_first(
+            [
+                r"\b(?:fecha de orden|fecha de formula|fecha de formulacion|emitida el|prescrito el|ordenado el)[:\s]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})",
+                r"\b(?:fecha de orden|fecha de formula|fecha de formulacion|emitida el|prescrito el|ordenado el)[:\s]*([0-9]{1,2}\s+de\s+[A-Za-z0-9 ]+\s+de\s+[0-9]{4})",
+            ],
+            compact_text,
+        )
+        if medical_order_date:
+            suggestions["medical_order_date"] = medical_order_date
+        doctor_name = _clean_person_candidate(
+            _pick_first(
+                [
+                    r"\b(?:internista|endocrinologo|endocrinologa|neurocirujano|cirujano vascular|medico tratante|medico|doctor|doctora)[:\s]+([A-Za-z ]{5,80})",
+                    r"\bdr\.?\s+([A-Za-z ]{5,80})",
+                    r"\bdra\.?\s+([A-Za-z ]{5,80})",
+                ],
+                compact_text,
+            )
+        )
+        if doctor_name:
+            suggestions["treating_doctor_name"] = doctor_name
+        ips_name = _clean_health_entity_candidate(
+            _pick_first(
+                [
+                    r"\b(?:ips|clinica|hospital|centro medico)\s+([A-Za-z&.\- ]{3,60})",
+                    r"\b(comfama|sura|san vicente|pablo tobon|modofisio)\b",
+                ],
+                compact_text,
+            )
+        )
+        if ips_name:
+            suggestions["treating_ips_name"] = ips_name
         if any(term in lowered_compact for term in ["hospitalizado", "hospitalizacion", "hospitalización", "crisis vasooclusiva", "riesgo vital", "sin suspender"]):
             suggestions.setdefault(
                 "urgency_detail",
