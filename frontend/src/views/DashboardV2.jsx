@@ -938,11 +938,11 @@ const normalizeMentionedDates = (value) => {
 class DashboardErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMessage: "" };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, errorMessage: error?.message || "Error desconocido del panel." };
   }
 
   componentDidCatch(error) {
@@ -957,6 +957,11 @@ class DashboardErrorBoundary extends React.Component {
           <div style={{ marginTop: 8, color: C.textMuted }}>
             Recarga la pagina. Si un bloque falla, ya no debe tumbar todo el dashboard.
           </div>
+          {this.state.errorMessage ? (
+            <div style={{ marginTop: 14, color: C.danger, background: "#FEF2F2", border: "1px solid #FECACA", padding: 14, borderRadius: 14 }}>
+              {this.state.errorMessage}
+            </div>
+          ) : null}
         </div>
       );
     }
