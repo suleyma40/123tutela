@@ -52,7 +52,7 @@ class Settings:
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o")
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
-    anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
+    anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-0")
     knowledge_base_json: str = os.getenv("KNOWLEDGE_BASE_JSON", "knowledge_base/marcos_normativos.json")
     jwt_secret: str = os.getenv("JWT_SECRET", "change-me")
     session_secret: str = os.getenv("SESSION_SECRET", "change-me-session")

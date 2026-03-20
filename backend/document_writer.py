@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 import re
 from typing import Any
 import unicodedata
+from urllib import error, request
 
 from backend.agent_registry import resolve_health_document
+from backend.config import settings
 from backend.document_rules import get_document_rule
+from backend.legal_prompts import HEALTH_LEGAL_MASTER_PROMPT, health_document_output_instruction
 
 
 def _join_list(value: Any, fallback: str = "No informado") -> str:
@@ -1429,6 +1433,150 @@ Telefono: {user_phone}
 """
 
 
+def _health_document_kind_label(action_key: str) -> str:
+    normalized = str(action_key or "").strip().lower()
+    if normalized == "accion de tutela":
+        return "ACCION DE TUTELA EN SALUD"
+    if "derecho de peticion" in normalized:
+        return "DERECHO DE PETICION EN SALUD"
+    if normalized == "impugnacion de tutela":
+        return "IMPUGNACION DE TUTELA EN SALUD"
+    if normalized == "incidente de desacato":
+        return "INCIDENTE DE DESACATO EN SALUD"
+    return normalized.upper() or "DOCUMENTO DE SALUD"
+
+
+def _build_health_llm_case_packet(case: dict[str, Any], rule: dict[str, Any], fallback_document: str) -> dict[str, Any]:
+    facts = case.get("facts") or {}
+    intake = facts.get("intake_form") or {}
+    attachment_context = facts.get("attachment_intelligence") or {}
+    synthesis = _health_case_synthesis(case)
+    suggestions = _health_attachment_suggestions(case)
+    legal_analysis = case.get("legal_analysis") or {}
+    ctx = _health_context(case)
+    patient_identity = _health_patient_identity_fragments(case)
+    source_policy = facts.get("source_validation_policy") or {}
+    chronology_lines = _health_fact_lines(case)
+
+    return {
+        "document_type": _health_document_kind_label(rule["action_key"]),
+        "recommended_action": case.get("recommended_action") or rule["action_key"],
+        "workflow_type": case.get("workflow_type") or "",
+        "city": ctx["city"],
+        "department": ctx["department"],
+        "account_holder": {
+            "name": case.get("usuario_nombre") or "",
+            "document": case.get("usuario_documento") or "",
+            "email": case.get("usuario_email") or "",
+            "phone": case.get("usuario_telefono") or "",
+            "address": case.get("usuario_direccion") or "",
+        },
+        "patient_detected_from_history": patient_identity,
+        "final_primary_identity_selected": {
+            "name": ctx["user_name"],
+            "document": ctx["user_doc"],
+            "email": ctx["user_email"],
+            "phone": ctx["user_phone"],
+            "address": ctx["address"],
+        },
+        "accionados": ctx["accionado"],
+        "rights_detected": legal_analysis.get("derechos_vulnerados") or [],
+        "health_synthesis": synthesis,
+        "typed_suggestions": suggestions,
+        "intake_form": intake,
+        "chronology_seed": chronology_lines,
+        "uploaded_evidence": _uploaded_evidence_items(case),
+        "verified_legal_basis_summary": legal_analysis.get("legal_basis_verified_summary")
+        or source_policy.get("legal_basis_verified_summary")
+        or "",
+        "verified_sources": source_policy.get("verified_sources") or [],
+        "attachment_profiles": attachment_context.get("attachment_profiles") or [],
+        "attachment_names": attachment_context.get("evidence_names") or [],
+        "clinical_history_text": str(attachment_context.get("combined_text") or "")[:90000],
+        "deterministic_fallback_draft": fallback_document,
+    }
+
+
+def _looks_like_complete_health_document(document: str, action_key: str) -> bool:
+    text = str(document or "").strip()
+    normalized = _normalize_writer_text(text)
+    if len(text) < 900:
+        return False
+    if action_key == "accion de tutela":
+        required = ["i.", "ii.", "iii.", "iv.", "v.", "pretensiones", "notificaciones"]
+        return all(token in normalized for token in required)
+    if "derecho de peticion" in action_key:
+        return "solicitudes" in normalized and "notificaciones" in normalized
+    if action_key == "impugnacion de tutela":
+        return "fallo" in normalized and "solicitudes" in normalized
+    if action_key == "incidente de desacato":
+        return "incumplimiento" in normalized and "solicitudes" in normalized
+    return True
+
+
+def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any], fallback_document: str) -> str | None:
+    if not settings.anthropic_api_key:
+        return None
+    attachment_context = ((case.get("facts") or {}).get("attachment_intelligence") or {})
+    combined_text = str(attachment_context.get("combined_text") or "").strip()
+    if not combined_text:
+        return None
+
+    action_key = str(rule.get("action_key") or "").strip().lower()
+    packet = _build_health_llm_case_packet(case, rule, fallback_document)
+    payload = {
+        "model": settings.anthropic_model,
+        "max_tokens": 4200,
+        "temperature": 0,
+        "system": (
+            "Eres un abogado litigante colombiano senior en salud. "
+            "Redactas documentos finales listos para radicar y tu fuente dominante es la historia clinica y los anexos."
+        ),
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    HEALTH_LEGAL_MASTER_PROMPT
+                    + "\n\nINSTRUCCION ESPECIFICA:\n"
+                    + health_document_output_instruction(action_key)
+                    + "\n\nDATOS ESTRUCTURADOS DEL CASO (JSON):\n"
+                    + json.dumps(packet, ensure_ascii=False)
+                    + "\n\nREGLAS DE RESPUESTA:\n"
+                    + "- Devuelve solo el documento final.\n"
+                    + "- No expliques el analisis.\n"
+                    + "- No uses markdown.\n"
+                    + "- Si la historia clinica identifica mejor al paciente que la cuenta del usuario, usa la identidad del paciente como principal cuando el caso sea en nombre propio o cuando la propia historia clinica muestre que ella es la paciente.\n"
+                    + "- Si detectas ruido de OCR, ignoralo.\n"
+                ),
+            }
+        ],
+    }
+    raw_request = request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "x-api-key": settings.anthropic_api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with request.urlopen(raw_request, timeout=45) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except (error.URLError, TimeoutError, json.JSONDecodeError):
+        return None
+
+    content = body.get("content") or []
+    text_parts = [item.get("text", "") for item in content if item.get("type") == "text"]
+    if not text_parts:
+        return None
+    drafted = "".join(text_parts).strip()
+    if not _looks_like_complete_health_document(drafted, action_key):
+        return None
+    return drafted
+
+
 def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
     ctx = _health_context(case)
     facts = ctx["facts"]
@@ -2072,13 +2220,17 @@ def build_document(case: dict[str, Any]) -> str:
     is_health_block = str(case.get("categoria") or case.get("category") or "").strip().lower() == "salud"
     if is_health_block:
         if rule["action_key"] == "accion de tutela":
-            return _build_health_tutela_document(case, rule)
+            fallback = _build_health_tutela_document(case, rule)
+            return _draft_health_document_with_claude(case, rule, fallback) or fallback
         if rule["action_key"] == "impugnacion de tutela":
-            return _build_health_impugnacion_document(case, rule)
+            fallback = _build_health_impugnacion_document(case, rule)
+            return _draft_health_document_with_claude(case, rule, fallback) or fallback
         if rule["action_key"] == "incidente de desacato":
-            return _build_health_desacato_document(case, rule)
+            fallback = _build_health_desacato_document(case, rule)
+            return _draft_health_document_with_claude(case, rule, fallback) or fallback
         if "derecho de peticion" in rule["action_key"]:
-            return _build_health_petition_document(case, rule)
+            fallback = _build_health_petition_document(case, rule)
+            return _draft_health_document_with_claude(case, rule, fallback) or fallback
     if rule["action_key"] == "accion de tutela":
         return _build_tutela_document(case, rule)
     if rule["action_key"] in {"reclamacion financiera", "derecho de peticion financiero"}:
