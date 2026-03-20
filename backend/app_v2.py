@@ -1673,6 +1673,7 @@ def generate_document(
             intake_form["regeneration_additional_context"] = payload.additional_context.strip()
         facts["intake_form"] = intake_form
     case["facts"] = facts
+    case = _rehydrate_case_intelligence(case)
     case = _refresh_verified_case_context(case)
     facts = dict(case.get("facts") or {})
     intake_form = dict(facts.get("intake_form") or {})
