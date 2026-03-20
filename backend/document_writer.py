@@ -1663,7 +1663,7 @@ def _build_health_impugnacion_document(case: dict[str, Any], rule: dict[str, Any
     facts = ctx["facts"]
     legal_analysis = ctx["legal_analysis"]
     chronology_lines = _health_fact_lines(case)
-    ruling_date = str(intake.get("tutela_ruling_date") or "").strip() or "fecha que debe precisarse con la notificacion del fallo"
+    ruling_date = _normalize_health_display_date(str(intake.get("tutela_ruling_date") or "").strip()) or "fecha que debe precisarse con la notificacion del fallo"
     court_name = str(intake.get("tutela_court_name") or "").strip() or "el despacho judicial que decidio la primera instancia"
     ruling_result = str(intake.get("tutela_decision_result") or "").strip() or "decision desfavorable a la parte accionante"
     appeal_reason = str(intake.get("tutela_appeal_reason") or "").strip() or "El fallo no valoro integralmente la urgencia del caso ni la barrera actual de la EPS."
@@ -1673,7 +1673,7 @@ def _build_health_impugnacion_document(case: dict[str, Any], rule: dict[str, Any
         case,
         intake.get("urgency_detail") or intake.get("ongoing_harm") or "",
     ).strip()
-    jurisprudence_lines = _health_jurisprudence_lines(case, limit=3)
+    jurisprudence_lines = _health_jurisprudence_lines(case, limit=2)
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
@@ -1697,7 +1697,7 @@ III. HECHOS RELEVANTES DEL TRAMITE
 IV. RAZONES DE IMPUGNACION
 1. El fallo impugnado no valoro de manera suficiente la afectacion actual del paciente ni la necesidad de proteccion inmediata frente a {treatment_needed}.
 2. Motivo principal de desacuerdo: {_sentence(appeal_reason)}
-3. La decision cuestionada no agoto una lectura integral de los soportes medicos y de la barrera administrativa impuesta por la entidad accionada.
+3. La decision cuestionada no aprecio integralmente los soportes medicos ni la barrera administrativa atribuida a la entidad accionada.
 4. {f"El caso involucra el diagnostico de {diagnosis}, circunstancia que exigia un examen reforzado de continuidad, oportunidad y riesgo actual." if diagnosis else "El expediente exigia un examen reforzado de continuidad, oportunidad y riesgo actual en salud."}
 5. {(
     f"La afectacion actual persiste porque {str(_sentence(urgency_detail, fallback='')).strip().rstrip('.').lower()}."
@@ -1708,8 +1708,8 @@ IV. RAZONES DE IMPUGNACION
 V. FUNDAMENTO JURIDICO
 La impugnacion se presenta al amparo del articulo 86 de la Constitucion Politica y del Decreto 2591 de 1991, en procura de una segunda revision judicial integral del caso. {verified_basis}
 
-Jurisprudencia verificable aplicable:
-{_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. El sistema priorizo soporte normativo y jurisprudencial conservador para la segunda instancia."}
+Soporte juridico complementario:
+{_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. Para esta impugnacion se prioriza soporte normativo y jurisprudencial conservador."}
 
 VI. SOLICITUDES A LA SEGUNDA INSTANCIA
 1. REVOCAR o MODIFICAR el fallo impugnado en lo desfavorable a la parte accionante.
@@ -1737,12 +1737,12 @@ def _build_health_desacato_document(case: dict[str, Any], rule: dict[str, Any]) 
     facts = ctx["facts"]
     legal_analysis = ctx["legal_analysis"]
     chronology_lines = _health_fact_lines(case)
-    ruling_date = str(intake.get("tutela_ruling_date") or "").strip() or "fecha que debe precisarse con el fallo"
+    ruling_date = _normalize_health_display_date(str(intake.get("tutela_ruling_date") or "").strip()) or "fecha que debe precisarse con el fallo"
     court_name = str(intake.get("tutela_court_name") or "").strip() or "el juzgado de primera instancia"
     order_summary = str(intake.get("tutela_order_summary") or "").strip() or "garantizar el servicio de salud requerido"
-    noncompliance = str(intake.get("tutela_noncompliance_detail") or "").strip() or "La entidad accionada no ha cumplido integralmente la orden judicial de salud y la barrera persiste."
+    noncompliance = _sentence(str(intake.get("tutela_noncompliance_detail") or "").strip(), fallback="La entidad accionada no ha cumplido integralmente la orden judicial de salud y la barrera persiste.")
     treatment_needed = str(intake.get("treatment_needed") or "").strip() or "el servicio de salud requerido"
-    jurisprudence_lines = _health_jurisprudence_lines(case, limit=3)
+    jurisprudence_lines = _health_jurisprudence_lines(case, limit=2)
     verified_basis = str(
         legal_analysis.get("legal_basis_verified_summary")
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
@@ -1760,7 +1760,7 @@ II. HECHOS POSTERIORES AL FALLO
 {_numbered_lines(chronology_lines)}
 
 III. INCUMPLIMIENTO ACTUAL
-{_sentence(noncompliance)}
+{noncompliance}
 
 IV. ORDEN JUDICIAL DESATENDIDA
 La orden cuyo cumplimiento se solicita de manera inmediata consistio en {order_summary}, relacionada con {treatment_needed}. Pese a la notificacion del fallo, la barrera en salud persiste y la afectacion del paciente continua.
@@ -1768,14 +1768,14 @@ La orden cuyo cumplimiento se solicita de manera inmediata consistio en {order_s
 V. FUNDAMENTO JURIDICO
 El presente incidente se formula con fundamento en el articulo 86 de la Constitucion Politica y en el regimen del Decreto 2591 de 1991 aplicable al desacato por incumplimiento de fallos de tutela. {verified_basis}
 
-Jurisprudencia verificable aplicable:
-{_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. El sistema priorizo soporte normativo y de desacato verificable para exigir cumplimiento inmediato."}
+Soporte juridico complementario:
+{_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. Para este incidente se prioriza soporte normativo verificable sobre cumplimiento del fallo."}
 
 VI. SOLICITUDES
 1. DECLARAR que existe incumplimiento del fallo de tutela referido.
 2. ORDENAR el cumplimiento inmediato e integral de la decision judicial.
 3. REQUERIR a la entidad y al funcionario responsable para que acrediten cumplimiento efectivo, inmediato y verificable.
-4. ADOPTAR las medidas correctivas y sancionatorias a que haya lugar frente al responsable del incumplimiento.
+4. ADOPTAR las medidas de apremio o sancion que resulten procedentes frente al responsable del incumplimiento.
 
 VII. PRUEBAS Y ANEXOS
 {_numbered_lines(_uploaded_evidence_items(case))}

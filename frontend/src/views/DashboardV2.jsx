@@ -1688,13 +1688,6 @@ const buildGuidedIntakeInterviewSteps = (form) => {
   if (form.category === "Salud" || action === "accion de tutela") {
     steps.push(
       {
-        id: "acting_capacity",
-        question: "¿Actúas en nombre propio o en representación de otra persona?",
-        placeholder: "Ej: madre del menor, padre, acudiente, agente oficioso, nombre propio",
-        multiline: false,
-        show: !form.acting_capacity?.trim() || form.acting_capacity === "nombre_propio",
-      },
-      {
         id: "represented_person_name",
         question: "¿Cuál es el nombre del menor o de la persona afectada principal?",
         placeholder: "Ej: Jeronimo Perez Lopez",
@@ -4700,7 +4693,8 @@ export default function DashboardV2(props) {
     previewGateIssues.length === 0;
   const writingGuide = buildWritingGuide(form.category);
   const wizardAction = normalizeAction(form.recommended_action);
-  const showRepresentedPersonCard = true;
+  const showRepresentedPersonCard = form.category === "Salud" || wizardAction === "accion de tutela";
+  const isThirdPartyCase = form.acting_capacity !== "nombre_propio";
   const wizardSteps = [
     { id: 1, label: "Perfil", ready: profileReady },
     { id: 2, label: "Análisis", ready: analysisReady || !!preview },
@@ -4780,6 +4774,19 @@ export default function DashboardV2(props) {
       case_reference: current.case_reference || entity.nit || "",
     }));
     setWizardEntitySuggestions([]);
+  };
+
+  const runWizardPreview = async () => {
+    const previewResult = await onPreview({
+      ...form,
+      description: composedDescription,
+      form_data: { ...form },
+      attachment_ids: tempFiles.map((item) => item.id),
+    });
+    setForm((current) => mergeDetectedFormValues(current, previewResult?.facts?.intake_form || previewResult?.facts?.autofill_suggestions || {}));
+    setPreview(previewResult);
+    setWizardStep(3);
+    return previewResult;
   };
 
   const jumpToNextStage = () => {
@@ -4915,9 +4922,15 @@ export default function DashboardV2(props) {
             title="Cuentanos tu problema"
             subtitle="Usa tus palabras. La plataforma te ayuda con preguntas guiadas."
             onBack={() => setWizardStep(1)}
-            onNext={() => setWizardStep(3)}
-            nextDisabled={!analysisReady || !preview}
-            nextLabel={preview ? "Continuar al preview" : "Primero genera el preview"}
+            onNext={async () => {
+              if (preview) {
+                setWizardStep(3);
+                return;
+              }
+              await runWizardPreview();
+            }}
+            nextDisabled={!analysisReady || loading}
+            nextLabel={preview ? "Continuar al preview" : "Generar preview y continuar"}
           >
             <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 10 }}>
               <div style={{ fontWeight: 800, color: C.text }}>Procedimiento simple</div>
@@ -4925,36 +4938,81 @@ export default function DashboardV2(props) {
             </div>
             {showRepresentedPersonCard && (
               <div className="glass-card" style={{ padding: 18, background: "#FFF7ED", display: "grid", gap: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>DATOS DEL HIJO O TERCERO AFECTADO</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-                  <Field label="Quien presenta el caso">
-                    <select
-                      value={form.acting_capacity}
-                      onChange={(event) => setForm((current) => ({ ...current, acting_capacity: event.target.value }))}
-                      style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
-                    >
-                      <option value="nombre_propio">La persona afectada directamente</option>
-                      <option value="madre_padre_menor">Madre o padre de menor</option>
-                      <option value="acudiente">Acudiente o cuidador</option>
-                      <option value="agente_oficioso">Agente oficioso</option>
-                      <option value="representante_legal">Representante legal</option>
-                    </select>
-                  </Field>
-                  <Field label="Nombre del menor o representado">
-                    <TextInput value={form.represented_person_name} onChange={(event) => setForm((current) => ({ ...current, represented_person_name: event.target.value }))} placeholder="Ej: Jeronimo Perez Lopez" />
-                  </Field>
-                  <Field label="Documento del menor o representado">
-                    <TextInput value={form.represented_person_document} onChange={(event) => setForm((current) => ({ ...current, represented_person_document: event.target.value }))} placeholder="Ej: Registro civil, TI o NUIP" />
-                  </Field>
-                  <Field label="Edad o fecha de nacimiento">
-                    <TextInput value={form.represented_person_age} onChange={(event) => setForm((current) => ({ ...current, represented_person_age: event.target.value }))} placeholder="Ej: 10 años / 12 de abril de 2016" />
-                  </Field>
-                  <Field label="Condicion relevante del menor o paciente">
-                    <TextInput value={form.represented_person_condition} onChange={(event) => setForm((current) => ({ ...current, represented_person_condition: event.target.value }))} placeholder="Ej: menor con anemia de celulas falciformes tipo SS" />
-                  </Field>
+                <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>QUIEN ES LA PERSONA AFECTADA</div>
+                <div style={{ color: C.text, fontWeight: 700 }}>
+                  Antes de seguir, confirma si este trámite es por ti o si lo presentas por un hijo, familiar o tercero.
                 </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        acting_capacity: "nombre_propio",
+                        represented_person_name: "",
+                        represented_person_document: "",
+                        represented_person_age: "",
+                        represented_person_condition: "",
+                      }))
+                    }
+                    style={{
+                      border: isThirdPartyCase ? `1px solid ${C.border}` : `2px solid ${C.primary}`,
+                      background: isThirdPartyCase ? "#fff" : "#EFF6FF",
+                      color: C.text,
+                      borderRadius: 999,
+                      padding: "10px 14px",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    El trámite es por mí
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm((current) => ({ ...current, acting_capacity: current.acting_capacity === "nombre_propio" ? "madre_padre_menor" : current.acting_capacity }))}
+                    style={{
+                      border: isThirdPartyCase ? `2px solid ${C.primary}` : `1px solid ${C.border}`,
+                      background: isThirdPartyCase ? "#EFF6FF" : "#fff",
+                      color: C.text,
+                      borderRadius: 999,
+                      padding: "10px 14px",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Lo presento por otra persona
+                  </button>
+                </div>
+                {isThirdPartyCase && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+                    <Field label="Calidad en que presentas el caso">
+                      <select
+                        value={form.acting_capacity}
+                        onChange={(event) => setForm((current) => ({ ...current, acting_capacity: event.target.value }))}
+                        style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
+                      >
+                        <option value="madre_padre_menor">Madre o padre de menor</option>
+                        <option value="acudiente">Acudiente o cuidador</option>
+                        <option value="agente_oficioso">Agente oficioso</option>
+                        <option value="representante_legal">Representante legal</option>
+                      </select>
+                    </Field>
+                    <Field label="Nombre del menor o representado">
+                      <TextInput value={form.represented_person_name} onChange={(event) => setForm((current) => ({ ...current, represented_person_name: event.target.value }))} placeholder="Ej: Jeronimo Perez Lopez" />
+                    </Field>
+                    <Field label="Documento del menor o representado">
+                      <TextInput value={form.represented_person_document} onChange={(event) => setForm((current) => ({ ...current, represented_person_document: event.target.value }))} placeholder="Ej: Registro civil, TI o NUIP" />
+                    </Field>
+                    <Field label="Edad o fecha de nacimiento">
+                      <TextInput value={form.represented_person_age} onChange={(event) => setForm((current) => ({ ...current, represented_person_age: event.target.value }))} placeholder="Ej: 10 años / 12 de abril de 2016" />
+                    </Field>
+                    <Field label="Condicion relevante del menor o paciente">
+                      <TextInput value={form.represented_person_condition} onChange={(event) => setForm((current) => ({ ...current, represented_person_condition: event.target.value }))} placeholder="Ej: menor con anemia de celulas falciformes tipo SS" />
+                    </Field>
+                  </div>
+                )}
                 <div style={{ color: C.textMuted, fontSize: 13 }}>
-                  Si el caso es de tu hijo o de otra persona, llena estos datos antes de seguir.
+                  Si el trámite es por ti, no mostraremos datos de tercero. Si es por otra persona, el agente seguirá el interrogatorio con esos datos.
                 </div>
               </div>
             )}
@@ -4981,8 +5039,16 @@ export default function DashboardV2(props) {
                 ))}
               </div>
             </div>
-            <Field label="Explica el caso con detalle">
-              <TextArea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Cuenta que paso, desde cuando, con quien, que pediste antes, que pruebas tienes y que solucion necesitas." />
+            <Field label={form.category === "Salud" ? "Primer relato para que el agente arranque" : "Explica el caso con detalle"}>
+              <TextArea
+                value={form.description}
+                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                placeholder={
+                  form.category === "Salud"
+                    ? "Escribe en tus palabras que está pasando. El agente seguirá preguntando una cosa a la vez, incluso diagnóstico, barrera de la EPS, urgencia y gestión previa."
+                    : "Cuenta que paso, desde cuando, con quien, que pediste antes, que pruebas tienes y que solucion necesitas."
+                }
+              />
             </Field>
             <GuidedIntakeFields
               form={form}
@@ -5023,15 +5089,7 @@ export default function DashboardV2(props) {
               <Button
                 onClick={async () => {
                   try {
-                    const previewResult = await onPreview({
-                      ...form,
-                      description: composedDescription,
-                      form_data: { ...form },
-                      attachment_ids: tempFiles.map((item) => item.id),
-                    });
-                    setForm((current) => mergeDetectedFormValues(current, previewResult?.facts?.intake_form || previewResult?.facts?.autofill_suggestions || {}));
-                    setPreview(previewResult);
-                    setWizardStep(3);
+                    await runWizardPreview();
                   } catch (error) {
                     // The visible banner uses actionError from MainAppV2.
                   }
