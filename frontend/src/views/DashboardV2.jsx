@@ -1252,6 +1252,12 @@ const buildStructuredDescription = (form) => {
   return sections.join("\n");
 };
 
+const shrinkPreviewDescription = (text, maxLength = 5800) => {
+  const clean = String(text || "").trim();
+  if (clean.length <= maxLength) return clean;
+  return `${clean.slice(0, maxLength - 24).trimEnd()}\n[Texto resumido para preview]`;
+};
+
 const getGuidedIntakeMissing = (form, files = []) => {
   const missing = [];
 
@@ -4630,6 +4636,7 @@ export default function DashboardV2(props) {
   const guidedMissing = useMemo(() => getGuidedIntakeMissing(form, tempFiles), [form, tempFiles]);
   const previewGateIssues = useMemo(() => getPreviewGateIssues(form, tempFiles), [form, tempFiles]);
   const composedDescription = useMemo(() => buildStructuredDescription(form), [form]);
+  const previewDescription = useMemo(() => shrinkPreviewDescription(composedDescription), [composedDescription]);
   const analysisReady = !!form.category && guidedMissing.length === 0 && previewGateIssues.length === 0;
   const writingGuide = buildWritingGuide(form.category);
   const wizardAction = normalizeAction(form.recommended_action);
@@ -4719,7 +4726,7 @@ export default function DashboardV2(props) {
   const runWizardPreview = async () => {
     const previewResult = await onPreview({
       ...form,
-      description: composedDescription,
+      description: previewDescription,
       form_data: { ...form },
       attachment_ids: tempFiles.map((item) => item.id),
     });
