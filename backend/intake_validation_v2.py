@@ -55,6 +55,25 @@ def _health_supports_present(facts: dict[str, Any], combined_text: str) -> bool:
     )
 
 
+def _health_clinical_record_present(facts: dict[str, Any], combined_text: str) -> bool:
+    attachment_context = facts.get("attachment_intelligence") or {}
+    profiles = attachment_context.get("attachment_profiles") or []
+    if any(str((profile or {}).get("type") or "").strip() == "historia_clinica" for profile in profiles):
+        return True
+    return _has_any(
+        combined_text,
+        [
+            "historia clinica",
+            "historia clínica",
+            "epicrisis",
+            "consulta externa",
+            "teleconcepto",
+            "evolucion",
+            "evolución",
+        ],
+    )
+
+
 def _health_current_harm_present(facts: dict[str, Any], combined_text: str) -> bool:
     return bool(_intake_text(facts, "urgency_detail", "current_harm", "ongoing_harm", "tutela_immediacy_detail")) or _has_any(
         combined_text,
@@ -188,6 +207,7 @@ def _validate_health_stage_readiness(
     current_harm_present = _health_current_harm_present(facts, combined_text)
     chronology_present = _health_chronology_present(facts)
     supports_present = _health_supports_present(facts, combined_text)
+    clinical_record_present = _health_clinical_record_present(facts, combined_text)
     prior_claim_present = bool(
         prior_actions
         or _intake_text(facts, "prior_claim_result", "eps_response_detail", "eps_request_date", "eps_request_reference", "tutela_other_means_detail")
@@ -223,6 +243,8 @@ def _validate_health_stage_readiness(
             warnings.append("Conviene describir formula, historia clinica, autorizacion, negacion o cualquier soporte medico disponible.")
     elif stage == "generate":
         if "derecho de peticion" in action:
+            if not clinical_record_present:
+                problems.append("El derecho de peticion en salud debe venir con historia clinica, formula u otro soporte medico equivalente antes de generar el documento.")
             if not target_entity:
                 problems.append("El derecho de peticion en salud necesita una entidad destinataria clara.")
             if not concrete_request:
@@ -232,6 +254,8 @@ def _validate_health_stage_readiness(
             if not _intake_text(facts, "response_channel", "copy_email"):
                 warnings.append("Conviene definir un canal de respuesta expreso para el derecho de peticion.")
         elif "impugnacion" in action:
+            if not clinical_record_present:
+                problems.append("La impugnacion en salud debe venir con historia clinica o soporte medico equivalente para revisar bien el caso.")
             if not _intake_text(facts, "tutela_court_name"):
                 problems.append("La impugnacion en salud debe identificar el juzgado o despacho que decidio la tutela.")
             if not _intake_text(facts, "tutela_ruling_date", "tutela_decision_result"):
@@ -241,6 +265,8 @@ def _validate_health_stage_readiness(
             if not _intake_text(facts, "tutela_appeal_reason"):
                 problems.append("La impugnacion en salud debe exponer el motivo concreto de inconformidad.")
         elif "desacato" in action:
+            if not clinical_record_present:
+                problems.append("El desacato en salud debe venir con historia clinica o soporte medico equivalente para sustentar el incumplimiento actual.")
             if not _intake_text(facts, "tutela_court_name"):
                 problems.append("El desacato en salud debe identificar el juzgado que emitio el fallo.")
             if not _intake_text(facts, "tutela_ruling_date", "tutela_order_summary"):
@@ -248,6 +274,8 @@ def _validate_health_stage_readiness(
             if not _intake_text(facts, "tutela_noncompliance_detail"):
                 problems.append("El desacato en salud debe explicar con hechos concretos el incumplimiento actual.")
         else:
+            if not clinical_record_present:
+                problems.append("La tutela en salud necesita historia clinica o soporte medico equivalente antes de generar el documento final.")
             if not target_entity:
                 problems.append("La tutela en salud necesita una EPS, IPS o entidad accionada claramente identificada.")
             if not diagnosis:

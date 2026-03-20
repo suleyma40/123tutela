@@ -270,6 +270,11 @@ def _health_attachment_suggestions(case: dict[str, Any]) -> dict[str, Any]:
     return ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
 
 
+def _health_case_synthesis(case: dict[str, Any]) -> dict[str, Any]:
+    facts = case.get("facts") or {}
+    return ((facts.get("attachment_intelligence") or {}).get("health_case_synthesis") or {})
+
+
 def _same_identity(name_a: str, name_b: str, doc_a: str, doc_b: str) -> bool:
     normalized_a = _normalize_writer_text(name_a)
     normalized_b = _normalize_writer_text(name_b)
@@ -709,9 +714,12 @@ def _health_patient_identity_fragments(case: dict[str, Any]) -> dict[str, str]:
     intake = facts.get("intake_form") or {}
     attachment_context = facts.get("attachment_intelligence") or {}
     autofill = intake.get("_autofill") or {}
+    synthesis = _health_case_synthesis(case)
 
     typed = _health_attachment_suggestions(case)
     name = _infer_health_patient_name(case)
+    if not name:
+        name = _clean_health_person_name(synthesis.get("patient_name") or "")
     age = str(
         intake.get("represented_person_age")
         or autofill.get("represented_person_age")
@@ -722,6 +730,7 @@ def _health_patient_identity_fragments(case: dict[str, Any]) -> dict[str, str]:
         intake.get("represented_person_document")
         or autofill.get("represented_person_document")
         or typed.get("represented_person_document")
+        or synthesis.get("patient_document")
         or ""
     ).strip()
     birth_date = str(
@@ -913,6 +922,7 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     intake = ctx["intake"]
     facts = ctx["facts"]
     attachment_suggestions = _health_attachment_suggestions(case)
+    synthesis = _health_case_synthesis(case)
     chronology_lines = _filtered_health_context_lines(case)
 
     acting_capacity = str(intake.get("acting_capacity") or "").strip()
@@ -924,7 +934,12 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     represented_person_birth_date = patient_identity["birth_date"]
     target_entity = ctx["accionado"]
     diagnosis = str(intake.get("diagnosis") or attachment_suggestions.get("diagnosis") or "").strip()
-    treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or attachment_suggestions.get("treatment_needed") or "")
+    treatment_needed = _normalize_health_service_text(
+        intake.get("treatment_needed")
+        or attachment_suggestions.get("treatment_needed")
+        or synthesis.get("requested_service")
+        or ""
+    )
     medical_order_date = _normalize_health_display_date(str(intake.get("medical_order_date") or attachment_suggestions.get("medical_order_date") or "").strip())
     treating_doctor_name = _clean_health_person_name(intake.get("treating_doctor_name") or intake.get("treating_physician") or attachment_suggestions.get("treating_doctor_name") or attachment_suggestions.get("treating_physician") or "")
     treating_ips_name = str(intake.get("treating_ips_name") or intake.get("ips_name") or attachment_suggestions.get("treating_ips_name") or "").strip()
@@ -935,6 +950,8 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     urgency_detail = _formalize_health_urgency(case, str(intake.get("urgency_detail") or intake.get("ongoing_harm") or "").strip())
     special_protection = str(intake.get("special_protection") or "").strip()
     has_representation = _should_present_health_representation(case, patient_identity)
+    barrier_summary = _sentence(str(synthesis.get("barrier_summary") or "").strip(), fallback="").strip()
+    risk_summary = _sentence(str(synthesis.get("risk_summary") or "").strip(), fallback="").strip()
 
     lines: list[str] = []
     if represented_person_name and has_representation:
@@ -965,8 +982,12 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
         lines.append(f"Frente a dicha solicitud, la entidad accionada incurrio en la siguiente respuesta u omision: {_sentence(eps_response_detail)}")
     if urgency_detail:
         lines.append(f"En la actualidad persiste la siguiente afectacion o riesgo para el paciente: {_sentence(urgency_detail)}")
+    elif risk_summary:
+        lines.append(f"En la actualidad persiste la siguiente afectacion o riesgo para el paciente: {risk_summary}")
     if special_protection and special_protection.lower() not in {"no aplica", "ninguno"}:
         lines.append(f"La persona afectada se encuentra en condicion de especial proteccion constitucional: {special_protection}.")
+    if barrier_summary and not _is_redundant_health_line(barrier_summary, lines):
+        lines.append(barrier_summary)
     if facts.get("agent_state", {}).get("analysis", {}).get("barrier_summary"):
         for item in facts["agent_state"]["analysis"]["barrier_summary"]:
             formal_item = _formalize_health_response(str(item or "").strip())
@@ -978,7 +999,12 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
             if formal_item and not _is_redundant_health_line(formal_item, lines):
                 lines.append(formal_item)
 
+    synthesis_chronology = [str(item).strip() for item in (synthesis.get("chronology") or []) if str(item).strip()]
     merged = list(lines)
+    for item in synthesis_chronology:
+        formal_item = _sentence(_title_sentence(item), fallback="").strip()
+        if formal_item and not _is_redundant_health_line(formal_item, merged):
+            merged.append(formal_item)
     for item in chronology_lines:
         if not _is_redundant_health_line(item, merged):
             merged.append(item)
@@ -1585,6 +1611,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     facts = ctx["facts"]
     intake = ctx["intake"]
     attachment_suggestions = _health_attachment_suggestions(case)
+    synthesis = _health_case_synthesis(case)
     legal_analysis = ctx["legal_analysis"]
     chronology_lines = _health_fact_lines(case)
     evidence_items = _uploaded_evidence_items(case)
@@ -1598,7 +1625,12 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
     ).strip()
     diagnosis = str(intake.get("diagnosis") or attachment_suggestions.get("diagnosis") or "").strip()
-    treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or attachment_suggestions.get("treatment_needed") or "")
+    treatment_needed = _normalize_health_service_text(
+        intake.get("treatment_needed")
+        or attachment_suggestions.get("treatment_needed")
+        or synthesis.get("requested_service")
+        or ""
+    )
     patient_identity = _health_patient_identity_fragments(case)
     represented_person_name = patient_identity["name"]
     represented_person_relationship = _infer_health_relationship(case, represented_person_name)
@@ -1617,7 +1649,17 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
         or intake.get("tutela_immediacy_detail")
         or "",
     ).strip()
+    barrier_summary = _sentence(str(synthesis.get("barrier_summary") or "").strip(), fallback="").strip()
+    risk_summary = _sentence(str(synthesis.get("risk_summary") or "").strip(), fallback="").strip()
     description_lower = str(case.get("descripcion") or "").lower()
+    focus = str(synthesis.get("focus") or "").strip().lower()
+    medication_order_confirmed = bool(
+        synthesis.get("medication_order_confirmed")
+        or intake.get("medical_order_date")
+        or attachment_suggestions.get("medical_order_date")
+        or intake.get("treating_doctor_name")
+        or attachment_suggestions.get("treating_doctor_name")
+    )
     represented_fragment = ""
     has_representation = _should_present_health_representation(case, patient_identity)
     if represented_person_name and has_representation:
@@ -1670,6 +1712,10 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     )
     if diagnosis:
         legal_basis_text = f"{legal_basis_text} El diagnostico reportado en este caso es {diagnosis}."
+    if barrier_summary:
+        legal_basis_text = f"{legal_basis_text} {barrier_summary}".strip()
+    if risk_summary:
+        legal_basis_text = f"{legal_basis_text} {risk_summary}".strip()
     if verified_basis:
         legal_basis_text = f"{legal_basis_text} {verified_basis}".strip()
     provisional_measure = bool(
@@ -1678,21 +1724,40 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
         or "hospital" in description_lower
         or "hospital" in urgency_detail.lower()
     )
-    tutela_requests = _dedupe_lines([
-        f"AMPARAR de manera inmediata {rights}.",
-        (
-            f"ORDENAR como medida provisional a {ctx['accionado']} que, dentro de las cuarenta y ocho (48) horas siguientes a la notificacion de la providencia, autorice, entregue y garantice de manera efectiva {treatment_needed}."
-            if provisional_measure and treatment_needed
-            else ""
-        ),
-        (
-            f"ORDENAR a {ctx['accionado']} que autorice, programe y garantice de forma efectiva {treatment_needed}."
-            if treatment_needed
-            else f"ORDENAR a {ctx['accionado']} que autorice, programe y garantice de forma efectiva el servicio de salud requerido."
-        ),
-        "GARANTIZAR el tratamiento integral, continuo y oportuno que determine el medico tratante, de conformidad con el principio de integralidad aplicable en salud.",
-        "ORDENAR que la entidad accionada informe a este despacho y a la parte accionante el cumplimiento integral de lo resuelto.",
-    ])
+    if focus == "circulo_burocratico" and not medication_order_confirmed:
+        tutela_requests = _dedupe_lines([
+            f"AMPARAR de manera inmediata {rights}.",
+            (
+                f"ORDENAR como medida provisional a {ctx['accionado']} que, dentro de las cuarenta y ocho (48) horas siguientes a la notificacion de la providencia, programe una valoracion prioritaria e integral por endocrinologia o por el especialista competente, coordinada con medicina interna, para definir de manera inmediata la conducta terapeutica requerida para remover la barrera de acceso actual."
+                if provisional_measure
+                else ""
+            ),
+            f"ORDENAR a {ctx['accionado']} que elimine el circulo burocratico de remisiones internas y garantice una definicion clinica integral, coordinada y oportuna frente al caso de la accionante.",
+            (
+                f"ORDENAR a {ctx['accionado']} que, si el especialista competente lo prescribe, autorice y suministre sin dilacion {treatment_needed} o el tratamiento equivalente que se determine como idoneo."
+                if treatment_needed
+                else ""
+            ),
+            "ORDENAR la convocatoria de junta medica o ruta clinica integral si el caso lo requiere, evitando nuevas remisiones circulares entre especialidades.",
+            "GARANTIZAR el tratamiento integral, continuo y oportuno que determine el medico tratante, de conformidad con el principio de integralidad aplicable en salud.",
+            "ORDENAR que la entidad accionada informe a este despacho y a la parte accionante el cumplimiento integral de lo resuelto.",
+        ])
+    else:
+        tutela_requests = _dedupe_lines([
+            f"AMPARAR de manera inmediata {rights}.",
+            (
+                f"ORDENAR como medida provisional a {ctx['accionado']} que, dentro de las cuarenta y ocho (48) horas siguientes a la notificacion de la providencia, autorice, entregue y garantice de manera efectiva {treatment_needed}."
+                if provisional_measure and treatment_needed
+                else ""
+            ),
+            (
+                f"ORDENAR a {ctx['accionado']} que autorice, programe y garantice de forma efectiva {treatment_needed}."
+                if treatment_needed
+                else f"ORDENAR a {ctx['accionado']} que autorice, programe y garantice de forma efectiva el servicio de salud requerido."
+            ),
+            "GARANTIZAR el tratamiento integral, continuo y oportuno que determine el medico tratante, de conformidad con el principio de integralidad aplicable en salud.",
+            "ORDENAR que la entidad accionada informe a este despacho y a la parte accionante el cumplimiento integral de lo resuelto.",
+        ])
     if provisional_measure:
         tutela_requests = [
             item

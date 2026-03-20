@@ -34,6 +34,7 @@ class HealthFlowCase:
     expected_workflow: str
     expected_action: str
     expected_generate_error: str | None = None
+    attachment_names: list[str] | None = None
 
 
 class InMemoryRepository:
@@ -351,6 +352,7 @@ CASES: list[HealthFlowCase] = [
         },
         expected_workflow="tutela",
         expected_action="Accion de tutela",
+        attachment_names=["Historia Clinica Samuel Perez.pdf", "Orden Quimioterapia.pdf"],
     ),
     HealthFlowCase(
         name="flujo_peticion_salud",
@@ -389,6 +391,7 @@ CASES: list[HealthFlowCase] = [
         },
         expected_workflow="derecho_peticion",
         expected_action="Derecho de peticion a EPS",
+        attachment_names=["Historia Clinica Ortopedia.pdf", "Orden Medica Ortopedia.pdf"],
     ),
     HealthFlowCase(
         name="flujo_impugnacion_salud",
@@ -427,6 +430,7 @@ CASES: list[HealthFlowCase] = [
         },
         expected_workflow="impugnacion",
         expected_action="Impugnacion de tutela",
+        attachment_names=["Historia Clinica Neurologia.pdf", "Fallo Tutela.pdf"],
     ),
     HealthFlowCase(
         name="flujo_desacato_salud",
@@ -464,6 +468,7 @@ CASES: list[HealthFlowCase] = [
         },
         expected_workflow="desacato",
         expected_action="Incidente de desacato",
+        attachment_names=["Historia Clinica Artritis.pdf", "Fallo Tutela.pdf"],
     ),
     HealthFlowCase(
         name="bloqueo_generate_tutela_incompleta",
@@ -524,6 +529,22 @@ def _run_case(case: HealthFlowCase) -> str:
     )
     created = app_v2.create_case(create_payload, current_user=TEST_USER)
     created_case = created.case
+    if case.attachment_names:
+        app_v2.repository.files_by_case[str(created_case.id)] = [
+            {
+                "id": f"{case.name}-{index}",
+                "case_id": str(created_case.id),
+                "original_name": name,
+                "file_kind": "evidence",
+                "mime_type": "application/pdf",
+                "relative_path": "",
+                "status": "attached",
+                "file_size": 1024,
+                "created_at": _now(),
+                "metadata": {},
+            }
+            for index, name in enumerate(case.attachment_names, start=1)
+        ]
     _assert(created_case.workflow_type == case.expected_workflow, f"{case.name}: workflow inesperado en create_case")
     _assert(created_case.recommended_action == case.expected_action, f"{case.name}: accion inesperada en create_case")
 

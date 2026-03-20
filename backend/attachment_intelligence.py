@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
+from urllib import error, request
 
+from backend.config import settings
 from backend.storage import absolute_path
 
 try:
@@ -23,10 +26,14 @@ def _read_pdf(path: Path) -> str:
     try:
         reader = PdfReader(str(path))
         chunks: list[str] = []
-        for page in reader.pages[:4]:
+        total_chars = 0
+        for page in reader.pages[:24]:
             text = (page.extract_text() or "").strip()
             if text:
                 chunks.append(text)
+                total_chars += len(text)
+            if total_chars >= 80000:
+                break
         return "\n".join(chunks)
     except Exception:
         return ""
@@ -102,12 +109,313 @@ def _clean_health_entity_candidate(value: str) -> str:
     return " ".join(part.capitalize() for part in text.split())
 
 
+def _normalize_ascii_text(value: Any) -> str:
+    text = str(value or "")
+    return text.encode("ascii", "ignore").decode("ascii")
+
+
+def _health_lines_from_text(text: str) -> list[str]:
+    chunks = re.split(r"[\r\n]+", str(text or ""))
+    lines: list[str] = []
+    for chunk in chunks:
+        normalized = re.sub(r"\s+", " ", chunk).strip(" .,:;")
+        if len(normalized) < 12:
+            continue
+        lines.append(normalized)
+    return lines
+
+
+def _extract_health_dates(text: str) -> list[str]:
+    matches = re.findall(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", text)
+    long_matches = re.findall(r"\b\d{1,2}\s+de\s+[A-Za-z ]+\s+de\s+\d{4}\b", text, flags=re.IGNORECASE)
+    dates = matches + long_matches
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for item in dates:
+        clean = re.sub(r"\s+", " ", item).strip()
+        lowered = clean.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        ordered.append(clean)
+    return ordered
+
+
+def _extract_health_identity(text: str, typed_suggestions: dict[str, Any]) -> dict[str, str]:
+    patient_name = _clean_person_candidate(
+        str(
+            typed_suggestions.get("represented_person_name")
+            or typed_suggestions.get("patient_name")
+            or ""
+        )
+    )
+    if not patient_name:
+        patient_name = _clean_person_candidate(
+            _pick_first(
+                [
+                    r"\b(?:paciente|nombre del paciente|nombre|usuario|accionante)[:\s]+([A-Za-zÁÉÍÓÚáéíóúÑñ ]{8,120})",
+                    r"\b([A-Z][A-Z ]{10,120})\b",
+                ],
+                text,
+            )
+        )
+
+    patient_document = str(
+        typed_suggestions.get("represented_person_document")
+        or typed_suggestions.get("patient_document")
+        or ""
+    ).strip()
+    if not patient_document:
+        patient_document = _pick_first(
+            [
+                r"\b(?:cc|cedula|cédula|documento|identificacion|identificación|ti|nuip)[:\s#-]*([0-9.\-]{6,20})",
+            ],
+            text,
+        )
+
+    return {
+        "patient_name": patient_name,
+        "patient_document": patient_document,
+    }
+
+
+def _extract_health_entities(text: str) -> list[str]:
+    candidates = re.findall(
+        r"\b(?:eps|ips|clinica|clínica|hospital|comfama|sura|san vicente|pablo tobon|modofisio)\s*[A-Za-z&.\- ]{0,60}",
+        text,
+        flags=re.IGNORECASE,
+    )
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in candidates:
+        item = re.sub(r"\s+", " ", raw).strip(" .,:;")
+        if len(item) < 4:
+            continue
+        key = _normalize_ascii_text(item).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(item)
+    return cleaned[:6]
+
+
+def _extract_health_barrier_summary(text: str) -> str:
+    lowered = _normalize_ascii_text(text).lower()
+    if all(term in lowered for term in ("endocrino", "medicina interna")) and any(
+        term in lowered for term in ("programa de obesidad", "no pertinencia", "proxima cita", "6 meses", "remision")
+    ):
+        return (
+            "Los soportes muestran un circulo burocratico entre endocrinologia, medicina interna y programa de obesidad, "
+            "sin decision terapeutica definitiva y con nueva cita diferida por varios meses."
+        )
+    if any(term in lowered for term in ("no pertinencia", "teleconcepto")):
+        return "Los soportes muestran devoluciones o respuestas de no pertinencia que impiden una solucion clinica oportuna."
+    if any(term in lowered for term in ("negado", "no autorizado", "sin autorizacion")):
+        return "Los soportes muestran una negativa o falta de autorizacion frente al servicio de salud requerido."
+    if any(term in lowered for term in ("sin cita", "demora", "agenda", "sin agenda")):
+        return "Los soportes muestran una demora relevante en la valoracion o programacion del servicio requerido."
+    return ""
+
+
+def _extract_health_risk_summary(text: str) -> str:
+    lowered = _normalize_ascii_text(text).lower()
+    if "aneurisma" in lowered and any(term in lowered for term in ("ruptura", "riesgo vital", "fatal", "cirugia", "abdominal")):
+        return "La historia clinica describe un riesgo vital actual asociado a aneurisma cerebral y a la imposibilidad de corregirlo oportunamente."
+    if any(term in lowered for term in ("oncologia", "quimioterapia", "cancer")):
+        return "La historia clinica muestra riesgo grave por interrupcion de tratamiento oncologico."
+    if any(term in lowered for term in ("hospitalizado", "uci", "urgencias")):
+        return "La historia clinica muestra una afectacion actual severa con necesidad de atencion prioritaria."
+    return ""
+
+
+def _extract_health_service_need(text: str, typed_suggestions: dict[str, Any]) -> str:
+    explicit = _normalize_health_service_candidate(str(typed_suggestions.get("treatment_needed") or "").strip())
+    if explicit:
+        return explicit
+    candidate = _pick_first(
+        [
+            r"\b(?:medicamento|tratamiento|procedimiento|cirugia|cirugía|valoracion|valoración|consulta)\s+([A-Za-z0-9ÁÉÍÓÚáéíóúÑñ \-]{3,120})",
+            r"\b(mounjaro|tirzepatida|semaglutida|hidroxiurea)\b",
+        ],
+        text,
+    )
+    return _normalize_health_service_candidate(candidate)
+
+
+def _extract_health_chronology(lines: list[str]) -> list[str]:
+    chronology: list[str] = []
+    seen: set[str] = set()
+    trigger_words = (
+        "consulta",
+        "valoracion",
+        "valoración",
+        "remite",
+        "remision",
+        "remisión",
+        "teleconcepto",
+        "no pertinencia",
+        "programa de obesidad",
+        "endocrino",
+        "endocrinologia",
+        "endocrinología",
+        "medicina interna",
+        "aneurisma",
+        "mounjaro",
+        "tirzepat",
+        "cirugia",
+        "cirugía",
+    )
+    for line in lines:
+        lowered = _normalize_ascii_text(line).lower()
+        if not any(word in lowered for word in trigger_words):
+            continue
+        if not _extract_health_dates(line) and not any(term in lowered for term in ("hace 6 meses", "6 meses", "proxima cita", "próxima cita")):
+            continue
+        normalized = re.sub(r"\s+", " ", line).strip()
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        chronology.append(normalized)
+    return chronology[:10]
+
+
+def _detect_health_case_focus(text: str) -> str:
+    lowered = _normalize_ascii_text(text).lower()
+    if all(term in lowered for term in ("endocrino", "medicina interna")) and any(
+        term in lowered
+        for term in ("no pertinencia", "programa de obesidad", "remite", "remision", "6 meses", "proxima cita")
+    ):
+        return "circulo_burocratico"
+    if any(term in lowered for term in ("desacato", "incumplimiento fallo", "incumplio orden")):
+        return "desacato"
+    if any(term in lowered for term in ("niega", "negado", "no autorizado", "sin autorizacion")):
+        return "negacion_directa"
+    if any(term in lowered for term in ("sin cita", "valoracion", "valoración", "no pertinencia")):
+        return "barrera_de_acceso"
+    return "salud_general"
+
+
+def _deterministic_health_case_synthesis(*, combined_text: str, evidence_names: list[str], typed_suggestions: dict[str, Any]) -> dict[str, Any]:
+    lines = _health_lines_from_text(combined_text)
+    chronology = _extract_health_chronology(lines)
+    dates = _extract_health_dates(combined_text)
+    identity = _extract_health_identity(combined_text, typed_suggestions)
+    diagnosis = str(typed_suggestions.get("diagnosis") or "").strip()
+    treatment = _extract_health_service_need(combined_text, typed_suggestions)
+    doctor = str(typed_suggestions.get("treating_doctor_name") or typed_suggestions.get("treating_physician") or "").strip()
+    ips_name = str(typed_suggestions.get("treating_ips_name") or "").strip()
+    focus = _detect_health_case_focus(combined_text)
+    barrier_summary = _extract_health_barrier_summary(combined_text)
+    risk_summary = _extract_health_risk_summary(combined_text)
+    entities = _extract_health_entities(combined_text)
+    medication_order_confirmed = bool(
+        typed_suggestions.get("medical_order_date")
+        or doctor
+        or re.search(r"\b(?:orden medica|formula medica|prescribi[oó]|orden[oó])\b", combined_text, flags=re.IGNORECASE)
+    )
+    summary_parts: list[str] = []
+    if identity["patient_name"]:
+        summary_parts.append(f"Paciente detectado en soportes: {identity['patient_name']}.")
+    if identity["patient_document"]:
+        summary_parts.append(f"Documento detectado en soportes: {identity['patient_document']}.")
+    if diagnosis:
+        summary_parts.append(f"Diagnostico principal detectado: {diagnosis}.")
+    if treatment:
+        summary_parts.append(f"Servicio o manejo mencionado en los soportes: {treatment}.")
+    if doctor:
+        summary_parts.append(f"Profesional identificado en soportes: {doctor}.")
+    if ips_name:
+        summary_parts.append(f"IPS o institucion referida en soportes: {ips_name}.")
+    if focus == "circulo_burocratico":
+        summary_parts.append("Los anexos muestran un circulo burocratico entre especialidades o remisiones internas sin solucion clinica definitiva.")
+    elif focus == "negacion_directa":
+        summary_parts.append("Los anexos sugieren una negativa o falta de autorizacion frente al servicio reclamado.")
+    elif focus == "barrera_de_acceso":
+        summary_parts.append("Los anexos muestran barreras de acceso, demora o falta de valoracion oportuna.")
+    if barrier_summary:
+        summary_parts.append(barrier_summary)
+    if risk_summary:
+        summary_parts.append(risk_summary)
+    if dates:
+        summary_parts.append("Fechas detectadas en soportes: " + ", ".join(dates[:6]) + ".")
+    return {
+        "source": "deterministic",
+        "focus": focus,
+        "chronology": chronology,
+        "dates_detected": dates,
+        "summary": " ".join(summary_parts).strip(),
+        "evidence_names": evidence_names[:6],
+        "patient_name": identity["patient_name"],
+        "patient_document": identity["patient_document"],
+        "entities_detected": entities,
+        "requested_service": treatment,
+        "barrier_summary": barrier_summary,
+        "risk_summary": risk_summary,
+        "medication_order_confirmed": medication_order_confirmed,
+        "attachment_based": True,
+    }
+
+
+def _llm_health_case_synthesis(*, combined_text: str, evidence_names: list[str], typed_suggestions: dict[str, Any]) -> dict[str, Any] | None:
+    if not settings.anthropic_api_key or not combined_text.strip():
+        return None
+    prompt = {
+        "task": "Leer historia clinica y soportes de un caso de salud en Colombia y producir una sintesis cronologica util para tutela o derecho de peticion.",
+        "instructions": [
+            "Prioriza los anexos sobre el relato del usuario.",
+            "No inventes hechos ni nombres.",
+            "Si no hay orden formal del medicamento o procedimiento, dilo claramente.",
+            "Detecta si el patron principal es negacion directa, circulo burocratico, falta de valoracion, demora o continuidad de tratamiento.",
+            "Responde solo JSON con: summary, chronology, dates_detected, focus, medication_order_confirmed, barrier_summary, risk_summary, patient_name, patient_document, requested_service, entities_detected.",
+        ],
+        "evidence_names": evidence_names[:8],
+        "typed_suggestions": typed_suggestions,
+        "combined_text": combined_text[:60000],
+    }
+    payload = {
+        "model": settings.anthropic_model,
+        "max_tokens": 1200,
+        "temperature": 0,
+        "system": "Eres un analista clinico-juridico estricto. Sintetiza historias clinicas colombianas para documentos de salud sin inventar datos.",
+        "messages": [{"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}],
+    }
+    raw_request = request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "x-api-key": settings.anthropic_api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with request.urlopen(raw_request, timeout=25) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except (error.URLError, TimeoutError, json.JSONDecodeError):
+        return None
+    content = body.get("content") or []
+    text_parts = [item.get("text", "") for item in content if item.get("type") == "text"]
+    if not text_parts:
+        return None
+    try:
+        parsed = json.loads("".join(text_parts))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    parsed["source"] = "anthropic"
+    parsed["attachment_based"] = True
+    return parsed
+
+
 def _read_docx(path: Path) -> str:
     if Document is None:
         return ""
     try:
         document = Document(str(path))
-        parts = [(paragraph.text or "").strip() for paragraph in document.paragraphs[:60]]
+        parts = [(paragraph.text or "").strip() for paragraph in document.paragraphs[:240]]
         return "\n".join([item for item in parts if item])
     except Exception:
         return ""
@@ -393,8 +701,8 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
                 if value and not typed_suggestions.get(key):
                     typed_suggestions[key] = value
         if compact:
-            combined_text_parts.append(compact[:2500])
-            extracted_chunks.append(f"Archivo {item.get('original_name')}: {compact[:500]}")
+            combined_text_parts.append(compact[:18000])
+            extracted_chunks.append(f"Archivo {item.get('original_name')}: {compact[:900]}")
 
     combined_text = " ".join(combined_text_parts)
     lowered = combined_text.lower()
@@ -407,14 +715,44 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
     if any(term in lowered for term in ["eps", "autorizacion", "negado", "pendiente", "medicamentos"]):
         clues.append("Los anexos parecen mostrar relacion con EPS, autorizaciones o negacion de servicios de salud.")
 
+    health_case_synthesis: dict[str, Any] = {}
+    if any(
+        term in lowered
+        for term in [
+            "historia clinica",
+            "historia clínica",
+            "formula medica",
+            "formula médica",
+            "diagnostico",
+            "diagnóstico",
+            "eps",
+            "ips",
+            "cirugia",
+            "cirugía",
+            "aneurisma",
+            "medicina interna",
+            "endocrino",
+        ]
+    ):
+        health_case_synthesis = _llm_health_case_synthesis(
+            combined_text=combined_text,
+            evidence_names=evidence_names,
+            typed_suggestions=typed_suggestions,
+        ) or _deterministic_health_case_synthesis(
+            combined_text=combined_text,
+            evidence_names=evidence_names,
+            typed_suggestions=typed_suggestions,
+        )
+
     return {
         "evidence_names": evidence_names,
         "extracted_text_available": bool(combined_text_parts),
-        "combined_text": combined_text[:12000],
+        "combined_text": combined_text[:60000],
         "summary_lines": extracted_chunks[:4],
         "clues": clues,
         "attachment_profiles": attachment_profiles[:6],
         "typed_suggestions": typed_suggestions,
+        "health_case_synthesis": health_case_synthesis,
     }
 
 
