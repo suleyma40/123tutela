@@ -3031,9 +3031,19 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
     setSelectedCode(suggestedCode || catalog[0]?.code || "");
   }, [suggestedCode, catalog]);
 
+  useEffect(() => {
+    if (suggestedCode && selectedCode !== suggestedCode) {
+      setSelectedCode(suggestedCode);
+    }
+  }, [suggestedCode, selectedCode]);
+
   const selectedProduct = useMemo(
     () => catalog.find((item) => item.code === selectedCode) || null,
     [catalog, selectedCode]
+  );
+  const lockedProduct = useMemo(
+    () => catalog.find((item) => item.code === suggestedCode) || selectedProduct,
+    [catalog, suggestedCode, selectedProduct]
   );
   const paymentEntitlements = caseItem?.submission_summary?.payment_entitlements || {};
   const isBasePaid = caseItem?.payment_status === "pagado";
@@ -3119,7 +3129,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
   };
 
   const startPayment = async () => {
-    if (!selectedProduct) {
+    if (!lockedProduct) {
       setPaymentMessage("No hay producto seleccionado para cobrar.");
       return;
     }
@@ -3133,7 +3143,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
       isBasePaid
         ? { add_on_type: "filing_bundle" }
         : {
-          product_code: selectedProduct.code,
+          product_code: lockedProduct.code,
           include_filing: includeFiling,
         }
     );
@@ -3148,8 +3158,8 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
     return null;
   }
 
-  const finalPrice = isBasePaid ? 9900 : includeFiling ? selectedProduct?.price_with_filing_cop : selectedProduct?.price_cop;
-  const filingPrice = selectedProduct ? selectedProduct.price_with_filing_cop - selectedProduct.price_cop : 0;
+  const finalPrice = isBasePaid ? 9900 : includeFiling ? lockedProduct?.price_with_filing_cop : lockedProduct?.price_cop;
+  const filingPrice = lockedProduct ? lockedProduct.price_with_filing_cop - lockedProduct.price_cop : 0;
 
   return (
     <SessionCard title={title} subtitle={isBasePaid ? "Tu documento ya esta activo. Aqui agregas un solo paquete adicional." : "El analisis es gratis. Te llevamos a una compra principal simple."}>
@@ -3188,31 +3198,19 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
           </div>
         ) : (
           <>
-            <Field label="Producto a pagar">
-              <select
-                value={selectedCode}
-                onChange={(event) => setSelectedCode(event.target.value)}
-                style={{ width: "100%", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.border}`, background: "#fff", color: C.text }}
-              >
-                {catalog.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            {selectedProduct && (
+            {lockedProduct && (
               <div className="glass-card" style={{ padding: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-                  <strong style={{ color: C.text }}>{selectedProduct.name}</strong>
+                  <strong style={{ color: C.text }}>Producto definido para este caso</strong>
                   <Badge color={C.primary}>
                     {(finalPrice || 0).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}
                   </Badge>
                 </div>
-                <div style={{ color: C.textMuted, marginTop: 10 }}>{selectedProduct.short_description}</div>
-                <div style={{ color: C.textMuted, marginTop: 10 }}>{selectedProduct.detailed_description}</div>
+                <div style={{ marginTop: 12, color: C.text, fontWeight: 800 }}>{lockedProduct.name}</div>
+                <div style={{ color: C.textMuted, marginTop: 10 }}>{lockedProduct.short_description}</div>
+                <div style={{ color: C.textMuted, marginTop: 10 }}>{lockedProduct.detailed_description}</div>
                 <div style={{ marginTop: 12, color: C.text, fontSize: 14 }}>
-                  Incluye analisis gratis, estrategia y documento completo despues del pago.
+                  La IA ya definio este documento como la ruta correcta para tu caso. Aqui no necesitas elegir otra opcion.
                 </div>
                 <label style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 16, color: C.text }}>
                   <input type="checkbox" checked={includeFiling} onChange={(event) => setIncludeFiling(event.target.checked)} />
@@ -3226,7 +3224,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
                   <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>LO QUE RECIBES</div>
                   <div style={{ display: "grid", gap: 8, marginTop: 10, color: C.text }}>
                     {paymentOffer.unlocks.map((line, index) => (
-                      <div key={`${selectedProduct.code}-unlock-${index}`}>{index + 1}. {line}</div>
+                      <div key={`${lockedProduct.code}-unlock-${index}`}>{index + 1}. {line}</div>
                     ))}
                     <div>4. {includeFiling ? "Radicacion y seguimiento inicial por parte de la plataforma cuando el caso lo permita." : "Firma y radicacion disponibles despues de activar el documento."}</div>
                   </div>
