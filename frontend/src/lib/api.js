@@ -19,7 +19,10 @@ const normalizeDetail = (detail) => {
     return detail
       .map((item) => {
         if (typeof item === "string") return item;
-        if (item?.msg) return item.msg;
+        if (item?.msg) {
+          const field = Array.isArray(item?.loc) ? item.loc.filter((value) => value !== "body").join(".") : "";
+          return field ? `${field}: ${item.msg}` : item.msg;
+        }
         if (item?.detail) return item.detail;
         return JSON.stringify(item);
       })

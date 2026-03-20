@@ -1258,6 +1258,33 @@ const shrinkPreviewDescription = (text, maxLength = 5800) => {
   return `${clean.slice(0, maxLength - 24).trimEnd()}\n[Texto resumido para preview]`;
 };
 
+const buildPreviewPayload = ({ form, previewDescription, tempFiles, fallbackCity = "", fallbackDepartment = "" }) => {
+  const payload = {
+    category: String(form.category || "").trim(),
+    city: String(form.city || fallbackCity || "").trim(),
+    department: String(form.department || fallbackDepartment || "").trim(),
+    description: String(previewDescription || "").trim(),
+    prior_actions: Array.isArray(form.prior_actions) ? form.prior_actions.filter(Boolean) : [],
+    form_data: { ...form },
+    attachment_ids: (tempFiles || []).map((item) => item.id).filter(Boolean),
+  };
+
+  if (payload.category.length < 2) {
+    throw new Error("Falta elegir el tipo de problema antes de generar el análisis.");
+  }
+  if (payload.city.length < 2) {
+    throw new Error("Falta completar la ciudad del caso antes de generar el análisis.");
+  }
+  if (payload.department.length < 2) {
+    throw new Error("Falta completar el departamento del caso antes de generar el análisis.");
+  }
+  if (payload.description.length < 20) {
+    throw new Error("El relato inicial todavía es muy corto para generar el análisis.");
+  }
+
+  return payload;
+};
+
 const getGuidedIntakeMissing = (form, files = []) => {
   const missing = [];
 
@@ -4724,12 +4751,14 @@ export default function DashboardV2(props) {
   };
 
   const runWizardPreview = async () => {
-    const previewResult = await onPreview({
-      ...form,
-      description: previewDescription,
-      form_data: { ...form },
-      attachment_ids: tempFiles.map((item) => item.id),
+    const previewPayload = buildPreviewPayload({
+      form,
+      previewDescription,
+      tempFiles,
+      fallbackCity: session.user.city || "",
+      fallbackDepartment: session.user.department || "",
     });
+    const previewResult = await onPreview(previewPayload);
     setForm((current) => mergeDetectedFormValues(current, previewResult?.facts?.intake_form || previewResult?.facts?.autofill_suggestions || {}));
     setPreview(previewResult);
     setWizardStep(3);
