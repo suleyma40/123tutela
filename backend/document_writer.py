@@ -619,11 +619,53 @@ def _health_context(case: dict[str, Any]) -> dict[str, Any]:
     legal_analysis = case.get("legal_analysis") or {}
     routing = case.get("routing") or {}
     primary = routing.get("primary_target") or {}
+    attachment_suggestions = _health_attachment_suggestions(case)
+    synthesis = _health_case_synthesis(case)
     document_profile = resolve_health_document(
         workflow_type=case.get("workflow_type"),
         recommended_action=case.get("recommended_action"),
     )
     accionado = str(intake.get("target_entity") or primary.get("name") or _join_list(facts.get("entidades_involucradas"), fallback="Entidad accionada")).strip()
+    account_name = _person_name(case.get("usuario_nombre") or intake.get("full_name"))
+    account_doc = case.get("usuario_documento") or intake.get("document_number") or "Sin documento registrado"
+    account_email = case.get("usuario_email") or intake.get("email") or "Sin correo"
+    account_phone = case.get("usuario_telefono") or intake.get("phone") or "Sin telefono"
+    account_address = case.get("usuario_direccion") or intake.get("address") or "Sin direccion registrada"
+    account_city = _titleish_place(case.get("usuario_ciudad") or intake.get("city"))
+    account_department = _titleish_place(case.get("usuario_departamento") or intake.get("department"))
+    patient_name = _clean_health_person_name(
+        attachment_suggestions.get("represented_person_name")
+        or synthesis.get("patient_name")
+        or ""
+    )
+    patient_doc = str(
+        attachment_suggestions.get("represented_person_document")
+        or synthesis.get("patient_document")
+        or ""
+    ).strip()
+    patient_email = str(
+        attachment_suggestions.get("represented_person_email")
+        or intake.get("represented_person_email")
+        or ""
+    ).strip()
+    patient_phone = str(
+        attachment_suggestions.get("represented_person_phone")
+        or intake.get("represented_person_phone")
+        or ""
+    ).strip()
+    patient_address = str(
+        attachment_suggestions.get("represented_person_address")
+        or intake.get("represented_person_address")
+        or ""
+    ).strip()
+    acting_capacity = str(intake.get("acting_capacity") or "").strip().lower()
+    special_protection = str(intake.get("special_protection") or "").strip().lower()
+    use_patient_as_primary = bool(
+        patient_name
+        and not _same_identity(account_name, patient_name, account_doc, patient_doc)
+        and acting_capacity in {"", "nombre_propio"}
+        and special_protection != "menor de edad"
+    )
     return {
         "facts": facts,
         "intake": intake,
@@ -632,13 +674,18 @@ def _health_context(case: dict[str, Any]) -> dict[str, Any]:
         "primary": primary,
         "document_profile": document_profile,
         "accionado": accionado,
-        "user_name": _person_name(case.get("usuario_nombre") or intake.get("full_name")),
-        "user_doc": case.get("usuario_documento") or intake.get("document_number") or "Sin documento registrado",
-        "user_email": case.get("usuario_email") or intake.get("email") or "Sin correo",
-        "user_phone": case.get("usuario_telefono") or intake.get("phone") or "Sin telefono",
-        "address": case.get("usuario_direccion") or intake.get("address") or "Sin direccion registrada",
-        "city": _titleish_place(case.get("usuario_ciudad") or intake.get("city")),
-        "department": _titleish_place(case.get("usuario_departamento") or intake.get("department")),
+        "user_name": patient_name if use_patient_as_primary else account_name,
+        "user_doc": (patient_doc or account_doc) if use_patient_as_primary else account_doc,
+        "user_email": (patient_email or account_email) if use_patient_as_primary else account_email,
+        "user_phone": (patient_phone or account_phone) if use_patient_as_primary else account_phone,
+        "address": (patient_address or account_address) if use_patient_as_primary else account_address,
+        "city": account_city,
+        "department": account_department,
+        "account_name": account_name,
+        "account_doc": account_doc,
+        "patient_name": patient_name,
+        "patient_doc": patient_doc,
+        "patient_primary": use_patient_as_primary,
     }
 
 
@@ -804,10 +851,21 @@ def _filtered_health_context_lines(case: dict[str, Any]) -> list[str]:
         "tipo de peticion o enfoque principal",
         "tipo de peticion",
         "gestion previa resumida",
+        "informacion basica del paciente",
+        "informacion confidencial",
+        "fecha de impresion",
+        "antecedentes generales",
+        "grupo poblacional",
+        "telefono responsable",
+        "estado civil",
+        "ecografia",
+        "embarazo",
     )
     for item in raw:
         lowered = item.lower()
         if any(fragment in lowered for fragment in banned_fragments):
+            continue
+        if len(item) > 260 or item.count(":") >= 4 or item.count(",") >= 10:
             continue
         stripped = lowered.strip(" .;:")
         if stripped in {"guardo silencio", "guardó silencio", "no respondieron", "no respondio", "no respondió"}:
@@ -924,6 +982,7 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     attachment_suggestions = _health_attachment_suggestions(case)
     synthesis = _health_case_synthesis(case)
     chronology_lines = _filtered_health_context_lines(case)
+    focus = str(synthesis.get("focus") or "").strip().lower()
 
     acting_capacity = str(intake.get("acting_capacity") or "").strip()
     patient_identity = _health_patient_identity_fragments(case)
@@ -1005,9 +1064,10 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
         formal_item = _sentence(_title_sentence(item), fallback="").strip()
         if formal_item and not _is_redundant_health_line(formal_item, merged):
             merged.append(formal_item)
-    for item in chronology_lines:
-        if not _is_redundant_health_line(item, merged):
-            merged.append(item)
+    if focus != "circulo_burocratico":
+        for item in chronology_lines:
+            if not _is_redundant_health_line(item, merged):
+                merged.append(item)
     return _dedupe_lines(merged)
 
 
@@ -1657,8 +1717,6 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
         synthesis.get("medication_order_confirmed")
         or intake.get("medical_order_date")
         or attachment_suggestions.get("medical_order_date")
-        or intake.get("treating_doctor_name")
-        or attachment_suggestions.get("treating_doctor_name")
     )
     represented_fragment = ""
     has_representation = _should_present_health_representation(case, patient_identity)
