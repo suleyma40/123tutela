@@ -1260,7 +1260,7 @@ const shrinkPreviewDescription = (text, maxLength = 5800) => {
 
 const buildPreviewPayload = ({ form, previewDescription, tempFiles, fallbackCity = "", fallbackDepartment = "" }) => {
   const payload = {
-    category: String(form.category || "").trim(),
+    category: String(form.category || "Salud").trim(),
     city: String(form.city || fallbackCity || "").trim(),
     department: String(form.department || fallbackDepartment || "").trim(),
     description: String(previewDescription || "").trim(),
@@ -4475,7 +4475,7 @@ export default function DashboardV2(props) {
     address: session.user.address || "",
   });
   const [form, setForm] = useState({
-    category: "",
+    category: "Salud",
     city: session.user.city || "Bogotá",
     department: session.user.department || "Cundinamarca",
     description: "",
@@ -4678,7 +4678,7 @@ export default function DashboardV2(props) {
 
   const resetWizard = () => {
     setForm({
-      category: "",
+      category: "Salud",
       city: session.user.city || "Bogotá",
       department: session.user.department || "Cundinamarca",
       description: "",
