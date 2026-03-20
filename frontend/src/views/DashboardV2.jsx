@@ -4589,6 +4589,26 @@ export default function DashboardV2(props) {
     () => [profile.name, profile.document_number, profile.phone, profile.city, profile.department, profile.address].every((value) => value?.trim()),
     [profile]
   );
+  const returnedPreviewQuestions = useMemo(
+    () => ((preview?.pending_questions || preview?.facts?.pending_questions || [])
+      .map((question) => ({
+        key: question?.id || question?.question,
+        text: buildPreviewQuestionLabel(question, preview, form, profile),
+      }))
+      .filter((item) => item.key && item.text)
+      .slice(0, 5)),
+    [preview, form, profile]
+  );
+  const wizardBusyCopy = useMemo(() => {
+    if (!loading) return "";
+    if (wizardStep === 2) {
+      return "El agente esta pensando y armando tu analisis inicial. Esto puede tardar unos segundos.";
+    }
+    if (wizardStep === 3) {
+      return "Estamos guardando tu expediente y preparando el paso de pago. Espera un momento.";
+    }
+    return "";
+  }, [loading, wizardStep]);
   const activeDocumentReview = activeCaseDetail?.case?.id ? documentReviews[activeCaseDetail.case.id] : null;
   const persistedSignature = activeCaseDetail?.case?.submission_summary?.signature || {};
   const activePaymentEntitlements = activeCaseDetail?.case?.submission_summary?.payment_entitlements || {};
@@ -4977,8 +4997,30 @@ export default function DashboardV2(props) {
               await runWizardPreview();
             }}
             nextDisabled={loading}
-            nextLabel={preview ? "Continuar al análisis" : "Generar análisis inicial"}
+            nextLabel={loading ? "El agente esta pensando..." : preview ? "Continuar al análisis" : "Generar análisis inicial"}
           >
+            {!!wizardBusyCopy && (
+              <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>AGENTE TRABAJANDO</div>
+                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{wizardBusyCopy}</div>
+                <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.6 }}>
+                  No cierres la pestaña ni pulses varias veces. Cuando termine, la app te mostrará el siguiente paso.
+                </div>
+              </div>
+            )}
+            {!!returnedPreviewQuestions.length && (
+              <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>CORRIGE ESTAS RESPUESTAS AQUI</div>
+                <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
+                  Volviste desde el analisis. Completa estas respuestas en este mismo paso y vuelve a generarlo:
+                </div>
+                <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                  {returnedPreviewQuestions.map((question) => (
+                    <div key={question.key} style={{ color: C.text }}>{`• ${question.text}`}</div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 10 }}>
               <div style={{ fontWeight: 800, color: C.text }}>Procedimiento simple</div>
               <div style={{ color: C.textMuted }}>1. Elige el tipo de problema. 2. Explica que paso. 3. Responde solo las preguntas que aparezcan. 4. Genera el analisis gratis.</div>
@@ -5203,6 +5245,15 @@ export default function DashboardV2(props) {
                 </div>
               ) : (
                 <>
+                  {!!wizardBusyCopy && (
+                    <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>AGENTE TRABAJANDO</div>
+                      <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>{wizardBusyCopy}</div>
+                      <div style={{ marginTop: 8, color: C.textMuted, lineHeight: 1.6 }}>
+                        No cierres la pestaña ni pulses varias veces. Cuando termine, te abrimos el siguiente paso.
+                      </div>
+                    </div>
+                  )}
                   <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.95fr", gap: 18 }}>
                     <div className="glass-card" style={{ padding: 22, background: "#131722", border: "1px solid #2B3345", color: "#F8FAFC" }}>
                       <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#94A3B8" }}>ANALISIS DE TU CASO</div>
@@ -5436,7 +5487,7 @@ export default function DashboardV2(props) {
                       }}
                       disabled={!profileReady || loading}
                     >
-                      Guardar expediente y abrir pago
+                      {loading ? "Guardando expediente..." : "Guardar expediente y abrir pago"}
                     </Button>
                     <Button variant="outline" onClick={() => setWizardStep(2)}>Corregir respuestas</Button>
                     <Button variant="outline" onClick={resetWizard}>Reiniciar</Button>
