@@ -4630,11 +4630,7 @@ export default function DashboardV2(props) {
   const guidedMissing = useMemo(() => getGuidedIntakeMissing(form, tempFiles), [form, tempFiles]);
   const previewGateIssues = useMemo(() => getPreviewGateIssues(form, tempFiles), [form, tempFiles]);
   const composedDescription = useMemo(() => buildStructuredDescription(form), [form]);
-  const analysisReady =
-    !!form.category &&
-    (form.description.trim().length >= 20 || composedDescription.trim().length >= 120) &&
-    guidedMissing.length === 0 &&
-    previewGateIssues.length === 0;
+  const analysisReady = !!form.category && guidedMissing.length === 0 && previewGateIssues.length === 0;
   const writingGuide = buildWritingGuide(form.category);
   const wizardAction = normalizeAction(form.recommended_action);
   const showRepresentedPersonCard = form.category === "Salud" || wizardAction === "accion de tutela";
