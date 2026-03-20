@@ -951,7 +951,7 @@ const apiBase =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? "https://api.123tutelaapp.com" : "http://localhost:8000");
 const widgetScriptUrl = "https://checkout.wompi.co/widget.js";
-const QA_TEST_EMAIL = "su-ley23@hotmail.com";
+const QA_TEST_EMAILS = ["su-ley23@hotmail.com", "mariibpa25@gmail.com"];
 
 const normalizeMentionedDates = (value) => {
   if (Array.isArray(value)) return value.join(", ");
@@ -4553,7 +4553,7 @@ export default function DashboardV2(props) {
   } = props;
 
   const isInternal = session.user.role === "internal";
-  const qaTestMode = String(session?.user?.email || "").trim().toLowerCase() === QA_TEST_EMAIL;
+  const qaTestMode = QA_TEST_EMAILS.includes(String(session?.user?.email || "").trim().toLowerCase());
   const [profile, setProfile] = useState({
     name: session.user.name || "",
     document_number: session.user.document_number || "",

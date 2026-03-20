@@ -975,7 +975,7 @@ def _is_internal(user: dict[str, Any]) -> bool:
 
 
 def _is_qa_test_user(user: dict[str, Any]) -> bool:
-    return str(user.get("email") or "").strip().lower() == settings.qa_test_email.strip().lower()
+    return str(user.get("email") or "").strip().lower() in set(settings.qa_test_emails or [])
 
 
 def _require_profile(user: dict[str, Any]) -> None:

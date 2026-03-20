@@ -71,6 +71,7 @@ class Settings:
     notifications_email: str = os.getenv("NOTIFICATIONS_EMAIL", "notificaciones@123tutelaapp.com")
     qa_test_email: str = os.getenv("QA_TEST_EMAIL", "su-ley23@hotmail.com")
     qa_test_radicado_email: str = os.getenv("QA_TEST_RADICADO_EMAIL", "su-ley23@hotmail.com")
+    qa_test_emails: list[str] = None  # type: ignore[assignment]
     n8n_whatsapp_webhook_url: str = os.getenv("N8N_WHATSAPP_WEBHOOK_URL", "")
     evolution_base_url: str = os.getenv("EVOLUTION_BASE_URL", "")
     evolution_api_key: str = os.getenv("EVOLUTION_API_KEY", "")
@@ -92,6 +93,9 @@ class Settings:
         defaults = _derive_default_origins(self.frontend_url, self.backend_url)
         self.cors_origins = [origin for origin in configured or defaults if origin]
         self.internal_admin_emails = [email.lower() for email in _split_csv(os.getenv("INTERNAL_ADMIN_EMAILS"))]
+        qa_defaults = {self.qa_test_email.strip().lower(), "mariibpa25@gmail.com"}
+        qa_configured = {email.lower() for email in _split_csv(os.getenv("QA_TEST_EMAILS"))}
+        self.qa_test_emails = sorted(email for email in (qa_configured or qa_defaults) if email)
 
 
 settings = Settings()
