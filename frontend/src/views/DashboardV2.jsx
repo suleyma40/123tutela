@@ -4869,7 +4869,7 @@ export default function DashboardV2(props) {
               }
               await runWizardPreview();
             }}
-            nextDisabled={!analysisReady || loading}
+            nextDisabled={loading}
             nextLabel={preview ? "Continuar al análisis" : "Generar análisis inicial"}
           >
             <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 10 }}>
