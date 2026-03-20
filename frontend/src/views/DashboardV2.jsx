@@ -951,6 +951,7 @@ const apiBase =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? "https://api.123tutelaapp.com" : "http://localhost:8000");
 const widgetScriptUrl = "https://checkout.wompi.co/widget.js";
+const QA_TEST_EMAIL = "su-ley23@hotmail.com";
 
 const normalizeMentionedDates = (value) => {
   if (Array.isArray(value)) return value.join(", ");
@@ -3008,7 +3009,7 @@ function GuidedIntakeFields({
   );
 }
 
-function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPayment, onReconcilePayment, onRefreshCase, loading }) {
+function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirmTestPayment, onGetPayment, onReconcilePayment, onRefreshCase, loading, qaTestMode = false }) {
   const [includeFiling, setIncludeFiling] = useState(true);
   const [paymentMessage, setPaymentMessage] = useState("");
   const [selectedCode, setSelectedCode] = useState("");
@@ -3144,6 +3145,13 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
       setPaymentMessage("Debes aceptar los terminos, privacidad y condiciones del pago antes de continuar.");
       return;
     }
+    if (qaTestMode && !isBasePaid) {
+      setPaymentMessage("Registrando pago de prueba para este expediente...");
+      await onConfirmTestPayment(caseItem.id);
+      await onRefreshCase(caseItem.id);
+      setPaymentMessage("Pago de prueba registrado. Ya puedes seguir con el documento.");
+      return;
+    }
     setPaymentMessage("");
     const session = await onCreateWompiSession(
       caseItem.id,
@@ -3242,9 +3250,11 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
         )}
 
         <div style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
-          <strong style={{ color: C.primary }}>Pago seguro con Wompi.</strong>
+          <strong style={{ color: C.primary }}>{qaTestMode && !isBasePaid ? "Modo de prueba interno." : "Pago seguro con Wompi."}</strong>
           <div style={{ marginTop: 6, color: C.textMuted, fontSize: 13 }}>
-            El cobro se procesa a traves de Wompi. La activacion final del servicio depende de la confirmacion segura del pago por webhook.
+            {qaTestMode && !isBasePaid
+              ? "Para este correo de prueba, activar el documento no abre Wompi: registra un pago QA interno para probar el flujo completo."
+              : "El cobro se procesa a traves de Wompi. La activacion final del servicio depende de la confirmacion segura del pago por webhook."}
           </div>
         </div>
         <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 4, color: C.text }}>
@@ -3263,7 +3273,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onGetPaym
         )}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <Button onClick={startPayment} disabled={loading || (isBasePaid && bundlePaid)} icon={CreditCard}>
-            {isBasePaid ? (bundlePaid ? "Paquete ya activado" : "Activar radicacion y seguimiento") : includeFiling ? "Activar documento + radicacion" : "Activar documento"}
+            {isBasePaid ? (bundlePaid ? "Paquete ya activado" : "Activar radicacion y seguimiento") : qaTestMode ? "Activar documento ya pagado (prueba)" : includeFiling ? "Activar documento + radicacion" : "Activar documento"}
           </Button>
         </div>
         {paymentMessage && <div style={{ color: C.textMuted }}>{paymentMessage}</div>}
@@ -4528,6 +4538,7 @@ export default function DashboardV2(props) {
     onOpenCase,
     onUpdateCaseIntake,
     onConfirmPayment,
+    onConfirmTestPayment,
     onCreateWompiSession,
     onGetPayment,
     onReconcilePayment,
@@ -4542,6 +4553,7 @@ export default function DashboardV2(props) {
   } = props;
 
   const isInternal = session.user.role === "internal";
+  const qaTestMode = String(session?.user?.email || "").trim().toLowerCase() === QA_TEST_EMAIL;
   const [profile, setProfile] = useState({
     name: session.user.name || "",
     document_number: session.user.document_number || "",
@@ -5506,10 +5518,12 @@ export default function DashboardV2(props) {
                 caseItem={draftDetail.case}
                 catalog={catalog}
                 onCreateWompiSession={onCreateWompiSession}
+                onConfirmTestPayment={onConfirmTestPayment}
                 onGetPayment={onGetPayment}
                 onReconcilePayment={onReconcilePayment}
                 onRefreshCase={onRefreshCase}
                 loading={loading}
+                qaTestMode={qaTestMode}
               />
             ) : (
               <div className="glass-card" style={{ padding: 24, color: C.textMuted }}>
@@ -5575,10 +5589,12 @@ export default function DashboardV2(props) {
               caseItem={activeCaseDetail.case}
               catalog={catalog}
               onCreateWompiSession={onCreateWompiSession}
+              onConfirmTestPayment={onConfirmTestPayment}
               onGetPayment={onGetPayment}
               onReconcilePayment={onReconcilePayment}
               onRefreshCase={onRefreshCase}
               loading={loading}
+              qaTestMode={qaTestMode}
             />
             {activeCaseDetail.case.payment_status === "pagado" && !activeCaseDetail.case.generated_document && (
               <SessionCard title="Pago confirmado" subtitle="Tu pago ya fue aprobado. El siguiente paso es generar el documento final.">
@@ -5766,10 +5782,12 @@ export default function DashboardV2(props) {
           caseItem={activeCaseDetail.case}
           catalog={catalog}
           onCreateWompiSession={onCreateWompiSession}
+          onConfirmTestPayment={onConfirmTestPayment}
           onGetPayment={onGetPayment}
           onReconcilePayment={onReconcilePayment}
           onRefreshCase={onRefreshCase}
           loading={loading}
+          qaTestMode={qaTestMode}
         />
       )}
     </div>

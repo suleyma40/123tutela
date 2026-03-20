@@ -255,6 +255,15 @@ export default function MainAppV2() {
       return response.data;
     }, "No fue posible registrar el pago.");
 
+  const handleConfirmTestPayment = (caseId) =>
+    withAction(async () => {
+      const response = await api.post(`/cases/${caseId}/payment/test`, {}, withAuth(session.token));
+      await refreshCollections(session.token, session.user.role);
+      const detail = await api.get(`/cases/${caseId}`, withAuth(session.token));
+      setActiveCaseDetail(detail.data);
+      return response.data;
+    }, "No fue posible registrar el pago de prueba.");
+
   const handleCreateWompiSession = (caseId, payload) =>
     withAction(async () => {
       const response = await api.post(`/cases/${caseId}/payments/wompi/session`, payload, withAuth(session.token));
@@ -442,6 +451,7 @@ export default function MainAppV2() {
               onOpenCase={handleOpenCase}
               onUpdateCaseIntake={handleUpdateCaseIntake}
               onConfirmPayment={handleConfirmPayment}
+              onConfirmTestPayment={handleConfirmTestPayment}
               onCreateWompiSession={handleCreateWompiSession}
               onGetPayment={handleGetPayment}
               onReconcilePayment={handleReconcilePayment}

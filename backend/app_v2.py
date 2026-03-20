@@ -974,6 +974,10 @@ def _is_internal(user: dict[str, Any]) -> bool:
     return user.get("role") == "internal"
 
 
+def _is_qa_test_user(user: dict[str, Any]) -> bool:
+    return str(user.get("email") or "").strip().lower() == settings.qa_test_email.strip().lower()
+
+
 def _require_profile(user: dict[str, Any]) -> None:
     if not user_profile_complete(user):
         raise HTTPException(
@@ -1536,6 +1540,32 @@ def confirm_payment(
     return _normalize_case(updated)
 
 
+@app.post("/cases/{case_id}/payment/test", response_model=CaseResponse)
+def confirm_test_payment(
+    case_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> CaseResponse:
+    case = repository.get_case_for_user(case_id, str(current_user["id"]))
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
+    if not _is_qa_test_user(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Este pago de prueba no está habilitado para tu cuenta.")
+
+    reference = f"QA-{str(case_id).upper()[:8]}-{datetime.now(timezone.utc).strftime('%H%M%S')}"
+    updated = repository.update_case_payment(case_id, reference)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible registrar el pago de prueba.")
+
+    repository.create_event(
+        case_id=case_id,
+        event_type="payment_confirmed_test",
+        actor_type="user",
+        actor_id=str(current_user["id"]),
+        payload={"reference": reference, "mode": "qa_test"},
+    )
+    return _normalize_case(updated)
+
+
 @app.post("/cases/{case_id}/payments/wompi/session", response_model=WompiCheckoutSessionResponse)
 def create_wompi_checkout_session(
     case_id: str,
@@ -1838,6 +1868,13 @@ def submit_case(
     is_judicial_destination = str(primary.get("type") or "").lower() == "juzgado"
     subject = routing.get("subject")
     cc_list = [case.get("usuario_email")] if case.get("usuario_email") else []
+
+    if _is_qa_test_user(current_user):
+        channel = "email"
+        destination_name = "Correo de prueba QA"
+        destination_contact = settings.qa_test_radicado_email
+        is_judicial_destination = False
+        subject = f"[PRUEBA QA] {subject or (case.get('recommended_action') or 'Documento juridico')}"
 
     if payload.mode in {"auto", "manual_contact"} and is_judicial_destination and not payload.judicial_destination_confirmed:
         raise HTTPException(

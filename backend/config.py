@@ -69,6 +69,8 @@ class Settings:
     radications_email: str = os.getenv("RADICATIONS_EMAIL", "radicaciones@123tutelaapp.com")
     support_email: str = os.getenv("SUPPORT_EMAIL", "soporte@123tutelaapp.com")
     notifications_email: str = os.getenv("NOTIFICATIONS_EMAIL", "notificaciones@123tutelaapp.com")
+    qa_test_email: str = os.getenv("QA_TEST_EMAIL", "su-ley23@hotmail.com")
+    qa_test_radicado_email: str = os.getenv("QA_TEST_RADICADO_EMAIL", "su-ley23@hotmail.com")
     n8n_whatsapp_webhook_url: str = os.getenv("N8N_WHATSAPP_WEBHOOK_URL", "")
     evolution_base_url: str = os.getenv("EVOLUTION_BASE_URL", "")
     evolution_api_key: str = os.getenv("EVOLUTION_API_KEY", "")
