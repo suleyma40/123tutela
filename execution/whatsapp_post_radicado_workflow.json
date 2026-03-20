@@ -1,0 +1,98 @@
+{
+  "id": "6a9ad4a0-7b87-44ea-98ea-61e6b0f88b31",
+  "versionId": "f08f72bb-c777-42fe-9055-caf836be2e22",
+  "name": "123tutela - WhatsApp post radicado",
+  "active": true,
+  "staticData": null,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-post-radicado",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4d6e4ec1-64d9-4a3e-86f4-cf94c7eb3c01",
+      "name": "Webhook - WhatsApp Post Radicado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json[\"evolution_base_url\"] + \"/message/sendText/\" + $json[\"evolution_instance\"]}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$json[\"evolution_api_key\"]}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json[\"number\"], \"text\": $json[\"text\"], \"linkPreview\": false } }}"
+      },
+      "id": "95fbcf17-739d-4858-9060-2433a04094fb",
+      "name": "HTTP - Enviar a Evolution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"accepted\", \"case_id\": $node[\"Webhook - WhatsApp Post Radicado\"].json[\"case_id\"], \"number\": $node[\"Webhook - WhatsApp Post Radicado\"].json[\"number\"], \"evolution\": $json } }}"
+      },
+      "id": "d3f2b997-7b13-45cd-83b0-acdd0c3f2fd2",
+      "name": "Respuesta - WhatsApp",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        860,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - WhatsApp Post Radicado": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Enviar a Evolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Enviar a Evolution": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": null,
+  "pinData": {}
+}

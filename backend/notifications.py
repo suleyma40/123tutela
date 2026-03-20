@@ -59,6 +59,10 @@ def _is_whatsapp_configured() -> bool:
     return bool(settings.evolution_base_url and settings.evolution_api_key and settings.evolution_instance)
 
 
+def _is_n8n_whatsapp_configured() -> bool:
+    return bool(settings.n8n_whatsapp_webhook_url)
+
+
 def _normalize_whatsapp_number(phone: str | None) -> str:
     digits = re.sub(r"\D+", "", str(phone or ""))
     if not digits:
@@ -346,8 +350,9 @@ def send_post_radicado_email(*, recipient: str | None, case: dict[str, Any], gui
 def send_post_radicado_whatsapp(*, phone: str | None, case: dict[str, Any], guidance: dict[str, Any]) -> dict[str, Any]:
     attempted_at = datetime.now(timezone.utc).isoformat()
     normalized_phone = _normalize_whatsapp_number(phone)
+    message_text = build_post_radicado_whatsapp(case, guidance)
     base_result = {
-        "provider": "evolution",
+        "provider": "n8n" if _is_n8n_whatsapp_configured() else "evolution",
         "transport": "whatsapp",
         "attempted_at": attempted_at,
         "recipient": normalized_phone or phone,
@@ -355,6 +360,42 @@ def send_post_radicado_whatsapp(*, phone: str | None, case: dict[str, Any], guid
     }
     if not normalized_phone:
         return {**base_result, "status": "skipped", "reason": "missing_phone"}
+    if _is_n8n_whatsapp_configured():
+        payload = {
+            "number": normalized_phone,
+            "text": message_text,
+            "case_id": case.get("id"),
+            "document": case.get("recommended_action"),
+            "radicado": ((guidance.get("routing_snapshot") or {}).get("radicado")) or "",
+            "evolution_base_url": settings.evolution_base_url,
+            "evolution_api_key": settings.evolution_api_key,
+            "evolution_instance": settings.evolution_instance,
+        }
+        try:
+            response_payload = _post_json(
+                settings.n8n_whatsapp_webhook_url,
+                payload,
+                {"Content-Type": "application/json"},
+            )
+        except urllib.error.HTTPError as exc:  # pragma: no cover
+            body = exc.read().decode("utf-8", errors="ignore")
+            return {
+                **base_result,
+                "status": "error",
+                "reason": f"http_{exc.code}",
+                "response_body": body[:500],
+            }
+        except Exception as exc:  # pragma: no cover
+            return {
+                **base_result,
+                "status": "error",
+                "reason": str(exc),
+            }
+        return {
+            **base_result,
+            "status": "sent",
+            "response_payload": response_payload,
+        }
     if not _is_whatsapp_configured():
         return {**base_result, "status": "pending_configuration", "reason": "evolution_not_configured"}
 
@@ -366,7 +407,7 @@ def send_post_radicado_whatsapp(*, phone: str | None, case: dict[str, Any], guid
         url = f"{base_url}/message/sendText/{settings.evolution_instance}"
     payload = {
         "number": normalized_phone,
-        "text": build_post_radicado_whatsapp(case, guidance),
+        "text": message_text,
         "linkPreview": False,
     }
     headers = {
