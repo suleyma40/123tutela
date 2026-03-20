@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Briefcase, CreditCard, FileText, HelpCircle, Layout, LogOut, Plus, Scale, Search, Shield, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Briefcase, CreditCard, FileText, HelpCircle, Layout, LogOut, Plus, Scale, Shield, Upload } from "lucide-react";
 
 import { api } from "../lib/api";
 import { Badge, Button, Field, SessionCard, TextArea, TextInput } from "../ui";
@@ -1262,8 +1262,6 @@ const getGuidedIntakeMissing = (form, files = []) => {
     if (!form.urgency_detail.trim() && !form.current_harm.trim()) missing.push("Que sigue pasando hoy al paciente");
     if (form.acting_capacity !== "nombre_propio") {
       if (!form.represented_person_name.trim()) missing.push("Nombre del menor o paciente representado");
-      if (!form.represented_person_age.trim()) missing.push("Edad o fecha de nacimiento del paciente representado");
-      if (!form.represented_person_document.trim()) missing.push("Documento del menor o paciente representado");
     }
     return missing;
   }
@@ -1271,64 +1269,29 @@ const getGuidedIntakeMissing = (form, files = []) => {
   if (!form.target_entity.trim()) missing.push("Entidad o destinatario");
   if (!form.event_date.trim()) missing.push("Fecha o periodo");
   if (!form.concrete_request.trim()) missing.push("Solicitud concreta");
-  if (!form.response_channel.trim()) missing.push("Canal de respuesta");
-  if (!hasEvidenceAvailable(form, files)) missing.push("Pruebas o soportes disponibles");
 
   if (form.category === "Datos") {
     if (!form.disputed_data.trim()) missing.push("Dato o reporte cuestionado");
-    if (!form.requested_data_action.trim()) missing.push("Accion solicitada sobre el dato");
-    if (!form.previous_response.trim()) missing.push("Reclamo previo o respuesta de la fuente");
   }
 
   if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category)) {
-    if (!form.numbered_requests.trim()) missing.push("Solicitudes numeradas esperadas");
+    if (!form.current_harm.trim()) missing.push("Afectacion actual o riesgo");
   }
 
   if (form.category === "Laboral") {
-    if (!form.labor_relation_type.trim()) missing.push("Tipo de relacion laboral");
-    if (!form.labor_employer_name.trim()) missing.push("Empleador o contratante");
-    if (!form.labor_measure_date.trim()) missing.push("Fecha de la medida o despido");
     if (!form.dismissal_or_measure.trim()) missing.push("Despido, sancion o medida cuestionada");
   }
 
   if (form.category === "Bancos") {
-    if (!form.bank_product_type.trim()) missing.push("Producto financiero involucrado");
-    if (!form.bank_amount_involved.trim()) missing.push("Monto o valor discutido");
-    if (!form.bank_claim_goal.trim()) missing.push("Resultado esperado frente al banco");
     if (!form.report_or_block_reason.trim()) missing.push("Reporte, bloqueo o causa principal");
   }
 
   if (form.category === "Servicios") {
-    if (!form.service_company_name.trim()) missing.push("Empresa de servicios");
-    if (!form.service_type.trim()) missing.push("Tipo de servicio afectado");
-    if (!form.subscriber_reference.trim()) missing.push("Numero de suscriptor o referencia");
     if (!form.cutoff_or_billing_detail.trim()) missing.push("Detalle de corte o facturacion");
   }
 
   if (form.category === "Consumidor") {
-    if (!form.provider_name.trim()) missing.push("Proveedor o comercio");
-    if (!form.purchase_date.trim()) missing.push("Fecha de compra o contratacion");
-    if (!form.order_reference.trim()) missing.push("Pedido, factura o referencia");
     if (!form.product_or_service_issue.trim()) missing.push("Falla del producto o servicio");
-  }
-
-  const normalizedAction = normalizeAction(form.recommended_action);
-  if (normalizedAction === "accion de tutela") {
-    if (!form.tutela_previous_action_detail.trim()) missing.push("Otra tutela, peticion o medida previa");
-    if (!form.tutela_oath_statement.trim() && !form.tutela_no_temperity_detail.trim()) missing.push("Declaracion bajo juramento de no temeridad");
-    if (!form.tutela_other_means_detail.trim()) missing.push("Subsidiariedad o ausencia de otro medio eficaz");
-    if (!form.tutela_immediacy_detail.trim()) missing.push("Inmediatez o justificacion temporal");
-    if (form.acting_capacity !== "nombre_propio") {
-      if (!form.represented_person_name.trim()) missing.push("Nombre de la persona representada");
-      if (!form.represented_person_age.trim()) missing.push("Edad o fecha de nacimiento de la persona representada");
-      if (!form.represented_person_document.trim()) missing.push("Documento de la persona representada");
-    }
-  }
-
-  if (normalizedAction.includes("derecho de peticion")) {
-    if (!form.request_type.trim()) missing.push("Tipo de peticion");
-    if (!form.numbered_requests.trim()) missing.push("Solicitudes numeradas");
-    if (!form.petition_target_nature.trim()) missing.push("Naturaleza del destinatario");
   }
 
   return missing;
@@ -1339,10 +1302,6 @@ const getPreviewGateIssues = (form, files = []) => {
   const descriptionLength = form.description.trim().length;
   const harmLength = form.current_harm.trim().length;
   const urgencyLength = form.urgency_detail.trim().length;
-  const evidenceLength = form.evidence_summary.trim().length;
-  const evidenceSummaryFromFiles = summarizeUploadedEvidence(files);
-  const effectiveEvidenceLength = evidenceLength || evidenceSummaryFromFiles.length;
-
   if (descriptionLength < 60) {
     issues.push("El relato libre todavia es muy corto. Describe mejor que paso, en que orden y con que fechas.");
   }
@@ -1351,20 +1310,12 @@ const getPreviewGateIssues = (form, files = []) => {
     issues.push("Debes explicar mejor la afectacion actual o el riesgo concreto que justifica el documento.");
   }
 
-  if (form.category !== "Salud" && effectiveEvidenceLength < 20) {
-    issues.push("Falta explicar que pruebas, soportes o documentos tienes disponibles.");
-  }
-
   if (form.prior_response_status === "sin_gestion_previa" && ["Laboral", "Bancos", "Servicios", "Consumidor", "Datos"].includes(form.category)) {
     issues.push("Todavia no reportas una gestion previa. Revisa si primero conviene un derecho de peticion o una reclamacion formal.");
   }
 
   if (form.category === "Salud" && urgencyLength < 20 && harmLength < 25) {
     issues.push("En salud falta contar mejor que sigue pasando hoy al paciente y que afectacion continua sin el servicio.");
-  }
-
-  if (["Laboral", "Bancos", "Servicios", "Consumidor"].includes(form.category) && form.numbered_requests.trim().length < 15) {
-    issues.push("Para un derecho de peticion fuerte debes dejar mas claras las 2 o 3 soluciones concretas que esperas recibir.");
   }
 
   if (form.category === "Laboral" && form.minimum_vital_impact.trim().length < 20) {
@@ -1387,24 +1338,12 @@ const getPreviewGateIssues = (form, files = []) => {
     issues.push("En habeas data debes identificar mejor el dato, reporte o registro que quieres corregir o suprimir.");
   }
 
-  if (form.category === "Datos" && form.previous_response.trim().length < 15) {
-    issues.push("En habeas data conviene dejar trazabilidad del reclamo previo y de la respuesta de la fuente o central de riesgo.");
-  }
-
   if (form.category === "Servicios" && form.service_impact.trim().length < 20) {
     issues.push("En servicios debes explicar con mas detalle el impacto del corte, cobro o incumplimiento.");
   }
 
-  if (form.category === "Servicios" && form.subscriber_reference.trim().length < 6) {
-    issues.push("En servicios conviene incluir numero de suscriptor, contrato o referencia del servicio.");
-  }
-
   if (form.category === "Consumidor" && form.guarantee_or_refund_request.trim().length < 15) {
     issues.push("En consumidor debes explicar con mas claridad la garantia, cambio o devolucion que solicitas.");
-  }
-
-  if (form.category === "Consumidor" && form.seller_response_detail.trim().length < 15) {
-    issues.push("En consumidor debes contar que respondio el proveedor o si guardo silencio frente a la reclamacion.");
   }
 
   return issues;
@@ -2175,12 +2114,12 @@ function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFiel
   );
 }
 
-function PreviewGateCard({ issues }) {
-  if (!issues.length) {
+function PreviewGateCard({ missing = [], issues = [] }) {
+  if (!missing.length && !issues.length) {
     return (
       <div className="glass-card" style={{ padding: 18, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
         <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>CALIDAD MINIMA PARA ANALISIS</div>
-        <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>La informacion actual ya permite generar un preview juridico mas confiable.</div>
+        <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>La informacion actual ya permite generar el analisis inicial.</div>
       </div>
     );
   }
@@ -2189,8 +2128,13 @@ function PreviewGateCard({ issues }) {
     <div className="glass-card" style={{ padding: 18, background: "#FFF7ED", border: "1px solid #FDBA74" }}>
       <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>ANTES DEL PREVIEW</div>
       <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
-        Todavia faltan detalles minimos para que la IA produzca un analisis juridico serio.
+        Todavia faltan datos minimos para que la IA produzca un analisis juridico serio.
       </div>
+      {!!missing.length && (
+        <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {missing.map((item) => <Badge key={item} color={C.warning}>Falta: {item}</Badge>)}
+        </div>
+      )}
       <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
         {issues.map((issue) => (
           <div key={issue} style={{ color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", padding: 14, borderRadius: 14 }}>
@@ -4930,7 +4874,7 @@ export default function DashboardV2(props) {
               await runWizardPreview();
             }}
             nextDisabled={!analysisReady || loading}
-            nextLabel={preview ? "Continuar al preview" : "Generar preview y continuar"}
+            nextLabel={preview ? "Continuar al análisis" : "Generar análisis inicial"}
           >
             <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 10 }}>
               <div style={{ fontWeight: 800, color: C.text }}>Procedimiento simple</div>
@@ -5058,7 +5002,7 @@ export default function DashboardV2(props) {
               entitySuggestions={wizardEntitySuggestions}
               onApplyEntitySuggestion={applyWizardEntitySuggestion}
             />
-            <PreviewGateCard issues={previewGateIssues} />
+            <PreviewGateCard missing={guidedMissing} issues={previewGateIssues} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
               <Field label="Ciudad"><TextInput value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} /></Field>
               <Field label="Departamento"><TextInput value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))} /></Field>
@@ -5086,19 +5030,6 @@ export default function DashboardV2(props) {
               <input id="wizard-upload" type="file" style={{ display: "none" }} onChange={uploadTemp} />
               <Button variant="secondary" onClick={() => document.getElementById("wizard-upload").click()} icon={Upload}>Subir anexo</Button>
               {tempFiles.map((item) => <Badge key={item.id} color={C.accent}>{item.original_name}</Badge>)}
-              <Button
-                onClick={async () => {
-                  try {
-                    await runWizardPreview();
-                  } catch (error) {
-                    // The visible banner uses actionError from MainAppV2.
-                  }
-                }}
-                disabled={!analysisReady || loading}
-                icon={Search}
-              >
-                {loading ? "Analizando..." : "Generar preview"}
-              </Button>
             </div>
             {visibleActionError && (
                 <div style={{ color: C.danger, background: "#FEF2F2", border: "1px solid #FECACA", padding: 14, borderRadius: 14 }}>
@@ -5106,7 +5037,7 @@ export default function DashboardV2(props) {
                 </div>
             )}
             <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-              El sistema usa tus datos del paso 1 y tu relato del paso 2 para construir el analisis. Si faltan datos, te lo dira antes de avanzar.
+              El sistema usa tus datos del paso 1 y tu relato del paso 2 para construir el analisis. Las pruebas en esta etapa son opcionales: si las tienes, ayudan; si no, el analisis inicial igual debe poder generarse.
             </div>
           </StepShell>
         )}
