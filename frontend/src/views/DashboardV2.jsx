@@ -1060,7 +1060,7 @@ const buildCommercialDiagnosisCopy = (action = "", category = "") => {
   const normalizedAction = normalizeAction(action);
   const normalizedCategory = normalizeAction(category);
   if (normalizedAction === "accion de tutela" || normalizedCategory === "salud") {
-    return "La plataforma detecto una posible vulneracion de derechos fundamentales y una ruta judicial viable. La argumentacion completa, el escrito final y la radicacion se habilitan al activar el documento.";
+    return "La plataforma detecto una posible vulneracion de derechos fundamentales en salud. Aqui ves la ruta preliminar y por que el caso podria sostener una tutela; el escrito final se activa cuando decidas continuar.";
   }
   if (normalizedAction.includes("derecho de peticion")) {
     return "La plataforma confirmo que tu caso amerita un derecho de peticion formal. Al activar el documento se libera la redaccion completa, la estructura juridica y la opcion de radicacion.";
@@ -1119,12 +1119,55 @@ const buildPaymentOfferCopy = (action = "", category = "") => {
 };
 
 const buildRouteSteps = (preview) => {
+  const normalizedCategory = normalizeAction(preview?.category || "");
+  const normalizedAction = normalizeAction(preview?.recommended_action || "");
+  if (normalizedCategory === "salud" && normalizedAction === "accion de tutela") {
+    const urgentWarning = (preview?.warnings || []).some((warning) => {
+      const normalized = normalizeAction(warning);
+      return normalized.includes("se recomienda tutela") || normalized.includes("urgencia") || normalized.includes("continuidad de tratamiento");
+    });
+    if (urgentWarning) {
+      return ["Tutela prioritaria"];
+    }
+  }
   const steps = [];
   (preview?.prerequisites || []).slice(0, 2).forEach((item) => {
     steps.push(shortenRouteLabel(item?.label));
   });
   steps.push(shortenRouteLabel(preview?.recommended_action, "Documento"));
   return steps.filter(Boolean).slice(0, 3);
+};
+
+const getHealthRequestedItemLabel = (form = {}) => {
+  const raw = String(form.treatment_needed || form.concrete_request || "").trim();
+  if (!raw) return "el servicio o medicamento";
+  return raw.length > 80 ? `${raw.slice(0, 77)}...` : raw;
+};
+
+const buildTutelaPriorityReason = (preview, form = {}) => {
+  const warnings = (preview?.warnings || []).map((item) => String(item || ""));
+  const reason = warnings.find((item) => {
+    const normalized = normalizeAction(item);
+    return normalized.includes("se recomienda tutela") || normalized.includes("urgencia") || normalized.includes("continuidad de tratamiento");
+  });
+  if (reason) return reason;
+  const itemLabel = getHealthRequestedItemLabel(form);
+  return `La app esta priorizando la tutela porque el relato y los datos detectados muestran un riesgo actual que no conviene dejar esperando mientras se define ${itemLabel}.`;
+};
+
+const buildPreviewQuestionLabel = (question, preview, form = {}, profile = {}) => {
+  const id = String(question?.id || "");
+  const itemLabel = getHealthRequestedItemLabel(form);
+  if (id === "response_channel") return null;
+  if (id === "medical_order_date") return `En que fecha te ordenaron ${itemLabel}?`;
+  if (id === "treating_doctor_name") return `Como se llama el medico tratante que ordeno ${itemLabel}${form.treating_ips_name ? "" : " y, si la recuerdas, en que IPS te atendieron"}?`;
+  if (id === "eps_request_date") return `En que fecha pediste a la EPS la autorizacion o entrega de ${itemLabel}?`;
+  if (id === "eps_response_detail") return `Que hizo la EPS frente a ${itemLabel}: nego, guardo silencio, demoro o puso una barrera?`;
+  if (id === "target_entity") return "Confirma el nombre exacto de la EPS o IPS contra la que iria el tramite.";
+  const raw = String(question?.question || "").trim();
+  if (!raw) return null;
+  if ((profile.email || profile.phone) && normalizeAction(raw).includes("recibir respuesta formal")) return null;
+  return raw.replace(/examen, medicamento o procedimiento/gi, itemLabel);
 };
 
 const summarizeCaseCard = (item) => {
@@ -5117,6 +5160,17 @@ export default function DashboardV2(props) {
           const previewRoutingChannel = getRoutingChannelLabel(preview?.routing?.channel || previewPrimaryTarget?.channel);
           const previewRoutingContact = previewPrimaryTarget?.contact || "Canal por confirmar";
           const backendPendingQuestions = preview?.pending_questions || preview?.facts?.pending_questions || [];
+          const normalizedPreviewAction = normalizeAction(preview?.recommended_action || "");
+          const normalizedPreviewCategory = normalizeAction(preview?.category || form.category || "");
+          const isHealthTutelaPreview = normalizedPreviewCategory === "salud" && normalizedPreviewAction === "accion de tutela";
+          const tutelaPriorityReason = buildTutelaPriorityReason(preview, previewForm);
+          const visiblePreviewQuestions = backendPendingQuestions
+            .map((question) => ({
+              key: question?.id || question?.question,
+              text: buildPreviewQuestionLabel(question, preview, previewForm, profile),
+            }))
+            .filter((item) => item.key && item.text)
+            .slice(0, 5);
           const autofillSuggestions = preview?.facts?.autofill_suggestions || {};
           const previewFixes = summarizePreviewFixes({
             intakeReview,
@@ -5126,6 +5180,7 @@ export default function DashboardV2(props) {
             previewWarnings: preview?.warnings || [],
             pendingQuestions: backendPendingQuestions,
           });
+          const visiblePreviewFixes = visiblePreviewQuestions.length ? [] : previewFixes;
           const paidLocks = [
             "Normas aplicables al caso",
             "Jurisprudencia especifica",
@@ -5138,8 +5193,8 @@ export default function DashboardV2(props) {
           return (
             <StepShell
               stepNumber={3}
-              title="Diagnostico gratis de tu caso"
-              subtitle="Aqui ves el derecho detectado, la ruta sugerida y la viabilidad. La receta completa se desbloquea al pagar."
+              title="Analisis inicial de tu caso"
+              subtitle="Aqui ves el derecho detectado, la ruta sugerida y la viabilidad preliminar. Si decides continuar, luego activas el documento completo."
               onBack={() => setWizardStep(2)}
             >
               {!preview ? (
@@ -5195,7 +5250,7 @@ export default function DashboardV2(props) {
                       </div>
 
                       <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid #334155" }}>
-                        <div style={{ fontWeight: 800 }}>Ruta legal sugerida</div>
+                        <div style={{ fontWeight: 800 }}>{isHealthTutelaPreview ? "Ruta prioritaria detectada" : "Ruta legal sugerida"}</div>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
                           {routeSteps.map((step, index) => (
                             <React.Fragment key={`${step}-${index}`}>
@@ -5214,10 +5269,6 @@ export default function DashboardV2(props) {
                             </React.Fragment>
                           ))}
                         </div>
-                      </div>
-
-                      <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid #334155", color: "#94A3B8", lineHeight: 1.6 }}>
-                        Gratis: sabes qué derecho aparece afectado, qué camino seguir y qué tan viable se ve el caso.
                       </div>
                     </div>
 
@@ -5254,21 +5305,21 @@ export default function DashboardV2(props) {
 
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
                     <div className="glass-card" style={{ padding: 18, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#166534" }}>GRATIS: EL DIAGNOSTICO</div>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#166534" }}>YA TIENES CLARO</div>
                       <div style={{ marginTop: 8, color: "#166534", fontWeight: 700, lineHeight: 1.6 }}>
-                        Qué derecho aparece comprometido y qué camino tomar.
+                        Que derecho aparece comprometido y que ruta conviene evaluar primero.
                       </div>
                     </div>
                     <div className="glass-card" style={{ padding: 18, background: "#FFFBEB", border: "1px solid #FDE68A" }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#92400E" }}>PAGO: LA RECETA</div>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#92400E" }}>AL ACTIVAR EL DOCUMENTO</div>
                       <div style={{ marginTop: 8, color: "#92400E", fontWeight: 700, lineHeight: 1.6 }}>
-                        Normas, jurisprudencia, argumentacion y estructura completa.
+                        Se libera la redaccion completa, la argumentacion juridica y la revision final.
                       </div>
                     </div>
-                    <div className="glass-card" style={{ padding: 18, background: "#FEF2F2", border: "1px solid #FECACA" }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#B91C1C" }}>NUNCA GRATIS: EL DOCUMENTO</div>
-                      <div style={{ marginTop: 8, color: "#B91C1C", fontWeight: 700, lineHeight: 1.6 }}>
-                        El texto listo para radicar y la radicacion no se entregan sin pago.
+                    <div className="glass-card" style={{ padding: 18, background: "#EFF6FF", border: "1px solid #BFDBFE" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>SI QUIERES APOYO COMPLETO</div>
+                      <div style={{ marginTop: 8, color: C.primary, fontWeight: 700, lineHeight: 1.6 }}>
+                        Luego puedes activar firma, radicacion y seguimiento desde el expediente.
                       </div>
                     </div>
                   </div>
@@ -5279,7 +5330,7 @@ export default function DashboardV2(props) {
                       Si este diagnostico se ve correcto, pulsa <span style={{ color: C.primary }}>Guardar expediente y abrir pago</span>.
                     </div>
                     <div style={{ marginTop: 10, color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-                      Aun no ves el documento final porque este paso solo entrega el diagnostico gratis. Despues del pago se activa la redaccion completa.
+                      En este punto ya sabes la ruta preliminar. Si decides seguir, el siguiente paso activa la redaccion completa del documento.
                     </div>
                   </div>
 
@@ -5290,12 +5341,16 @@ export default function DashboardV2(props) {
                       <div style={{ color: C.textMuted, marginTop: 6 }}>{preview.routing?.subject || "Sin asunto sugerido"}</div>
                     </div>
                     <div className="glass-card" style={{ padding: 18 }}>
-                      <strong style={{ color: C.text }}>Via previa detectada</strong>
-                      <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-                        {preview.prerequisites.length ? preview.prerequisites.map((item) => (
-                          <Badge key={item.id} color={item.completed ? C.success : C.warning}>{item.completed ? "Cumplido" : "Pendiente"} - {item.label}</Badge>
-                        )) : <span style={{ color: C.textMuted }}>Sin via previa obligatoria detectada.</span>}
-                      </div>
+                      <strong style={{ color: C.text }}>{isHealthTutelaPreview ? "Por que se sugiere tutela ahora" : "Via previa detectada"}</strong>
+                      {isHealthTutelaPreview ? (
+                        <div style={{ marginTop: 12, color: C.textMuted, lineHeight: 1.6 }}>{tutelaPriorityReason}</div>
+                      ) : (
+                        <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                          {preview.prerequisites.length ? preview.prerequisites.map((item) => (
+                            <Badge key={item.id} color={item.completed ? C.success : C.warning}>{item.completed ? "Cumplido" : "Pendiente"} - {item.label}</Badge>
+                          )) : <span style={{ color: C.textMuted }}>Sin via previa obligatoria detectada.</span>}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -5325,15 +5380,15 @@ export default function DashboardV2(props) {
                     </div>
                   </div>
 
-                  {!!backendPendingQuestions.length && (
+                  {!!visiblePreviewQuestions.length && (
                     <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE" }}>
                       <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>PREGUNTAS CLAVE QUE FALTAN</div>
                       <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
                         Antes del documento final conviene completar estas respuestas:
                       </div>
                       <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-                        {backendPendingQuestions.slice(0, 5).map((question) => (
-                          <div key={question.id || question.question} style={{ color: C.text }}>{`• ${question.question}`}</div>
+                        {visiblePreviewQuestions.map((question) => (
+                          <div key={question.key} style={{ color: C.text }}>{`• ${question.text}`}</div>
                         ))}
                       </div>
                     </div>
@@ -5353,14 +5408,14 @@ export default function DashboardV2(props) {
               </div>
                   )}
 
-                  {!!previewFixes.length && (
+                  {!!visiblePreviewFixes.length && (
                     <div className="glass-card" style={{ padding: 18, background: "#FFFBEB", border: "1px solid #FDE68A" }}>
                       <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: "#92400E" }}>ANTES DEL DOCUMENTO FINAL</div>
                       <div style={{ marginTop: 8, color: C.text, fontWeight: 800 }}>
                         Conviene reforzar estos puntos para que el documento salga mas completo:
                       </div>
                       <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-                        {previewFixes.map((item) => (
+                        {visiblePreviewFixes.map((item) => (
                           <div key={item} style={{ color: "#92400E" }}>• {item}</div>
                         ))}
                       </div>
