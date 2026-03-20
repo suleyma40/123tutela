@@ -2,6 +2,17 @@
 
 Objetivo: cerrar de forma ordenada el lanzamiento de 123tutela en produccion con alcance exclusivo para casos de salud, priorizando tutela en salud y sus pasos naturales de continuidad.
 
+Estado ejecutivo al cierre de hoy:
+
+- El bloque salud ya tiene base operativa real para documento, pago, firma, panel y radicacion inicial.
+- El principal cuello de botella ya no es infraestructura base ni Wompi.
+- Los bloqueos reales para abrir bien son:
+  - pulido juridico final del documento
+  - cierre comercial y legal antes del pago
+  - procedimientos operativos de soporte y seguimiento
+  - QA end to end con casos reales de cliente
+- WhatsApp queda pausado como pendiente tecnico no bloqueante para salida inicial de salud.
+
 Regla de alcance:
 
 - Esta checklist cubre solo el bloque `salud`.
@@ -483,3 +494,56 @@ Solo se considera lista la salida de salud cuando se cumpla todo esto:
 - [ ] Texto legal final antes de pago.
 - [ ] Regla operativa de radicacion y comprobante.
 - [ ] Casos de prueba reales o anonimizados para salud.
+
+## 16. Corte real de avance
+
+### Hecho o muy avanzado
+
+- [x] Foco del producto restringido a salud en frontend y flujo principal.
+- [x] Documentos base de salud ya operativos:
+  - derecho de peticion
+  - tutela
+  - impugnacion
+  - desacato
+- [x] Recomendacion base entre peticion, tutela, impugnacion y desacato ya implementada.
+- [x] Intake guiado de salud ya funciona con etapas y repreguntas utiles.
+- [x] Deteccion de contradicciones y casos borde ya existe en backend y wizard.
+- [x] Smoke tests funcionales y de flujo real ya existen para salud.
+- [x] Pago productivo base y habilitacion del documento ya funcionan.
+- [x] Firma electronica simple trazable ya quedo integrada.
+- [x] Radicacion operativa base ya existe para los productos de salud habilitados.
+- [x] Correo operativo ya funciona con remitentes separados por tipo de envio.
+- [x] Panel del cliente ya muestra documento, radicado y novedades basicas.
+
+### Falta por cerrar antes de abrir bien
+
+- [ ] Pulido juridico fino de la tutela y de los documentos de continuidad.
+- [ ] Copy final de compra y explicacion exacta del producto.
+- [ ] Texto legal final antes del pago.
+- [ ] Politica de reembolso.
+- [ ] Seguimiento del caso mejor presentado para cliente final.
+- [ ] Trazabilidad completa y auditada de pagos, webhook y errores operativos.
+- [ ] SOPs de soporte para incidencias de pago, documento, radicado y seguimiento.
+- [ ] QA end to end con casos reales o anonimizados de cliente.
+
+### Bloqueantes reales de salida
+
+- [ ] Documento final de tutela en salud todavia requiere una ultima ronda fuerte de pulido juridico y de redaccion.
+- [ ] Falta cerrar el paquete comercial y legal que el usuario acepta antes de pagar.
+- [ ] Falta definir operacion de seguimiento y soporte desde panel con claridad para cliente.
+- [ ] Falta corrida formal de QA de punta a punta sobre casos reales.
+
+### Pendientes no bloqueantes inmediatos
+
+- [ ] Integracion de WhatsApp.
+- [ ] Automatizaciones adicionales sobre n8n o Evolution.
+- [ ] Apertura a nuevas materias distintas de salud.
+
+### Estimacion ejecutiva
+
+- Avance general del bloque salud:
+  - aproximadamente `65% a 70%` cerrado
+- Falta para salida controlada razonable:
+  - aproximadamente `30% a 35%`
+- Falta para una salida amplia y robusta:
+  - mas que una sola mejora tecnica; requiere cierre juridico, operacional y comercial conjunto

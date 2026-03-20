@@ -647,6 +647,19 @@ def _refresh_verified_case_context(case: dict[str, Any]) -> dict[str, Any]:
         legal_analysis=legal_analysis,
         source_validation_policy=source_validation_policy,
     )
+    legal_analysis["legal_basis_verified_summary"] = source_validation_policy["legal_basis_verified_summary"]
+    agent_state = build_health_agent_state(
+        category=case.get("categoria") or case.get("category") or "",
+        workflow_type=case.get("workflow_type") or "",
+        recommended_action=case.get("recommended_action") or "",
+        description=case.get("descripcion") or "",
+        facts=facts,
+    )
+    if agent_state:
+        facts["agent_state"] = agent_state
+    case["facts"] = facts
+    case["legal_analysis"] = legal_analysis
+    return case
 
 
 def _payment_entitlements_from_orders(orders: list[dict[str, Any]]) -> dict[str, Any]:
@@ -669,19 +682,6 @@ def _payment_entitlements_from_orders(orders: list[dict[str, Any]]) -> dict[str,
         "filing_guide_paid": guide_paid,
         "follow_up_paid": follow_up_paid,
     }
-    legal_analysis["legal_basis_verified_summary"] = source_validation_policy["legal_basis_verified_summary"]
-    agent_state = build_health_agent_state(
-        category=case.get("categoria") or case.get("category") or "",
-        workflow_type=case.get("workflow_type") or "",
-        recommended_action=case.get("recommended_action") or "",
-        description=case.get("descripcion") or "",
-        facts=facts,
-    )
-    if agent_state:
-        facts["agent_state"] = agent_state
-    case["facts"] = facts
-    case["legal_analysis"] = legal_analysis
-    return case
 
 
 def _is_ai_owned_quality_issue(issue: object) -> bool:
