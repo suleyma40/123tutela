@@ -1312,19 +1312,6 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         + result["facts"].get("dx_result", {}).get("blocking_reasons", [])
         + result["facts"].get("dx_result", {}).get("warnings", [])
     )
-    blocking_issues = list(
-        dict.fromkeys(
-            intake_review.get("blocking_issues", [])
-            + preview_gate.get("blocking_issues", [])
-            + document_rule_review.get("blocking_issues", [])
-        )
-    )
-    if blocking_issues:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No es posible crear el expediente todavia. Corrige esto primero: " + " | ".join(blocking_issues),
-        )
-
     case = repository.create_case_record(
         user_id=str(current_user["id"]),
         user_name=current_user["name"],

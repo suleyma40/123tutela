@@ -5434,7 +5434,7 @@ export default function DashboardV2(props) {
                         setDraftDetail(detail);
                         setWizardStep(4);
                       }}
-                      disabled={!profileReady || hasBlockingIssues || hasActionSpecificBlockers || hasDocumentRuleBlockers}
+                      disabled={!profileReady || loading}
                     >
                       Guardar expediente y abrir pago
                     </Button>
