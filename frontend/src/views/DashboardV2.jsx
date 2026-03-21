@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Briefcase, CreditCard, FileText, HelpCircle, Layout, LogOut, Plus, Scale, Shield, Upload } from "lucide-react";
 
 import { api } from "../lib/api";
@@ -1337,7 +1337,7 @@ const shrinkPreviewDescription = (text, maxLength = 5800) => {
   return `${clean.slice(0, maxLength - 24).trimEnd()}\n[Texto resumido para preview]`;
 };
 
-const buildPreviewPayload = ({ form, previewDescription, tempFiles, fallbackCity = "", fallbackDepartment = "" }) => {
+const buildPreviewPayload = ({ form, previewDescription, tempFiles, attachmentIds = [], fallbackCity = "", fallbackDepartment = "" }) => {
   const payload = {
     category: String(form.category || "Salud").trim(),
     city: String(form.city || fallbackCity || "").trim(),
@@ -1345,7 +1345,11 @@ const buildPreviewPayload = ({ form, previewDescription, tempFiles, fallbackCity
     description: String(previewDescription || "").trim(),
     prior_actions: Array.isArray(form.prior_actions) ? form.prior_actions.filter(Boolean) : [],
     form_data: { ...form },
-    attachment_ids: (tempFiles || []).map((item) => item.id).filter(Boolean),
+    attachment_ids: (
+      Array.isArray(attachmentIds) && attachmentIds.length
+        ? attachmentIds
+        : (tempFiles || []).map((item) => item.id)
+    ).filter(Boolean),
   };
 
   if (payload.category.length < 2) {
@@ -3349,6 +3353,7 @@ function DetailPanel({
   onViewDocument,
   onSaveFlowDraft,
   onGenerateFromFlow,
+  onRegenerateAnalysis = async () => {},
   onSubmitCase,
   onManualRadicado,
   onReportFollowUp = async () => {},
@@ -3605,9 +3610,14 @@ function DetailPanel({
                   <div style={{ color: C.textMuted, fontSize: 13, fontWeight: 700 }}>{item.recommended_action || item.workflow_type}</div>
                   <h2 style={{ marginTop: 6, fontSize: 38, lineHeight: 1.05, color: C.text, fontFamily: "'Playfair Display', serif" }}>{item.category}</h2>
                 </div>
-                <Badge color={baseFlowStep >= 3 ? C.success : item.payment_status === "pagado" ? C.primary : C.warning}>
-                  {flowStep === 2 && baseFlowStep >= 3 ? "Editando datos" : baseFlowStep >= 3 ? "Documento listo" : item.payment_status === "pagado" ? "Pago confirmado" : "Pago pendiente"}
-                </Badge>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <Button variant="secondary" onClick={onRegenerateAnalysis} disabled={loading}>
+                    {loading ? "Analizando..." : "Regenerar análisis"}
+                  </Button>
+                  <Badge color={baseFlowStep >= 3 ? C.success : item.payment_status === "pagado" ? C.primary : C.warning}>
+                    {flowStep === 2 && baseFlowStep >= 3 ? "Editando datos" : baseFlowStep >= 3 ? "Documento listo" : item.payment_status === "pagado" ? "Pago confirmado" : "Pago pendiente"}
+                  </Badge>
+                </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 18 }}>
                 {progressSteps.map((step) => {
@@ -4127,6 +4137,9 @@ function DetailPanel({
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button onClick={() => onViewDocument(item)}>Ver documento completo</Button>
                     <Button variant="outline" onClick={() => onViewDocument(item)}>Descargar PDF</Button>
+                    <Button variant="secondary" onClick={onRegenerateAnalysis} disabled={loading}>
+                      {loading ? "Analizando..." : "Regenerar análisis"}
+                    </Button>
                     <Button variant="secondary" onClick={onGenerateFromFlow} disabled={loading} icon={FileText}>
                       {loading ? "Regenerando..." : "Regenerar documento"}
                     </Button>
@@ -4859,19 +4872,68 @@ export default function DashboardV2(props) {
   };
 
   const runWizardPreview = async () => {
-    const previewPayload = buildPreviewPayload({
-      form,
+    return runPreviewForForm(form, {
       previewDescription,
       tempFiles,
+    });
+  };
+
+  const runPreviewForForm = async (sourceForm, options = {}) => {
+    const previewPayload = buildPreviewPayload({
+      form: sourceForm,
+      previewDescription: options.previewDescription ?? shrinkPreviewDescription(buildComposedDescription(sourceForm, summarizeUploadedEvidence(options.tempFiles || tempFiles))),
+      tempFiles: options.tempFiles ?? tempFiles,
+      attachmentIds: options.attachmentIds || [],
       fallbackCity: session.user.city || "",
       fallbackDepartment: session.user.department || "",
     });
     const previewResult = await onPreview(previewPayload);
-    setForm((current) => mergeDetectedFormValues(current, previewResult?.facts?.intake_form || previewResult?.facts?.autofill_suggestions || {}));
+    setForm((current) => mergeDetectedFormValues(sourceForm || current, previewResult?.facts?.intake_form || previewResult?.facts?.autofill_suggestions || {}));
     setPreview(previewResult);
     setWizardStep(3);
     return previewResult;
   };
+
+  const buildWizardFormFromCase = useCallback((caseDetail) => {
+    const caseItem = caseDetail?.case || {};
+    const intakeForm = caseItem.facts?.intake_form || {};
+    const detectedForm = caseItem.facts?.autofill_suggestions || {};
+    return mergeDetectedFormValues({
+      ...defaultIntakeFields,
+      category: caseItem.category || "Salud",
+      city: intakeForm.city || caseItem.user_city || session.user.city || "",
+      department: intakeForm.department || caseItem.user_department || session.user.department || "",
+      description: intakeForm.description || intakeForm.case_story || caseItem.description || "",
+      prior_actions: Array.isArray(intakeForm.prior_actions) ? intakeForm.prior_actions : [],
+      full_name: intakeForm.full_name || caseItem.user_name || session.user.name || "",
+      document_number: intakeForm.document_number || caseItem.user_document || session.user.document_number || "",
+      phone: intakeForm.phone || caseItem.user_phone || session.user.phone || "",
+      address: intakeForm.address || caseItem.user_address || session.user.address || "",
+      copy_email: intakeForm.copy_email || caseItem.user_email || session.user.email || "",
+      case_story: intakeForm.case_story || caseItem.description || "",
+      key_dates: intakeForm.key_dates || normalizeMentionedDates(caseItem.facts?.fechas_mencionadas) || "",
+      special_protection: intakeForm.special_protection || "No aplica",
+      prior_tutela: intakeForm.prior_tutela || "no",
+      prior_claim: intakeForm.prior_claim || "no",
+      ...intakeForm,
+    }, detectedForm);
+  }, [session.user.address, session.user.city, session.user.department, session.user.document_number, session.user.email, session.user.name, session.user.phone]);
+
+  const rerunAnalysisFromCase = useCallback(async (caseDetail) => {
+    if (!caseDetail?.case) return null;
+    const hydratedForm = buildWizardFormFromCase(caseDetail);
+    const attachmentIds = (caseDetail.files || []).map((file) => file?.id).filter(Boolean);
+    setActiveTab("nuevo");
+    setDraftDetail(caseDetail);
+    setTempFiles([]);
+    setForm(hydratedForm);
+    setPreview(null);
+    setWizardStep(2);
+    return runPreviewForForm(hydratedForm, {
+      attachmentIds,
+      tempFiles: [],
+    });
+  }, [buildWizardFormFromCase, setActiveTab]);
 
   const jumpToNextStage = () => {
     const target = document.getElementById("case-next-stage");
@@ -5478,6 +5540,15 @@ export default function DashboardV2(props) {
 
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        await runWizardPreview();
+                      }}
+                      disabled={loading}
+                    >
+                      {loading ? "Regenerando análisis..." : "Regenerar análisis"}
+                    </Button>
+                    <Button
                       onClick={async () => {
                         const detail = await onCreateCase({
                           ...previewForm,
@@ -5771,6 +5842,9 @@ export default function DashboardV2(props) {
           });
           setDocumentReviews((current) => ({ ...current, [activeCaseDetail.case.id]: generated?.quality_review || null }));
           setDetailStepOverride(null);
+        }}
+        onRegenerateAnalysis={async () => {
+          await rerunAnalysisFromCase(activeCaseDetail);
         }}
         onSubmitCase={(payload) => onSubmitCase(activeCaseDetail.case.id, payload)}
         onManualRadicado={(payload) => onManualRadicado(activeCaseDetail.case.id, payload)}
