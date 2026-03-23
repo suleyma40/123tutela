@@ -2176,6 +2176,19 @@ async def upload_case_evidence(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
 
     saved = save_upload(file, bucket="cases", owner_id=case_id)
+    duplicate = repository.find_duplicate_case_file(
+        case_id=case_id,
+        uploaded_by=str(current_user["id"]),
+        original_name=str(saved["original_name"]),
+        mime_type=str(saved["mime_type"]),
+        file_size=int(saved["file_size"]),
+    )
+    if duplicate:
+        duplicate_path = absolute_path(str(saved["relative_path"]))
+        if duplicate_path.exists():
+            duplicate_path.unlink(missing_ok=True)
+        return _normalize_file(duplicate)
+
     record = repository.create_case_file(
         case_id=case_id,
         uploaded_by=str(current_user["id"]),

@@ -188,6 +188,25 @@ const summarizeUploadedEvidence = (files = []) =>
     .filter(Boolean)
     .join(", ");
 
+const dedupeFilesBySignature = (files = []) => {
+  const seen = new Set();
+  return (files || []).filter((file) => {
+    const signature = [
+      String(file?.original_name || file?.name || "").trim().toLowerCase(),
+      String(file?.mime_type || "").trim().toLowerCase(),
+      String(file?.file_size || ""),
+    ].join("::");
+    if (!signature || seen.has(signature)) return false;
+    seen.add(signature);
+    return true;
+  });
+};
+
+const hasClinicalHistoryLoaded = (files = []) =>
+  dedupeFilesBySignature(files).some((file) =>
+    /historia\s*clinica|historia\s*cl[ií]nica/i.test(String(file?.original_name || file?.name || ""))
+  );
+
 const hasEvidenceAvailable = (form, files = []) =>
   Boolean(form.evidence_summary.trim() || (files || []).length);
 
@@ -4389,6 +4408,8 @@ function PaidCaseAgentWorkspace({
   onGenerateFromFlow = () => {},
   generateDisabled = false,
 }) {
+  const visibleFiles = useMemo(() => dedupeFilesBySignature(files), [files]);
+  const clinicalHistoryLoaded = useMemo(() => hasClinicalHistoryLoaded(visibleFiles), [visibleFiles]);
   return (
     <div style={{ display: "grid", gap: 18 }}>
       <div>
@@ -4477,8 +4498,12 @@ function PaidCaseAgentWorkspace({
 
       <div style={{ padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Sube tus pruebas</div>
-          <div style={{ color: C.textMuted, marginTop: 4 }}>PDF, imagen o Word. Maximo 10MB por archivo.</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{clinicalHistoryLoaded ? "Pruebas ya cargadas" : "Sube tus pruebas"}</div>
+          <div style={{ color: C.textMuted, marginTop: 4 }}>
+            {clinicalHistoryLoaded
+              ? "La historia clinica ya esta en el expediente. Solo sube otro soporte si agrega algo nuevo."
+              : "PDF, imagen o Word. Maximo 10MB por archivo."}
+          </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
             {evidenceHints.map((hint) => <Badge key={hint} color={C.primary}>{hint}</Badge>)}
           </div>
@@ -4486,10 +4511,12 @@ function PaidCaseAgentWorkspace({
         <input id="postpay-evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
         <div style={{ border: `1px dashed ${C.border}`, borderRadius: 18, padding: 24, background: "#F8FAFD", display: "grid", gap: 12, justifyItems: "center" }}>
           <TextInput value={evidenceNote} onChange={(event) => setEvidenceNote(event.target.value)} placeholder="Descripcion del archivo" style={{ maxWidth: 420 }} />
-          <Button variant="secondary" onClick={() => document.getElementById("postpay-evidence-upload").click()} icon={Upload}>Arrastra archivos o haz clic</Button>
+          <Button variant="secondary" onClick={() => document.getElementById("postpay-evidence-upload").click()} icon={Upload}>
+            {clinicalHistoryLoaded ? "Agregar otro soporte" : "Arrastra archivos o haz clic"}
+          </Button>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {files.map((file) => <Badge key={file.id} color={C.accent}>{file.original_name}</Badge>)}
+          {visibleFiles.map((file) => <Badge key={file.id || `${file.original_name}-${file.file_size || ""}`} color={C.accent}>{file.original_name}</Badge>)}
         </div>
       </div>
 

@@ -402,6 +402,13 @@ def collect_pending_questions(
     prior_actions: list[str],
 ) -> list[dict[str, Any]]:
     intake = facts.get("intake_form") or {}
+    attachment_context = facts.get("attachment_intelligence") or {}
+    attachment_profiles = attachment_context.get("attachment_profiles") or []
+    typed_suggestions = attachment_context.get("typed_suggestions") or {}
+    health_support_loaded = any(
+        str((profile or {}).get("type") or "").strip().lower() in {"historia_clinica", "formula"}
+        for profile in attachment_profiles
+    )
     text = _lower(
         " ".join(
             str(part).strip()
@@ -456,7 +463,11 @@ def collect_pending_questions(
                 route="A",
             )
         )
-    if not _has_any(text, ["prueba", "adjunto", "chat", "captura", "correo", "pdf", "pantallazo", "radicado", "formula", "extracto"]):
+    if not (
+        health_support_loaded
+        or (attachment_context.get("evidence_names") or [])
+        or _has_any(text, ["prueba", "adjunto", "chat", "captura", "correo", "pdf", "pantallazo", "radicado", "formula", "extracto"])
+    ):
         questions.append(
             _build_question(
                 question_id="soportes_disponibles",
@@ -669,7 +680,7 @@ def collect_pending_questions(
     if workflow_type == "tutela":
         procedencia = evaluate_tutela_procedencia(description=description, facts=facts, prior_actions=prior_actions)
         if _lower(category) == "salud":
-            if not _text(intake.get("medical_order_date")):
+            if not (_text(intake.get("medical_order_date")) or _text(typed_suggestions.get("medical_order_date")) or health_support_loaded):
                 questions.append(
                     _build_question(
                         question_id="orden_medica_fecha",
@@ -680,7 +691,7 @@ def collect_pending_questions(
                         route="B",
                     )
                 )
-            if not _text(intake.get("treating_doctor_name")):
+            if not (_text(intake.get("treating_doctor_name")) or _text(typed_suggestions.get("treating_doctor_name")) or _text(typed_suggestions.get("treating_physician")) or health_support_loaded):
                 questions.append(
                     _build_question(
                         question_id="medico_tratante",
@@ -691,7 +702,7 @@ def collect_pending_questions(
                         route="B",
                     )
                 )
-            if not _text(intake.get("eps_request_date")):
+            if not (_text(intake.get("eps_request_date")) or health_support_loaded):
                 questions.append(
                     _build_question(
                         question_id="solicitud_eps_fecha",
@@ -702,7 +713,7 @@ def collect_pending_questions(
                         route="B",
                     )
                 )
-            if not _text(intake.get("eps_response_detail")):
+            if not (_text(intake.get("eps_response_detail")) or _text(typed_suggestions.get("prior_claim_result")) or health_support_loaded):
                 questions.append(
                     _build_question(
                         question_id="respuesta_eps_detalle",

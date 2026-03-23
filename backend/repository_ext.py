@@ -216,6 +216,40 @@ def create_case_file(
         return cursor.fetchone()
 
 
+def find_duplicate_case_file(
+    *,
+    case_id: str,
+    uploaded_by: str,
+    original_name: str,
+    mime_type: str,
+    file_size: int,
+) -> dict[str, Any] | None:
+    query = """
+        SELECT *
+        FROM case_files
+        WHERE case_id = %(case_id)s
+          AND uploaded_by = %(uploaded_by)s
+          AND status = 'attached'
+          AND lower(original_name) = lower(%(original_name)s)
+          AND mime_type = %(mime_type)s
+          AND file_size = %(file_size)s
+        ORDER BY created_at ASC
+        LIMIT 1;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "case_id": case_id,
+                "uploaded_by": uploaded_by,
+                "original_name": original_name,
+                "mime_type": mime_type,
+                "file_size": file_size,
+            },
+        )
+        return cursor.fetchone()
+
+
 def update_file_location(file_id: str, *, case_id: str | None, relative_path: str, status: str = "attached") -> dict[str, Any] | None:
     query = """
         UPDATE case_files
