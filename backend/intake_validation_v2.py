@@ -58,8 +58,13 @@ def _health_supports_present(facts: dict[str, Any], combined_text: str) -> bool:
 def _health_clinical_record_present(facts: dict[str, Any], combined_text: str) -> bool:
     attachment_context = facts.get("attachment_intelligence") or {}
     profiles = attachment_context.get("attachment_profiles") or []
+    health_case_synthesis = attachment_context.get("health_case_synthesis") or {}
     if any(str((profile or {}).get("type") or "").strip() == "historia_clinica" for profile in profiles):
-        return True
+        if _text(attachment_context.get("combined_text")):
+            return True
+        if health_case_synthesis:
+            return True
+        return False
     return _has_any(
         combined_text,
         [

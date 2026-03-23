@@ -1457,6 +1457,9 @@ def _build_health_llm_case_packet(case: dict[str, Any], rule: dict[str, Any], fa
     patient_identity = _health_patient_identity_fragments(case)
     source_policy = facts.get("source_validation_policy") or {}
     chronology_lines = _health_fact_lines(case)
+    clinical_history_text = str(attachment_context.get("combined_text") or "").strip()
+    if not clinical_history_text:
+        clinical_history_text = str(synthesis.get("reconstructed_text") or synthesis.get("summary") or "").strip()
 
     return {
         "document_type": _health_document_kind_label(rule["action_key"]),
@@ -1492,7 +1495,7 @@ def _build_health_llm_case_packet(case: dict[str, Any], rule: dict[str, Any], fa
         "verified_sources": source_policy.get("verified_sources") or [],
         "attachment_profiles": attachment_context.get("attachment_profiles") or [],
         "attachment_names": attachment_context.get("evidence_names") or [],
-        "clinical_history_text": str(attachment_context.get("combined_text") or "")[:90000],
+        "clinical_history_text": clinical_history_text[:90000],
     }
 
 
@@ -1555,7 +1558,10 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
         trace["anthropic_rejection_reason"] = "missing_anthropic_api_key"
         return None, trace
     attachment_context = ((case.get("facts") or {}).get("attachment_intelligence") or {})
+    synthesis = _health_case_synthesis(case)
     combined_text = str(attachment_context.get("combined_text") or "").strip()
+    if not combined_text:
+        combined_text = str(synthesis.get("reconstructed_text") or synthesis.get("summary") or "").strip()
     if not combined_text:
         trace["anthropic_rejection_reason"] = "missing_clinical_history_text"
         return None, trace

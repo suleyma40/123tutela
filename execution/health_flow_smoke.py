@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
 from fastapi import HTTPException
 
 from backend import app_v2
+from backend.storage import ensure_upload_root
 from backend import workflows
 from backend.schemas_v2 import CaseCreateRequest, CaseIntakeUpdateRequest
 
@@ -391,7 +392,8 @@ CASES: list[HealthFlowCase] = [
         },
         expected_workflow="derecho_peticion",
         expected_action="Derecho de peticion a EPS",
-        attachment_names=["Historia Clinica Ortopedia.pdf", "Orden Medica Ortopedia.pdf"],
+        expected_generate_error="Todavia faltan datos minimos para generar este documento",
+        attachment_names=None,
     ),
     HealthFlowCase(
         name="flujo_impugnacion_salud",
@@ -517,6 +519,38 @@ def _assert(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
+def _write_smoke_attachment(case_name: str, original_name: str, index: int) -> str:
+    root = ensure_upload_root() / "health_smoke"
+    root.mkdir(parents=True, exist_ok=True)
+    target = root / f"{case_name}_{index}.txt"
+    lowered_case = case_name.lower()
+    lowered_name = original_name.lower()
+    if "peticion" in lowered_case:
+        content = (
+            "Historia clinica. Consulta externa del 20/02/2026. "
+            "Paciente con dolor lumbar cronico y orden de ortopedia. "
+            "Se solicita reprogramacion de cita y copia de autorizacion. "
+            "No hay riesgo vital inmediato y el manejo es ambulatorio."
+        )
+    elif "orden" in lowered_name or "quimioterapia" in lowered_name:
+        content = (
+            "Orden medica del 10/03/2026. Servicio requerido: continuidad inmediata de tratamiento formulado. "
+            "La EPS no puede suspender ni demorar la autorizacion."
+        )
+    else:
+        content = (
+            "Historia clinica. Consulta del 16/03/2026 en Comfama Itagui. "
+            "Paciente con diagnostico principal, barrera de acceso actual y necesidad de atencion prioritaria. "
+            "Medicina interna, endocrinologia y teleconcepto hacen parte del recorrido clinico. "
+            "La EPS mantiene demora o remision interna sin solucion definitiva."
+        )
+    target.write_text(
+        content,
+        encoding="utf-8",
+    )
+    return target.relative_to(ensure_upload_root()).as_posix()
+
+
 def _run_case(case: HealthFlowCase) -> str:
     create_payload = CaseCreateRequest(
         category=case.category,
@@ -537,7 +571,7 @@ def _run_case(case: HealthFlowCase) -> str:
                 "original_name": name,
                 "file_kind": "evidence",
                 "mime_type": "application/pdf",
-                "relative_path": "",
+                "relative_path": _write_smoke_attachment(case.name, name, index),
                 "status": "attached",
                 "file_size": 1024,
                 "created_at": _now(),

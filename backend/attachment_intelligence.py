@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import re
 from pathlib import Path
@@ -37,6 +38,107 @@ def _read_pdf(path: Path) -> str:
         return "\n".join(chunks)
     except Exception:
         return ""
+
+
+def _read_pdf_with_claude(path: Path, *, file_name: str, typed_suggestions: dict[str, Any]) -> dict[str, Any] | None:
+    if not settings.anthropic_api_key:
+        return None
+    try:
+        pdf_bytes = path.read_bytes()
+    except Exception:
+        return None
+    if not pdf_bytes:
+        return None
+
+    prompt = {
+        "task": (
+            "Lee este PDF medico colombiano, aunque sea escaneado o tenga OCR deficiente, "
+            "y produce una sintesis juridico-clinica util para tutela o derecho de peticion en salud."
+        ),
+        "instructions": [
+            "Prioriza identidad del paciente, fechas, medicos, IPS/EPS, diagnosticos, barreras y riesgo actual.",
+            "Si detectas historia clinica, reconstruye una cronologia probatoria breve con fechas exactas si aparecen.",
+            "Si una parte del PDF es ruido u OCR deficiente, ignorala.",
+            "No inventes hechos ni nombres.",
+            "Responde solo JSON valido.",
+            (
+                "Devuelve exactamente estas llaves: summary, chronology, dates_detected, focus, "
+                "medication_order_confirmed, barrier_summary, risk_summary, patient_name, patient_document, "
+                "requested_service, entities_detected, treating_doctor_name, treating_ips_name, key_excerpts."
+            ),
+        ],
+        "evidence_name": file_name,
+        "typed_suggestions": typed_suggestions,
+    }
+    payload = {
+        "model": settings.anthropic_model,
+        "max_tokens": 2200,
+        "temperature": 0,
+        "system": (
+            "Eres un analista clinico-juridico colombiano. Lees PDFs medicos y produces una sintesis "
+            "estructurada y util para litigio en salud."
+        ),
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": base64.b64encode(pdf_bytes).decode("ascii"),
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": json.dumps(prompt, ensure_ascii=False),
+                    },
+                ],
+            }
+        ],
+    }
+    raw_request = request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "x-api-key": settings.anthropic_api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with request.urlopen(raw_request, timeout=60) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except (error.URLError, TimeoutError, json.JSONDecodeError):
+        return None
+    content = body.get("content") or []
+    text_parts = [item.get("text", "") for item in content if item.get("type") == "text"]
+    if not text_parts:
+        return None
+    try:
+        parsed = json.loads("".join(text_parts))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    chronology = [str(item).strip() for item in (parsed.get("chronology") or []) if str(item).strip()]
+    excerpts = [str(item).strip() for item in (parsed.get("key_excerpts") or []) if str(item).strip()]
+    reconstructed_text = " ".join(
+        [
+            "Historia clinica analizada por Claude.",
+            str(parsed.get("summary") or "").strip(),
+            str(parsed.get("barrier_summary") or "").strip(),
+            str(parsed.get("risk_summary") or "").strip(),
+            " ".join(chronology[:10]),
+            " ".join(excerpts[:8]),
+        ]
+    ).strip()
+    parsed["source"] = "anthropic_pdf"
+    parsed["attachment_based"] = True
+    parsed["reconstructed_text"] = re.sub(r"\s+", " ", reconstructed_text).strip()
+    return parsed
 
 
 def _infer_name_from_filename(file_name: str) -> str:
@@ -514,6 +616,29 @@ def extract_file_text(file_record: dict[str, Any]) -> str:
     return ""
 
 
+def _merge_health_synthesis_into_suggestions(
+    suggestions: dict[str, Any],
+    synthesis: dict[str, Any] | None,
+) -> dict[str, Any]:
+    merged = dict(suggestions or {})
+    if not synthesis:
+        return merged
+    mapping = {
+        "patient_name": "represented_person_name",
+        "patient_document": "represented_person_document",
+        "requested_service": "treatment_needed",
+        "treating_doctor_name": "treating_doctor_name",
+        "treating_ips_name": "treating_ips_name",
+        "risk_summary": "urgency_detail",
+        "barrier_summary": "eps_response_detail",
+    }
+    for source_key, target_key in mapping.items():
+        value = str(synthesis.get(source_key) or "").strip()
+        if value and not merged.get(target_key):
+            merged[target_key] = value
+    return merged
+
+
 def _classify_attachment_type(file_name: str, compact_text: str) -> str:
     lowered = f"{file_name} {compact_text}".lower()
     if any(term in lowered for term in ["radicado", "pqrs", "derecho de peticion", "derecho de petición", "reclamo"]):
@@ -779,12 +904,27 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
     combined_text_parts: list[str] = []
     attachment_profiles: list[dict[str, Any]] = []
     typed_suggestions: dict[str, Any] = {}
+    pdf_health_syntheses: list[dict[str, Any]] = []
 
     for item in file_records:
         text = extract_file_text(item)
         compact = re.sub(r"\s+", " ", text).strip() if text else ""
         file_name = str(item.get("original_name") or "").strip()
         profile = _extract_attachment_suggestions(file_name, compact)
+        profile_type = str((profile or {}).get("attachment_type") or "general")
+        if not compact and profile_type in {"historia_clinica", "formula"}:
+            relative_path = str(item.get("relative_path") or "").strip()
+            path = absolute_path(relative_path) if relative_path else None
+            if path and path.exists() and path.suffix.lower() == ".pdf":
+                pdf_health_synthesis = _read_pdf_with_claude(
+                    path,
+                    file_name=file_name,
+                    typed_suggestions=typed_suggestions,
+                )
+                if pdf_health_synthesis:
+                    pdf_health_syntheses.append(pdf_health_synthesis)
+                    compact = re.sub(r"\s+", " ", str(pdf_health_synthesis.get("reconstructed_text") or "")).strip()
+                    profile = _merge_health_synthesis_into_suggestions(profile, pdf_health_synthesis)
         if profile:
             attachment_profiles.append(
                 {
@@ -811,8 +951,8 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
     if any(term in lowered for term in ["eps", "autorizacion", "negado", "pendiente", "medicamentos"]):
         clues.append("Los anexos parecen mostrar relacion con EPS, autorizaciones o negacion de servicios de salud.")
 
-    health_case_synthesis: dict[str, Any] = {}
-    if any(
+    health_case_synthesis: dict[str, Any] = pdf_health_syntheses[0] if pdf_health_syntheses else {}
+    health_signal_present = any(
         term in lowered
         for term in [
             "historia clinica",
@@ -829,8 +969,9 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
             "medicina interna",
             "endocrino",
         ]
-    ):
-        health_case_synthesis = _llm_health_case_synthesis(
+    ) or any(str((profile or {}).get("type") or "").strip() in {"historia_clinica", "formula"} for profile in attachment_profiles)
+    if health_signal_present:
+        synthesized = _llm_health_case_synthesis(
             combined_text=combined_text,
             evidence_names=evidence_names,
             typed_suggestions=typed_suggestions,
@@ -839,6 +980,15 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
             evidence_names=evidence_names,
             typed_suggestions=typed_suggestions,
         )
+        if synthesized:
+            if health_case_synthesis:
+                merged = dict(health_case_synthesis)
+                for key, value in synthesized.items():
+                    if value and not merged.get(key):
+                        merged[key] = value
+                health_case_synthesis = merged
+            else:
+                health_case_synthesis = synthesized
 
     return {
         "evidence_names": evidence_names,
