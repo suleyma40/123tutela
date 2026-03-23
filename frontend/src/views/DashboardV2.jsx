@@ -3046,11 +3046,15 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
   const [selectedCode, setSelectedCode] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [latestReference, setLatestReference] = useState("");
+  const [testPaymentActivated, setTestPaymentActivated] = useState(false);
 
   const jumpToDocumentGeneration = () => {
     window.setTimeout(() => {
       document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 120);
+    window.setTimeout(() => {
+      document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 600);
   };
 
   const suggestedCode = useMemo(() => {
@@ -3091,7 +3095,13 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
     [catalog, suggestedCode, selectedProduct]
   );
   const paymentEntitlements = caseItem?.submission_summary?.payment_entitlements || {};
-  const isBasePaid = caseItem?.payment_status === "pagado";
+  useEffect(() => {
+    if (caseItem?.payment_status === "pagado") {
+      setTestPaymentActivated(false);
+    }
+  }, [caseItem?.payment_status]);
+
+  const isBasePaid = caseItem?.payment_status === "pagado" || testPaymentActivated;
   const bundlePaid = !!paymentEntitlements.filing_bundle_paid || (!!paymentEntitlements.filing_auto_paid && !!paymentEntitlements.follow_up_paid);
   const paymentOffer = useMemo(
     () => buildPaymentOfferCopy(caseItem?.recommended_action, caseItem?.category),
@@ -3187,6 +3197,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
     if (qaTestMode && !isBasePaid) {
       setPaymentMessage("Registrando pago de prueba para este expediente...");
       await onConfirmTestPayment(caseItem.id);
+      setTestPaymentActivated(true);
       await onRefreshCase(caseItem.id);
       setPaymentMessage("Pago de prueba registrado. Ya puedes seguir con el documento.");
       jumpToDocumentGeneration();
@@ -3315,6 +3326,11 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
           <Button onClick={startPayment} disabled={loading || (isBasePaid && bundlePaid)} icon={CreditCard}>
             {isBasePaid ? (bundlePaid ? "Paquete ya activado" : "Activar radicacion y seguimiento") : qaTestMode ? "Activar documento ya pagado (prueba)" : includeFiling ? "Activar documento + radicacion" : "Activar documento"}
           </Button>
+          {qaTestMode && isBasePaid && (
+            <Button variant="secondary" onClick={jumpToDocumentGeneration} icon={ArrowRight}>
+              Ir a generar documento
+            </Button>
+          )}
         </div>
         {paymentMessage && <div style={{ color: C.textMuted }}>{paymentMessage}</div>}
       </div>
