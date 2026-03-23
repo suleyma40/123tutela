@@ -1350,6 +1350,14 @@ const buildStructuredDescription = (form) => {
   return sections.join("\n");
 };
 
+const buildComposedDescription = (form, uploadedEvidenceSummary = "") => {
+  const base = buildStructuredDescription(form);
+  const evidenceLine = String(uploadedEvidenceSummary || "").trim()
+    ? `Archivos ya cargados en el expediente: ${String(uploadedEvidenceSummary || "").trim()}`
+    : "";
+  return [base, evidenceLine].filter(Boolean).join("\n");
+};
+
 const shrinkPreviewDescription = (text, maxLength = 5800) => {
   const clean = String(text || "").trim();
   if (clean.length <= maxLength) return clean;
