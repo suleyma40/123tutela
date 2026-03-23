@@ -3020,6 +3020,12 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [latestReference, setLatestReference] = useState("");
 
+  const jumpToDocumentGeneration = () => {
+    window.setTimeout(() => {
+      document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  };
+
   const suggestedCode = useMemo(() => {
     const action = normalizeAction(caseItem?.recommended_action);
     const exact = {
@@ -3117,6 +3123,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
           if (reconciled?.status === "approved") {
             await onRefreshCase(caseItem.id);
             setPaymentMessage("Pago aprobado. Ya puedes continuar.");
+            jumpToDocumentGeneration();
             return;
           }
         } catch {
@@ -3127,6 +3134,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
       if (order.status === "approved") {
         await onRefreshCase(caseItem.id);
         setPaymentMessage("Pago aprobado. Ya puedes continuar.");
+        jumpToDocumentGeneration();
         return;
       }
       if (["declined", "error", "voided"].includes(order.status)) {
@@ -3154,6 +3162,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
       await onConfirmTestPayment(caseItem.id);
       await onRefreshCase(caseItem.id);
       setPaymentMessage("Pago de prueba registrado. Ya puedes seguir con el documento.");
+      jumpToDocumentGeneration();
       return;
     }
     setPaymentMessage("");
