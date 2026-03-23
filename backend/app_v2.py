@@ -21,6 +21,7 @@ from backend.case_architecture import (
 from backend.agent_orchestrator import build_health_agent_state, relax_health_tutela_blockers
 from backend.config import settings
 from backend.document_quality import evaluate_generated_document
+from backend.document_writer import build_document_with_trace
 from backend.entity_directory import search_entity_directory
 from backend.document_rules_v2 import evaluate_document_rule
 from backend.intake_validation_v2 import validate_intake, validate_submission_readiness
@@ -82,7 +83,6 @@ from backend.wompi import (
     verify_event_signature,
 )
 from backend.workflows import (
-    build_document,
     build_submission_guidance,
     build_routing,
     build_strategy_text,
@@ -1735,7 +1735,7 @@ def generate_document(
             detail="Todavia faltan datos minimos para generar este documento: "
             + " | ".join(document_rule_review["blocking_issues"]),
         )
-    document = build_document(case)
+    document, draft_trace = build_document_with_trace(case)
     quality_review = evaluate_generated_document(case, document)
     final_validation = build_final_validation(case=case, document=document, quality_review=quality_review)
     if not quality_review.get("passed"):
@@ -1811,6 +1811,7 @@ def generate_document(
         **(updated.get("submission_summary") or {}),
         "document_quality": quality_review,
         "final_validation": final_validation,
+        "draft_trace": draft_trace,
     }
     try:
         updated = repository.update_case_status(
@@ -1827,7 +1828,12 @@ def generate_document(
             event_type="document_generated",
             actor_type="system",
             actor_id=None,
-            payload={"length": len(document), "score": quality_review.get("score"), "threshold": quality_review.get("threshold")},
+            payload={
+                "length": len(document),
+                "score": quality_review.get("score"),
+                "threshold": quality_review.get("threshold"),
+                "draft_trace": draft_trace,
+            },
         )
     except Exception:
         pass

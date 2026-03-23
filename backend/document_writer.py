@@ -1543,13 +1543,22 @@ def _looks_like_complete_health_document(document: str, action_key: str) -> bool
     return True
 
 
-def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any], fallback_document: str) -> str | None:
+def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any], fallback_document: str) -> tuple[str | None, dict[str, Any]]:
+    trace: dict[str, Any] = {
+        "anthropic_called": False,
+        "anthropic_response_accepted": False,
+        "anthropic_rejection_reason": "",
+        "anthropic_model": settings.anthropic_model,
+        "final_document_source": "fallback",
+    }
     if not settings.anthropic_api_key:
-        return None
+        trace["anthropic_rejection_reason"] = "missing_anthropic_api_key"
+        return None, trace
     attachment_context = ((case.get("facts") or {}).get("attachment_intelligence") or {})
     combined_text = str(attachment_context.get("combined_text") or "").strip()
     if not combined_text:
-        return None
+        trace["anthropic_rejection_reason"] = "missing_clinical_history_text"
+        return None, trace
 
     action_key = str(rule.get("action_key") or "").strip().lower()
     packet = _build_health_llm_case_packet(case, rule, fallback_document)
@@ -1592,17 +1601,32 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
         method="POST",
     )
     try:
+        trace["anthropic_called"] = True
         with request.urlopen(raw_request, timeout=45) as response:
             body = json.loads(response.read().decode("utf-8"))
-    except (error.URLError, TimeoutError, json.JSONDecodeError):
-        return None
+            trace["anthropic_status"] = getattr(response, "status", 200)
+    except error.HTTPError as exc:
+        trace["anthropic_status"] = exc.code
+        trace["anthropic_rejection_reason"] = f"http_error_{exc.code}"
+        return None, trace
+    except error.URLError:
+        trace["anthropic_rejection_reason"] = "url_error"
+        return None, trace
+    except TimeoutError:
+        trace["anthropic_rejection_reason"] = "timeout"
+        return None, trace
+    except json.JSONDecodeError:
+        trace["anthropic_rejection_reason"] = "invalid_json"
+        return None, trace
 
     content = body.get("content") or []
     text_parts = [item.get("text", "") for item in content if item.get("type") == "text"]
     if not text_parts:
-        return None
+        trace["anthropic_rejection_reason"] = "empty_text_response"
+        return None, trace
     drafted = "".join(text_parts).strip()
     if not _looks_like_complete_health_document(drafted, action_key):
+        trace["anthropic_rejection_reason"] = "failed_quality_gate_first_pass"
         repair_payload = {
             "model": settings.anthropic_model,
             "max_tokens": 4200,
@@ -1646,16 +1670,33 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
         try:
             with request.urlopen(repair_request, timeout=45) as response:
                 repair_body = json.loads(response.read().decode("utf-8"))
-        except (error.URLError, TimeoutError, json.JSONDecodeError):
-            return None
+                trace["anthropic_repair_status"] = getattr(response, "status", 200)
+        except error.HTTPError as exc:
+            trace["anthropic_repair_status"] = exc.code
+            trace["anthropic_rejection_reason"] = f"repair_http_error_{exc.code}"
+            return None, trace
+        except error.URLError:
+            trace["anthropic_rejection_reason"] = "repair_url_error"
+            return None, trace
+        except TimeoutError:
+            trace["anthropic_rejection_reason"] = "repair_timeout"
+            return None, trace
+        except json.JSONDecodeError:
+            trace["anthropic_rejection_reason"] = "repair_invalid_json"
+            return None, trace
         repair_content = repair_body.get("content") or []
         repair_parts = [item.get("text", "") for item in repair_content if item.get("type") == "text"]
         if not repair_parts:
-            return None
+            trace["anthropic_rejection_reason"] = "repair_empty_text_response"
+            return None, trace
         drafted = "".join(repair_parts).strip()
         if not _looks_like_complete_health_document(drafted, action_key):
-            return None
-    return drafted
+            trace["anthropic_rejection_reason"] = "failed_quality_gate_second_pass"
+            return None, trace
+    trace["anthropic_response_accepted"] = True
+    trace["anthropic_rejection_reason"] = ""
+    trace["final_document_source"] = "anthropic"
+    return drafted, trace
 
 
 def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) -> str:
@@ -2296,26 +2337,35 @@ Telefono: {user_phone}
 """
 
 
-def build_document(case: dict[str, Any]) -> str:
+def build_document_with_trace(case: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     rule = get_document_rule(case.get("recommended_action"), case.get("workflow_type"))
     is_health_block = str(case.get("categoria") or case.get("category") or "").strip().lower() == "salud"
     if is_health_block:
         if rule["action_key"] == "accion de tutela":
             fallback = _build_health_tutela_document(case, rule)
-            return _draft_health_document_with_claude(case, rule, fallback) or fallback
+            drafted, trace = _draft_health_document_with_claude(case, rule, fallback)
+            return drafted or fallback, trace
         if rule["action_key"] == "impugnacion de tutela":
             fallback = _build_health_impugnacion_document(case, rule)
-            return _draft_health_document_with_claude(case, rule, fallback) or fallback
+            drafted, trace = _draft_health_document_with_claude(case, rule, fallback)
+            return drafted or fallback, trace
         if rule["action_key"] == "incidente de desacato":
             fallback = _build_health_desacato_document(case, rule)
-            return _draft_health_document_with_claude(case, rule, fallback) or fallback
+            drafted, trace = _draft_health_document_with_claude(case, rule, fallback)
+            return drafted or fallback, trace
         if "derecho de peticion" in rule["action_key"]:
             fallback = _build_health_petition_document(case, rule)
-            return _draft_health_document_with_claude(case, rule, fallback) or fallback
+            drafted, trace = _draft_health_document_with_claude(case, rule, fallback)
+            return drafted or fallback, trace
     if rule["action_key"] == "accion de tutela":
-        return _build_tutela_document(case, rule)
+        return _build_tutela_document(case, rule), {"final_document_source": "deterministic_non_health"}
     if rule["action_key"] in {"reclamacion financiera", "derecho de peticion financiero"}:
-        return _build_financial_document(case, rule)
+        return _build_financial_document(case, rule), {"final_document_source": "deterministic_non_health"}
     if "derecho de peticion" in rule["action_key"]:
-        return _build_petition_document(case, rule)
-    return _build_generic_document(case, rule)
+        return _build_petition_document(case, rule), {"final_document_source": "deterministic_non_health"}
+    return _build_generic_document(case, rule), {"final_document_source": "deterministic_generic"}
+
+
+def build_document(case: dict[str, Any]) -> str:
+    document, _trace = build_document_with_trace(case)
+    return document
