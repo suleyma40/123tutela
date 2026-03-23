@@ -1493,7 +1493,6 @@ def _build_health_llm_case_packet(case: dict[str, Any], rule: dict[str, Any], fa
         "attachment_profiles": attachment_context.get("attachment_profiles") or [],
         "attachment_names": attachment_context.get("evidence_names") or [],
         "clinical_history_text": str(attachment_context.get("combined_text") or "")[:90000],
-        "deterministic_fallback_draft": fallback_document,
     }
 
 
@@ -1502,9 +1501,39 @@ def _looks_like_complete_health_document(document: str, action_key: str) -> bool
     normalized = _normalize_writer_text(text)
     if len(text) < 900:
         return False
+    banned_fragments = [
+        "tipo de peticion o enfoque principal",
+        "interes_particular",
+        "si tiene condicion reforzada",
+        "caso lo requiere",
+        "si aplica",
+        "la persona afectada se encuentra en condicion de especial proteccion constitucional: si",
+        "documento insuficiente:",
+    ]
+    if any(fragment in normalized for fragment in banned_fragments):
+        return False
     if action_key == "accion de tutela":
         required = ["i.", "ii.", "iii.", "iv.", "v.", "pretensiones", "notificaciones"]
-        return all(token in normalized for token in required)
+        if not all(token in normalized for token in required):
+            return False
+        chronology_match = re.search(
+            r"iii\.\s*hechos cronologicos(?P<section>.*?)(?:iv\.|iv\s)",
+            normalized,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        if not chronology_match:
+            return False
+        chronology_section = chronology_match.group("section")
+        chronology_count = len(re.findall(r"(?:^|\n)\s*\d+\.", chronology_section))
+        if chronology_count < 6:
+            return False
+        if not any(token in normalized for token in ["historia clinica", "consulta del", "teleconcepto", "medicina interna", "endocrinologia"]):
+            return False
+        if not any(token in normalized for token in ["medida provisional", "cuarenta y ocho (48) horas", "48 horas"]):
+            return False
+        if not any(token in normalized for token in ["barrera burocratica", "circulo burocratico", "remision circular", "no pertinencia"]):
+            return False
+        return True
     if "derecho de peticion" in action_key:
         return "solicitudes" in normalized and "notificaciones" in normalized
     if action_key == "impugnacion de tutela":
@@ -1545,6 +1574,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
                     + "- Devuelve solo el documento final.\n"
                     + "- No expliques el analisis.\n"
                     + "- No uses markdown.\n"
+                    + "- No copies ni reescribas el borrador determinista del sistema; redacta de nuevo desde la historia clinica, las pruebas y la teoria del caso.\n"
                     + "- Si la historia clinica identifica mejor al paciente que la cuenta del usuario, usa la identidad del paciente como principal cuando el caso sea en nombre propio o cuando la propia historia clinica muestre que ella es la paciente.\n"
                     + "- Si detectas ruido de OCR, ignoralo.\n"
                 ),
@@ -1573,7 +1603,58 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
         return None
     drafted = "".join(text_parts).strip()
     if not _looks_like_complete_health_document(drafted, action_key):
-        return None
+        repair_payload = {
+            "model": settings.anthropic_model,
+            "max_tokens": 4200,
+            "temperature": 0,
+            "system": (
+                "Eres un abogado litigante colombiano senior en salud. "
+                "Tu trabajo es corregir un borrador mediocre y devolver una version radicable."
+            ),
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        HEALTH_LEGAL_MASTER_PROMPT
+                        + "\n\nINSTRUCCION ESPECIFICA:\n"
+                        + health_document_output_instruction(action_key)
+                        + "\n\nDATOS ESTRUCTURADOS DEL CASO (JSON):\n"
+                        + json.dumps(packet, ensure_ascii=False)
+                        + "\n\nBORRADOR DEFECTUOSO A CORREGIR:\n"
+                        + drafted
+                        + "\n\nCORRIGE OBLIGATORIAMENTE:\n"
+                        + "- No entregues un resumen generico.\n"
+                        + "- Reconstruye una cronologia probatoria de al menos 6 hechos si es tutela.\n"
+                        + "- Usa la historia clinica como fuente dominante.\n"
+                        + "- Elimina frases internas del sistema y lenguaje de plantilla.\n"
+                        + "- Ajusta medida provisional y pretensiones a la teoria del caso.\n"
+                        + "- Devuelve solo la version final corregida.\n"
+                    ),
+                }
+            ],
+        }
+        repair_request = request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=json.dumps(repair_payload).encode("utf-8"),
+            headers={
+                "x-api-key": settings.anthropic_api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with request.urlopen(repair_request, timeout=45) as response:
+                repair_body = json.loads(response.read().decode("utf-8"))
+        except (error.URLError, TimeoutError, json.JSONDecodeError):
+            return None
+        repair_content = repair_body.get("content") or []
+        repair_parts = [item.get("text", "") for item in repair_content if item.get("type") == "text"]
+        if not repair_parts:
+            return None
+        drafted = "".join(repair_parts).strip()
+        if not _looks_like_complete_health_document(drafted, action_key):
+            return None
     return drafted
 
 
