@@ -39,7 +39,7 @@ def deploy_backend() -> None:
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, username=user, password=password, timeout=30)
     try:
-        _run(ssh, f"cd {remote_dir} && git fetch origin main && git checkout main && git pull --ff-only origin main")
+        _run(ssh, f"cd {remote_dir} && git fetch origin main && git checkout main && git reset --hard origin/main")
         _run(ssh, f"cd {remote_dir} && docker build -f Dockerfile.backend -t {service_name}:latest .", timeout=3600)
         _run(ssh, f"docker service update --force {service_name}")
         _run(ssh, "curl -fsS https://api.123tutelaapp.com/health", timeout=120)
