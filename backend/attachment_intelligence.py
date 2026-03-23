@@ -114,6 +114,21 @@ def _normalize_ascii_text(value: Any) -> str:
     return text.encode("ascii", "ignore").decode("ascii")
 
 
+def _dedupe_lines(items: list[str]) -> list[str]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        clean = re.sub(r"\s+", " ", str(item or "")).strip(" .,:;")
+        if not clean:
+            continue
+        key = clean.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(clean)
+    return ordered
+
+
 def _health_lines_from_text(text: str) -> list[str]:
     chunks = re.split(r"[\r\n]+", str(text or ""))
     lines: list[str] = []
