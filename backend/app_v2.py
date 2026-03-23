@@ -1683,6 +1683,9 @@ def generate_document(
             "id": str(item.get("id")),
             "original_name": str(item.get("original_name") or ""),
             "file_kind": str(item.get("file_kind") or ""),
+            "relative_path": str(item.get("relative_path") or ""),
+            "mime_type": str(item.get("mime_type") or ""),
+            "file_size": int(item.get("file_size") or 0),
         }
         for item in attachment_records
         if item.get("original_name")

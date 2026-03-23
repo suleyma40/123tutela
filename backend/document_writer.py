@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from datetime import datetime, timezone
 import json
 import re
@@ -11,6 +12,7 @@ from backend.agent_registry import resolve_health_document
 from backend.config import settings
 from backend.document_rules import get_document_rule
 from backend.legal_prompts import HEALTH_LEGAL_MASTER_PROMPT, health_document_output_instruction
+from backend.storage import absolute_path
 
 
 def _join_list(value: Any, fallback: str = "No informado") -> str:
@@ -1550,6 +1552,72 @@ def _build_health_llm_case_packet(case: dict[str, Any], rule: dict[str, Any], fa
     }
 
 
+def _health_attachment_documents_for_llm(case: dict[str, Any], *, limit: int = 2) -> list[dict[str, Any]]:
+    facts = case.get("facts") or {}
+    attachment_context = facts.get("attachment_intelligence") or {}
+    uploaded = facts.get("uploaded_evidence_files") or []
+    if not isinstance(uploaded, list):
+        return []
+
+    profile_priority: dict[str, int] = {}
+    for item in attachment_context.get("attachment_profiles") or []:
+        name = str(item.get("name") or "").strip().lower()
+        attachment_type = str(item.get("type") or "").strip().lower()
+        priority = 99
+        if attachment_type == "historia_clinica":
+            priority = 1
+        elif attachment_type == "formula":
+            priority = 2
+        elif attachment_type == "respuesta_eps":
+            priority = 3
+        elif attachment_type == "autorizacion":
+            priority = 4
+        if name:
+            profile_priority[name] = min(priority, profile_priority.get(name, priority))
+
+    candidates: list[tuple[int, dict[str, Any]]] = []
+    for item in uploaded:
+        original_name = str(item.get("original_name") or "").strip()
+        relative_path = str(item.get("relative_path") or "").strip()
+        mime_type = str(item.get("mime_type") or "").strip().lower()
+        if not original_name or not relative_path or mime_type != "application/pdf":
+            continue
+        try:
+            path = absolute_path(relative_path)
+        except Exception:
+            continue
+        if not path.exists() or path.suffix.lower() != ".pdf":
+            continue
+        try:
+            file_size = int(item.get("file_size") or path.stat().st_size or 0)
+        except Exception:
+            file_size = 0
+        if file_size <= 0 or file_size > 9_500_000:
+            continue
+        priority = profile_priority.get(original_name.lower(), 50)
+        candidates.append((priority, {"name": original_name, "path": path}))
+
+    document_blocks: list[dict[str, Any]] = []
+    for _, item in sorted(candidates, key=lambda pair: (pair[0], pair[1]["name"]))[:limit]:
+        try:
+            pdf_bytes = item["path"].read_bytes()
+        except Exception:
+            continue
+        if not pdf_bytes:
+            continue
+        document_blocks.append(
+            {
+                "type": "document",
+                "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": base64.b64encode(pdf_bytes).decode("ascii"),
+                },
+            }
+        )
+    return document_blocks
+
+
 def _looks_like_complete_health_document(document: str, action_key: str) -> bool:
     text = str(document or "").strip()
     normalized = _normalize_writer_text(text)
@@ -1619,9 +1687,31 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
 
     action_key = str(rule.get("action_key") or "").strip().lower()
     packet = _build_health_llm_case_packet(case, rule, fallback_document)
+    document_blocks = _health_attachment_documents_for_llm(case)
+    user_content: list[dict[str, Any]] = list(document_blocks)
+    user_content.append(
+        {
+            "type": "text",
+            "text": (
+                HEALTH_LEGAL_MASTER_PROMPT
+                + "\n\nINSTRUCCION ESPECIFICA:\n"
+                + health_document_output_instruction(action_key)
+                + "\n\nDATOS ESTRUCTURADOS DEL CASO (JSON):\n"
+                + json.dumps(packet, ensure_ascii=False)
+                + "\n\nREGLAS DE RESPUESTA:\n"
+                + "- Devuelve solo el documento final.\n"
+                + "- No expliques el analisis.\n"
+                + "- No uses markdown.\n"
+                + "- No copies ni reescribas el borrador determinista del sistema; redacta de nuevo desde la historia clinica, las pruebas y la teoria del caso.\n"
+                + "- Si la historia clinica identifica mejor al paciente que la cuenta del usuario, usa la identidad del paciente como principal cuando el caso sea en nombre propio o cuando la propia historia clinica muestre que ella es la paciente.\n"
+                + "- Si detectas ruido de OCR, ignoralo.\n"
+                + "- Si recibes el PDF clinico como documento adjunto, usalo como fuente primaria por encima del resumen.\n"
+            ),
+        }
+    )
     payload = {
         "model": settings.anthropic_model,
-        "max_tokens": 4200,
+        "max_tokens": 5200,
         "temperature": 0,
         "system": (
             "Eres un abogado litigante colombiano senior en salud. "
@@ -1630,20 +1720,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
         "messages": [
             {
                 "role": "user",
-                "content": (
-                    HEALTH_LEGAL_MASTER_PROMPT
-                    + "\n\nINSTRUCCION ESPECIFICA:\n"
-                    + health_document_output_instruction(action_key)
-                    + "\n\nDATOS ESTRUCTURADOS DEL CASO (JSON):\n"
-                    + json.dumps(packet, ensure_ascii=False)
-                    + "\n\nREGLAS DE RESPUESTA:\n"
-                    + "- Devuelve solo el documento final.\n"
-                    + "- No expliques el analisis.\n"
-                    + "- No uses markdown.\n"
-                    + "- No copies ni reescribas el borrador determinista del sistema; redacta de nuevo desde la historia clinica, las pruebas y la teoria del caso.\n"
-                    + "- Si la historia clinica identifica mejor al paciente que la cuenta del usuario, usa la identidad del paciente como principal cuando el caso sea en nombre propio o cuando la propia historia clinica muestre que ella es la paciente.\n"
-                    + "- Si detectas ruido de OCR, ignoralo.\n"
-                ),
+                "content": user_content,
             }
         ],
     }
@@ -1686,7 +1763,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
         trace["anthropic_rejection_reason"] = "failed_quality_gate_first_pass"
         repair_payload = {
             "model": settings.anthropic_model,
-            "max_tokens": 4200,
+            "max_tokens": 5200,
             "temperature": 0,
             "system": (
                 "Eres un abogado litigante colombiano senior en salud. "
@@ -1695,22 +1772,29 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
             "messages": [
                 {
                     "role": "user",
-                    "content": (
-                        HEALTH_LEGAL_MASTER_PROMPT
-                        + "\n\nINSTRUCCION ESPECIFICA:\n"
-                        + health_document_output_instruction(action_key)
-                        + "\n\nDATOS ESTRUCTURADOS DEL CASO (JSON):\n"
-                        + json.dumps(packet, ensure_ascii=False)
-                        + "\n\nBORRADOR DEFECTUOSO A CORREGIR:\n"
-                        + drafted
-                        + "\n\nCORRIGE OBLIGATORIAMENTE:\n"
-                        + "- No entregues un resumen generico.\n"
-                        + "- Reconstruye una cronologia probatoria de al menos 6 hechos si es tutela.\n"
-                        + "- Usa la historia clinica como fuente dominante.\n"
-                        + "- Elimina frases internas del sistema y lenguaje de plantilla.\n"
-                        + "- Ajusta medida provisional y pretensiones a la teoria del caso.\n"
-                        + "- Devuelve solo la version final corregida.\n"
-                    ),
+                    "content": [
+                        *document_blocks,
+                        {
+                            "type": "text",
+                            "text": (
+                                HEALTH_LEGAL_MASTER_PROMPT
+                                + "\n\nINSTRUCCION ESPECIFICA:\n"
+                                + health_document_output_instruction(action_key)
+                                + "\n\nDATOS ESTRUCTURADOS DEL CASO (JSON):\n"
+                                + json.dumps(packet, ensure_ascii=False)
+                                + "\n\nBORRADOR DEFECTUOSO A CORREGIR:\n"
+                                + drafted
+                                + "\n\nCORRIGE OBLIGATORIAMENTE:\n"
+                                + "- No entregues un resumen generico.\n"
+                                + "- Reconstruye una cronologia probatoria de al menos 6 hechos si es tutela.\n"
+                                + "- Usa la historia clinica como fuente dominante.\n"
+                                + "- Si recibes el PDF clinico como documento adjunto, revisalo otra vez y usalo como fuente principal.\n"
+                                + "- Elimina frases internas del sistema y lenguaje de plantilla.\n"
+                                + "- Ajusta medida provisional y pretensiones a la teoria del caso.\n"
+                                + "- Devuelve solo la version final corregida.\n"
+                            ),
+                        }
+                    ],
                 }
             ],
         }
