@@ -4,6 +4,7 @@ import base64
 from datetime import datetime, timezone
 import json
 import re
+import time
 from typing import Any
 import unicodedata
 from urllib import error, request
@@ -1759,11 +1760,12 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
         trace["anthropic_rejection_reason"] = "empty_text_response"
         return None, trace
     drafted = "".join(text_parts).strip()
+    trace["anthropic_response_preview"] = drafted[:1200]
     if not _looks_like_complete_health_document(drafted, action_key):
         trace["anthropic_rejection_reason"] = "failed_quality_gate_first_pass"
         repair_payload = {
             "model": settings.anthropic_model,
-            "max_tokens": 5200,
+            "max_tokens": 3800,
             "temperature": 0,
             "system": (
                 "Eres un abogado litigante colombiano senior en salud. "
@@ -1773,7 +1775,6 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
                 {
                     "role": "user",
                     "content": [
-                        *document_blocks,
                         {
                             "type": "text",
                             "text": (
@@ -1788,7 +1789,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
                                 + "- No entregues un resumen generico.\n"
                                 + "- Reconstruye una cronologia probatoria de al menos 6 hechos si es tutela.\n"
                                 + "- Usa la historia clinica como fuente dominante.\n"
-                                + "- Si recibes el PDF clinico como documento adjunto, revisalo otra vez y usalo como fuente principal.\n"
+                                + "- No dependas del texto del usuario si contradice los soportes.\n"
                                 + "- Elimina frases internas del sistema y lenguaje de plantilla.\n"
                                 + "- Ajusta medida provisional y pretensiones a la teoria del caso.\n"
                                 + "- Devuelve solo la version final corregida.\n"
@@ -1809,9 +1810,18 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
             method="POST",
         )
         try:
-            with request.urlopen(repair_request, timeout=90) as response:
-                repair_body = json.loads(response.read().decode("utf-8"))
-                trace["anthropic_repair_status"] = getattr(response, "status", 200)
+            try:
+                with request.urlopen(repair_request, timeout=90) as response:
+                    repair_body = json.loads(response.read().decode("utf-8"))
+                    trace["anthropic_repair_status"] = getattr(response, "status", 200)
+            except error.HTTPError as exc:
+                if exc.code == 429:
+                    time.sleep(2)
+                    with request.urlopen(repair_request, timeout=90) as response:
+                        repair_body = json.loads(response.read().decode("utf-8"))
+                        trace["anthropic_repair_status"] = getattr(response, "status", 200)
+                else:
+                    raise
         except error.HTTPError as exc:
             trace["anthropic_repair_status"] = exc.code
             trace["anthropic_rejection_reason"] = f"repair_http_error_{exc.code}"
@@ -1831,6 +1841,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
             trace["anthropic_rejection_reason"] = "repair_empty_text_response"
             return None, trace
         drafted = "".join(repair_parts).strip()
+        trace["anthropic_repair_preview"] = drafted[:1200]
         if not _looks_like_complete_health_document(drafted, action_key):
             trace["anthropic_rejection_reason"] = "failed_quality_gate_second_pass"
             return None, trace
