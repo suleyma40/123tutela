@@ -64,6 +64,14 @@ def _normalize_writer_text(value: str) -> str:
     return re.sub(r"\s+", " ", ascii_text).strip().lower()
 
 
+_HEALTH_SIGNAL_PATTERN = re.compile(
+    r"(aneurisma|obesidad|mounjaro|tirzep|glp-?1|endocrin|medicina interna|teleconcepto|no pertinencia|"
+    r"programa de obesidad|consulta|fecha de la atencion|eps|comfama|sura|cirugia|junta medica|"
+    r"rivaroxaban|enoxaparina|hematologia|\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b)",
+    flags=re.IGNORECASE,
+)
+
+
 def _title_sentence(value: str) -> str:
     text = str(value or "").strip()
     if not text:
@@ -88,6 +96,48 @@ def _dedupe_lines(items: list[str]) -> list[str]:
         seen.add(text)
         deduped.append(str(item).strip())
     return deduped
+
+
+def _compact_health_clinical_history_text(raw_text: str, synthesis: dict[str, Any], *, max_chars: int = 16000) -> str:
+    pieces: list[str] = []
+
+    for value in [
+        synthesis.get("summary"),
+        synthesis.get("barrier_summary"),
+        synthesis.get("risk_summary"),
+    ]:
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if text:
+            pieces.append(text)
+
+    chronology = synthesis.get("chronology") or []
+    if isinstance(chronology, list):
+        chronology_lines = [re.sub(r"\s+", " ", str(item or "")).strip() for item in chronology if str(item or "").strip()]
+        if chronology_lines:
+            pieces.append("Cronologia clinica detectada: " + " ".join(chronology_lines[:10]))
+
+    excerpts = synthesis.get("key_excerpts") or []
+    if isinstance(excerpts, list):
+        excerpt_lines = [re.sub(r"\s+", " ", str(item or "")).strip() for item in excerpts if str(item or "").strip()]
+        if excerpt_lines:
+            pieces.append("Extractos utiles: " + " ".join(excerpt_lines[:8]))
+
+    raw_chunks = [re.sub(r"\s+", " ", chunk).strip() for chunk in re.split(r"[\r\n]+", str(raw_text or "")) if str(chunk).strip()]
+    signal_chunks: list[str] = []
+    for chunk in _dedupe_lines(raw_chunks):
+        if _HEALTH_SIGNAL_PATTERN.search(chunk):
+            signal_chunks.append(chunk)
+        if len(signal_chunks) >= 24:
+            break
+    if signal_chunks:
+        pieces.append("Texto clinico relevante: " + " ".join(signal_chunks))
+
+    compact = re.sub(r"\s+", " ", " ".join(_dedupe_lines(pieces))).strip()
+    if compact:
+        return compact[:max_chars]
+
+    fallback = re.sub(r"\s+", " ", str(raw_text or "")).strip()
+    return fallback[:max_chars]
 
 
 def _looks_like_internal_evidence_label(text: str) -> bool:
@@ -1460,6 +1510,7 @@ def _build_health_llm_case_packet(case: dict[str, Any], rule: dict[str, Any], fa
     clinical_history_text = str(attachment_context.get("combined_text") or "").strip()
     if not clinical_history_text:
         clinical_history_text = str(synthesis.get("reconstructed_text") or synthesis.get("summary") or "").strip()
+    compact_clinical_history = _compact_health_clinical_history_text(clinical_history_text, synthesis)
 
     return {
         "document_type": _health_document_kind_label(rule["action_key"]),
@@ -1495,7 +1546,7 @@ def _build_health_llm_case_packet(case: dict[str, Any], rule: dict[str, Any], fa
         "verified_sources": source_policy.get("verified_sources") or [],
         "attachment_profiles": attachment_context.get("attachment_profiles") or [],
         "attachment_names": attachment_context.get("evidence_names") or [],
-        "clinical_history_text": clinical_history_text[:90000],
+        "clinical_history_text": compact_clinical_history,
     }
 
 
@@ -1608,7 +1659,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
     )
     try:
         trace["anthropic_called"] = True
-        with request.urlopen(raw_request, timeout=45) as response:
+        with request.urlopen(raw_request, timeout=120) as response:
             body = json.loads(response.read().decode("utf-8"))
             trace["anthropic_status"] = getattr(response, "status", 200)
     except error.HTTPError as exc:
@@ -1674,7 +1725,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
             method="POST",
         )
         try:
-            with request.urlopen(repair_request, timeout=45) as response:
+            with request.urlopen(repair_request, timeout=90) as response:
                 repair_body = json.loads(response.read().decode("utf-8"))
                 trace["anthropic_repair_status"] = getattr(response, "status", 200)
         except error.HTTPError as exc:
