@@ -235,6 +235,45 @@ const parseRepresentedPersonIdentity = (value = "") => {
   return next;
 };
 
+const inferActingCapacityFromText = (value = "") => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (!normalized) return "";
+  if (normalized.includes("nombre propio")) return "nombre_propio";
+  if (normalized.includes("representante legal") || normalized.includes("tutor") || normalized.includes("curador")) {
+    return "representante_legal";
+  }
+  if (normalized.includes("acudiente")) return "acudiente";
+  if (
+    /madre|mama|padre|papa/.test(normalized)
+    && /(mi hijo|mi hija|del menor|de mi hijo|de mi hija|mi nino|mi nina|mi niño|mi niña)/.test(normalized)
+  ) {
+    return "madre_padre_menor";
+  }
+  if (
+    normalized.includes("agente oficioso")
+    || normalized.includes("a favor de")
+    || normalized.includes("en representacion de")
+    || normalized.includes("en representación de")
+    || normalized.includes("por mi mama")
+    || normalized.includes("por mi madre")
+    || normalized.includes("por mi papa")
+    || normalized.includes("por mi padre")
+    || normalized.includes("por mi esposa")
+    || normalized.includes("por mi esposo")
+    || normalized.includes("por mi hermana")
+    || normalized.includes("por mi hermano")
+    || normalized.includes("por otra persona")
+    || normalized.includes("por mi familiar")
+  ) {
+    return "agente_oficioso";
+  }
+  return "";
+};
+
 const mergeDetectedFormValues = (currentForm = {}, detectedForm = {}) => {
   const next = { ...currentForm };
   Object.entries(detectedForm || {}).forEach(([key, value]) => {
@@ -3587,6 +3626,16 @@ function DetailPanel({
     if (!nextAnswer) return;
     if (activeInterviewStep) {
       setPostPayForm((current) => {
+        if (activeInterviewStep.id === "acting_capacity") {
+          const inferredCapacity = inferActingCapacityFromText(nextAnswer);
+          const identityBits = parseRepresentedPersonIdentity(nextAnswer);
+          return {
+            ...current,
+            ...(inferredCapacity ? { acting_capacity: inferredCapacity } : {}),
+            ...(Object.keys(identityBits).length ? identityBits : {}),
+            case_story: [current.case_story, nextAnswer].filter(Boolean).join("\n"),
+          };
+        }
         if (activeInterviewStep.id === "represented_person_identity") {
           return {
             ...current,

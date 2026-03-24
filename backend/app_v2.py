@@ -499,6 +499,48 @@ def _parse_represented_person_identity(value: str) -> dict[str, str]:
     return derived
 
 
+def _infer_acting_capacity_from_text(value: str) -> str:
+    normalized = (
+        str(value or "")
+        .strip()
+        .lower()
+    )
+    if not normalized:
+        return ""
+    normalized = normalized.translate(str.maketrans({"á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ñ": "n"}))
+    if "nombre propio" in normalized:
+        return "nombre_propio"
+    if any(term in normalized for term in ("representante legal", "tutor", "curador")):
+        return "representante_legal"
+    if "acudiente" in normalized:
+        return "acudiente"
+    if re.search(r"(madre|mama|padre|papa)", normalized) and re.search(
+        r"(mi hijo|mi hija|del menor|de mi hijo|de mi hija|mi nino|mi nina)",
+        normalized,
+    ):
+        return "madre_padre_menor"
+    if any(
+        term in normalized
+        for term in (
+            "agente oficioso",
+            "a favor de",
+            "en representacion de",
+            "por mi mama",
+            "por mi madre",
+            "por mi papa",
+            "por mi padre",
+            "por mi esposa",
+            "por mi esposo",
+            "por mi hermana",
+            "por mi hermano",
+            "por otra persona",
+            "por mi familiar",
+        )
+    ):
+        return "agente_oficioso"
+    return ""
+
+
 def _derive_extra_autofill_fields(
     *,
     form_data: dict[str, Any],
@@ -578,12 +620,37 @@ def _merge_form_with_attachment_suggestions(
     attachment_context: dict[str, Any] | None,
 ) -> dict[str, Any]:
     merged = _resolve_entity_directory_prefill(form_data or {})
+    raw_capacity = str(merged.get("acting_capacity") or "").strip()
+    normalized_capacity = raw_capacity.lower()
+    allowed_capacities = {"", "nombre_propio", "agente_oficioso", "representante_legal", "acudiente", "madre_padre_menor"}
+    if raw_capacity and normalized_capacity not in allowed_capacities:
+        inferred_from_field = _infer_acting_capacity_from_text(raw_capacity)
+        if inferred_from_field:
+            merged["acting_capacity"] = inferred_from_field
+        for key, value in _parse_represented_person_identity(raw_capacity).items():
+            if value and not str(merged.get(key) or "").strip():
+                merged[key] = value
     identity_blob = str(merged.get("represented_person_identity") or "").strip()
     if identity_blob:
         for key, value in _parse_represented_person_identity(identity_blob).items():
             if value and not str(merged.get(key) or "").strip():
                 merged[key] = value
     category_key = str(category or "").strip().lower()
+    combined_text = ". ".join(
+        [
+            item
+            for item in [
+                str(description or "").strip(),
+                str(merged.get("case_story") or "").strip(),
+                str((attachment_context or {}).get("combined_text") or "").strip(),
+            ]
+            if item
+        ]
+    )
+    if str(merged.get("acting_capacity") or "").strip().lower() in {"", "nombre_propio"}:
+        inferred_from_text = _infer_acting_capacity_from_text(combined_text)
+        if inferred_from_text and inferred_from_text != "nombre_propio":
+            merged["acting_capacity"] = inferred_from_text
     suggestions = suggest_fields_from_context(
         category=category,
         description=description,
