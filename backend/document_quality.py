@@ -508,12 +508,19 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
             ):
                 factual_score -= 10
                 blocking_issues.append("La tutela no debe presentar a la misma persona como accionante y representada al mismo tiempo.")
-            if _contains_any(
-                normalized_document,
-                ["tipo de peticion o enfoque principal", "tipo de peticion", "enfoque principal", "interes_particular", "interes general"],
-            ):
+            internal_fragments = [
+                fragment
+                for fragment in ["tipo de peticion o enfoque principal", "tipo de peticion", "enfoque principal", "interes_particular", "interes general"]
+                if fragment in normalized_document
+            ]
+            if internal_fragments:
                 structure_score -= 8
-                blocking_issues.append("La tutela contiene texto interno del sistema o etiquetas operativas que no deben aparecer en la version final.")
+                blocking_issues.append(
+                    "La tutela contiene texto interno del sistema o etiquetas operativas que no deben aparecer en la version final. "
+                    + "Fragmentos detectados: "
+                    + ", ".join(internal_fragments[:3])
+                    + "."
+                )
             if _contains_any(normalized_document, ["vi. procedencia"]) and not _contains_any(normalized_document, ["subsidiariedad:", "inmediatez:"]):
                 structure_score -= 8
                 blocking_issues.append("La tutela dejo incompleta la seccion de procedencia.")
