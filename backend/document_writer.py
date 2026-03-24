@@ -1085,6 +1085,66 @@ def _formalize_health_urgency(case: dict[str, Any], value: str) -> str:
     return _sentence(_title_sentence(cleaned), fallback="")
 
 
+def _health_prior_attempts_summary(case: dict[str, Any]) -> str:
+    facts = (case.get("facts") or {})
+    intake = facts.get("intake_form") or {}
+    attachment_suggestions = _health_attachment_suggestions(case)
+    synthesis = _health_case_synthesis(case)
+    candidate_lines: list[str] = []
+    candidate_lines.extend([str(item).strip() for item in (synthesis.get("chronology") or []) if str(item).strip()])
+    candidate_lines.extend(_filtered_health_context_lines(case))
+    candidate_lines.extend(
+        [
+            str(intake.get("eps_response_detail") or "").strip(),
+            str(intake.get("tutela_other_means_detail") or "").strip(),
+            str(intake.get("prior_claim_result") or "").strip(),
+            str(attachment_suggestions.get("prior_claim_result") or "").strip(),
+        ]
+    )
+    attempt_tokens = (
+        "consulta",
+        "cita",
+        "valoracion",
+        "valoración",
+        "control",
+        "remision",
+        "remisión",
+        "especialista",
+        "endocr",
+        "neurolog",
+        "neurocir",
+        "medicina interna",
+        "junta medica",
+        "junta médica",
+        "autoriz",
+        "solicitud",
+        "radicado",
+        "interconsulta",
+    )
+    selected: list[str] = []
+    for raw_line in candidate_lines:
+        line = _sentence(_title_sentence(_clean_health_raw_text(raw_line)), fallback="").strip()
+        normalized = _normalize_writer_text(line)
+        if not line or len(normalized) < 24:
+            continue
+        if not any(token in normalized for token in attempt_tokens):
+            continue
+        if "barrera administrativa atribuible a la eps" in normalized:
+            continue
+        if not _is_redundant_health_line(line, selected):
+            selected.append(line)
+        if len(selected) >= 3:
+            break
+    if not selected:
+        return ""
+    if len(selected) == 1:
+        return f"Antes de acudir a la tutela, ya se realizaron las siguientes gestiones medicas y administrativas: {selected[0]}"
+    return (
+        "Antes de acudir a la tutela, ya se realizaron varias gestiones medicas y administrativas sin solucion efectiva, entre ellas: "
+        + "; ".join(selected)
+    )
+
+
 def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     ctx = _health_context(case)
     intake = ctx["intake"]
@@ -2194,6 +2254,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     ).strip()
     barrier_summary = _sentence(str(synthesis.get("barrier_summary") or "").strip(), fallback="").strip()
     risk_summary = _sentence(str(synthesis.get("risk_summary") or "").strip(), fallback="").strip()
+    prior_attempts_summary = _health_prior_attempts_summary(case)
     description_lower = str(case.get("descripcion") or "").lower()
     focus = str(synthesis.get("focus") or "").strip().lower()
     medication_order_confirmed = bool(
@@ -2223,6 +2284,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
         represented_fragment = f", {role} de {represented_person_name}{age_fragment}, persona afectada por la barrera en salud descrita"
     subsidiarity_base = (
         _clean_health_raw_text(str(intake.get("tutela_other_means_detail") or "").strip())
+        or prior_attempts_summary
         or (
             f"El dia {eps_request_date} se solicito ante {ctx['accionado']} la autorizacion o prestacion de {treatment_needed or 'el servicio de salud requerido'}"
             + (f" a traves de {eps_request_channel}" if eps_request_channel else "")
@@ -2239,11 +2301,11 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
         or "La gestion previa ante la EPS no removio la barrera actual ni garantizo el acceso oportuno al servicio ordenado."
     )
     subsidiarity = _sentence(
-        f"{subsidiarity_base} Los mecanismos ordinarios ante la EPS o de reclamacion administrativa no resultan eficaces en este caso concreto, porque la proteccion requerida es inmediata y no admite una espera adicional sin agravamiento del dano.",
+        f"{subsidiarity_base} Los mecanismos ordinarios ante la EPS o de reclamacion administrativa no resultan eficaces en este caso concreto, porque las gestiones ya intentadas no removieron la barrera actual y la proteccion requerida es inmediata, sin admitir una espera adicional sin agravamiento del dano.",
         "La accion de tutela resulta procedente porque la gestion previa ante la EPS no soluciono la barrera actual y la proteccion no admite mas demora.",
     )
     immediacy = _sentence(
-        f"{_sentence(urgency_detail or 'La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.', fallback='La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.')} La accion se presenta porque la afectacion sigue vigente y requiere proteccion judicial oportuna.",
+        f"{_sentence(urgency_detail or risk_summary or 'La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.', fallback='La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.')} La accion se presenta porque la afectacion sigue vigente, el dano continua produciendose hoy y requiere proteccion judicial oportuna.",
         "La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.",
     )
     no_temerity = "Bajo la gravedad del juramento manifiesto que no he interpuesto otra accion de tutela por los mismos hechos, derechos y contra la misma entidad accionada, en los terminos del articulo 17 del Decreto 2591 de 1991."

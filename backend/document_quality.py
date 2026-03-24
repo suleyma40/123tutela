@@ -402,10 +402,34 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
         if not _contains_any(lowered, ["no temeridad", "juramento"]):
             legal_score -= 8
             blocking_issues.append("La tutela no deja claro si ya existio otra tutela por este mismo problema.")
-        if not _contains_any(lowered, ["subsidiariedad", "otro medio", "perjuicio irremediable"]):
+        if not _contains_any(
+            lowered,
+            [
+                "subsidiariedad",
+                "otro medio",
+                "perjuicio irremediable",
+                "gestion previa",
+                "gestiones medicas y administrativas",
+                "mecanismos ordinarios ante la eps",
+                "no removieron la barrera actual",
+                "no resultan eficaces en este caso concreto",
+            ],
+        ):
             legal_score -= 8
             blocking_issues.append("La tutela no explica bien que se intento antes o por que el dano requiere intervencion inmediata.")
-        if not _contains_any(lowered, ["inmediatez", "actualmente", "sigue ocurriendo", "reciente"]):
+        if not _contains_any(
+            lowered,
+            [
+                "inmediatez",
+                "actualmente",
+                "sigue ocurriendo",
+                "reciente",
+                "afectacion sigue vigente",
+                "dano continua produciendose hoy",
+                "riesgo permanece vigente",
+                "proteccion judicial oportuna",
+            ],
+        ):
             legal_score -= 4
             warnings.append("La tutela debe explicar mejor que dano o riesgo sigue ocurriendo hoy.")
     elif action_key == "derecho de peticion":
