@@ -4927,6 +4927,7 @@ export default function DashboardV2(props) {
     if (!file || !activeCaseDetail?.case?.id) return;
     await onUploadEvidence(activeCaseDetail.case.id, file, evidenceNote);
     setEvidenceNote("");
+    event.target.value = "";
   };
 
   const openCaseAndFocusDetail = async (caseId, scope = "citizen") => {
