@@ -823,6 +823,14 @@ def _infer_health_relationship(case: dict[str, Any], patient_name: str) -> str:
         return "madre y acudiente"
     acting_capacity = str(intake.get("acting_capacity") or "").strip().lower()
     special_protection = str(intake.get("special_protection") or "").strip().lower()
+    capacity_map = {
+        "agente_oficioso": "agente oficioso",
+        "representante_legal": "representante legal",
+        "acudiente": "acudiente",
+        "madre_padre_menor": "madre o padre",
+    }
+    if acting_capacity in capacity_map:
+        return capacity_map[acting_capacity]
     if acting_capacity and acting_capacity != "nombre_propio" and special_protection == "menor de edad":
         return "acudiente"
     return ""
@@ -890,7 +898,33 @@ def _should_present_health_representation(case: dict[str, Any], patient_identity
         return True
     if special_protection == "menor de edad" and different_person:
         return True
+    if different_person and (represented_person_name or represented_person_document):
+        return True
     return False
+
+
+def _sanitize_health_generated_document(document: str) -> str:
+    text = str(document or "")
+    if not text:
+        return ""
+    cleaned_lines: list[str] = []
+    banned_fragments = (
+        "tipo de peticion o enfoque principal",
+        "tipo de peticion",
+        "enfoque principal",
+        "interes_particular",
+        "interes general",
+        "si aplica",
+    )
+    for raw_line in text.splitlines():
+        line = str(raw_line or "")
+        normalized = _normalize_writer_text(line)
+        if any(fragment in normalized for fragment in banned_fragments):
+            continue
+        cleaned_lines.append(line)
+    sanitized = "\n".join(cleaned_lines)
+    sanitized = re.sub(r"\n{3,}", "\n\n", sanitized)
+    return sanitized.strip() + ("\n" if sanitized.strip() else "")
 
 
 def _infer_age_from_birth_date(value: str) -> str:
@@ -1781,6 +1815,8 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
         trace["anthropic_rejection_reason"] = "empty_text_response"
         return None, trace
     drafted = "".join(text_parts).strip()
+    if action_key == "accion de tutela":
+        drafted = _sanitize_health_generated_document(drafted).strip()
     trace["anthropic_response_preview"] = drafted[:1200]
     if not _looks_like_complete_health_document(drafted, action_key):
         trace["anthropic_rejection_reason"] = "failed_quality_gate_first_pass"
@@ -1862,6 +1898,8 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
             trace["anthropic_rejection_reason"] = "repair_empty_text_response"
             return None, trace
         drafted = "".join(repair_parts).strip()
+        if action_key == "accion de tutela":
+            drafted = _sanitize_health_generated_document(drafted).strip()
         trace["anthropic_repair_preview"] = drafted[:1200]
         if not _looks_like_complete_health_document(drafted, action_key):
             trace["anthropic_rejection_reason"] = "failed_quality_gate_second_pass"
@@ -1869,6 +1907,8 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
     trace["anthropic_response_accepted"] = True
     trace["anthropic_rejection_reason"] = ""
     trace["final_document_source"] = "anthropic"
+    if action_key == "accion de tutela":
+        drafted = _sanitize_health_generated_document(drafted).strip()
     return drafted, trace
 
 
@@ -2517,7 +2557,7 @@ def build_document_with_trace(case: dict[str, Any]) -> tuple[str, dict[str, Any]
         if rule["action_key"] == "accion de tutela":
             fallback = _build_health_tutela_document(case, rule)
             drafted, trace = _draft_health_document_with_claude(case, rule, fallback)
-            return drafted or fallback, trace
+            return _sanitize_health_generated_document(drafted or fallback).strip(), trace
         if rule["action_key"] == "impugnacion de tutela":
             fallback = _build_health_impugnacion_document(case, rule)
             drafted, trace = _draft_health_document_with_claude(case, rule, fallback)
