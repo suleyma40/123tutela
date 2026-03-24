@@ -1035,6 +1035,24 @@ def _enforce_health_tutela_consistency(document: str, case: dict[str, Any]) -> s
             text,
             flags=re.IGNORECASE | re.MULTILINE,
         )
+    text = re.sub(
+        r"(Yo,\s*)([^,\n]+?)(,\s*persona mayor de edad,.*?,\s*actuando en representacion de\s*)([^,\n]+?)(,)",
+        lambda match: (
+            f"{match.group(1)}{match.group(2).strip()}{match.group(3)}{match.group(4).strip()}{match.group(5)}"
+            if _normalize_writer_text(match.group(2)) != _normalize_writer_text(match.group(4))
+            else f"{match.group(1)}{match.group(2).strip()}{match.group(3).split(', actuando en representacion de')[0]}, actuando en nombre propio,"
+        ),
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    text = re.sub(
+        r"^\s*\d+\.\s*La presente accion se promueve a favor de\s+([^,\n]+).*$",
+        lambda match: ""
+        if _normalize_writer_text(match.group(1)) == _normalize_writer_text(ctx.get("user_name") or patient_name or account_name)
+        else match.group(0),
+        text,
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
     replacements = {
         "ips confama": "ips comfama",
         "confama": "comfama",
@@ -1048,6 +1066,13 @@ def _enforce_health_tutela_consistency(document: str, case: dict[str, Any]) -> s
     subsidiarity, immediacy = _health_tutela_procedencia_fragments(case)
     if "VI. PROCEDENCIA" in text and "Subsidiariedad:" not in text:
         text = text.replace("VI. PROCEDENCIA\n", f"VI. PROCEDENCIA\nSubsidiariedad: {subsidiarity}\n\n", 1)
+    text = re.sub(
+        r"Subsidiariedad:\s*(?:,\s*)?(?:porque\b.*)?",
+        f"Subsidiariedad: {subsidiarity}",
+        text,
+        count=1,
+        flags=re.IGNORECASE,
+    )
     if "VI. PROCEDENCIA" in text and "Inmediatez:" not in text:
         text = text.replace("VI. PROCEDENCIA\n", f"VI. PROCEDENCIA\nInmediatez: {immediacy}\n\n", 1)
     notification_line = (
