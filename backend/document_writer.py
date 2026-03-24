@@ -1151,6 +1151,9 @@ def _filtered_health_context_lines(case: dict[str, Any]) -> list[str]:
         "estado civil",
         "ecografia",
         "embarazo",
+        "los anexos parecen mostrar",
+        "el caso gira alrededor",
+        "en la actualidad persiste",
     )
     for item in raw:
         lowered = item.lower()
@@ -1165,6 +1168,35 @@ def _filtered_health_context_lines(case: dict[str, Any]) -> list[str]:
             continue
         filtered.append(item)
     return filtered
+
+
+def _is_concrete_health_timeline_line(line: str) -> bool:
+    normalized = _normalize_writer_text(str(line or ""))
+    if not normalized:
+        return False
+    if any(fragment in normalized for fragment in ["los anexos parecen mostrar", "el caso gira alrededor", "en la actualidad persiste"]):
+        return False
+    if re.search(r"\b(?:19|20)\d{2}\b", normalized):
+        return True
+    if re.search(r"\b\d{1,2}\s+de\s+[a-z]+\b", normalized):
+        return True
+    return any(
+        token in normalized
+        for token in [
+            "consulta",
+            "valoracion",
+            "endocrino",
+            "endocrinologia",
+            "medicina interna",
+            "bypass",
+            "cirugia",
+            "aneurisma",
+            "mounjaro",
+            "autorizacion",
+            "remision",
+            "cita",
+        ]
+    )
 
 
 def _line_keywords(value: str) -> set[str]:
@@ -1314,21 +1346,23 @@ def _health_prior_attempts_summary(case: dict[str, Any]) -> str:
         normalized = _normalize_writer_text(line)
         if not line or len(normalized) < 24:
             continue
+        if any(fragment in normalized for fragment in ["los anexos parecen mostrar", "el caso gira alrededor", "en la actualidad persiste"]):
+            continue
         if not any(token in normalized for token in attempt_tokens):
             continue
         if "barrera administrativa atribuible a la eps" in normalized:
             continue
         if not _is_redundant_health_line(line, selected):
             selected.append(line)
-        if len(selected) >= 3:
+        if len(selected) >= 2:
             break
     if not selected:
         return ""
     if len(selected) == 1:
         return f"Antes de acudir a la tutela, ya se realizaron las siguientes gestiones medicas y administrativas: {selected[0]}"
     return (
-        "Antes de acudir a la tutela, ya se realizaron varias gestiones medicas y administrativas sin solucion efectiva, entre ellas: "
-        + "; ".join(selected)
+        "Antes de acudir a la tutela, ya se realizaron varias gestiones medicas y administrativas sin solucion efectiva. "
+        + " ".join(selected)
     )
 
 
@@ -1339,7 +1373,7 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     attachment_suggestions = _health_attachment_suggestions(case)
     synthesis = _health_case_synthesis(case)
     evidence_record = _health_evidence_record(case)
-    chronology_lines = _filtered_health_context_lines(case)
+    chronology_lines = [line for line in _filtered_health_context_lines(case) if _is_concrete_health_timeline_line(line)]
     focus = str(synthesis.get("focus") or "").strip().lower()
 
     acting_capacity = str(intake.get("acting_capacity") or "").strip()
@@ -1391,7 +1425,8 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     elif diagnosis or treatment_needed:
         diagnosis_fragment = f" por razon del diagnostico de {diagnosis}" if diagnosis else ""
         service_fragment = treatment_needed or "un servicio de salud requerido"
-        lines.append(f"El caso gira alrededor de la necesidad de garantizar {service_fragment}{diagnosis_fragment}.")
+        if not chronology_lines:
+            lines.append(f"El caso gira alrededor de la necesidad de garantizar {service_fragment}{diagnosis_fragment}.")
     if eps_request_date:
         channel_fragment = f" a traves de {eps_request_channel}" if eps_request_channel else ""
         reference_fragment = f", bajo el radicado o referencia {eps_request_reference}" if eps_request_reference else ""
@@ -1421,7 +1456,7 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     merged = list(lines)
     for item in synthesis_chronology:
         formal_item = _sentence(_title_sentence(item), fallback="").strip()
-        if formal_item and not _is_redundant_health_line(formal_item, merged):
+        if formal_item and _is_concrete_health_timeline_line(formal_item) and not _is_redundant_health_line(formal_item, merged):
             merged.append(formal_item)
     if focus != "circulo_burocratico":
         for item in chronology_lines:
