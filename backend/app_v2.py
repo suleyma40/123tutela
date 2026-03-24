@@ -702,6 +702,46 @@ def _is_ai_owned_quality_issue(issue: object) -> bool:
     return any(pattern in lowered for pattern in ai_owned_patterns)
 
 
+def _blocking_issue_fix_location(issue: object, recommended_action: str = "") -> str:
+    lowered = str(issue or "").lower()
+    action = str(recommended_action or "").lower()
+    if any(token in lowered for token in ["eps", "ips", "entidad accionada", "entidad destinataria"]):
+        return "Entidad y canal de radicacion"
+    if any(token in lowered for token in ["diagnostico", "condicion medica", "condición médica"]):
+        return "Detalle del caso de salud"
+    if any(token in lowered for token in ["medicamento", "servicio concreto", "procedimiento requerido", "tratamiento"]):
+        return "Detalle del caso de salud"
+    if any(token in lowered for token in ["riesgo", "urgencia", "dano", "daño", "afectacion actual", "afectación actual"]):
+        return "Paso de tutela y urgencia actual" if "tutela" in action else "Detalle del caso"
+    if any(token in lowered for token in ["gestion previa", "subsidiariedad", "reclamo previo", "peticion o medida previa", "petición o medida previa"]):
+        return "Paso de tutela y urgencia actual" if "tutela" in action else "Completa datos del caso"
+    if any(token in lowered for token in ["no temeridad", "juramento", "tutela previa"]):
+        return "Preguntas finas para tutela"
+    if any(token in lowered for token in ["menor", "representada", "representado", "fecha de nacimiento", "documento de la persona"]):
+        return "Preguntas finas para tutela"
+    if any(token in lowered for token in ["soporte medico", "historia clinica", "historia clínica", "orden medica", "orden médica", "pruebas medicas", "pruebas médicas"]):
+        return "Pruebas y anexos"
+    if "peticion" in action:
+        return "Paso de derecho de peticion"
+    return "Completa datos del caso"
+
+
+def _format_blocking_detail_with_actions(
+    *,
+    prefix: str,
+    blocking_issues: list[str],
+    recommended_action: str = "",
+) -> str:
+    detail_parts = list(blocking_issues or [])
+    actionable_text = [
+        f"{issue} (completalo en: {_blocking_issue_fix_location(issue, recommended_action)})"
+        for issue in detail_parts[:4]
+    ]
+    if actionable_text:
+        detail_parts = detail_parts + ["Corrige ahora: " + " | ".join(actionable_text)]
+    return prefix + " | ".join(detail_parts)
+
+
 def _enrich_architecture_outputs(
     *,
     category: str,
@@ -1719,8 +1759,11 @@ def generate_document(
     if generation_gate.get("blocking_issues"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Todavia faltan datos minimos para generar este documento: "
-            + " | ".join(generation_gate["blocking_issues"]),
+            detail=_format_blocking_detail_with_actions(
+                prefix="Todavia faltan datos minimos para generar este documento: ",
+                blocking_issues=list(generation_gate.get("blocking_issues") or []),
+                recommended_action=case.get("recommended_action") or "",
+            ),
         )
     document_rule_review = evaluate_document_rule(
         recommended_action=case.get("recommended_action"),
@@ -1735,8 +1778,11 @@ def generate_document(
     if document_rule_review.get("blocking_issues"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Todavia faltan datos minimos para generar este documento: "
-            + " | ".join(document_rule_review["blocking_issues"]),
+            detail=_format_blocking_detail_with_actions(
+                prefix="Todavia faltan datos minimos para generar este documento: ",
+                blocking_issues=list(document_rule_review.get("blocking_issues") or []),
+                recommended_action=case.get("recommended_action") or "",
+            ),
         )
     document, draft_trace = build_document_with_trace(case)
     quality_review = evaluate_generated_document(case, document)

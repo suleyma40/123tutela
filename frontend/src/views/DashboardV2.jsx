@@ -305,7 +305,26 @@ const getFieldFixLocation = (field = "", recommendedAction = "") => {
   return "Completa datos del caso";
 };
 
-const buildActionableGaps = (caseItem = {}, pendingQuestions = []) => {
+const parseActionErrorToGaps = (actionError = "", recommendedAction = "") => {
+  const text = String(actionError || "").trim();
+  if (!text) return [];
+  const cleaned = text
+    .replace(/^Todavia faltan datos minimos para generar este documento:\s*/i, "")
+    .replace(/^La validacion final del documento detecto ajustes pendientes:\s*/i, "");
+  return cleaned
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !/^Corrige ahora:/i.test(item))
+    .slice(0, 6)
+    .map((item) => ({
+      label: item,
+      prompt: item,
+      where_to_fix: getFieldFixLocation("", recommendedAction),
+    }));
+};
+
+const buildActionableGaps = (caseItem = {}, pendingQuestions = [], actionError = "") => {
   const recommendedAction = caseItem?.recommended_action || caseItem?.workflow_type || "";
   const finalValidation = caseItem?.final_validation || caseItem?.submission_summary?.final_validation || {};
   const existing = finalValidation?.actionable_gaps || [];
@@ -316,13 +335,17 @@ const buildActionableGaps = (caseItem = {}, pendingQuestions = []) => {
       where_to_fix: item.where_to_fix || getFieldFixLocation(item.field, recommendedAction),
     }));
   }
-  return (pendingQuestions || [])
+  const fromPendingQuestions = (pendingQuestions || [])
     .filter((item) => item?.priority === "alta")
     .map((item) => ({
       label: item.reason || item.question || "Dato critico faltante",
       prompt: item.question || item.reason || "Completa este dato antes de entregar.",
       where_to_fix: getFieldFixLocation(item.field, recommendedAction),
     }));
+  if (fromPendingQuestions.length) return fromPendingQuestions;
+  const parsedFromError = parseActionErrorToGaps(actionError, recommendedAction);
+  if (parsedFromError.length) return parsedFromError;
+  return [];
 };
 
 const buildSubmissionSignatureNote = (signatureForm = {}, baseNote = "") => {
@@ -3477,7 +3500,7 @@ function DetailPanel({
   const detailNorms = item.legal_analysis?.normas_relevantes || [];
   const detailDx = item.dx_result || {};
   const finalValidation = item.final_validation || submissionSummary.final_validation || null;
-  const actionableGaps = buildActionableGaps(item, backendPendingQuestions);
+  const actionableGaps = buildActionableGaps(item, backendPendingQuestions, actionError);
   const detailViability = getViabilityConfig(detailDx);
   const detailPrimaryTarget = item.routing?.primary_target || {};
   const requiresJudicialConfirmation = detailPrimaryTarget?.type === "juzgado";
@@ -4162,7 +4185,7 @@ function DetailPanel({
                       />
                     </Field>
                   </div>
-                  {!!actionableGaps.length && (finalValidation?.status === "requires_changes" || !review?.passed) && (
+                  {!!actionableGaps.length && (finalValidation?.status === "requires_changes" || !review?.passed || !!visibleActionError) && (
                     <div style={{ padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FDBA74", display: "grid", gap: 12 }}>
                       <div style={{ fontSize: 14, fontWeight: 800, color: "#9A3412" }}>
                         Faltan datos criticos para corregir este documento
@@ -5316,8 +5339,20 @@ export default function DashboardV2(props) {
               {tempFiles.map((item) => <Badge key={item.id} color={C.accent}>{item.original_name}</Badge>)}
             </div>
             {visibleActionError && (
-                <div style={{ color: C.danger, background: "#FEF2F2", border: "1px solid #FECACA", padding: 14, borderRadius: 14 }}>
-                {visibleActionError}
+                <div style={{ color: C.danger, background: "#FEF2F2", border: "1px solid #FECACA", padding: 14, borderRadius: 14, display: "grid", gap: 12 }}>
+                <div>{visibleActionError}</div>
+                {!!actionableGaps.length && (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ fontWeight: 800 }}>Para avanzar, completa esto:</div>
+                    {actionableGaps.slice(0, 4).map((gap, index) => (
+                      <div key={`${gap.label}-${index}`} style={{ padding: 12, borderRadius: 12, background: "#FFF", border: "1px solid #FECACA" }}>
+                        <div style={{ fontWeight: 700, color: C.text }}>{gap.label}</div>
+                        <div style={{ marginTop: 6, color: C.textMuted }}>{gap.prompt}</div>
+                        <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700 }}>Donde lo completas: {gap.where_to_fix}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 </div>
             )}
             <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>

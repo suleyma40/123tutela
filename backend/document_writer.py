@@ -332,6 +332,11 @@ def _health_case_synthesis(case: dict[str, Any]) -> dict[str, Any]:
     return ((facts.get("attachment_intelligence") or {}).get("health_case_synthesis") or {})
 
 
+def _health_evidence_record(case: dict[str, Any]) -> dict[str, Any]:
+    facts = case.get("facts") or {}
+    return ((facts.get("attachment_intelligence") or {}).get("health_evidence_record") or {})
+
+
 def _same_identity(name_a: str, name_b: str, doc_a: str, doc_b: str) -> bool:
     normalized_a = _normalize_writer_text(name_a)
     normalized_b = _normalize_writer_text(name_b)
@@ -678,11 +683,17 @@ def _health_context(case: dict[str, Any]) -> dict[str, Any]:
     primary = routing.get("primary_target") or {}
     attachment_suggestions = _health_attachment_suggestions(case)
     synthesis = _health_case_synthesis(case)
+    evidence_record = _health_evidence_record(case)
     document_profile = resolve_health_document(
         workflow_type=case.get("workflow_type"),
         recommended_action=case.get("recommended_action"),
     )
-    accionado = str(intake.get("target_entity") or primary.get("name") or _join_list(facts.get("entidades_involucradas"), fallback="Entidad accionada")).strip()
+    accionado = str(
+        intake.get("target_entity")
+        or evidence_record.get("target_entity")
+        or primary.get("name")
+        or _join_list(facts.get("entidades_involucradas"), fallback="Entidad accionada")
+    ).strip()
     account_name = _person_name(case.get("usuario_nombre") or intake.get("full_name"))
     account_doc = case.get("usuario_documento") or intake.get("document_number") or "Sin documento registrado"
     account_email = case.get("usuario_email") or intake.get("email") or "Sin correo"
@@ -691,12 +702,16 @@ def _health_context(case: dict[str, Any]) -> dict[str, Any]:
     account_city = _titleish_place(case.get("usuario_ciudad") or intake.get("city"))
     account_department = _titleish_place(case.get("usuario_departamento") or intake.get("department"))
     patient_name = _clean_health_person_name(
-        attachment_suggestions.get("represented_person_name")
+        intake.get("represented_person_name")
+        or evidence_record.get("patient_name")
+        or attachment_suggestions.get("represented_person_name")
         or synthesis.get("patient_name")
         or ""
     )
     patient_doc = str(
-        attachment_suggestions.get("represented_person_document")
+        intake.get("represented_person_document")
+        or evidence_record.get("patient_document")
+        or attachment_suggestions.get("represented_person_document")
         or synthesis.get("patient_document")
         or ""
     ).strip()
@@ -819,9 +834,12 @@ def _health_patient_identity_fragments(case: dict[str, Any]) -> dict[str, str]:
     attachment_context = facts.get("attachment_intelligence") or {}
     autofill = intake.get("_autofill") or {}
     synthesis = _health_case_synthesis(case)
+    evidence_record = _health_evidence_record(case)
 
     typed = _health_attachment_suggestions(case)
     name = _infer_health_patient_name(case)
+    if not name:
+        name = _clean_health_person_name(evidence_record.get("patient_name") or "")
     if not name:
         name = _clean_health_person_name(synthesis.get("patient_name") or "")
     age = str(
@@ -833,6 +851,7 @@ def _health_patient_identity_fragments(case: dict[str, Any]) -> dict[str, str]:
     document_number = str(
         intake.get("represented_person_document")
         or autofill.get("represented_person_document")
+        or evidence_record.get("patient_document")
         or typed.get("represented_person_document")
         or synthesis.get("patient_document")
         or ""
@@ -1038,6 +1057,7 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     facts = ctx["facts"]
     attachment_suggestions = _health_attachment_suggestions(case)
     synthesis = _health_case_synthesis(case)
+    evidence_record = _health_evidence_record(case)
     chronology_lines = _filtered_health_context_lines(case)
     focus = str(synthesis.get("focus") or "").strip().lower()
 
@@ -1049,21 +1069,22 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     represented_person_document = patient_identity["document"]
     represented_person_birth_date = patient_identity["birth_date"]
     target_entity = ctx["accionado"]
-    diagnosis = str(intake.get("diagnosis") or attachment_suggestions.get("diagnosis") or "").strip()
+    diagnosis = str(intake.get("diagnosis") or evidence_record.get("diagnosis") or attachment_suggestions.get("diagnosis") or "").strip()
     treatment_needed = _normalize_health_service_text(
         intake.get("treatment_needed")
+        or evidence_record.get("requested_service")
         or attachment_suggestions.get("treatment_needed")
         or synthesis.get("requested_service")
         or ""
     )
-    medical_order_date = _normalize_health_display_date(str(intake.get("medical_order_date") or attachment_suggestions.get("medical_order_date") or "").strip())
-    treating_doctor_name = _clean_health_person_name(intake.get("treating_doctor_name") or intake.get("treating_physician") or attachment_suggestions.get("treating_doctor_name") or attachment_suggestions.get("treating_physician") or "")
-    treating_ips_name = str(intake.get("treating_ips_name") or intake.get("ips_name") or attachment_suggestions.get("treating_ips_name") or "").strip()
+    medical_order_date = _normalize_health_display_date(str(intake.get("medical_order_date") or evidence_record.get("medical_order_date") or attachment_suggestions.get("medical_order_date") or "").strip())
+    treating_doctor_name = _clean_health_person_name(intake.get("treating_doctor_name") or intake.get("treating_physician") or evidence_record.get("treating_doctor_name") or attachment_suggestions.get("treating_doctor_name") or attachment_suggestions.get("treating_physician") or "")
+    treating_ips_name = str(intake.get("treating_ips_name") or intake.get("ips_name") or evidence_record.get("treating_ips_name") or attachment_suggestions.get("treating_ips_name") or "").strip()
     eps_request_date = _normalize_health_display_date(str(intake.get("eps_request_date") or attachment_suggestions.get("eps_request_date") or "").strip())
     eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
     eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
-    eps_response_detail = _formalize_health_response(str(intake.get("eps_response_detail") or "").strip())
-    urgency_detail = _formalize_health_urgency(case, str(intake.get("urgency_detail") or intake.get("ongoing_harm") or "").strip())
+    eps_response_detail = _formalize_health_response(str(intake.get("eps_response_detail") or evidence_record.get("barrier_summary") or "").strip())
+    urgency_detail = _formalize_health_urgency(case, str(intake.get("urgency_detail") or intake.get("ongoing_harm") or evidence_record.get("risk_summary") or "").strip())
     special_protection = str(intake.get("special_protection") or "").strip()
     has_representation = _should_present_health_representation(case, patient_identity)
     barrier_summary = _sentence(str(synthesis.get("barrier_summary") or "").strip(), fallback="").strip()

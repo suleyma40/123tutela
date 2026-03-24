@@ -639,6 +639,147 @@ def _merge_health_synthesis_into_suggestions(
     return merged
 
 
+def _normalize_health_match_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", _normalize_ascii_text(value).lower()).strip()
+
+
+def _pick_preferred_health_entity(
+    typed_suggestions: dict[str, Any],
+    entities_detected: list[str],
+) -> str:
+    explicit = str(typed_suggestions.get("target_entity") or typed_suggestions.get("eps_name") or "").strip()
+    if explicit:
+        return explicit
+    if not entities_detected:
+        return ""
+    ranked = sorted(
+        entities_detected,
+        key=lambda item: (
+            "eps" not in _normalize_health_match_key(item),
+            "ips" in _normalize_health_match_key(item),
+            len(item),
+        ),
+    )
+    return str(ranked[0]).strip()
+
+
+def _build_health_evidence_record(
+    *,
+    typed_suggestions: dict[str, Any],
+    health_case_synthesis: dict[str, Any],
+    attachment_profiles: list[dict[str, Any]],
+) -> dict[str, Any]:
+    def _plausible_patient_name(value: str) -> str:
+        cleaned = _clean_person_candidate(value)
+        lowered = _normalize_health_match_key(cleaned)
+        banned = ("diagnostico", "principal", "atencion", "consulta", "orden medica", "historia clinica")
+        return "" if any(token in lowered for token in banned) else cleaned
+
+    def _plausible_entity(value: str) -> str:
+        cleaned = re.sub(r"\s+", " ", str(value or "")).strip(" .,:;")
+        lowered = _normalize_health_match_key(cleaned)
+        if not cleaned:
+            return ""
+        if not any(token in lowered for token in ("eps", "ips", "clinica", "hospital", "comfama", "sura", "sanitas", "famisanar", "compensar", "nueva eps")):
+            return ""
+        if any(token in lowered for token in ("demora", "autorizacion", "solucion", "consulta del", "paciente con", "mantiene")):
+            return ""
+        return cleaned
+
+    def _plausible_service(value: str) -> str:
+        cleaned = _normalize_health_service_candidate(str(value or "").strip())
+        lowered = _normalize_health_match_key(cleaned)
+        if not cleaned:
+            return ""
+        if len(lowered) < 8:
+            return ""
+        if any(token in lowered for token in ("orden medica del", "consulta del", "historia clinica", "diagnostico principal", "del 16", "del 10")):
+            return ""
+        return cleaned
+
+    def _plausible_diagnosis(value: str) -> str:
+        cleaned = re.sub(r"\s+", " ", str(value or "")).strip(" .,:;")
+        lowered = _normalize_health_match_key(cleaned)
+        if not cleaned:
+            return ""
+        if any(token in lowered for token in ("diagnostico principal", "barrera de acceso", "necesidad de atencion", "medicina interna")):
+            return ""
+        return cleaned
+
+    synthesis = health_case_synthesis or {}
+    chronology = [str(item).strip() for item in (synthesis.get("chronology") or []) if str(item).strip()]
+    dates_detected = [str(item).strip() for item in (synthesis.get("dates_detected") or []) if str(item).strip()]
+    entities_detected = [str(item).strip() for item in (synthesis.get("entities_detected") or []) if str(item).strip()]
+    support_types = [
+        str((profile or {}).get("type") or "").strip()
+        for profile in (attachment_profiles or [])
+        if str((profile or {}).get("type") or "").strip()
+    ]
+    patient_name = _plausible_patient_name(
+        str(
+            typed_suggestions.get("represented_person_name")
+            or synthesis.get("patient_name")
+            or ""
+        )
+    )
+    patient_document = str(
+        typed_suggestions.get("represented_person_document")
+        or synthesis.get("patient_document")
+        or ""
+    ).strip()
+    requested_service = _plausible_service(
+        str(
+            typed_suggestions.get("treatment_needed")
+            or synthesis.get("requested_service")
+            or ""
+        ).strip()
+    )
+    diagnosis = _plausible_diagnosis(str(typed_suggestions.get("diagnosis") or "").strip())
+    barrier_summary = str(
+        typed_suggestions.get("eps_response_detail")
+        or synthesis.get("barrier_summary")
+        or ""
+    ).strip()
+    risk_summary = str(
+        typed_suggestions.get("urgency_detail")
+        or typed_suggestions.get("ongoing_harm")
+        or synthesis.get("risk_summary")
+        or ""
+    ).strip()
+    target_entity = _plausible_entity(_pick_preferred_health_entity(typed_suggestions, entities_detected))
+    medical_order_date = str(typed_suggestions.get("medical_order_date") or "").strip()
+    treating_doctor_name = str(
+        typed_suggestions.get("treating_doctor_name")
+        or typed_suggestions.get("treating_physician")
+        or synthesis.get("treating_doctor_name")
+        or ""
+    ).strip()
+    treating_ips_name = str(
+        typed_suggestions.get("treating_ips_name")
+        or synthesis.get("treating_ips_name")
+        or ""
+    ).strip()
+    support_strength = "strong" if any(item in {"historia_clinica", "formula"} for item in support_types) else "medium" if support_types else "weak"
+    return {
+        "patient_name": patient_name,
+        "patient_document": patient_document,
+        "target_entity": target_entity,
+        "entities_detected": entities_detected[:6],
+        "diagnosis": diagnosis,
+        "requested_service": requested_service,
+        "medical_order_date": medical_order_date,
+        "treating_doctor_name": treating_doctor_name,
+        "treating_ips_name": treating_ips_name,
+        "barrier_summary": barrier_summary,
+        "risk_summary": risk_summary,
+        "chronology": chronology[:10],
+        "dates_detected": dates_detected[:10],
+        "support_types": support_types[:6],
+        "support_strength": support_strength,
+        "attachment_based": bool(patient_name or requested_service or chronology or entities_detected),
+    }
+
+
 def _classify_attachment_type(file_name: str, compact_text: str) -> str:
     lowered = f"{file_name} {compact_text}".lower()
     if any(term in lowered for term in ["radicado", "pqrs", "derecho de peticion", "derecho de petición", "reclamo"]):
@@ -990,6 +1131,12 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
             else:
                 health_case_synthesis = synthesized
 
+    health_evidence_record = _build_health_evidence_record(
+        typed_suggestions=typed_suggestions,
+        health_case_synthesis=health_case_synthesis,
+        attachment_profiles=attachment_profiles,
+    ) if health_case_synthesis or typed_suggestions else {}
+
     return {
         "evidence_names": evidence_names,
         "extracted_text_available": bool(combined_text_parts),
@@ -999,6 +1146,7 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
         "attachment_profiles": attachment_profiles[:6],
         "typed_suggestions": typed_suggestions,
         "health_case_synthesis": health_case_synthesis,
+        "health_evidence_record": health_evidence_record,
     }
 
 

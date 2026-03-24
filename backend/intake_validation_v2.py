@@ -24,6 +24,38 @@ def _intake_text(facts: dict[str, Any], *keys: str) -> str:
     return ""
 
 
+def _match_key(value: Any) -> str:
+    return " ".join(part for part in "".join(char if str(char).isalnum() else " " for char in _lower(value)).split() if part)
+
+
+def _looks_same_person(name_a: Any, name_b: Any, doc_a: Any = "", doc_b: Any = "") -> bool:
+    digits_a = "".join(char for char in _text(doc_a) if char.isdigit())
+    digits_b = "".join(char for char in _text(doc_b) if char.isdigit())
+    if digits_a and digits_b:
+        return digits_a == digits_b
+    normalized_a = _match_key(name_a)
+    normalized_b = _match_key(name_b)
+    return bool(normalized_a and normalized_b and (normalized_a == normalized_b or normalized_a in normalized_b or normalized_b in normalized_a))
+
+
+def _looks_same_entity(entity_a: Any, entity_b: Any) -> bool:
+    normalized_a = _match_key(entity_a)
+    normalized_b = _match_key(entity_b)
+    return bool(normalized_a and normalized_b and (normalized_a == normalized_b or normalized_a in normalized_b or normalized_b in normalized_a))
+
+
+def _looks_same_service(service_a: Any, service_b: Any) -> bool:
+    normalized_a = _match_key(service_a)
+    normalized_b = _match_key(service_b)
+    if not normalized_a or not normalized_b:
+        return False
+    tokens_a = {item for item in normalized_a.split() if len(item) > 3}
+    tokens_b = {item for item in normalized_b.split() if len(item) > 3}
+    if not tokens_a or not tokens_b:
+        return normalized_a == normalized_b
+    return len(tokens_a & tokens_b) >= min(2, len(tokens_a), len(tokens_b))
+
+
 def _health_supports_present(facts: dict[str, Any], combined_text: str) -> bool:
     return bool(
         _intake_text(
@@ -127,6 +159,16 @@ def _detect_health_contradictions(*, description: str, facts: dict[str, Any]) ->
     special_protection = _lower(intake.get("special_protection"))
     special_protection_detail = _text(intake.get("tutela_special_protection_detail"))
     urgency_detail = _text(intake.get("urgency_detail") or intake.get("current_harm") or intake.get("ongoing_harm") or intake.get("tutela_immediacy_detail"))
+    attachment_context = facts.get("attachment_intelligence") or {}
+    evidence_record = attachment_context.get("health_evidence_record") or {}
+    evidence_patient_name = _text(evidence_record.get("patient_name"))
+    evidence_patient_document = _text(evidence_record.get("patient_document"))
+    evidence_target_entity = _text(evidence_record.get("target_entity"))
+    evidence_requested_service = _text(evidence_record.get("requested_service"))
+    evidence_diagnosis = _text(evidence_record.get("diagnosis"))
+    account_name = _text(facts.get("nombre_usuario") or facts.get("user_name"))
+    intake_diagnosis = _text(intake.get("diagnosis"))
+    intake_service = _text(intake.get("treatment_needed"))
 
     if target_entity and eps_name and target_entity != eps_name:
         problems.append("La EPS o entidad de salud no es consistente: el formulario menciona nombres distintos entre entidad accionada y EPS.")
@@ -160,6 +202,24 @@ def _detect_health_contradictions(*, description: str, facts: dict[str, Any]) ->
 
     if not urgency_detail and _has_any(combined_text, ["urgente", "urgencia", "riesgo vital", "dolor intenso", "crisis", "hospitalizacion", "hospitalización"]):
         warnings.append("El relato sugiere urgencia, pero falta dejar ese riesgo actual en el campo especifico de urgencia del caso.")
+
+    if evidence_target_entity and target_entity and not _looks_same_entity(evidence_target_entity, target_entity):
+        problems.append("Las pruebas medicas apuntan a una entidad de salud distinta de la que quedo en el intake. Debe unificarse la EPS o IPS accionada antes de redactar.")
+
+    if evidence_requested_service and intake_service and not _looks_same_service(evidence_requested_service, intake_service):
+        problems.append("El servicio reclamado en el intake no coincide con el servicio que muestran las pruebas medicas. Debe corregirse el expediente antes de generar.")
+
+    if evidence_diagnosis and intake_diagnosis and evidence_diagnosis.lower() not in intake_diagnosis.lower() and intake_diagnosis.lower() not in evidence_diagnosis.lower():
+        warnings.append("El diagnostico del intake no coincide del todo con el diagnostico detectado en los soportes. Conviene unificarlo antes de entregar.")
+
+    if acting_capacity == "nombre_propio" and evidence_patient_name:
+        reference_name = represented_name or account_name
+        reference_document = represented_document
+        if not _looks_same_person(reference_name, evidence_patient_name, reference_document, evidence_patient_document):
+            problems.append("Las pruebas medicas identifican a un paciente distinto de la persona que aparece como accionante en nombre propio. El expediente debe aclarar si actuas por otra persona.")
+
+    if acting_capacity and acting_capacity != "nombre_propio" and represented_name and evidence_patient_name and not _looks_same_person(represented_name, evidence_patient_name, represented_document, evidence_patient_document):
+        problems.append("El nombre del paciente en los soportes no coincide con la persona representada del intake. Debe corregirse la identidad protegida antes de redactar.")
 
     return {
         "blocking_issues": problems,
