@@ -500,12 +500,26 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
             ):
                 factual_score -= 10
                 blocking_issues.append("La tutela mezcla una persona accionante con una paciente distinta sin explicar la representacion o legitimacion.")
+            if (
+                patient_name
+                and account_name
+                and _same_identity(account_name, patient_name, account_doc, patient_doc)
+                and _contains_any(normalized_document, ["en representacion de", "actuando en representacion de", "a favor de"])
+            ):
+                factual_score -= 10
+                blocking_issues.append("La tutela no debe presentar a la misma persona como accionante y representada al mismo tiempo.")
             if _contains_any(
                 normalized_document,
                 ["tipo de peticion o enfoque principal", "tipo de peticion", "enfoque principal", "interes_particular", "interes general"],
             ):
                 structure_score -= 8
                 blocking_issues.append("La tutela contiene texto interno del sistema o etiquetas operativas que no deben aparecer en la version final.")
+            if _contains_any(normalized_document, ["vi. procedencia"]) and not _contains_any(normalized_document, ["subsidiariedad:", "inmediatez:"]):
+                structure_score -= 8
+                blocking_issues.append("La tutela dejo incompleta la seccion de procedencia.")
+            if _contains_any(normalized_document, ["xi. notificaciones"]) and not _contains_any(normalized_document, ["notificaciones del presente tramite", "correo", "telefono"]):
+                operability_score -= 8
+                blocking_issues.append("La tutela dejo incompleta la seccion de notificaciones.")
             if _contains_any(
                 normalized_document,
                 [

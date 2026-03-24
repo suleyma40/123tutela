@@ -310,10 +310,23 @@ def _normalize_health_service_text(value: str | None) -> str:
         "moujarou": "mounjaro",
         "moujaro": "mounjaro",
         "emdicamento": "medicamento",
+        "medicament": "medicamento",
+        "junta medic a": "junta medica",
+        "junta medic": "junta medica",
+        "apara": " para",
+        " ara ": " para ",
+        "envio de medicament": "definicion del medicamento",
+        "envio de medicamento": "definicion del medicamento",
+        "obesidad morbidad": "obesidad morbida",
+        "aneuriam": "aneurisma",
     }
     for wrong, right in replacements.items():
         normalized = normalized.replace(wrong, right)
+    normalized = re.sub(r"\bconfama\b", "comfama", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
     normalized = re.sub(r"^el\s+", "", normalized).strip()
+    if "junta medica" in normalized and "mounjaro" in normalized:
+        normalized = "la valoracion prioritaria por endocrinologia y la definicion del uso de Mounjaro"
     if not normalized:
         return ""
     words = normalized.split()
@@ -892,6 +905,8 @@ def _should_present_health_representation(case: dict[str, Any], patient_identity
     user_name = str(case.get("usuario_nombre") or intake.get("full_name") or "").strip()
     user_doc = str(case.get("usuario_documento") or intake.get("document_number") or "").strip()
     different_person = not _same_identity(user_name, represented_person_name, user_doc, represented_person_document)
+    if not different_person:
+        return False
     if relationship and different_person:
         return True
     if explicit_representation and different_person:
@@ -914,7 +929,6 @@ def _sanitize_health_generated_document(document: str) -> str:
         "enfoque principal",
         "interes_particular",
         "interes general",
-        "si aplica",
     )
     for raw_line in text.splitlines():
         line = str(raw_line or "")
