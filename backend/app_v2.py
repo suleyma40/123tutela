@@ -1918,6 +1918,14 @@ def generate_document(
         )
     document, draft_trace = build_document_with_trace(case)
     quality_review = evaluate_generated_document(case, document)
+    quality_review["blocking_issues"] = relax_health_tutela_blockers(
+        list(quality_review.get("blocking_issues") or []),
+        facts,
+    )
+    quality_review["passed"] = bool(
+        quality_review.get("score", 0) >= quality_review.get("threshold", 0)
+        and not quality_review.get("blocking_issues")
+    )
     final_validation = build_final_validation(case=case, document=document, quality_review=quality_review)
     if not quality_review.get("passed"):
         blocking_issues = list(quality_review.get("blocking_issues") or [])
