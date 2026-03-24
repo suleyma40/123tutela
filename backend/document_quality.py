@@ -240,6 +240,18 @@ def _normalize_text(value: str) -> str:
     )
 
 
+def _same_identity(name_a: str, name_b: str, doc_a: str = "", doc_b: str = "") -> bool:
+    digits_a = "".join(char for char in str(doc_a or "") if char.isdigit())
+    digits_b = "".join(char for char in str(doc_b or "") if char.isdigit())
+    if digits_a and digits_b:
+        return digits_a == digits_b
+    normalized_a = _normalize_text(name_a or "").strip()
+    normalized_b = _normalize_text(name_b or "").strip()
+    if not normalized_a or not normalized_b:
+        return False
+    return normalized_a == normalized_b or normalized_a in normalized_b or normalized_b in normalized_a
+
+
 def _is_health_internal_article_citation_issue(
     unresolved_references: list[str],
     *,
@@ -433,6 +445,68 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
                 legal_score -= 4
                 warnings.append("Conviene reforzar el riesgo actual del paciente para darle mayor fuerza al documento de salud.")
         if action_key == "accion de tutela":
+            facts = case.get("facts") or {}
+            intake = facts.get("intake_form") or {}
+            attachment_context = facts.get("attachment_intelligence") or {}
+            evidence_record = attachment_context.get("health_evidence_record") or {}
+            account_name = str(case.get("usuario_nombre") or "").strip()
+            account_doc = str(case.get("usuario_documento") or "").strip()
+            represented_name = str(intake.get("represented_person_name") or "").strip()
+            represented_doc = str(intake.get("represented_person_document") or "").strip()
+            patient_name = str(
+                represented_name
+                or evidence_record.get("patient_name")
+                or ((attachment_context.get("health_case_synthesis") or {}).get("patient_name") or "")
+            ).strip()
+            patient_doc = str(
+                represented_doc
+                or evidence_record.get("patient_document")
+                or ((attachment_context.get("health_case_synthesis") or {}).get("patient_document") or "")
+            ).strip()
+            acting_capacity = _normalize_text(str(intake.get("acting_capacity") or "").strip())
+            if (
+                patient_name
+                and account_name
+                and not _same_identity(account_name, patient_name, account_doc, patient_doc)
+                and acting_capacity in {"", "nombre_propio"}
+                and not _contains_any(
+                    normalized_document,
+                    ["agente oficioso", "en representacion de", "a favor de", "madre de", "padre de", "acudiente"],
+                )
+            ):
+                factual_score -= 10
+                blocking_issues.append("La tutela mezcla una persona accionante con una paciente distinta sin explicar la representacion o legitimacion.")
+            if _contains_any(
+                normalized_document,
+                ["tipo de peticion o enfoque principal", "tipo de peticion", "enfoque principal", "interes_particular", "interes general"],
+            ):
+                structure_score -= 8
+                blocking_issues.append("La tutela contiene texto interno del sistema o etiquetas operativas que no deben aparecer en la version final.")
+            if _contains_any(
+                normalized_document,
+                [
+                    "frente a dicha solicitud, la entidad accionada incurrio en la siguiente respuesta u omision: en ",
+                    "frente a dicha solicitud, la entidad accionada incurrio en la siguiente respuesta u omision: en marzo",
+                    "en la actualidad persiste la siguiente afectacion o riesgo para el paciente: sin acceso efectivo a que le hagan",
+                    "el caso gira alrededor de la necesidad de garantizar que le hagan",
+                ],
+            ):
+                factual_score -= 10
+                blocking_issues.append("La tutela conserva frases plantilla o texto crudo del intake en lugar de hechos clinicos y juridicos cerrados.")
+            short_date_lines = [
+                line.strip()
+                for line in str(document or "").splitlines()
+                if line.strip() and len(line.strip()) <= 24 and _contains_any(_normalize_text(line), ["2026", "2025", "2024", "2023"])
+            ]
+            if short_date_lines:
+                factual_score -= 6
+                blocking_issues.append("La cronologia de la tutela contiene lineas vacias o hechos demasiado genericos que solo repiten una fecha.")
+            if _contains_any(
+                normalized_document,
+                ["que le hagan una junta medica", "para que le autoricen el medicamento", "bajar d epeso", "asciada a"],
+            ):
+                remedies_score -= 8
+                blocking_issues.append("La tutela usa formulaciones crudas o errores de redaccion del usuario en vez de pretensiones tecnicas y limpias.")
             if not _contains_any(normalized_document, ["ley estatutaria 1751", "ley 1751", "articulo 49", "articulo 86", "decreto 2591"]):
                 legal_score -= 8
                 blocking_issues.append("La tutela en salud debe apoyarse al menos en el articulo 49, el articulo 86, la Ley 1751 o el Decreto 2591.")
