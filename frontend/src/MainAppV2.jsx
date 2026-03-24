@@ -238,6 +238,19 @@ export default function MainAppV2() {
       return response.data;
     }, "No fue posible abrir el expediente.");
 
+  const handleDeleteCase = (caseId) =>
+    withAction(async () => {
+      await api.delete(`/cases/${caseId}`, withAuth(session.token));
+      if (activeCaseDetail?.case?.id === caseId) {
+        setActiveCaseDetail(null);
+      }
+      if (documentCase?.id === caseId) {
+        setDocumentCase(null);
+      }
+      await refreshCollections(session.token, session.user.role);
+      return true;
+    }, "No fue posible eliminar el expediente.");
+
   const handleUpdateCaseIntake = (caseId, payload) =>
     withAction(async () => {
       const response = await api.patch(`/cases/${caseId}/intake`, payload, withAuth(session.token));
@@ -449,6 +462,7 @@ export default function MainAppV2() {
               onTempUpload={handleTempUpload}
               onCreateCase={handleCreateCase}
               onOpenCase={handleOpenCase}
+              onDeleteCase={handleDeleteCase}
               onUpdateCaseIntake={handleUpdateCaseIntake}
               onConfirmPayment={handleConfirmPayment}
               onConfirmTestPayment={handleConfirmTestPayment}

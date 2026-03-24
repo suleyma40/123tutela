@@ -428,6 +428,17 @@ def get_case_for_user(case_id: str, user_id: str) -> dict[str, Any] | None:
         return cursor.fetchone()
 
 
+def delete_case_for_user(case_id: str, user_id: str) -> bool:
+    query = """
+        DELETE FROM casos
+        WHERE id = %(case_id)s AND user_id = %(user_id)s
+        RETURNING id;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"case_id": case_id, "user_id": user_id})
+        return bool(cursor.fetchone())
+
+
 def get_case_by_id(case_id: str) -> dict[str, Any] | None:
     query = "SELECT * FROM casos WHERE id = %(case_id)s;"
     with get_connection() as connection, connection.cursor() as cursor:

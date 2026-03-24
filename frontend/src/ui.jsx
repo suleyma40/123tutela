@@ -37,6 +37,7 @@ export const Button = ({
     outline: { background: "transparent", color: C.primary, border: `1px solid ${C.border}` },
     ghost: { background: "transparent", color: C.textMuted, border: "none" },
     dark: { background: C.bgDark, color: "#fff", border: "none" },
+    danger: { background: "#FEE2E2", color: C.danger, border: "1px solid #FECACA" },
   };
 
   return (

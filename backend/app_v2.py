@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -1416,6 +1416,17 @@ def get_case(case_id: str, current_user: dict[str, Any] = Depends(get_current_us
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
     return _snapshot_case_detail(case)
+
+
+@app.delete("/cases/{case_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_case(case_id: str, current_user: dict[str, Any] = Depends(get_current_user)) -> Response:
+    case = repository.get_case_for_user(case_id, str(current_user["id"]))
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="TrÃ¡mite no encontrado.")
+    deleted = repository.delete_case_for_user(case_id, str(current_user["id"]))
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible eliminar el trÃ¡mite.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.patch("/cases/{case_id}/intake", response_model=CaseDetailResponse)

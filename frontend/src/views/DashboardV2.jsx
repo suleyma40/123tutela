@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Briefcase, CreditCard, FileText, HelpCircle, Layout, LogOut, Plus, Scale, Shield, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Briefcase, CreditCard, FileText, HelpCircle, Layout, LogOut, Plus, Scale, Shield, Trash2, Upload } from "lucide-react";
 
 import { api } from "../lib/api";
 import { Badge, Button, Field, SessionCard, TextArea, TextInput } from "../ui";
@@ -4632,6 +4632,7 @@ export default function DashboardV2(props) {
     onTempUpload,
     onCreateCase,
     onOpenCase,
+    onDeleteCase,
     onUpdateCaseIntake,
     onConfirmPayment,
     onConfirmTestPayment,
@@ -4927,6 +4928,16 @@ export default function DashboardV2(props) {
   const openCaseAndFocusDetail = async (caseId, scope = "citizen") => {
     await onOpenCase(caseId, scope);
     setActiveTab("detalle");
+  };
+
+  const deleteCaseAndRefreshView = async (caseItem) => {
+    if (!caseItem?.id || !onDeleteCase) return;
+    const confirmed = window.confirm("Este expediente se eliminara de forma permanente junto con sus anexos y trazabilidad. Deseas continuar?");
+    if (!confirmed) return;
+    await onDeleteCase(caseItem.id);
+    if (activeCaseDetail?.case?.id === caseItem.id) {
+      setActiveTab("tramites");
+    }
   };
 
   const applyEntitySuggestion = (entity) => {
@@ -6076,6 +6087,7 @@ export default function DashboardV2(props) {
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <Button variant="secondary" onClick={() => openCaseAndFocusDetail(item.id)}>Abrir expediente</Button>
             {item.generated_document && <Button variant="outline" onClick={() => setDocumentCase(item)}>Ver documento</Button>}
+            <Button variant="danger" onClick={() => deleteCaseAndRefreshView(item)} icon={Trash2}>Eliminar expediente</Button>
           </div>
         </div>
       ))}
