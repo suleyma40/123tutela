@@ -1049,6 +1049,12 @@ def _enforce_health_tutela_consistency(document: str, case: dict[str, Any]) -> s
         flags=re.IGNORECASE | re.DOTALL,
     )
     text = re.sub(
+        r"(Yo,\s*[^,\n]+,\s*persona mayor de edad,.*?,\s*actuando en nombre propio),\s*de\s*[^,]+,\s*identificado con documento No\.\s*[^,]+,\s*persona afectada por la barrera en salud descrita,\s*presento accion de tutela contra",
+        r"\1, presento accion de tutela contra",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    text = re.sub(
         r"^\s*\d+\.\s*La presente accion se promueve a favor de\s+([^,\n]+).*$",
         lambda match: ""
         if _normalize_writer_text(match.group(1)) == _normalize_writer_text(ctx.get("user_name") or patient_name or account_name)
@@ -1084,6 +1090,18 @@ def _enforce_health_tutela_consistency(document: str, case: dict[str, Any]) -> s
     )
     if "XI. NOTIFICACIONES" in text and "Solicito que las notificaciones" not in text:
         text = text.replace("XI. NOTIFICACIONES\n", f"XI. NOTIFICACIONES\n{notification_line}\n\n", 1)
+    chronology_match = re.search(r"(III\. HECHOS CRONOLOGICOS\n)(.*?)(\nIV\. DERECHOS FUNDAMENTALES VULNERADOS)", text, flags=re.DOTALL)
+    if chronology_match:
+        body = chronology_match.group(2)
+        lines = body.splitlines()
+        renumbered: list[str] = []
+        index = 1
+        for line in lines:
+            if re.match(r"^\s*\d+\.\s+", line):
+                line = re.sub(r"^\s*\d+\.", f"{index}.", line, count=1)
+                index += 1
+            renumbered.append(line)
+        text = text[: chronology_match.start(2)] + "\n".join(renumbered) + text[chronology_match.end(2) :]
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     return text + "\n"
 
@@ -1197,6 +1215,12 @@ def _clean_health_raw_text(value: str) -> str:
         return ""
     text = re.sub(r"(?i)^relato detallado:\s*", "", text).strip()
     text = re.sub(r"(?i)^correo pqrs sugerido:\s*\S+\s*", "", text).strip()
+    text = re.sub(r"(?i)tipo de peticion o enfoque principal\s*:?\s*[a-z_ ]*", "", text).strip()
+    text = re.sub(r"(?i)tipo de peticion\s*:?\s*[a-z_ ]*", "", text).strip()
+    text = re.sub(r"(?i)enfoque principal\s*:?\s*[a-z_ ]*", "", text).strip()
+    text = re.sub(r"(?i)interes_particular|interes general", "", text).strip()
+    text = re.sub(r"^[\s,;:\.-]+", "", text).strip()
+    text = re.sub(r"\s{2,}", " ", text).strip()
     if _normalize_writer_text(text) in {"guardo silencio", "guardó silencio", "no respondieron", "no respondio", "no respondió"}:
         return text.lower()
     return text
