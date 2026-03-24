@@ -922,6 +922,16 @@ def _sanitize_health_generated_document(document: str) -> str:
     text = str(document or "")
     if not text:
         return ""
+    inline_banned_patterns = (
+        r"tipo de peticion o enfoque principal\s*:?\s*[a-z_ ]*",
+        r"tipo de peticion\s*:?\s*[a-z_ ]*",
+        r"enfoque principal\s*:?\s*[a-z_ ]*",
+        r"interes_particular",
+        r"interes general",
+    )
+    sanitized_text = text
+    for pattern in inline_banned_patterns:
+        sanitized_text = re.sub(pattern, "", sanitized_text, flags=re.IGNORECASE)
     cleaned_lines: list[str] = []
     banned_fragments = (
         "tipo de peticion o enfoque principal",
@@ -930,7 +940,7 @@ def _sanitize_health_generated_document(document: str) -> str:
         "interes_particular",
         "interes general",
     )
-    for raw_line in text.splitlines():
+    for raw_line in sanitized_text.splitlines():
         line = str(raw_line or "")
         normalized = _normalize_writer_text(line)
         if any(fragment in normalized for fragment in banned_fragments):

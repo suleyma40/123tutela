@@ -1322,7 +1322,6 @@ const buildStructuredDescription = (form) => {
     form.event_date ? `Fecha o periodo relevante: ${form.event_date}` : "",
     form.event_period_detail ? `Detalle adicional de la cronologia: ${form.event_period_detail}` : "",
     form.case_reference ? `Numero o referencia relacionada: ${form.case_reference}` : "",
-    form.request_type ? `Tipo de peticion o enfoque principal: ${form.request_type}` : "",
     form.concrete_request ? `Solicitud principal del usuario: ${form.concrete_request}` : "",
     form.numbered_requests ? `Solicitudes numeradas esperadas: ${form.numbered_requests}` : "",
     form.current_harm ? `Afectacion actual o riesgo: ${form.current_harm}` : "",
