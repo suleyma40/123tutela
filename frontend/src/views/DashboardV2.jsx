@@ -3063,7 +3063,7 @@ function GuidedIntakeFields({
   );
 }
 
-function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirmTestPayment, onGetPayment, onReconcilePayment, onRefreshCase, loading, qaTestMode = false }) {
+function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirmTestPayment, onGetPayment, onReconcilePayment, onRefreshCase, onGenerateDocument, loading, qaTestMode = false }) {
   const [includeFiling, setIncludeFiling] = useState(true);
   const [paymentMessage, setPaymentMessage] = useState("");
   const [selectedCode, setSelectedCode] = useState("");
@@ -3071,7 +3071,11 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
   const [latestReference, setLatestReference] = useState("");
   const [testPaymentActivated, setTestPaymentActivated] = useState(false);
 
-  const jumpToDocumentGeneration = () => {
+  const jumpToDocumentGeneration = async () => {
+    if (caseItem?.payment_status === "pagado" && !caseItem?.generated_document && onGenerateDocument) {
+      await onGenerateDocument(caseItem.id);
+      return;
+    }
     window.setTimeout(() => {
       document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 120);
@@ -3350,8 +3354,8 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
             {isBasePaid ? (bundlePaid ? "Paquete ya activado" : "Activar radicacion y seguimiento") : qaTestMode ? "Activar documento ya pagado (prueba)" : includeFiling ? "Activar documento + radicacion" : "Activar documento"}
           </Button>
           {qaTestMode && isBasePaid && (
-            <Button variant="secondary" onClick={jumpToDocumentGeneration} icon={ArrowRight}>
-              Ir a generar documento
+            <Button variant="secondary" onClick={jumpToDocumentGeneration} icon={ArrowRight} disabled={loading}>
+              {caseItem?.payment_status === "pagado" && !caseItem?.generated_document ? "Generar documento ahora" : "Ir a generar documento"}
             </Button>
           )}
         </div>
@@ -5770,6 +5774,7 @@ export default function DashboardV2(props) {
               onGetPayment={onGetPayment}
               onReconcilePayment={onReconcilePayment}
               onRefreshCase={onRefreshCase}
+              onGenerateDocument={onGenerateDocument}
               loading={loading}
               qaTestMode={qaTestMode}
             />
