@@ -1413,6 +1413,22 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     barrier_summary = _sentence(str(synthesis.get("barrier_summary") or "").strip(), fallback="").strip()
     risk_summary = _sentence(str(synthesis.get("risk_summary") or "").strip(), fallback="").strip()
 
+    synthesis_chronology = [str(item).strip() for item in (synthesis.get("chronology") or []) if str(item).strip()]
+    prioritized_timeline: list[str] = []
+    for item in [*synthesis_chronology, *chronology_lines]:
+        formal_item = _sentence(_title_sentence(item), fallback="").strip()
+        normalized = _normalize_writer_text(formal_item)
+        if not formal_item or not _is_concrete_health_timeline_line(formal_item):
+            continue
+        if not (
+            re.search(r"\b(?:19|20)\d{2}\b", normalized)
+            or re.search(r"\b\d{1,2}\s+de\s+[a-z]+\b", normalized)
+            or any(token in normalized for token in ["consulta", "valorada", "teleconcepto", "endocrino", "medicina interna", "bypass"])
+        ):
+            continue
+        if not _is_redundant_health_line(formal_item, prioritized_timeline):
+            prioritized_timeline.append(formal_item)
+
     lines: list[str] = []
     if represented_person_name and has_representation:
         identity_bits: list[str] = []
@@ -1433,8 +1449,11 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     elif diagnosis or treatment_needed:
         diagnosis_fragment = f" por razon del diagnostico de {diagnosis}" if diagnosis else ""
         service_fragment = treatment_needed or "un servicio de salud requerido"
-        if not chronology_lines:
+        if not prioritized_timeline:
             lines.append(f"El caso gira alrededor de la necesidad de garantizar {service_fragment}{diagnosis_fragment}.")
+    for item in prioritized_timeline[:5]:
+        if not _is_redundant_health_line(item, lines):
+            lines.append(item)
     if eps_request_date:
         channel_fragment = f" a traves de {eps_request_channel}" if eps_request_channel else ""
         reference_fragment = f", bajo el radicado o referencia {eps_request_reference}" if eps_request_reference else ""
@@ -1460,7 +1479,6 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
             if formal_item and not _is_redundant_health_line(formal_item, lines):
                 lines.append(formal_item)
 
-    synthesis_chronology = [str(item).strip() for item in (synthesis.get("chronology") or []) if str(item).strip()]
     merged = list(lines)
     for item in synthesis_chronology:
         formal_item = _sentence(_title_sentence(item), fallback="").strip()
