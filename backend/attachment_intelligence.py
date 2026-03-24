@@ -269,6 +269,29 @@ def _extract_doctor_name_from_line(line: str) -> str:
     return _clean_person_candidate(candidate)
 
 
+def _extract_medical_registration_from_line(line: str) -> str:
+    candidate = _pick_first(
+        [
+            r"\b(?:rm|reg(?:istro)?\s*(?:medico|m[eé]dico|profesional)|tarjeta\s+profesional)\s*[:#]?\s*([A-Za-z0-9\-]{4,30})",
+            r"\b(?:registro|matricula)\s*(?:medica|m[eé]dica|profesional)?\s*[:#]?\s*([A-Za-z0-9\-]{4,30})",
+        ],
+        line,
+    )
+    return re.sub(r"\s+", " ", str(candidate or "")).strip(" .,:;#")
+
+
+def _extract_order_from_line(line: str) -> str:
+    candidate = _pick_first(
+        [
+            r"\b(?:conducta|plan|se formula|se prescribe|se ordena|ordena|prescribe|recomienda|recomendacion|recomendación)[:\s]+([^\.]{12,180})",
+            r"\b(?:medicamento|tratamiento|manejo)\s+([A-Za-zÁÉÍÓÚáéíóúÑñ0-9 \-]{6,120})",
+        ],
+        line,
+    )
+    cleaned = re.sub(r"\s+", " ", str(candidate or "")).strip(" .,:;")
+    return cleaned
+
+
 def _extract_specialty_from_line(line: str) -> str:
     candidate = _pick_first(
         [
@@ -312,17 +335,27 @@ def _extract_health_consultation_events(lines: list[str], *, patient_name: str =
             continue
         date = _extract_health_dates(normalized)[0]
         doctor_name = _extract_doctor_name_from_line(normalized)
+        medical_registration = _extract_medical_registration_from_line(normalized)
         specialty = _extract_specialty_from_line(normalized)
+        order_excerpt = _extract_order_from_line(normalized)
         patient_fragment = f"{patient_name} " if patient_name else "la paciente "
+        doctor_fragment = ""
+        if doctor_name:
+            doctor_fragment = f" por {doctor_name}"
+            if medical_registration:
+                doctor_fragment += f" (registro {medical_registration})"
+        order_fragment = f" En esa atencion se indico {order_excerpt}." if order_excerpt and len(order_excerpt) >= 12 else ""
         if "teleconcepto" in lowered:
-            event = f"El {date}, {patient_fragment}fue valorada mediante teleconcepto{f' de {specialty}' if specialty else ''}{f' por {doctor_name}' if doctor_name else ''}."
+            event = f"El {date}, {patient_fragment}fue valorada mediante teleconcepto{f' de {specialty}' if specialty else ''}{doctor_fragment}.{order_fragment}"
         elif specialty:
-            event = f"El {date}, {patient_fragment}asistio a consulta de {specialty}{f' con {doctor_name}' if doctor_name else ''}."
+            event = f"El {date}, {patient_fragment}asistio a consulta de {specialty}{doctor_fragment}."
+            event = f"{event}{order_fragment}"
         elif doctor_name:
-            event = f"El {date}, {patient_fragment}fue valorada por {doctor_name}."
+            event = f"El {date}, {patient_fragment}fue valorada{doctor_fragment}.{order_fragment}"
         else:
-            event = f"El {date} se registro una atencion clinica relevante en la historia medica."
+            event = f"El {date} se registro una atencion clinica relevante en la historia medica.{order_fragment}"
         event = re.sub(r"\s+", " ", event).strip()
+        event = event.replace("..", ".")
         key = _normalize_ascii_text(event).lower()
         if key in seen:
             continue
