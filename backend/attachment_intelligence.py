@@ -1162,7 +1162,8 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
         file_name = str(item.get("original_name") or "").strip()
         profile = _extract_attachment_suggestions(file_name, compact)
         profile_type = str((profile or {}).get("attachment_type") or "general")
-        if not compact and profile_type in {"historia_clinica", "formula"}:
+        should_try_pdf_health_synthesis = profile_type in {"historia_clinica", "formula"}
+        if should_try_pdf_health_synthesis:
             relative_path = str(item.get("relative_path") or "").strip()
             path = absolute_path(relative_path) if relative_path else None
             if path and path.exists() and path.suffix.lower() == ".pdf":
@@ -1173,7 +1174,15 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
                 )
                 if pdf_health_synthesis:
                     pdf_health_syntheses.append(pdf_health_synthesis)
-                    compact = re.sub(r"\s+", " ", str(pdf_health_synthesis.get("reconstructed_text") or "")).strip()
+                    synthesized_compact = re.sub(r"\s+", " ", str(pdf_health_synthesis.get("reconstructed_text") or "")).strip()
+                    synthesized_chronology = [str(item).strip() for item in (pdf_health_synthesis.get("chronology") or []) if str(item).strip()]
+                    synthesized_excerpts = [str(item).strip() for item in (pdf_health_synthesis.get("key_excerpts") or []) if str(item).strip()]
+                    if (
+                        not compact
+                        or len(synthesized_chronology) >= 2
+                        or len(synthesized_excerpts) >= 2
+                    ):
+                        compact = synthesized_compact or compact
                     profile = _merge_health_synthesis_into_suggestions(profile, pdf_health_synthesis)
         if profile:
             attachment_profiles.append(
