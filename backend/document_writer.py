@@ -1858,7 +1858,6 @@ def _looks_like_complete_health_document(document: str, action_key: str) -> bool
         "interes_particular",
         "si tiene condicion reforzada",
         "caso lo requiere",
-        "si aplica",
         "la persona afectada se encuentra en condicion de especial proteccion constitucional: si",
         "documento insuficiente:",
     ]
