@@ -993,6 +993,9 @@ def _health_tutela_procedencia_fragments(case: dict[str, Any]) -> tuple[str, str
         )
         or "La gestion previa ante la EPS no removio la barrera actual ni garantizo el acceso oportuno al servicio ordenado."
     )
+    subsidiarity_base = re.sub(r"^[\s,;:\.-]+", "", str(subsidiarity_base or "")).strip()
+    if not re.search(r"[a-zA-Z0-9]", subsidiarity_base):
+        subsidiarity_base = "La gestion previa ante la EPS no removio la barrera actual ni garantizo el acceso oportuno al servicio ordenado."
     subsidiarity = _sentence(
         f"{subsidiarity_base} Los mecanismos ordinarios ante la EPS o de reclamacion administrativa no resultan eficaces en este caso concreto, porque las gestiones ya intentadas no removieron la barrera actual y la proteccion requerida es inmediata, sin admitir una espera adicional sin agravamiento del dano.",
         "La accion de tutela resulta procedente porque la gestion previa ante la EPS no soluciono la barrera actual y la proteccion no admite mas demora.",
@@ -1015,10 +1018,16 @@ def _enforce_health_tutela_consistency(document: str, case: dict[str, Any]) -> s
     patient_doc = str(ctx.get("patient_doc") or "").strip()
     if patient_name and account_name and _same_identity(account_name, patient_name, account_doc, patient_doc):
         text = re.sub(
-            r",\s*actuando en representacion de\s+[^,]+(?:,[^,]+){0,3},\s*persona afectada por la barrera en salud descrita",
-            ", actuando en nombre propio",
+            r",\s*actuando en representacion de.*?,\s*presento accion de tutela contra",
+            ", actuando en nombre propio, presento accion de tutela contra",
             text,
-            flags=re.IGNORECASE,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        text = re.sub(
+            r",\s*actuando en calidad de\s+[^,]+ de.*?,\s*presento accion de tutela contra",
+            ", actuando en nombre propio, presento accion de tutela contra",
+            text,
+            flags=re.IGNORECASE | re.DOTALL,
         )
         text = re.sub(
             r"^\s*\d+\.\s*La presente accion se promueve a favor de .*$\n?",
