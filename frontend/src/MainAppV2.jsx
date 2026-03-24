@@ -306,12 +306,21 @@ export default function MainAppV2() {
 
   const handleGenerateDocument = (caseId, payload = {}) =>
     withAction(async () => {
-      const response = await api.post(`/cases/${caseId}/document`, payload, withAuth(session.token));
-      await refreshCollections(session.token, session.user.role);
-      const detail = await api.get(`/cases/${caseId}`, withAuth(session.token));
-      setActiveCaseDetail(detail.data);
-      setDocumentCase(response.data.case);
-      return response.data;
+      try {
+        const response = await api.post(`/cases/${caseId}/document`, payload, withAuth(session.token));
+        await refreshCollections(session.token, session.user.role);
+        const detail = await api.get(`/cases/${caseId}`, withAuth(session.token));
+        setActiveCaseDetail(detail.data);
+        setDocumentCase(response.data.case);
+        return response.data;
+      } catch (error) {
+        try {
+          const detail = await api.get(`/cases/${caseId}`, withAuth(session.token));
+          setActiveCaseDetail(detail.data);
+          await refreshCollections(session.token, session.user.role);
+        } catch {}
+        throw error;
+      }
     }, "No fue posible generar el documento.");
 
   const handleSubmitCase = (caseId, payload) =>

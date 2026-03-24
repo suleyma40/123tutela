@@ -364,6 +364,7 @@ def _merge_intake_into_facts(
     category: str | None,
 ) -> dict[str, Any]:
     facts = dict(existing_facts or {})
+    facts.pop("quality_follow_up_questions", None)
     entities = list(facts.get("entidades_involucradas") or [])
     target_entity = str(form_data.get("target_entity") or "").strip()
     if target_entity and target_entity not in entities:
@@ -740,6 +741,59 @@ def _format_blocking_detail_with_actions(
     if actionable_text:
         detail_parts = detail_parts + ["Corrige ahora: " + " | ".join(actionable_text)]
     return prefix + " | ".join(detail_parts)
+
+
+def _build_quality_follow_up_questions(blocking_issues: list[str]) -> list[dict[str, Any]]:
+    questions: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+
+    def add(question_id: str, question: str, reason: str, *, field: str | None = None) -> None:
+        if question_id in seen_ids:
+            return
+        seen_ids.add(question_id)
+        questions.append(
+            {
+                "id": question_id,
+                "question": question,
+                "reason": reason,
+                "priority": "alta",
+                "field": field,
+                "route": "B",
+                "responded": False,
+            }
+        )
+
+    for issue in blocking_issues or []:
+        issue_text = str(issue or "").strip().lower()
+        if "mezcla una persona accionante con una paciente distinta" in issue_text:
+            add(
+                "quality_representation",
+                "Confirma si presentas la tutela en nombre propio o por otra persona. Si es por otra persona, indica nombre completo del paciente, documento, edad y en que calidad actuas.",
+                "Hay una inconsistencia entre la persona accionante y la paciente protegida.",
+                field="acting_capacity",
+            )
+        if "cronologia de la tutela contiene lineas vacias" in issue_text or "hechos demasiado genericos" in issue_text:
+            add(
+                "quality_chronology",
+                "Escribe 3 a 6 hitos cronologicos con fecha, especialidad o medico y que paso en cada consulta o gestion ante la EPS.",
+                "La cronologia actual sigue demasiado generica para sostener la tutela.",
+                field="key_dates",
+            )
+        if "frases plantilla o texto crudo del intake" in issue_text:
+            add(
+                "quality_closed_facts",
+                "Dime con precision cual es el servicio, medicamento o decision medica que necesitas y cual fue la barrera concreta que puso la EPS o la IPS.",
+                "Todavia faltan hechos clinicos y juridicos cerrados.",
+                field="treatment_needed",
+            )
+        if "formulaciones crudas o errores de redaccion del usuario" in issue_text:
+            add(
+                "quality_clean_request",
+                "Confirma cual orden concreta quieres pedir al juez: autorizacion de medicamento, junta medica, valoracion prioritaria, cirugia o tratamiento integral.",
+                "La pretension todavia esta ambigua o demasiado cruda.",
+                field="concrete_request",
+            )
+    return questions
 
 
 def _enrich_architecture_outputs(
@@ -1825,6 +1879,38 @@ def generate_document(
             },
         )
         if not ai_owned_only:
+            quality_follow_up_questions = _build_quality_follow_up_questions(actionable_blocking or blocking_issues)
+            if quality_follow_up_questions:
+                existing_pending = [item for item in (facts.get("pending_questions") or []) if isinstance(item, dict)]
+                follow_up_ids = {str(item.get("id") or "").strip() for item in quality_follow_up_questions}
+                facts["quality_follow_up_questions"] = quality_follow_up_questions
+                facts["pending_questions"] = quality_follow_up_questions + [
+                    item for item in existing_pending if str(item.get("id") or "").strip() not in follow_up_ids
+                ]
+                refreshed_agent_state = build_health_agent_state(
+                    category=case.get("categoria") or case.get("category") or "",
+                    workflow_type=case.get("workflow_type") or "",
+                    recommended_action=case.get("recommended_action") or "",
+                    description=case.get("descripcion") or "",
+                    facts=facts,
+                )
+                if refreshed_agent_state:
+                    facts["agent_state"] = refreshed_agent_state
+                try:
+                    repository.update_case_intake(
+                        case_id,
+                        workflow_type=case.get("workflow_type") or "",
+                        description=case.get("descripcion") or "",
+                        facts=facts,
+                        legal_analysis=case.get("legal_analysis") or {},
+                        routing=case.get("routing") or {},
+                        prerequisites=case.get("prerequisites") or [],
+                        warnings=case.get("warnings") or [],
+                        recommended_action=case.get("recommended_action") or "",
+                        strategy_text=case.get("strategy_text") or "",
+                    )
+                except Exception:
+                    pass
             detail_parts = actionable_blocking or quality_review.get("warnings") or [
                 "El borrador no alcanzo la calidad juridica minima.",
             ]

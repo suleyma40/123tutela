@@ -248,11 +248,26 @@ def build_health_agent_state(
         lowered,
         ["riesgo", "dolor", "empeor", "crisis", "urgente", "urgencia", "hospital", "sin medicamento", "sin tratamiento", "sin examen"],
     )
+    quality_follow_up_questions = [item for item in (facts.get("quality_follow_up_questions") or []) if isinstance(item, dict)]
 
     next_prompt = _build_next_prompt(intake=intake, facts=facts, workflow_type=workflow_type)
     user_owned_missing: list[str] = []
     if next_prompt:
         user_owned_missing.append(next_prompt["why"])
+    if quality_follow_up_questions:
+        first_quality_prompt = quality_follow_up_questions[0]
+        next_prompt = {
+            "id": first_quality_prompt.get("id"),
+            "question": first_quality_prompt.get("question"),
+            "placeholder": "",
+            "multiline": True,
+            "why": first_quality_prompt.get("reason") or "Hace falta cerrar este punto antes de redactar.",
+        }
+        user_owned_missing = [
+            str(item.get("reason") or item.get("question") or "").strip()
+            for item in quality_follow_up_questions
+            if str(item.get("reason") or item.get("question") or "").strip()
+        ]
 
     can_generate = bool(target_entity and diagnosis and treatment_needed and has_medical_support and (has_barrier_context or workflow_type != "tutela"))
     if workflow_type == "tutela":
@@ -268,6 +283,8 @@ def build_health_agent_state(
             age_or_birth=represented_person_age,
             document=represented_person_document,
         )
+    if quality_follow_up_questions:
+        can_generate = False
 
     inferred_risk = []
     if _lower(intake.get("special_protection")) not in {"", "no aplica", "ninguno"}:
@@ -290,7 +307,7 @@ def build_health_agent_state(
         "El agente ya tiene base suficiente del bloque salud. Puede generar el documento ahora y seguir recibiendo datos adicionales por chat."
         if ready_state
         else (
-            "El agente necesita un ultimo dato factual del bloque salud antes de redactar."
+            "El agente necesita cerrar una pregunta concreta del expediente antes de redactar."
             if next_prompt
             else "El agente sigue activo y puede recibir mas datos para terminar de consolidar el expediente."
         )
