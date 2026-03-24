@@ -258,6 +258,79 @@ def _extract_health_dates(text: str) -> list[str]:
     return ordered
 
 
+def _extract_doctor_name_from_line(line: str) -> str:
+    candidate = _pick_first(
+        [
+            r"\b(?:dr\.|dra\.|doctor|doctora|medico tratante|m[eé]dico tratante)[:\s]+([A-Za-zÁÉÍÓÚáéíóúÑñ ]{5,80})",
+            r"\b(?:atendido por|valorado por|evaluado por)[:\s]+([A-Za-zÁÉÍÓÚáéíóúÑñ ]{5,80})",
+        ],
+        line,
+    )
+    return _clean_person_candidate(candidate)
+
+
+def _extract_specialty_from_line(line: str) -> str:
+    candidate = _pick_first(
+        [
+            r"\bconsulta(?: externa)? de\s+([A-Za-zÁÉÍÓÚáéíóúÑñ ]{4,60})",
+            r"\bvaloracion(?: por)?\s+([A-Za-zÁÉÍÓÚáéíóúÑñ ]{4,60})",
+            r"\b(?:endocrinologia|endocrinología|medicina interna|neurocirugia|neurocirugía|cirugia vascular|cirugía vascular|neurologia|neurología|programa de obesidad)\b",
+        ],
+        line,
+    )
+    cleaned = re.sub(r"\s+", " ", str(candidate or "")).strip(" .,:;")
+    return cleaned[:1].upper() + cleaned[1:] if cleaned else ""
+
+
+def _extract_health_consultation_events(lines: list[str], *, patient_name: str = "") -> list[str]:
+    events: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        normalized = re.sub(r"\s+", " ", str(line or "")).strip(" .,:;")
+        lowered = _normalize_ascii_text(normalized).lower()
+        if not _is_viable_health_chronology_line(normalized):
+            continue
+        if not _extract_health_dates(normalized):
+            continue
+        if not any(
+            token in lowered
+            for token in (
+                "consulta",
+                "valoracion",
+                "valoración",
+                "teleconcepto",
+                "evolucion",
+                "evolución",
+                "endocrino",
+                "medicina interna",
+                "programa de obesidad",
+                "neuro",
+                "cirugia",
+                "cirugía",
+            )
+        ):
+            continue
+        date = _extract_health_dates(normalized)[0]
+        doctor_name = _extract_doctor_name_from_line(normalized)
+        specialty = _extract_specialty_from_line(normalized)
+        patient_fragment = f"{patient_name} " if patient_name else "la paciente "
+        if "teleconcepto" in lowered:
+            event = f"El {date}, {patient_fragment}fue valorada mediante teleconcepto{f' de {specialty}' if specialty else ''}{f' por {doctor_name}' if doctor_name else ''}."
+        elif specialty:
+            event = f"El {date}, {patient_fragment}asistio a consulta de {specialty}{f' con {doctor_name}' if doctor_name else ''}."
+        elif doctor_name:
+            event = f"El {date}, {patient_fragment}fue valorada por {doctor_name}."
+        else:
+            event = f"El {date} se registro una atencion clinica relevante en la historia medica."
+        event = re.sub(r"\s+", " ", event).strip()
+        key = _normalize_ascii_text(event).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        events.append(event)
+    return events[:12]
+
+
 def _extract_health_identity(text: str, typed_suggestions: dict[str, Any]) -> dict[str, str]:
     patient_name = _clean_person_candidate(
         str(
@@ -456,9 +529,10 @@ def _detect_health_case_focus(text: str) -> str:
 
 def _deterministic_health_case_synthesis(*, combined_text: str, evidence_names: list[str], typed_suggestions: dict[str, Any]) -> dict[str, Any]:
     lines = _health_lines_from_text(combined_text)
-    chronology = _extract_health_chronology(lines)
-    dates = _extract_health_dates(combined_text)
     identity = _extract_health_identity(combined_text, typed_suggestions)
+    chronology = _extract_health_chronology(lines)
+    consultation_events = _extract_health_consultation_events(lines, patient_name=identity.get("patient_name") or "")
+    dates = _extract_health_dates(combined_text)
     diagnosis = str(typed_suggestions.get("diagnosis") or "").strip()
     treatment = _extract_health_service_need(combined_text, typed_suggestions)
     doctor = str(typed_suggestions.get("treating_doctor_name") or typed_suggestions.get("treating_physician") or "").strip()
@@ -478,7 +552,9 @@ def _deterministic_health_case_synthesis(*, combined_text: str, evidence_names: 
             synthesized_chronology.append("Medicina interna devolvio el caso con respuesta de no pertinencia, sin definir una conducta terapeutica de fondo.")
         if "6 meses" in lowered or "proxima cita" in lowered:
             synthesized_chronology.append("La nueva cita con endocrinologia fue diferida por varios meses, manteniendo la barrera actual sin solucion clinica oportuna.")
-        chronology = _dedupe_lines(synthesized_chronology + chronology)[:6]
+        chronology = _dedupe_lines(consultation_events + synthesized_chronology + chronology)[:10]
+    else:
+        chronology = _dedupe_lines(consultation_events + chronology)[:10]
     medication_order_confirmed = bool(
         typed_suggestions.get("medical_order_date")
         or re.search(r"\b(?:se formula|se prescribe)\b", combined_text, flags=re.IGNORECASE)
