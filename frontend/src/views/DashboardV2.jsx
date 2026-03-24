@@ -4149,6 +4149,12 @@ function DetailPanel({
                     <div style={{ fontSize: 28, fontWeight: 800 }}>Tu documento esta listo</div>
                     <div style={{ marginTop: 8, fontSize: 18 }}>{item.recommended_action} generado el {item.updated_at ? shortDate(item.updated_at) : "hace unos minutos"}</div>
                   </div>
+                  <div style={{ padding: 16, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412", display: "grid", gap: 8 }}>
+                    <div style={{ fontWeight: 800 }}>Estas viendo la version guardada del expediente.</div>
+                    <div>
+                      Si ya cambiaste respuestas, anexos o instrucciones para la IA, usa <strong>Regenerar documento</strong> para crear una nueva version. Ver o abrir el documento no lo vuelve a generar.
+                    </div>
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
                     <div style={{ padding: 18, borderRadius: 18, background: "#111827", color: "#fff" }}>
                       <div style={{ fontSize: 13, fontWeight: 800, color: "#86EFAC" }}>CALIDAD DEL DOCUMENTO</div>
@@ -5849,9 +5855,15 @@ export default function DashboardV2(props) {
                 <div style={{ display: "grid", gap: 18 }}>
                   <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.textMuted }}>DOCUMENTO</div>
-                    <div style={{ color: C.textMuted }}>Genera el escrito final cuando el pago ya este confirmado.</div>
+                    <div style={{ color: C.textMuted }}>
+                      {activeCaseDetail.case.generated_document
+                        ? "Este expediente ya tiene un documento guardado. Si hiciste cambios o quieres aplicar mejoras nuevas, usa regenerar documento."
+                        : "Genera el escrito final cuando el pago ya este confirmado."}
+                    </div>
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <Button variant="secondary" onClick={() => onGenerateDocument(activeCaseDetail.case.id)} disabled={activeCaseDetail.case.payment_status !== "pagado"} icon={FileText}>Generar documento</Button>
+                      <Button variant="secondary" onClick={() => onGenerateDocument(activeCaseDetail.case.id)} disabled={activeCaseDetail.case.payment_status !== "pagado"} icon={FileText}>
+                        {activeCaseDetail.case.generated_document ? "Regenerar documento" : "Generar documento"}
+                      </Button>
                     </div>
                   </div>
                   <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 12 }}>
