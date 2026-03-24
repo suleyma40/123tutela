@@ -1071,6 +1071,14 @@ def _enforce_health_tutela_consistency(document: str, case: dict[str, Any]) -> s
     normalized_text = text
     for wrong, right in replacements.items():
         normalized_text = re.sub(wrong, right, normalized_text, flags=re.IGNORECASE)
+    normalized_text = re.sub(r"\beps sura\b", "EPS Sura", normalized_text, flags=re.IGNORECASE)
+    normalized_text = re.sub(r"\bips comfama\b", "IPS Comfama", normalized_text, flags=re.IGNORECASE)
+    normalized_text = re.sub(
+        r"\bLa valoracion prioritaria por endocrinologia y la definicion del uso de Mounjaro\b",
+        "la valoracion prioritaria por endocrinologia y la definicion del uso de Mounjaro",
+        normalized_text,
+        flags=re.IGNORECASE,
+    )
     text = normalized_text
     subsidiarity, immediacy = _health_tutela_procedencia_fragments(case)
     if "VI. PROCEDENCIA" in text and "Subsidiariedad:" not in text:
