@@ -349,7 +349,22 @@ def build_health_agent_state(
 
 def relax_health_tutela_blockers(blocking_issues: list[str], facts: dict[str, Any]) -> list[str]:
     agent_state = facts.get("agent_state") or {}
-    if agent_state.get("block") != "salud" or not agent_state.get("can_generate"):
+    intake = facts.get("intake_form") or {}
+    attachment_suggestions = ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
+    has_minimum_health_context = bool(
+        _text(intake.get("target_entity") or intake.get("eps_name"))
+        and _text(intake.get("diagnosis"))
+        and _text(intake.get("treatment_needed") or attachment_suggestions.get("treatment_needed"))
+        and (
+            _text(intake.get("urgency_detail"))
+            or _text(intake.get("ongoing_harm"))
+            or _text(intake.get("tutela_immediacy_detail"))
+            or _text(intake.get("eps_response_detail"))
+            or _text(intake.get("tutela_other_means_detail"))
+            or _text(intake.get("eps_request_date"))
+        )
+    )
+    if agent_state.get("block") != "salud" and not has_minimum_health_context:
         return blocking_issues
 
     suppress_patterns = (
