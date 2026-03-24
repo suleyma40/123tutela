@@ -941,6 +941,106 @@ def _sanitize_health_generated_document(document: str) -> str:
     return sanitized.strip() + ("\n" if sanitized.strip() else "")
 
 
+def _health_tutela_procedencia_fragments(case: dict[str, Any]) -> tuple[str, str]:
+    ctx = _health_context(case)
+    intake = ctx["intake"]
+    attachment_suggestions = _health_attachment_suggestions(case)
+    synthesis = _health_case_synthesis(case)
+    treatment_needed = _normalize_health_service_text(
+        intake.get("treatment_needed")
+        or attachment_suggestions.get("treatment_needed")
+        or synthesis.get("requested_service")
+        or ""
+    )
+    eps_request_date = _normalize_health_display_date(str(intake.get("eps_request_date") or attachment_suggestions.get("eps_request_date") or "").strip())
+    eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
+    eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
+    eps_response_detail = _formalize_health_response(str(intake.get("eps_response_detail") or "").strip())
+    urgency_detail = _formalize_health_urgency(
+        case,
+        intake.get("urgency_detail")
+        or intake.get("ongoing_harm")
+        or intake.get("tutela_immediacy_detail")
+        or "",
+    ).strip()
+    risk_summary = _sentence(str(synthesis.get("risk_summary") or "").strip(), fallback="").strip()
+    prior_attempts_summary = _health_prior_attempts_summary(case)
+    subsidiarity_base = (
+        _clean_health_raw_text(str(intake.get("tutela_other_means_detail") or "").strip())
+        or prior_attempts_summary
+        or (
+            f"El dia {eps_request_date} se solicito ante {ctx['accionado']} la autorizacion o prestacion de {treatment_needed or 'el servicio de salud requerido'}"
+            + (f" a traves de {eps_request_channel}" if eps_request_channel else "")
+            + (f", bajo el radicado o referencia {eps_request_reference}" if eps_request_reference else "")
+            + "."
+            if eps_request_date
+            else ""
+        )
+        or (
+            f"Frente a esa gestion previa, la entidad accionada incurrio en la siguiente respuesta u omision: {_sentence(eps_response_detail)}"
+            if eps_response_detail
+            else ""
+        )
+        or "La gestion previa ante la EPS no removio la barrera actual ni garantizo el acceso oportuno al servicio ordenado."
+    )
+    subsidiarity = _sentence(
+        f"{subsidiarity_base} Los mecanismos ordinarios ante la EPS o de reclamacion administrativa no resultan eficaces en este caso concreto, porque las gestiones ya intentadas no removieron la barrera actual y la proteccion requerida es inmediata, sin admitir una espera adicional sin agravamiento del dano.",
+        "La accion de tutela resulta procedente porque la gestion previa ante la EPS no soluciono la barrera actual y la proteccion no admite mas demora.",
+    )
+    immediacy = _sentence(
+        f"{_sentence(urgency_detail or risk_summary or 'La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.', fallback='La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.')} La accion se presenta porque la afectacion sigue vigente, el dano continua produciendose hoy y requiere proteccion judicial oportuna.",
+        "La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.",
+    )
+    return subsidiarity, immediacy
+
+
+def _enforce_health_tutela_consistency(document: str, case: dict[str, Any]) -> str:
+    text = _sanitize_health_generated_document(document)
+    if not text:
+        return ""
+    ctx = _health_context(case)
+    account_name = str(ctx.get("account_name") or "").strip()
+    account_doc = str(ctx.get("account_doc") or "").strip()
+    patient_name = str(ctx.get("patient_name") or "").strip()
+    patient_doc = str(ctx.get("patient_doc") or "").strip()
+    if patient_name and account_name and _same_identity(account_name, patient_name, account_doc, patient_doc):
+        text = re.sub(
+            r",\s*actuando en representacion de\s+[^,]+(?:,[^,]+){0,3},\s*persona afectada por la barrera en salud descrita",
+            ", actuando en nombre propio",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"^\s*\d+\.\s*La presente accion se promueve a favor de .*$\n?",
+            "",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+    replacements = {
+        "ips confama": "ips comfama",
+        "confama": "comfama",
+        "obesidad morbidad": "obesidad morbida",
+        "aneuriam": "aneurisma",
+    }
+    normalized_text = text
+    for wrong, right in replacements.items():
+        normalized_text = re.sub(wrong, right, normalized_text, flags=re.IGNORECASE)
+    text = normalized_text
+    subsidiarity, immediacy = _health_tutela_procedencia_fragments(case)
+    if "VI. PROCEDENCIA" in text and "Subsidiariedad:" not in text:
+        text = text.replace("VI. PROCEDENCIA\n", f"VI. PROCEDENCIA\nSubsidiariedad: {subsidiarity}\n\n", 1)
+    if "VI. PROCEDENCIA" in text and "Inmediatez:" not in text:
+        text = text.replace("VI. PROCEDENCIA\n", f"VI. PROCEDENCIA\nInmediatez: {immediacy}\n\n", 1)
+    notification_line = (
+        f"Solicito que las notificaciones del presente tramite sean remitidas al correo {ctx['user_email']}, "
+        f"al telefono {ctx['user_phone']} y, si aplica, a la direccion fisica {ctx['address']}, {ctx['city']}, {ctx['department']}."
+    )
+    if "XI. NOTIFICACIONES" in text and "Solicito que las notificaciones" not in text:
+        text = text.replace("XI. NOTIFICACIONES\n", f"XI. NOTIFICACIONES\n{notification_line}\n\n", 1)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text + "\n"
+
+
 def _infer_age_from_birth_date(value: str) -> str:
     text = str(value or "").strip()
     if not text:
@@ -1891,6 +1991,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
     drafted = "".join(text_parts).strip()
     if action_key == "accion de tutela":
         drafted = _sanitize_health_generated_document(drafted).strip()
+        drafted = _enforce_health_tutela_consistency(drafted, case).strip()
     trace["anthropic_response_preview"] = drafted[:1200]
     if not _looks_like_complete_health_document(drafted, action_key):
         trace["anthropic_rejection_reason"] = "failed_quality_gate_first_pass"
@@ -1974,6 +2075,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
         drafted = "".join(repair_parts).strip()
         if action_key == "accion de tutela":
             drafted = _sanitize_health_generated_document(drafted).strip()
+            drafted = _enforce_health_tutela_consistency(drafted, case).strip()
         trace["anthropic_repair_preview"] = drafted[:1200]
         if not _looks_like_complete_health_document(drafted, action_key):
             trace["anthropic_rejection_reason"] = "failed_quality_gate_second_pass"
@@ -1983,6 +2085,7 @@ def _draft_health_document_with_claude(case: dict[str, Any], rule: dict[str, Any
     trace["final_document_source"] = "anthropic"
     if action_key == "accion de tutela":
         drafted = _sanitize_health_generated_document(drafted).strip()
+        drafted = _enforce_health_tutela_consistency(drafted, case).strip()
     return drafted, trace
 
 
@@ -2633,7 +2736,9 @@ def build_document_with_trace(case: dict[str, Any]) -> tuple[str, dict[str, Any]
         if rule["action_key"] == "accion de tutela":
             fallback = _build_health_tutela_document(case, rule)
             drafted, trace = _draft_health_document_with_claude(case, rule, fallback)
-            return _sanitize_health_generated_document(drafted or fallback).strip(), trace
+            final_document = _sanitize_health_generated_document(drafted or fallback).strip()
+            final_document = _enforce_health_tutela_consistency(final_document, case).strip()
+            return final_document, trace
         if rule["action_key"] == "impugnacion de tutela":
             fallback = _build_health_impugnacion_document(case, rule)
             drafted, trace = _draft_health_document_with_claude(case, rule, fallback)
