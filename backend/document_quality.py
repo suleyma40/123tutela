@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unicodedata
 from typing import Any
 
@@ -252,6 +253,31 @@ def _same_identity(name_a: str, name_b: str, doc_a: str = "", doc_b: str = "") -
     return normalized_a == normalized_b or normalized_a in normalized_b or normalized_b in normalized_a
 
 
+def _extract_document_intro_identity(document: str) -> tuple[str, str]:
+    match = re.search(
+        r"Yo,\s*([^,\n]+).*?cedula de ciudadania No\.\s*([0-9\.\-\s]+)",
+        str(document or ""),
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if match:
+        return str(match.group(1) or "").strip(), str(match.group(2) or "").strip()
+    return "", ""
+
+
+def _strip_internal_health_labels(text: str) -> str:
+    cleaned = str(text or "")
+    patterns = (
+        r"tipo de peticion o enfoque principal\s*:?\s*[a-z_ ]*",
+        r"tipo de peticion\s*:?\s*[a-z_ ]*",
+        r"enfoque principal\s*:?\s*[a-z_ ]*",
+        r"interes_particular",
+        r"interes general",
+    )
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+    return cleaned
+
+
 def _is_health_internal_article_citation_issue(
     unresolved_references: list[str],
     *,
@@ -313,6 +339,7 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
     brief = get_generation_brief(recommended_action, workflow_type, category)
     lowered = str(document or "").lower()
     normalized_document = _normalize_text(str(document or ""))
+    normalized_document_without_labels = _normalize_text(_strip_internal_health_labels(str(document or "")))
     blocking_issues: list[str] = []
     warnings: list[str] = []
     strengths: list[str] = []
@@ -487,11 +514,20 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
                 or evidence_record.get("patient_document")
                 or ((attachment_context.get("health_case_synthesis") or {}).get("patient_document") or "")
             ).strip()
+            document_intro_name, document_intro_doc = _extract_document_intro_identity(document)
             acting_capacity = _normalize_text(str(intake.get("acting_capacity") or "").strip())
+            document_is_patient_led = bool(
+                patient_name
+                and (
+                    _same_identity(document_intro_name, patient_name, document_intro_doc, patient_doc)
+                    or _same_identity(document_intro_name, patient_name)
+                )
+            )
             if (
                 patient_name
                 and account_name
                 and not _same_identity(account_name, patient_name, account_doc, patient_doc)
+                and not document_is_patient_led
                 and acting_capacity in {"", "nombre_propio"}
                 and not _contains_any(
                     normalized_document,
@@ -511,7 +547,7 @@ def evaluate_generated_document(case: dict[str, Any], document: str) -> dict[str
             internal_fragments = [
                 fragment
                 for fragment in ["tipo de peticion o enfoque principal", "tipo de peticion", "enfoque principal", "interes_particular", "interes general"]
-                if fragment in normalized_document
+                if fragment in normalized_document and fragment in normalized_document_without_labels
             ]
             if internal_fragments:
                 structure_score -= 8

@@ -928,6 +928,9 @@ def _sanitize_health_generated_document(document: str) -> str:
         r"enfoque principal\s*:?\s*[a-z_ ]*",
         r"interes_particular",
         r"interes general",
+        r"[,;:\-\s]*tipo de peticion o enfoque principal[,;:\-\s]*",
+        r"[,;:\-\s]*tipo de peticion[,;:\-\s]*",
+        r"[,;:\-\s]*enfoque principal[,;:\-\s]*",
     )
     sanitized_text = text
     for pattern in inline_banned_patterns:
