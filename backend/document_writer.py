@@ -1076,11 +1076,11 @@ def _enforce_health_tutela_consistency(document: str, case: dict[str, Any]) -> s
     if "VI. PROCEDENCIA" in text and "Subsidiariedad:" not in text:
         text = text.replace("VI. PROCEDENCIA\n", f"VI. PROCEDENCIA\nSubsidiariedad: {subsidiarity}\n\n", 1)
     text = re.sub(
-        r"Subsidiariedad:\s*(?:,\s*)?(?:porque\b.*)?",
-        f"Subsidiariedad: {subsidiarity}",
+        r"Subsidiariedad:\s*.*?(?=\n\s*Inmediatez:|\n[A-ZIVX]+\.\s|\Z)",
+        f"Subsidiariedad: {subsidiarity}\n",
         text,
         count=1,
-        flags=re.IGNORECASE,
+        flags=re.IGNORECASE | re.DOTALL,
     )
     if "VI. PROCEDENCIA" in text and "Inmediatez:" not in text:
         text = text.replace("VI. PROCEDENCIA\n", f"VI. PROCEDENCIA\nInmediatez: {immediacy}\n\n", 1)
@@ -1102,6 +1102,8 @@ def _enforce_health_tutela_consistency(document: str, case: dict[str, Any]) -> s
                 index += 1
             renumbered.append(line)
         text = text[: chronology_match.start(2)] + "\n".join(renumbered) + text[chronology_match.end(2) :]
+    text = re.sub(r"([^\n])\n(IV\. DERECHOS FUNDAMENTALES VULNERADOS)", r"\1\n\n\2", text)
+    text = re.sub(r"([^\n])\n(VI\. PROCEDENCIA)", r"\1\n\n\2", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     return text + "\n"
 
