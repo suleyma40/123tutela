@@ -1244,7 +1244,18 @@ def build_final_validation(
                     "La IA completara internamente la urgencia, procedencia y la barrera de la EPS con base en anexos y contexto medico ya cargado."
                 )
     if "derecho de peticion" in recommended_action:
-        if not _text(intake.get("numbered_requests")):
+        ai_can_complete_health_petition = (
+            _lower(category) == "salud"
+            and bool(_text(intake.get("target_entity") or intake.get("eps_name")))
+            and bool(_text(intake.get("treatment_needed")) or _text(intake.get("concrete_request")))
+            and bool(
+                _text(intake.get("diagnosis"))
+                or _text(intake.get("evidence_summary"))
+                or _text(intake.get("supporting_documents"))
+                or (facts.get("uploaded_evidence_files") or [])
+            )
+        )
+        if not _text(intake.get("numbered_requests")) and not ai_can_complete_health_petition:
             blocking_issues.append("Antes de entregar el derecho de peticion deben quedar claras las 2 o 3 respuestas o soluciones concretas que esperas recibir.")
             actionable_gaps.append(
                 _build_actionable_gap(
@@ -1253,6 +1264,10 @@ def build_final_validation(
                     prompt="Escribe las respuestas o soluciones concretas que necesitas que la entidad entregue.",
                     recommended_action=recommended_action,
                 )
+            )
+        if ai_can_complete_health_petition:
+            warnings.append(
+                "La IA puede reconstruir internamente las solicitudes numeradas del derecho de peticion con base en la entidad, el servicio de salud y los anexos ya cargados."
             )
         if not _text(intake.get("response_channel")) and not _text(intake.get("copy_email")):
             blocking_issues.append("El derecho de peticion debe indicar un canal de notificacion claro.")

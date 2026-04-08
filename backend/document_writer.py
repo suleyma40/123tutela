@@ -2306,14 +2306,18 @@ def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) 
         or ((facts.get("source_validation_policy") or {}).get("legal_basis_verified_summary") or "")
     ).strip()
     diagnosis = str(intake.get("diagnosis") or "").strip()
+    request_type = str(intake.get("request_type") or "interes_particular").strip().replace("_", " ")
+    request_type_label = request_type if request_type.startswith("interes ") else f"interes {request_type}"
     treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or _health_attachment_suggestions(case).get("treatment_needed") or "")
     explicit_request_lines = _split_numbered_requests(str(intake.get("numbered_requests") or "").strip())
     request_lines = explicit_request_lines or [
         f"RESPONDER de fondo, de manera clara, congruente y completa, la solicitud relacionada con {treatment_needed or 'el servicio de salud requerido'}.",
-        f"AUTORIZAR o GARANTIZAR oportunamente {treatment_needed or 'el servicio de salud ordenado'}."
-        if treatment_needed
-        else "AUTORIZAR o GARANTIZAR oportunamente el servicio de salud requerido.",
-        "INFORMAR por escrito la fecha, el canal y las condiciones en que se prestara el servicio o se resolvera la solicitud.",
+        (
+            f"INFORMAR de manera expresa si {treatment_needed} sera autorizado, programado, entregado o canalizado, indicando fecha, ruta y requisitos concretos."
+            if treatment_needed
+            else "INFORMAR de manera expresa si el servicio de salud solicitado sera autorizado, programado, entregado o canalizado, indicando fecha, ruta y requisitos concretos."
+        ),
+        "INDICAR por escrito las razones medicas, tecnicas o administrativas de cualquier negativa, demora o imposibilidad de atencion, si esa fuera la decision de la entidad.",
         f"REMITIR la respuesta al correo {ctx['user_email']} y al telefono {ctx['user_phone']}.",
     ]
     legal_basis_text = (
@@ -2324,6 +2328,9 @@ def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) 
         legal_basis_text = f"{legal_basis_text} El caso se relaciona con el diagnostico de {diagnosis}."
     if verified_basis:
         legal_basis_text = f"{legal_basis_text} {verified_basis}".strip()
+    support_block = ""
+    if jurisprudence_lines:
+        support_block = f"\nSoporte juridico complementario:\n{_numbered_lines(jurisprudence_lines)}\n"
     header_date = (
         datetime.now()
         .strftime("%d de %B de %Y")
@@ -2343,7 +2350,7 @@ def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     intro = (
         f"Yo, {ctx['user_name']}, persona mayor de edad, titular de la cedula de ciudadania No. {ctx['user_doc']}, con domicilio en {ctx['address']}, {ctx['city']}, {ctx['department']}, "
-        f"correo electronico {ctx['user_email']} y telefono {ctx['user_phone']}, presento derecho de peticion en interes particular contra {target}."
+        f"correo electronico {ctx['user_email']} y telefono {ctx['user_phone']}, presento derecho de peticion en {request_type_label} contra {target}."
     )
     return f"""{ctx['city'] or 'Colombia'}, {header_date}
 Señores
@@ -2360,15 +2367,13 @@ II. HECHOS Y CONTEXTO
 
 III. FUNDAMENTO DEL DERECHO DE PETICION
 {legal_basis_text}
-
-Soporte juridico complementario:
-{_numbered_lines(jurisprudence_lines) if jurisprudence_lines else "1. Para esta peticion se prioriza el soporte normativo oficial suficiente y conservador."}
+{support_block}
 
 IV. SOLICITUDES NUMERADAS
 {_numbered_lines(_dedupe_lines(request_lines))}
 
 V. TERMINO LEGAL DE RESPUESTA
-De conformidad con la Ley 1755 de 2015, la entidad destinataria debe emitir una respuesta de fondo, clara, congruente y oportuna dentro del termino legal aplicable a esta peticion.
+De conformidad con la Ley 1755 de 2015, la entidad destinataria debe emitir una respuesta de fondo, clara, congruente y oportuna. Por regla general, las peticiones de interes particular o general deben responderse dentro de los quince (15) dias habiles, sin perjuicio de los terminos especiales que apliquen al contenido concreto de esta solicitud.
 
 VI. PRUEBAS Y ANEXOS
 {_numbered_lines(evidence_items)}

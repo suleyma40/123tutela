@@ -381,6 +381,12 @@ def _validate_health_stage_readiness(
         or _lower(intake.get("prior_claim")) in {"si", "sí", "reclame", "reclamo", "radicado"}
     )
     action = _lower(recommended_action)
+    is_health_petition = "derecho de peticion" in action
+    ai_can_complete_health_petition = bool(
+        target_entity
+        and (treatment_needed or diagnosis)
+        and (supports_present or clinical_record_present)
+    )
 
     if stage == "preview":
         if "impugnacion" in action:
@@ -436,12 +442,14 @@ def _validate_health_stage_readiness(
                 problems.append("El derecho de peticion en salud debe venir con historia clinica, formula u otro soporte medico equivalente antes de generar el documento.")
             if not target_entity:
                 problems.append("El derecho de peticion en salud necesita una entidad destinataria clara.")
-            if not concrete_request:
+            if not concrete_request and not ai_can_complete_health_petition:
                 problems.append("El derecho de peticion en salud necesita solicitudes concretas y verificables.")
             if len(_text(description)) < 120 and len(case_story) < 120:
                 problems.append("El derecho de peticion en salud necesita hechos mas claros antes de generar el documento.")
             if not _intake_text(facts, "response_channel", "copy_email"):
                 warnings.append("Conviene definir un canal de respuesta expreso para el derecho de peticion.")
+            if ai_can_complete_health_petition and not concrete_request:
+                warnings.append("La IA puede reconstruir internamente las solicitudes concretas del derecho de peticion con base en el servicio de salud, la entidad y los anexos cargados.")
         elif "impugnacion" in action:
             if not ruling_attachment_present:
                 problems.append("La impugnacion en salud solo puede generarse si subes el fallo de tutela que se va a impugnar.")
@@ -492,8 +500,22 @@ def _validate_health_stage_readiness(
             if not supports_present:
                 problems.append("La tutela en salud necesita al menos un soporte medico minimo o una descripcion muy concreta del soporte disponible.")
 
-    problems.extend(contradictions.get("blocking_issues") or [])
-    warnings.extend(contradictions.get("warnings") or [])
+    contradiction_problems = list(contradictions.get("blocking_issues") or [])
+    contradiction_warnings = list(contradictions.get("warnings") or [])
+    if is_health_petition:
+        downgraded_for_petition = {
+            "La gestion previa es contradictoria: marcaste que no hubo reclamo previo, pero el expediente si describe una solicitud, radicado o respuesta de la EPS.",
+            "La representacion del caso es inconsistente: indicaste que actuas por otra persona, pero falta identificar a quien representas.",
+        }
+        retained_problems: list[str] = []
+        for issue in contradiction_problems:
+            if issue in downgraded_for_petition:
+                contradiction_warnings.append(issue)
+            else:
+                retained_problems.append(issue)
+        contradiction_problems = retained_problems
+    problems.extend(contradiction_problems)
+    warnings.extend(contradiction_warnings)
 
     return {
         "status": "requires_more_data" if problems else "ok_with_warnings" if warnings else "ok",
