@@ -1314,9 +1314,14 @@ def _health_line_overstates_barrier(line: str) -> bool:
     risky_tokens = (
         "no autorizaron",
         "no han autorizado",
+        "no se ha logrado la autorizacion",
+        "no se ha logrado la autorización",
         "negado",
         "negaron",
         "barrera administrativa",
+        "barreras administrativas",
+        "falta de coordinacion",
+        "falta de coordinación",
         "ips comfama",
     )
     return any(token in normalized for token in risky_tokens)
@@ -1359,17 +1364,20 @@ def _health_prior_attempts_summary(case: dict[str, Any]) -> str:
     intake = facts.get("intake_form") or {}
     attachment_suggestions = _health_attachment_suggestions(case)
     synthesis = _health_case_synthesis(case)
+    broad_history_only = _health_support_comes_from_broad_history(case)
+    explicit_attempts = [
+        str(intake.get("eps_response_detail") or "").strip(),
+        str(intake.get("tutela_other_means_detail") or "").strip(),
+        str(intake.get("prior_claim_result") or "").strip(),
+        str(attachment_suggestions.get("prior_claim_result") or "").strip(),
+    ]
+    if broad_history_only and not any(item for item in explicit_attempts if item):
+        return ""
     candidate_lines: list[str] = []
-    candidate_lines.extend([str(item).strip() for item in (synthesis.get("chronology") or []) if str(item).strip()])
-    candidate_lines.extend(_filtered_health_context_lines(case))
-    candidate_lines.extend(
-        [
-            str(intake.get("eps_response_detail") or "").strip(),
-            str(intake.get("tutela_other_means_detail") or "").strip(),
-            str(intake.get("prior_claim_result") or "").strip(),
-            str(attachment_suggestions.get("prior_claim_result") or "").strip(),
-        ]
-    )
+    if not broad_history_only:
+        candidate_lines.extend([str(item).strip() for item in (synthesis.get("chronology") or []) if str(item).strip()])
+        candidate_lines.extend(_filtered_health_context_lines(case))
+    candidate_lines.extend(explicit_attempts)
     attempt_tokens = (
         "consulta",
         "cita",
@@ -1397,6 +1405,8 @@ def _health_prior_attempts_summary(case: dict[str, Any]) -> str:
         if not line or len(normalized) < 24:
             continue
         if any(fragment in normalized for fragment in ["los anexos parecen mostrar", "el caso gira alrededor", "en la actualidad persiste"]):
+            continue
+        if broad_history_only and _health_line_overstates_barrier(line):
             continue
         if not any(token in normalized for token in attempt_tokens):
             continue
