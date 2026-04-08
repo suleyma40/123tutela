@@ -710,8 +710,7 @@ def _health_context(case: dict[str, Any]) -> dict[str, Any]:
         or evidence_record.get("target_entity")
         or _join_list(facts.get("entidades_involucradas"), fallback="Entidad accionada")
     ).strip()
-    if eps_name and "," in accionado:
-        accionado = eps_name
+    accionado = _canonical_health_target_entity(eps_name or accionado)
     account_name = _person_name(case.get("usuario_nombre") or intake.get("full_name"))
     account_doc = case.get("usuario_documento") or intake.get("document_number") or "Sin documento registrado"
     account_email = case.get("usuario_email") or intake.get("email") or "Sin correo"
@@ -1294,6 +1293,20 @@ def _health_support_comes_from_broad_history(case: dict[str, Any]) -> bool:
         if str((profile or {}).get("type") or "").strip()
     }
     return "historia_clinica" in profile_types and "formula" not in profile_types and "radicado" not in profile_types
+
+
+def _canonical_health_target_entity(value: str) -> str:
+    raw = re.sub(r"\s+", " ", str(value or "")).strip(" ,;")
+    if not raw:
+        return ""
+    parts = [part.strip(" ,;") for part in re.split(r"\s*,\s*", raw) if part.strip(" ,;")]
+    if len(parts) <= 1:
+        return raw
+    for part in parts:
+        normalized = _normalize_writer_text(part)
+        if " eps" in f" {normalized} " or normalized.startswith("eps "):
+            return part
+    return parts[0]
 
 
 def _health_line_overstates_barrier(line: str) -> bool:
@@ -2583,11 +2596,23 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
             if eps_response_detail
             else ""
         )
-        or "La gestion previa ante la EPS no removio la barrera actual ni garantizo el acceso oportuno al servicio ordenado."
+        or (
+            "Con los soportes actuales no aparece acreditada una solucion clinica o administrativa efectiva que garantice de manera oportuna la atencion requerida."
+            if broad_history_only
+            else "La gestion previa ante la EPS no removio la barrera actual ni garantizo el acceso oportuno al servicio ordenado."
+        )
     )
     subsidiarity = _sentence(
-        f"{subsidiarity_base} Los mecanismos ordinarios ante la EPS o de reclamacion administrativa no resultan eficaces en este caso concreto, porque las gestiones ya intentadas no removieron la barrera actual y la proteccion requerida es inmediata, sin admitir una espera adicional sin agravamiento del dano.",
-        "La accion de tutela resulta procedente porque la gestion previa ante la EPS no soluciono la barrera actual y la proteccion no admite mas demora.",
+        (
+            f"{subsidiarity_base} Los mecanismos ordinarios ante la EPS o de reclamacion administrativa no resultan eficaces en este caso concreto, porque no existe en el expediente una respuesta resolutiva que garantice atencion oportuna y la proteccion requerida es inmediata, sin admitir una espera adicional con riesgo de agravamiento."
+            if broad_history_only
+            else f"{subsidiarity_base} Los mecanismos ordinarios ante la EPS o de reclamacion administrativa no resultan eficaces en este caso concreto, porque las gestiones ya intentadas no removieron la barrera actual y la proteccion requerida es inmediata, sin admitir una espera adicional sin agravamiento del dano."
+        ),
+        (
+            "La accion de tutela resulta procedente porque con los soportes actuales no aparece una solucion efectiva ni oportuna frente a la necesidad medica actual."
+            if broad_history_only
+            else "La accion de tutela resulta procedente porque la gestion previa ante la EPS no soluciono la barrera actual y la proteccion no admite mas demora."
+        ),
     )
     immediacy = _sentence(
         f"{_sentence(urgency_detail or risk_summary or 'La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.', fallback='La vulneracion es actual y continua, pues el servicio requerido sigue sin garantizarse y el riesgo para el paciente permanece vigente.')} La accion se presenta porque la afectacion sigue vigente, el dano continua produciendose hoy y requiere proteccion judicial oportuna.",
