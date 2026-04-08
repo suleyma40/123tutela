@@ -6085,8 +6085,14 @@ export default function DashboardV2(props) {
                   </div>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button
-                      onClick={() => document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                      onClick={async () => {
+                        await onGenerateDocument(activeCaseDetail.case.id);
+                        window.setTimeout(() => {
+                          document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 120);
+                      }}
                       icon={ArrowRight}
+                      disabled={loading || activeCaseDetail.case.payment_status !== "pagado"}
                     >
                       Ir a generar documento
                     </Button>
