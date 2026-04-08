@@ -1560,6 +1560,26 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     return _dedupe_lines(merged)
 
 
+def _health_petition_fact_lines(case: dict[str, Any]) -> list[str]:
+    adapted: list[str] = []
+    for raw_line in _health_fact_lines(case):
+        line = str(raw_line or "").strip()
+        if not line:
+            continue
+        line = re.sub(
+            r"^La presente accion se promueve a favor de ",
+            "La presente peticion se presenta a favor de ",
+            line,
+            flags=re.IGNORECASE,
+        )
+        line = re.sub(r"\bbarrera en salud aqui denunciada\b", "necesidad de atencion en salud aqui descrita", line, flags=re.IGNORECASE)
+        line = re.sub(r"\bentidad accionada\b", "entidad destinataria", line, flags=re.IGNORECASE)
+        line = re.sub(r"\baccion de tutela\b", "derecho de peticion", line, flags=re.IGNORECASE)
+        if not _is_redundant_health_line(line, adapted):
+            adapted.append(line)
+    return _dedupe_lines(adapted)
+
+
 def _health_jurisprudence_lines(case: dict[str, Any], *, limit: int = 4) -> list[str]:
     facts = case.get("facts") or {}
     source_policy = facts.get("source_validation_policy") or {}
@@ -2298,7 +2318,7 @@ def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) 
     legal_analysis = ctx["legal_analysis"]
     target = ctx["accionado"]
     contact = str(ctx["primary"].get("contact") or intake.get("target_pqrs_email") or intake.get("target_website") or "Canal oficial de atencion").strip()
-    chronology = _health_fact_lines(case)
+    chronology = _health_petition_fact_lines(case)
     evidence_items = _uploaded_evidence_items(case)
     jurisprudence_lines = _health_jurisprudence_lines(case, limit=1)
     verified_basis = str(
