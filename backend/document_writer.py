@@ -701,12 +701,17 @@ def _health_context(case: dict[str, Any]) -> dict[str, Any]:
         workflow_type=case.get("workflow_type"),
         recommended_action=case.get("recommended_action"),
     )
+    explicit_target = str(intake.get("target_entity") or "").strip()
+    eps_name = str(intake.get("eps_name") or "").strip()
     accionado = str(
-        intake.get("target_entity")
-        or evidence_record.get("target_entity")
+        eps_name
+        or explicit_target
         or primary.get("name")
+        or evidence_record.get("target_entity")
         or _join_list(facts.get("entidades_involucradas"), fallback="Entidad accionada")
     ).strip()
+    if eps_name and "," in accionado:
+        accionado = eps_name
     account_name = _person_name(case.get("usuario_nombre") or intake.get("full_name"))
     account_doc = case.get("usuario_documento") or intake.get("document_number") or "Sin documento registrado"
     account_email = case.get("usuario_email") or intake.get("email") or "Sin correo"
@@ -1280,6 +1285,30 @@ def _formalize_health_response(value: str) -> str:
     return _sentence(_title_sentence(cleaned), fallback="")
 
 
+def _health_support_comes_from_broad_history(case: dict[str, Any]) -> bool:
+    attachment_context = ((case.get("facts") or {}).get("attachment_intelligence") or {})
+    profiles = attachment_context.get("attachment_profiles") or []
+    profile_types = {
+        str((profile or {}).get("type") or "").strip().lower()
+        for profile in profiles
+        if str((profile or {}).get("type") or "").strip()
+    }
+    return "historia_clinica" in profile_types and "formula" not in profile_types and "radicado" not in profile_types
+
+
+def _health_line_overstates_barrier(line: str) -> bool:
+    normalized = _normalize_writer_text(line)
+    risky_tokens = (
+        "no autorizaron",
+        "no han autorizado",
+        "negado",
+        "negaron",
+        "barrera administrativa",
+        "ips comfama",
+    )
+    return any(token in normalized for token in risky_tokens)
+
+
 def _formalize_health_urgency(case: dict[str, Any], value: str) -> str:
     cleaned = _clean_health_raw_text(value)
     if not cleaned:
@@ -1406,12 +1435,13 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     eps_request_date = _normalize_health_display_date(str(intake.get("eps_request_date") or attachment_suggestions.get("eps_request_date") or "").strip())
     eps_request_channel = str(intake.get("eps_request_channel") or "").strip()
     eps_request_reference = str(intake.get("eps_request_reference") or "").strip()
-    eps_response_detail = _formalize_health_response(str(intake.get("eps_response_detail") or evidence_record.get("barrier_summary") or "").strip())
+    eps_response_detail = _formalize_health_response(str(intake.get("eps_response_detail") or "").strip())
     urgency_detail = _formalize_health_urgency(case, str(intake.get("urgency_detail") or intake.get("ongoing_harm") or evidence_record.get("risk_summary") or "").strip())
     special_protection = str(intake.get("special_protection") or "").strip()
     has_representation = _should_present_health_representation(case, patient_identity)
     barrier_summary = _sentence(str(synthesis.get("barrier_summary") or "").strip(), fallback="").strip()
     risk_summary = _sentence(str(synthesis.get("risk_summary") or "").strip(), fallback="").strip()
+    broad_history_only = _health_support_comes_from_broad_history(case)
 
     synthesis_chronology = [str(item).strip() for item in (synthesis.get("chronology") or []) if str(item).strip()]
     prioritized_timeline: list[str] = []
@@ -1419,6 +1449,8 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
         formal_item = _sentence(_title_sentence(item), fallback="").strip()
         normalized = _normalize_writer_text(formal_item)
         if not formal_item or not _is_concrete_health_timeline_line(formal_item):
+            continue
+        if broad_history_only and _health_line_overstates_barrier(formal_item):
             continue
         if not (
             re.search(r"\b(?:19|20)\d{2}\b", normalized)
@@ -1466,13 +1498,15 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
         lines.append(f"En la actualidad persiste la siguiente afectacion o riesgo para el paciente: {risk_summary}")
     if special_protection and special_protection.lower() not in {"no aplica", "ninguno"}:
         lines.append(f"La persona afectada se encuentra en condicion de especial proteccion constitucional: {special_protection}.")
-    if barrier_summary and not _is_redundant_health_line(barrier_summary, lines):
+    if barrier_summary and not broad_history_only and not _is_redundant_health_line(barrier_summary, lines):
         lines.append(barrier_summary)
     if facts.get("agent_state", {}).get("analysis", {}).get("barrier_summary"):
         for item in facts["agent_state"]["analysis"]["barrier_summary"]:
             formal_item = _formalize_health_response(str(item or "").strip())
             normalized_item = _normalize_writer_text(formal_item)
             if not formal_item:
+                continue
+            if broad_history_only and _health_line_overstates_barrier(formal_item):
                 continue
             if normalized_item.startswith("de la narracion del caso") or "barrera administrativa atribuible a la eps" in normalized_item:
                 continue
@@ -2504,6 +2538,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     ).strip()
     barrier_summary = _sentence(str(synthesis.get("barrier_summary") or "").strip(), fallback="").strip()
     risk_summary = _sentence(str(synthesis.get("risk_summary") or "").strip(), fallback="").strip()
+    broad_history_only = _health_support_comes_from_broad_history(case)
     prior_attempts_summary = _health_prior_attempts_summary(case)
     description_lower = str(case.get("descripcion") or "").lower()
     focus = str(synthesis.get("focus") or "").strip().lower()
@@ -2565,7 +2600,7 @@ def _build_health_tutela_document(case: dict[str, Any], rule: dict[str, Any]) ->
     )
     if diagnosis:
         legal_basis_text = f"{legal_basis_text} El diagnostico reportado en este caso es {diagnosis}."
-    if barrier_summary:
+    if barrier_summary and not broad_history_only:
         legal_basis_text = f"{legal_basis_text} {barrier_summary}".strip()
     if risk_summary:
         legal_basis_text = f"{legal_basis_text} {risk_summary}".strip()
