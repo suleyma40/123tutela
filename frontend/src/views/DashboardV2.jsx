@@ -3887,7 +3887,7 @@ function DetailPanel({
               </div>
             )}
 
-            {revealOperationalRouting ? (
+            {revealOperationalRouting && flowStep < 3 ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
                 <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", border: `1px solid ${C.border}` }}>
                   <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>CANAL DE RADICACION</div>
@@ -3926,7 +3926,7 @@ function DetailPanel({
               </div>
             )}
 
-            {!!paymentSummary.latest_reference && (
+            {!!paymentSummary.latest_reference && flowStep < 3 && (
               <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", border: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PAGO Y CONFIRMACION</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 12 }}>
@@ -4293,22 +4293,16 @@ function DetailPanel({
                       Si ya cambiaste respuestas, anexos o instrucciones para la IA, usa <strong>Regenerar documento</strong> para crear una nueva version. Ver o abrir el documento no lo vuelve a generar.
                     </div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-                    <div style={{ padding: 18, borderRadius: 18, background: "#111827", color: "#fff" }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: "#86EFAC" }}>CALIDAD DEL DOCUMENTO</div>
-                      <div style={{ marginTop: 10, fontSize: 48, lineHeight: 1, fontWeight: 900 }}>{review?.score || "--"}/100</div>
-                      <div style={{ marginTop: 8, color: "rgba(255,255,255,0.75)" }}>{review?.passed ? "Aprobado, buena fundamentacion" : "Pendiente de validacion"}</div>
+                  <div style={{ padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Antes de firmar</div>
+                    <div style={{ color: C.textMuted, lineHeight: 1.6 }}>
+                      Revisa el escrito completo y confirma que la peticion principal, tu nombre y tu cedula si quedaron correctos.
                     </div>
-                    <div style={{ padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted }}>DERECHOS IDENTIFICADOS</div>
-                      <div style={{ marginTop: 10, color: C.text, fontWeight: 800, fontSize: 24 }}>{rights.length ? rights.join(" · ") : "Se consolidaron los derechos base del caso."}</div>
-                    </div>
-                  </div>
-                  <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF" }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Tu documento incluye</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginTop: 14 }}>
-                      {checklist.map((line) => <div key={line} style={{ color: C.textMuted }}>{`✓ ${line}`}</div>)}
-                    </div>
+                    {!!rights.length && (
+                      <div style={{ color: C.text, fontWeight: 700 }}>
+                        Derechos trabajados: {rights.join(" · ")}
+                      </div>
+                    )}
                   </div>
                   <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${C.border}`, background: "#FCFDFF", display: "grid", gap: 14 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -4407,22 +4401,12 @@ function DetailPanel({
                   )}
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button onClick={() => onViewDocument(item)}>Ver documento completo</Button>
-                    <Button variant="outline" onClick={() => onViewDocument(item)}>Descargar PDF</Button>
-                    <Button variant="secondary" onClick={onRegenerateAnalysis} disabled={loading}>
-                      {loading ? "Analizando..." : "Regenerar análisis"}
-                    </Button>
                     <Button variant="secondary" onClick={onGenerateFromFlow} disabled={loading} icon={FileText}>
                       {loading ? "Regenerando..." : "Regenerar documento"}
                     </Button>
                     <Button variant="outline" onClick={() => onSetDetailStep(2)} icon={ArrowLeft}>
                       Volver a completar datos
                     </Button>
-                    <Button variant="ghost" style={{ background: "#EEF4FF", color: C.primary }} onClick={() => onViewDocument(item)}>Ver en lenguaje simple</Button>
-                  </div>
-                  <div style={{ padding: 16, borderRadius: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", color: C.text }}>
-                    {guidance.customer_copy_channels?.includes("email")
-                      ? `Te enviaremos al correo del caso una copia del documento enviado y, cuando exista, el comprobante disponible desde ${guidance.operational_mailboxes?.notifications || "notificaciones@123tutelaapp.com"}. Si el juzgado o la EPS responde al correo del cliente o por llamada directa, debes reportarlo para que el seguimiento quede actualizado en tu panel.`
-                      : "La copia del documento queda visible en tu panel. Si habilitamos mas canales, apareceran aqui."}
                   </div>
                 </div>
               )}
