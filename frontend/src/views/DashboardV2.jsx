@@ -4375,7 +4375,7 @@ function DetailPanel({
                       />
                     </Field>
                   </div>
-                  {!!actionableGaps.length && (finalValidation?.status === "requires_changes" || !review?.passed || !!visibleActionError) && (
+                  {!!actionableGaps.length && !useBackendHealthAgent && (finalValidation?.status === "requires_changes" || !review?.passed || !!visibleActionError) && (
                     <div style={{ padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FDBA74", display: "grid", gap: 12 }}>
                       <div style={{ fontSize: 14, fontWeight: 800, color: "#9A3412" }}>
                         Faltan datos criticos para corregir este documento

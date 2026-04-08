@@ -1292,7 +1292,15 @@ def _health_support_comes_from_broad_history(case: dict[str, Any]) -> bool:
         for profile in profiles
         if str((profile or {}).get("type") or "").strip()
     }
-    return "historia_clinica" in profile_types and "formula" not in profile_types and "radicado" not in profile_types
+    profile_names = {
+        str((profile or {}).get("name") or "").strip().lower()
+        for profile in profiles
+        if str((profile or {}).get("name") or "").strip()
+    }
+    filename_history = any("historia" in name and "clinic" in name for name in profile_names)
+    if filename_history:
+        return True
+    return "historia_clinica" in profile_types and "radicado" not in profile_types
 
 
 def _canonical_health_target_entity(value: str) -> str:
