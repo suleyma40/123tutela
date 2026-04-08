@@ -797,6 +797,8 @@ def _is_ai_owned_quality_issue(issue: object) -> bool:
 def _blocking_issue_fix_location(issue: object, recommended_action: str = "") -> str:
     lowered = str(issue or "").lower()
     action = str(recommended_action or "").lower()
+    if "pretension concreta" in lowered:
+        return "Solucion concreta que necesitas"
     if any(token in lowered for token in ["eps", "ips", "entidad accionada", "entidad destinataria"]):
         return "Entidad y canal de radicacion"
     if any(token in lowered for token in ["diagnostico", "condicion medica", "condición médica"]):

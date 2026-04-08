@@ -19,6 +19,7 @@ def evaluate_document_rule(
 ) -> dict[str, Any]:
     rule = get_document_rule(recommended_action, workflow_type)
     intake = facts.get("intake_form") or {}
+    action_key = rule["action_key"]
     full_text = _normalize(
         " ".join(
             [
@@ -51,6 +52,17 @@ def evaluate_document_rule(
     )
     blocking_issues: list[str] = []
     warnings: list[str] = []
+    ai_can_complete_health_petition = (
+        "derecho de peticion" in action_key
+        and _normalize(str(intake.get("category") or facts.get("category") or "")) == "salud"
+        and bool(str(intake.get("target_entity") or intake.get("eps_name") or "").strip())
+        and bool(str(intake.get("treatment_needed") or intake.get("diagnosis") or "").strip())
+        and (
+            bool(facts.get("uploaded_evidence_files") or [])
+            or bool(str(intake.get("supporting_documents") or "").strip())
+            or bool(str(intake.get("evidence_summary") or "").strip())
+        )
+    )
 
     if not facts.get("entidades_involucradas") and not str(intake.get("target_entity") or intake.get("eps_name") or "").strip():
         blocking_issues.append("Falta identificar claramente el destinatario o sujeto pasivo del documento.")
@@ -60,9 +72,11 @@ def evaluate_document_rule(
         str(intake.get("concrete_request") or "").strip()
         or any(word in full_text for word in ["solicito", "pido", "requiero", "pretendo", "ordenen", "corrijan"])
     ):
-        blocking_issues.append("El documento requiere una pretension concreta mejor formulada.")
+        if ai_can_complete_health_petition:
+            warnings.append("La IA puede formular internamente la pretension concreta del derecho de peticion con base en la entidad, el servicio y los anexos cargados.")
+        else:
+            blocking_issues.append("El documento requiere una pretension concreta mejor formulada.")
 
-    action_key = rule["action_key"]
     if action_key == "accion de tutela":
         uploaded_evidence = facts.get("uploaded_evidence_files") or []
         health_tutela_context = (
