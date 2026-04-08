@@ -891,6 +891,21 @@ def _build_health_evidence_record(
 
 def _classify_attachment_type(file_name: str, compact_text: str) -> str:
     lowered = f"{file_name} {compact_text}".lower()
+    if any(
+        term in lowered
+        for term in [
+            "fallo de tutela",
+            "sentencia de tutela",
+            "accion de tutela",
+            "acción de tutela",
+            "impugnacion de tutela",
+            "impugnación de tutela",
+            "juzgado",
+            "tribunal",
+            "despacho judicial",
+        ]
+    ):
+        return "fallo_tutela"
     if any(term in lowered for term in ["radicado", "pqrs", "derecho de peticion", "derecho de petición", "reclamo"]):
         return "radicado"
     if any(term in lowered for term in ["extracto", "estado de cuenta", "movimiento", "tarjeta terminada", "cuenta terminada"]):
@@ -1028,6 +1043,49 @@ def _extract_attachment_suggestions(file_name: str, compact_text: str) -> dict[s
         )
         if claim_result:
             suggestions["prior_claim_result"] = claim_result
+
+    if attachment_type == "fallo_tutela":
+        court_name = _pick_first(
+            [
+                r"\b(juzgado\s+[a-z0-9 .\-]{4,120})",
+                r"\b(tribunal\s+[a-z0-9 .\-]{4,120})",
+                r"\b(despacho\s+[a-z0-9 .\-]{4,120})",
+            ],
+            compact_text,
+        )
+        if court_name:
+            suggestions["tutela_court_name"] = re.sub(r"\s+", " ", court_name).strip(" .,:;").title()
+        ruling_date = _pick_first(
+            [
+                r"\b(?:fecha del fallo|fecha de la sentencia|sentencia del|providencia del|fallo del)[:\s]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})",
+                r"\b(?:fecha del fallo|fecha de la sentencia|sentencia del|providencia del|fallo del)[:\s]*([0-9]{1,2}\s+de\s+[A-Za-zÃÃ‰ÃÃ“ÃšÃ¡Ã©Ã­Ã³ÃºÃ‘Ã± ]+\s+de\s+[0-9]{4})",
+            ],
+            compact_text,
+        )
+        if not ruling_date:
+            ruling_date = _pick_first(
+                [
+                    r"\b([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})\b",
+                    r"\b([0-9]{1,2}\s+de\s+[A-Za-zÃÃ‰ÃÃ“ÃšÃ¡Ã©Ã­Ã³ÃºÃ‘Ã± ]+\s+de\s+[0-9]{4})\b",
+                ],
+                compact_text,
+            )
+        if ruling_date:
+            suggestions["tutela_ruling_date"] = ruling_date
+        if any(term in lowered_compact for term in ["niega", "negar", "improcedente", "no tutelar", "declara improcedente"]):
+            suggestions["tutela_decision_result"] = "Negada o improcedente"
+        elif any(term in lowered_compact for term in ["concede", "ampara", "tutela", "ordena proteger"]):
+            suggestions["tutela_decision_result"] = "Concedida o favorable"
+        order_summary = _pick_first(
+            [
+                r"\b(?:ordenar|ordena|resuelve ordenar)\s+([^\.]{20,220})",
+                r"\b(?:amparar|proteger)\s+([^\.]{20,220})",
+            ],
+            compact_text,
+        )
+        if order_summary:
+            suggestions["tutela_order_summary"] = re.sub(r"\s+", " ", order_summary).strip(" .,:;")
+        suggestions["judicial_ruling_detected"] = "si"
 
     if attachment_type == "extracto":
         amount = _pick_first([r"(\$\s?\d[\d\.\,]{2,})", r"(\d[\d\.\,]{3,}\s?(?:pesos|cop))"], compact_text)
@@ -1254,6 +1312,30 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
         health_case_synthesis=health_case_synthesis,
         attachment_profiles=attachment_profiles,
     ) if health_case_synthesis or typed_suggestions else {}
+    ruling_profiles = [
+        profile
+        for profile in attachment_profiles
+        if str((profile or {}).get("type") or "").strip().lower() == "fallo_tutela"
+    ]
+    judicial_ruling_analysis: dict[str, Any] = {}
+    if ruling_profiles:
+        first_ruling = ruling_profiles[0] or {}
+        ruling_suggestions = first_ruling.get("suggestions") or {}
+        judicial_ruling_analysis = {
+            "attachment_present": True,
+            "attachments_count": len(ruling_profiles),
+            "source_name": str(first_ruling.get("name") or "").strip(),
+            "court_name": str(ruling_suggestions.get("tutela_court_name") or "").strip(),
+            "ruling_date": str(ruling_suggestions.get("tutela_ruling_date") or "").strip(),
+            "decision_result": str(ruling_suggestions.get("tutela_decision_result") or "").strip(),
+            "order_summary": str(ruling_suggestions.get("tutela_order_summary") or "").strip(),
+            "analysis_ready": bool(
+                str(ruling_suggestions.get("tutela_court_name") or "").strip()
+                or str(ruling_suggestions.get("tutela_ruling_date") or "").strip()
+                or str(ruling_suggestions.get("tutela_decision_result") or "").strip()
+                or str(ruling_suggestions.get("tutela_order_summary") or "").strip()
+            ),
+        }
 
     return {
         "evidence_names": evidence_names,
@@ -1265,6 +1347,7 @@ def build_attachment_context(file_records: list[dict[str, Any]]) -> dict[str, An
         "typed_suggestions": typed_suggestions,
         "health_case_synthesis": health_case_synthesis,
         "health_evidence_record": health_evidence_record,
+        "judicial_ruling_analysis": judicial_ruling_analysis,
     }
 
 

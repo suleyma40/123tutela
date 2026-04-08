@@ -11,7 +11,7 @@ const sellingPoints = [
 ];
 
 const statCards = [
-  { label: "Promesa", value: "< 5 min", icon: Zap },
+  { label: "Promesa", value: "Documento en minutos", icon: Zap },
   { label: "Cobertura", value: "Colombia", icon: Scale },
   { label: "Seguimiento", value: "Siempre visible", icon: ShieldCheck },
 ];

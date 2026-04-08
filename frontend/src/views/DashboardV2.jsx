@@ -131,6 +131,7 @@ const defaultIntakeFields = {
   petition_private_ground: "",
   petition_previous_submission_date: "",
   petition_sector_rule: "",
+  health_case_stage: "sin_fallo",
 };
 
 const statusLabels = {
@@ -205,6 +206,11 @@ const dedupeFilesBySignature = (files = []) => {
 const hasClinicalHistoryLoaded = (files = []) =>
   dedupeFilesBySignature(files).some((file) =>
     /historia\s*clinica|historia\s*cl[ií]nica/i.test(String(file?.original_name || file?.name || ""))
+  );
+
+const hasJudicialRulingLoaded = (files = []) =>
+  dedupeFilesBySignature(files).some((file) =>
+    /fallo|sentencia|tutela|juzgado|tribunal/i.test(String(file?.original_name || file?.name || ""))
   );
 
 const hasEvidenceAvailable = (form, files = []) =>
@@ -404,6 +410,11 @@ const SIMPLE_SIGNATURE_CONSENT_TEXT =
 
 const timelineEventLabelMap = {
   case_created: "Expediente creado",
+  payment_order_created: "Orden de pago creada",
+  payment_webhook_updated: "Webhook de pago recibido",
+  payment_reconciled: "Pago conciliado",
+  payment_confirmed: "Pago confirmado",
+  payment_confirmed_test: "Pago de prueba confirmado",
   evidence_uploaded: "Prueba agregada",
   document_generated: "Documento generado",
   document_regenerated: "Documento actualizado",
@@ -416,7 +427,6 @@ const timelineEventLabelMap = {
 };
 
 const hiddenTimelineEventTypes = new Set([
-  "payment_order_created",
   "payment_link_created",
   "payment_reference_created",
   "payment_status_checked",
@@ -434,6 +444,13 @@ const formatTimelineEventLabel = (event = {}) => {
 };
 
 const formatTimelineEventDetail = (event = {}) => {
+  if (event.payload?.reference) {
+    const parts = [`Referencia: ${event.payload.reference}.`];
+    if (event.payload?.provider_status) parts.push(`Estado Wompi: ${event.payload.provider_status}.`);
+    if (event.payload?.order_status) parts.push(`Estado interno: ${String(event.payload.order_status).replaceAll("_", " ")}.`);
+    if (event.payload?.amount_cop) parts.push(`Valor: ${Number(event.payload.amount_cop).toLocaleString("es-CO")} COP.`);
+    return parts.join(" ");
+  }
   if (event.payload?.radicado) return `Comprobante o radicado: ${event.payload.radicado}.`;
   if (event.payload?.destination_name) return `Destino: ${event.payload.destination_name}.`;
   if (event.payload?.channel) return `Canal usado: ${getRoutingChannelLabel(event.payload.channel)}.`;
@@ -2001,7 +2018,7 @@ const buildGuidedIntakeInterviewSteps = (form) => {
   return steps.filter((step) => step.show);
 };
 
-const getActionSpecificMissing = (recommendedAction, form) => {
+const getActionSpecificMissing = (recommendedAction, form, files = []) => {
   const action = normalizeAction(recommendedAction);
   const missing = [];
 
@@ -2042,6 +2059,7 @@ const getActionSpecificMissing = (recommendedAction, form) => {
   }
 
   if (action === "impugnacion de tutela" || action === "impugnación de tutela") {
+    if (!hasJudicialRulingLoaded(files)) missing.push("Fallo de tutela adjunto para lectura de la IA");
     if (!form.tutela_court_name.trim()) missing.push("Juzgado o despacho que decidio la tutela");
     if (!form.tutela_ruling_date.trim()) missing.push("Fecha del fallo o decision");
     if (!form.tutela_decision_result.trim()) missing.push("Resultado de la decision de tutela");
@@ -2049,6 +2067,7 @@ const getActionSpecificMissing = (recommendedAction, form) => {
   }
 
   if (action === "incidente de desacato") {
+    if (!hasJudicialRulingLoaded(files)) missing.push("Fallo de tutela favorable adjunto para lectura de la IA");
     if (!form.tutela_court_name.trim()) missing.push("Juzgado o despacho de tutela");
     if (!form.tutela_ruling_date.trim()) missing.push("Fecha del fallo de tutela");
     if (!form.tutela_order_summary.trim()) missing.push("Orden judicial incumplida");
@@ -2058,7 +2077,7 @@ const getActionSpecificMissing = (recommendedAction, form) => {
   return missing;
 };
 
-const getActionSpecificIssues = (recommendedAction, form) => {
+const getActionSpecificIssues = (recommendedAction, form, files = []) => {
   const action = normalizeAction(recommendedAction);
   const issues = [];
 
@@ -2097,10 +2116,12 @@ const getActionSpecificIssues = (recommendedAction, form) => {
   }
 
   if (action === "impugnacion de tutela" || action === "impugnación de tutela") {
+    if (!hasJudicialRulingLoaded(files)) issues.push("La impugnacion solo puede avanzar si subes el fallo de tutela para que la IA lo lea y analice.");
     if (form.tutela_appeal_reason.trim().length < 25) issues.push("La impugnacion necesita motivos concretos de desacuerdo con la decision de tutela.");
   }
 
   if (action === "incidente de desacato") {
+    if (!hasJudicialRulingLoaded(files)) issues.push("El desacato solo puede avanzar si subes el fallo favorable para que la IA identifique la orden judicial incumplida.");
     if (form.tutela_noncompliance_detail.trim().length < 25) issues.push("El desacato necesita explicar con hechos concretos como se incumplio la orden del juez.");
   }
 
@@ -2257,6 +2278,9 @@ function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFiel
     title = "Preguntas finas para impugnacion de tutela";
     fields = (
       <>
+        <div style={{ gridColumn: "1 / -1", color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", padding: 14, borderRadius: 14 }}>
+          Debes subir el fallo de tutela para que la IA lo lea antes de preparar la impugnacion.
+        </div>
         <Field label="Juzgado o despacho que decidio la tutela">
           <TextInput value={form.tutela_court_name} onChange={(event) => setField("tutela_court_name", event.target.value)} placeholder="Juzgado o tribunal que emitio la decision" />
         </Field>
@@ -2275,6 +2299,9 @@ function ActionSpecificQuestions({ recommendedAction, form, setForm, missingFiel
     title = "Preguntas finas para incidente de desacato";
     fields = (
       <>
+        <div style={{ gridColumn: "1 / -1", color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", padding: 14, borderRadius: 14 }}>
+          Debes subir el fallo favorable para que la IA identifique la orden judicial incumplida antes de preparar el desacato.
+        </div>
         <Field label="Juzgado o despacho de tutela">
           <TextInput value={form.tutela_court_name} onChange={(event) => setField("tutela_court_name", event.target.value)} placeholder="Juzgado que emitio el fallo de tutela" />
         </Field>
@@ -3241,7 +3268,13 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
       }
       if (["declined", "error", "voided"].includes(order.status)) {
         await onRefreshCase(caseItem.id);
-        setPaymentMessage(`Pago ${order.status}. Puedes volver a intentarlo si hace falta.`);
+        const statusLabelMap = {
+          declined: "rechazado",
+          error: "con error",
+          voided: "anulado",
+        };
+        const nextLabel = statusLabelMap[order.status] || order.status;
+        setPaymentMessage(`Pago ${nextLabel}. Conserva la referencia del intento y vuelve a intentarlo si hace falta.`);
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -3296,10 +3329,10 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
     <SessionCard title={title} subtitle={isBasePaid ? "Tu documento ya esta activo. Aqui agregas un solo paquete adicional." : "El analisis es gratis. Te llevamos a una compra principal simple."}>
       <div style={{ display: "grid", gap: 14 }}>
         <div style={{ padding: 16, borderRadius: 16, background: "linear-gradient(135deg, #EEF4FF 0%, #F8FBFF 100%)", border: "1px solid #BFDBFE" }}>
-          <div style={{ fontWeight: 800, color: C.text }}>{isBasePaid ? "Activa radicacion y seguimiento" : paymentOffer.headline}</div>
+          <div style={{ fontWeight: 800, color: C.text }}>{isBasePaid ? "Activa radicacion" : paymentOffer.headline}</div>
           <div style={{ color: C.textMuted, marginTop: 8 }}>
             {isBasePaid
-              ? "El documento ya quedo pagado. Si quieres que 123tutela radique por ti y te acompañe con el seguimiento inicial, activas un solo paquete."
+              ? "El documento ya quedo pagado. Si quieres que 123tutela radique por ti, activas un solo paquete adicional."
               : paymentOffer.body}
           </div>
         </div>
@@ -3307,19 +3340,19 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
         {isBasePaid ? (
           <div className="glass-card" style={{ padding: 18, display: "grid", gap: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-              <strong style={{ color: C.text }}>Paquete de radicacion y seguimiento</strong>
+              <strong style={{ color: C.text }}>Paquete de radicacion</strong>
               <Badge color={bundlePaid ? C.success : C.primary}>
                 {bundlePaid ? "Activado" : (finalPrice || 0).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}
               </Badge>
             </div>
             <div style={{ color: C.textMuted }}>
-              Incluye la radicacion por 123tutela cuando el canal lo permita, comprobante en panel y seguimiento inicial del expediente.
+              Incluye la radicacion por 123tutela cuando el canal lo permita y comprobante visible en el panel cuando exista.
             </div>
             <div style={{ display: "grid", gap: 8 }}>
               {[
                 "Radicacion por 123tutela cuando el canal este disponible.",
                 "Comprobante o radicado visible en el panel cuando exista.",
-                "Seguimiento inicial para revisar respuesta, admision o requerimientos.",
+                "Estado del envio y trazabilidad visible en el expediente.",
               ].map((item) => (
                 <div key={item} style={{ display: "flex", gap: 12, padding: 12, borderRadius: 12, background: "#F8FAFD", border: `1px solid ${C.border}`, color: C.text }}>
                   <span>{item}</span>
@@ -3345,11 +3378,11 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
                 </div>
                 <label style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 16, color: C.text }}>
                   <input type="checkbox" checked={includeFiling} onChange={(event) => setIncludeFiling(event.target.checked)} />
-                  Agregar radicacion y seguimiento
+                  Agregar radicacion
                   <strong>+{filingPrice.toLocaleString("es-CO")} COP</strong>
                 </label>
                 <div style={{ color: C.textMuted, fontSize: 13, marginTop: 10 }}>
-                  Si activas el paquete, 123tutela intenta gestionar la radicacion, te comparte el comprobante cuando exista y deja seguimiento inicial en tu panel.
+                  Si activas el paquete, 123tutela intenta gestionar la radicacion y te comparte el comprobante cuando exista.
                 </div>
                 <div style={{ marginTop: 16, padding: 14, borderRadius: 14, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
                   <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>LO QUE RECIBES</div>
@@ -3357,7 +3390,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
                     {paymentOffer.unlocks.map((line, index) => (
                       <div key={`${lockedProduct.code}-unlock-${index}`}>{index + 1}. {line}</div>
                     ))}
-                    <div>4. {includeFiling ? "Radicacion y seguimiento inicial por parte de la plataforma cuando el caso lo permita." : "Firma y radicacion disponibles despues de activar el documento."}</div>
+                    <div>4. {includeFiling ? "Radicacion por parte de la plataforma cuando el caso y el canal lo permitan." : "Firma y radicacion disponibles despues de activar el documento."}</div>
                   </div>
                 </div>
               </div>
@@ -3376,11 +3409,14 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
         <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 4, color: C.text }}>
           <input type="checkbox" checked={consentAccepted} onChange={(event) => setConsentAccepted(event.target.checked)} />
           <span style={{ fontSize: 14, lineHeight: 1.6 }}>
-            Confirmo que entiendo que estoy comprando, acepto los terminos y la politica de privacidad, y autorizo el procesamiento del pago mediante Wompi.
+            Confirmo que entiendo que estoy comprando un servicio de preparacion documental y, cuando aplique, de radicacion operativa; que no se me garantiza un resultado judicial o administrativo; y que la activacion final depende de la confirmacion segura del pago.
           </span>
         </label>
         <div style={{ color: C.textMuted, fontSize: 13 }}>
           Consulta: <a href="/terminos" style={{ color: C.primary }}>Terminos</a> · <a href="/privacidad" style={{ color: C.primary }}>Privacidad</a> · <a href="/contacto" style={{ color: C.primary }}>Contacto</a>
+        </div>
+        <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+          La promesa de menos de 5 minutos aplica a la generacion del documento y al inicio del envio digital cuando el caso ya esta completo, el pago fue aprobado y el canal permite tramite inmediato. No garantiza respuesta ni radicado definitivo dentro de ese mismo tiempo.
         </div>
         {latestReference && (
           <div style={{ color: C.textMuted, fontSize: 13, marginTop: 6 }}>
@@ -3389,7 +3425,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
         )}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <Button onClick={startPayment} disabled={loading || (isBasePaid && bundlePaid)} icon={CreditCard}>
-            {isBasePaid ? (bundlePaid ? "Paquete ya activado" : "Activar radicacion y seguimiento") : qaTestMode ? "Activar documento ya pagado (prueba)" : includeFiling ? "Activar documento + radicacion" : "Activar documento"}
+            {isBasePaid ? (bundlePaid ? "Paquete ya activado" : "Activar radicacion") : qaTestMode ? "Activar documento ya pagado (prueba)" : includeFiling ? "Activar documento + radicacion" : "Activar documento"}
           </Button>
           {qaTestMode && isBasePaid && (
             <Button variant="secondary" onClick={jumpToDocumentGeneration} icon={ArrowRight} disabled={loading}>
@@ -3504,7 +3540,11 @@ function DetailPanel({
   const timelineEvents = detail.timeline || [];
   const guidance = submissionSummary.guidance || {};
   const paymentEntitlements = submissionSummary.payment_entitlements || {};
+  const paymentSummary = submissionSummary.payment_summary || {};
   const deliveryResult = submissionSummary.delivery_result || {};
+  const followUpWatchItems = guidance.follow_up_watch_items || [];
+  const escalationTriggers = guidance.escalation_triggers || [];
+  const lastFollowUpReport = submissionSummary.last_follow_up_report || null;
   const review = documentReview || submissionSummary.document_quality || null;
   const effectivePostPayForm = mergeDetectedFormValues(postPayForm, item.facts?.intake_form || item.facts?.autofill_suggestions || {});
   const rights = item.legal_analysis?.derechos_vulnerados || [];
@@ -3589,6 +3629,50 @@ function DetailPanel({
   const deliveryStatusLabel = submissionSummary.radicado
     ? "Radicado registrado"
     : formatDeliveryStatusLabel(deliveryResult.status || submissionSummary.last_channel || "");
+  const paymentOrderStatusLabelMap = {
+    approved: "Aprobado",
+    pending: "Pendiente",
+    declined: "Rechazado",
+    error: "Error",
+    voided: "Anulado",
+  };
+  const paymentOrderStatusLabel = paymentOrderStatusLabelMap[String(paymentSummary.latest_status || "").toLowerCase()] || "Sin intento";
+  const paymentProviderStatus = String(paymentSummary.latest_provider_status || "").trim();
+  const effectivePaymentStatus = String(item.payment_status || "").toLowerCase();
+  const paymentBadgeLabelMap = {
+    pagado: "Confirmado",
+    pendiente: "Pendiente",
+    rechazado: "Rechazado",
+    error: "Error",
+    anulado: "Anulado",
+  };
+  const paymentBadgeLabel = paymentBadgeLabelMap[effectivePaymentStatus] || "Pendiente";
+  const paymentBadgeColor =
+    effectivePaymentStatus === "pagado"
+      ? C.success
+      : effectivePaymentStatus === "pendiente"
+        ? C.warning
+        : C.danger;
+  const paymentNextStepCopy =
+    effectivePaymentStatus === "pagado"
+      ? "El pago ya esta confirmado y solo falta completar el caso."
+      : effectivePaymentStatus === "rechazado"
+        ? "El intento fue rechazado. Puedes volver a intentarlo con otro medio de pago."
+        : effectivePaymentStatus === "error"
+          ? "Hubo un error en la validacion del pago. Revisa la referencia o intenta de nuevo."
+          : effectivePaymentStatus === "anulado"
+            ? "La orden fue anulada. Si aun quieres continuar, debes crear un nuevo intento de pago."
+            : "Primero validas el diagnostico y luego decides si pagas.";
+  const paymentOpsGuidance =
+    effectivePaymentStatus === "pagado"
+      ? "El pago ya quedo asociado al expediente y la activacion del servicio depende del estado confirmado en la orden."
+      : effectivePaymentStatus === "rechazado"
+        ? "La orden fue rechazada. Puedes iniciar un nuevo intento y conservar esta referencia para soporte si hace falta."
+        : effectivePaymentStatus === "error"
+          ? "La orden quedo con error. Si el banco si debito, reporta la referencia en soporte para conciliacion."
+          : effectivePaymentStatus === "anulado"
+            ? "La orden quedo anulada. Debes crear una nueva orden si quieres activar el documento."
+            : "Si el pago ya fue hecho pero aun no cambia, el panel sigue intentando reconciliar la orden con Wompi.";
   const filingAutoPaid = !!paymentEntitlements.filing_auto_paid;
   const signatureReady =
     documentReviewed &&
@@ -3682,17 +3766,15 @@ function DetailPanel({
                 <div style={{ marginTop: 12, fontSize: 13, color: "rgba(255,255,255,0.72)", lineHeight: 1.6 }}>
                   {baseFlowStep >= 3
                     ? "Ya puedes revisar el documento y elegir como radicarlo."
-                    : item.payment_status === "pagado"
-                      ? "El pago ya esta confirmado y solo falta completar el caso."
-                      : "Primero validas el diagnostico y luego decides si pagas."}
+                    : paymentNextStepCopy}
                 </div>
               </div>
               <div style={{ padding: 16, borderRadius: 18, background: "#FFFFFF", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
                 <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RESUMEN RAPIDO</div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
                   <span style={{ color: C.textMuted, fontSize: 13 }}>Pago</span>
-                  <Badge color={item.payment_status === "pagado" ? C.success : C.warning}>
-                    {item.payment_status === "pagado" ? "Confirmado" : "Pendiente"}
+                  <Badge color={paymentBadgeColor}>
+                    {paymentBadgeLabel}
                   </Badge>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
@@ -3704,6 +3786,33 @@ function DetailPanel({
                   <span style={{ color: detailViability.color, fontWeight: 800 }}>{detailViability.label}</span>
                 </div>
               </div>
+              {!!paymentSummary.latest_reference && (
+                <div style={{ padding: 16, borderRadius: 18, background: "#FFFFFF", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+                  <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>TRAZABILIDAD DE PAGO</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                    <span style={{ color: C.textMuted, fontSize: 13 }}>Orden</span>
+                    <Badge color={paymentSummary.latest_status === "approved" ? C.success : paymentSummary.latest_status === "pending" ? C.warning : C.danger}>
+                      {paymentOrderStatusLabel}
+                    </Badge>
+                  </div>
+                  <div style={{ color: C.text, fontWeight: 700, lineHeight: 1.5 }}>
+                    {paymentSummary.latest_product_name || "Producto"} {paymentSummary.latest_amount_cop ? `· ${Number(paymentSummary.latest_amount_cop).toLocaleString("es-CO")} COP` : ""}
+                  </div>
+                  <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                    Ref. {paymentSummary.latest_reference}
+                  </div>
+                  {paymentProviderStatus && (
+                    <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                      Estado Wompi: {paymentProviderStatus}
+                    </div>
+                  )}
+                  {!!paymentSummary.latest_provider_transaction_id && (
+                    <div style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                      Transaccion: {paymentSummary.latest_provider_transaction_id}
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{ padding: 16, borderRadius: 18, background: "#FFFFFF", border: `1px solid ${C.border}`, display: "grid", gap: 8 }}>
                 <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>SIGUIENTE ACCION</div>
                 <div style={{ color: C.text, fontWeight: 800, lineHeight: 1.45 }}>
@@ -3813,6 +3922,35 @@ function DetailPanel({
                 <div style={{ marginTop: 8, color: C.text, fontWeight: 800, fontSize: 22 }}>Primero activas el documento. Luego se libera la radicacion.</div>
                 <div style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.7, maxWidth: 760 }}>
                   Al activar el documento final, la plataforma confirma el canal disponible, prepara la version lista para firma y te muestra la opcion de radicar con apoyo o por tu cuenta.
+                </div>
+              </div>
+            )}
+
+            {!!paymentSummary.latest_reference && (
+              <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>PAGO Y CONFIRMACION</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}>Referencia</div>
+                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{paymentSummary.latest_reference}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}>Estado orden</div>
+                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{paymentOrderStatusLabel}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}>Producto</div>
+                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{paymentSummary.latest_product_name || "Producto activo"}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}>Intentos</div>
+                    <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>
+                      {paymentSummary.approved_orders_count || 0}/{paymentSummary.orders_count || 0} aprobados
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 12, color: C.textMuted, lineHeight: 1.6 }}>
+                  {paymentOpsGuidance}
                 </div>
               </div>
             )}
@@ -4362,7 +4500,7 @@ function DetailPanel({
                 )}
                 {!filingAutoPaid && (
                   <div style={{ marginTop: 14, padding: 14, borderRadius: 16, background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412", lineHeight: 1.6 }}>
-                    Para usar la radicacion por 123tutela debes activar primero el paquete de radicacion y seguimiento.
+                    Para usar la radicacion por 123tutela debes activar primero el paquete de radicacion.
                   </div>
                 )}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginTop: 18 }}>
@@ -4414,6 +4552,22 @@ function DetailPanel({
                     Revisa aqui si ya hay comprobante, respuesta o una novedad registrada. Si el juzgado, la EPS o la entidad te escribe a tu correo, te llama o te pide algo por fuera de la plataforma, debes reportarlo o subir la evidencia para que el seguimiento quede completo y podamos definir el siguiente paso.
                   </div>
                 </div>
+                {!!followUpWatchItems.length && (
+                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#F8FAFD", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>QUE DEBES VIGILAR AHORA</div>
+                    {followUpWatchItems.map((line) => (
+                      <div key={line} style={{ color: C.text, lineHeight: 1.65 }}>{line}</div>
+                    ))}
+                  </div>
+                )}
+                {!!escalationTriggers.length && (
+                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FFF7ED", border: "1px solid #FDBA74", display: "grid", gap: 10 }}>
+                    <div style={{ fontSize: 12, color: "#C2410C", fontWeight: 800 }}>CUANDO CAMBIA EL SIGUIENTE PASO</div>
+                    {escalationTriggers.map((line) => (
+                      <div key={line} style={{ color: "#9A3412", lineHeight: 1.65 }}>{line}</div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
                   <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>REPORTAR NOVEDAD</div>
                   <div style={{ color: C.textMuted, lineHeight: 1.6 }}>
@@ -4445,6 +4599,14 @@ function DetailPanel({
                   </div>
                   <input id="followup-evidence-upload" type="file" style={{ display: "none" }} onChange={uploadEvidence} />
                 </div>
+                {!!lastFollowUpReport && (
+                  <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+                    <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ULTIMA NOVEDAD REPORTADA</div>
+                    <div style={{ color: C.text, fontWeight: 800 }}>{lastFollowUpReport.source || "cliente"}</div>
+                    <div style={{ color: C.textMuted, lineHeight: 1.6 }}>{lastFollowUpReport.note}</div>
+                    <div style={{ color: C.textMuted, fontSize: 13 }}>{lastFollowUpReport.received_at_label || "Sin fecha informada"}</div>
+                  </div>
+                )}
                 {!!primarySubmissionAttempt && (
                   <div style={{ marginTop: 16, padding: 18, borderRadius: 18, background: "#FCFDFF", border: `1px solid ${C.border}`, display: "grid", gap: 12 }}>
                     <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>ULTIMO MOVIMIENTO REGISTRADO</div>
@@ -4932,6 +5094,7 @@ export default function DashboardV2(props) {
   const wizardAction = normalizeAction(form.recommended_action);
   const showRepresentedPersonCard = form.category === "Salud" || wizardAction === "accion de tutela";
   const isThirdPartyCase = form.acting_capacity !== "nombre_propio";
+  const healthCaseStage = form.health_case_stage || "sin_fallo";
   const wizardSteps = [
     { id: 1, label: "Perfil", ready: profileReady },
     { id: 2, label: "Análisis", ready: analysisReady || !!preview },
@@ -4952,6 +5115,34 @@ export default function DashboardV2(props) {
     setPreview(null);
     setDraftDetail(null);
     setWizardStep(1);
+  };
+
+  const applyHealthCaseStage = (stage) => {
+    setForm((current) => {
+      const next = { ...current, category: "Salud", health_case_stage: stage };
+      if (stage === "sin_fallo") {
+        next.recommended_action = "";
+        next.tutela_court_name = "";
+        next.tutela_ruling_date = "";
+        next.tutela_decision_result = "";
+        next.tutela_appeal_reason = "";
+        next.tutela_order_summary = "";
+        next.tutela_noncompliance_detail = "";
+      }
+      if (stage === "impugnacion") {
+        next.recommended_action = "Impugnacion de tutela";
+        if (!next.description.trim()) {
+          next.description = "Ya tengo un fallo de tutela en salud y necesito impugnarlo porque la decision fue negada, improcedente o insuficiente.";
+        }
+      }
+      if (stage === "desacato") {
+        next.recommended_action = "Incidente de desacato";
+        if (!next.description.trim()) {
+          next.description = "Ya existe un fallo de tutela favorable en salud, pero la entidad no ha cumplido la orden judicial.";
+        }
+      }
+      return next;
+    });
   };
 
   const uploadTemp = async (event) => {
@@ -5120,7 +5311,7 @@ export default function DashboardV2(props) {
             <div style={{ padding: 22, borderRadius: 22, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: "#7DD3FC", letterSpacing: "0.08em" }}>PROMESA DEL SERVICIO</div>
               <div style={{ marginTop: 20, fontSize: 28, lineHeight: 1.35, fontWeight: 800 }}>
-                Analisis gratis y radicacion en menos de 5 minutos cuando el canal lo permite.
+                Analisis gratis y documento listo en minutos cuando el caso ya esta completo.
               </div>
             </div>
           </div>
@@ -5257,6 +5448,59 @@ export default function DashboardV2(props) {
               <div style={{ fontWeight: 800, color: C.text }}>Procedimiento simple</div>
               <div style={{ color: C.textMuted }}>1. Elige el tipo de problema. 2. Explica que paso. 3. Responde solo las preguntas que aparezcan. 4. Genera el analisis gratis.</div>
             </div>
+            {form.category === "Salud" && (
+              <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", display: "grid", gap: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.primary }}>MOMENTO DEL CASO</div>
+                <div style={{ color: C.text, fontWeight: 800 }}>Dinos si tu caso apenas empieza o si ya vienes con un fallo de tutela.</div>
+                <div style={{ color: C.textMuted, lineHeight: 1.6 }}>
+                  Esto no cambia la logica buena de tutela. Solo nos ayuda a abrir bien la entrada para peticion, tutela, impugnacion o desacato.
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                  {[
+                    {
+                      id: "sin_fallo",
+                      title: "Aun no tengo fallo",
+                      body: "El caso esta empezando y necesito que la app decida entre peticion o tutela.",
+                    },
+                    {
+                      id: "impugnacion",
+                      title: "Ya tengo fallo y quiero impugnar",
+                      body: "Necesito controvertir una decision de tutela. Debo subir el fallo para que la IA lo lea.",
+                    },
+                    {
+                      id: "desacato",
+                      title: "Ya tengo fallo favorable y no lo cumplen",
+                      body: "Necesito promover desacato. Debo subir el fallo favorable para que la IA identifique la orden incumplida.",
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => applyHealthCaseStage(item.id)}
+                      style={{
+                        textAlign: "left",
+                        padding: 16,
+                        borderRadius: 18,
+                        border: healthCaseStage === item.id ? `2px solid ${C.primary}` : `1px solid ${C.border}`,
+                        background: healthCaseStage === item.id ? "#FFFFFF" : "#F8FAFD",
+                        color: C.text,
+                        cursor: "pointer",
+                        display: "grid",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ fontWeight: 800 }}>{item.title}</div>
+                      <div style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.55 }}>{item.body}</div>
+                    </button>
+                  ))}
+                </div>
+                {(healthCaseStage === "impugnacion" || healthCaseStage === "desacato") && (
+                  <div style={{ color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", padding: 14, borderRadius: 14 }}>
+                    Para esta ruta debes subir el fallo de tutela en PDF o copia legible. Sin ese documento, la IA no debe avanzar.
+                  </div>
+                )}
+              </div>
+            )}
             {showRepresentedPersonCard && (
               <div className="glass-card" style={{ padding: 18, background: "#FFF7ED", display: "grid", gap: 12 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>QUIEN ES LA PERSONA AFECTADA</div>
@@ -5436,8 +5680,8 @@ export default function DashboardV2(props) {
           const documentRuleReview = preview?.facts?.document_rule_review || null;
           const hasBlockingIssues = !!(intakeReview?.blocking_issues || []).length;
           const hasDocumentRuleBlockers = !!(documentRuleReview?.blocking_issues || []).filter((issue) => !isAiOwnedReviewIssue(issue)).length;
-          const actionSpecificMissing = getActionSpecificMissing(preview?.recommended_action, previewForm);
-          const actionSpecificIssues = getActionSpecificIssues(preview?.recommended_action, previewForm);
+          const actionSpecificMissing = getActionSpecificMissing(preview?.recommended_action, previewForm, tempFiles);
+          const actionSpecificIssues = getActionSpecificIssues(preview?.recommended_action, previewForm, tempFiles);
           const hasActionSpecificBlockers = actionSpecificMissing.length > 0 || actionSpecificIssues.length > 0;
           const rightsPreview = buildPreviewRights(preview);
           const viability = getViabilityConfig(preview?.dx_result || {});
@@ -5576,7 +5820,7 @@ export default function DashboardV2(props) {
                           Argumentacion juridica depurada para esta ruta.
                         </div>
                         <div style={{ padding: 14, borderRadius: 14, background: "#27272A", border: "1px solid #3F3F46", color: "#E4E4E7" }}>
-                          Firma, radicacion y seguimiento dentro del expediente si aplica.
+                          Firma, radicacion y trazabilidad dentro del expediente si aplica.
                         </div>
                       </div>
                     </div>
@@ -5877,7 +6121,7 @@ export default function DashboardV2(props) {
                     )}
                     {!activePaymentEntitlements.filing_auto_paid && (
                       <div style={{ padding: 12, borderRadius: 14, background: "#FFF7ED", border: "1px solid #FDBA74", color: "#9A3412" }}>
-                        El envio automatico requiere que el paquete de radicacion y seguimiento ya este pago.
+                        El envio automatico requiere que el paquete de radicacion ya este pago.
                       </div>
                     )}
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

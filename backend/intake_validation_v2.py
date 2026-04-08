@@ -119,6 +119,40 @@ def _health_clinical_record_present(facts: dict[str, Any], combined_text: str) -
     )
 
 
+def _judicial_ruling_attachment_present(facts: dict[str, Any], combined_text: str) -> bool:
+    attachment_context = facts.get("attachment_intelligence") or {}
+    profiles = attachment_context.get("attachment_profiles") or []
+    ruling_analysis = attachment_context.get("judicial_ruling_analysis") or {}
+    if any(str((profile or {}).get("type") or "").strip().lower() == "fallo_tutela" for profile in profiles):
+        return True
+    if ruling_analysis.get("attachment_present"):
+        return True
+    uploaded_files = facts.get("uploaded_evidence_files") or []
+    if any(
+        any(token in str(item.get("original_name") or "").lower() for token in ["fallo", "sentencia", "tutela"])
+        for item in uploaded_files
+        if isinstance(item, dict)
+    ):
+        return True
+    return _has_any(
+        combined_text,
+        [
+            "fallo de tutela",
+            "sentencia de tutela",
+            "decision de tutela",
+            "decisión de tutela",
+            "juzgado",
+            "tribunal",
+        ],
+    )
+
+
+def _judicial_ruling_analysis_ready(facts: dict[str, Any]) -> bool:
+    attachment_context = facts.get("attachment_intelligence") or {}
+    ruling_analysis = attachment_context.get("judicial_ruling_analysis") or {}
+    return bool(ruling_analysis.get("analysis_ready"))
+
+
 def _health_current_harm_present(facts: dict[str, Any], combined_text: str) -> bool:
     return bool(_intake_text(facts, "urgency_detail", "current_harm", "ongoing_harm", "tutela_immediacy_detail")) or _has_any(
         combined_text,
@@ -281,6 +315,8 @@ def _validate_health_stage_readiness(
     chronology_present = _health_chronology_present(facts)
     supports_present = _health_supports_present(facts, combined_text)
     clinical_record_present = _health_clinical_record_present(facts, combined_text)
+    ruling_attachment_present = _judicial_ruling_attachment_present(facts, combined_text)
+    ruling_analysis_ready = _judicial_ruling_analysis_ready(facts)
     prior_claim_present = bool(
         prior_actions
         or _intake_text(facts, "prior_claim_result", "eps_response_detail", "eps_request_date", "eps_request_reference", "tutela_other_means_detail")
@@ -289,31 +325,53 @@ def _validate_health_stage_readiness(
     action = _lower(recommended_action)
 
     if stage == "preview":
-        if not target_entity:
-            problems.append("Para analizar un caso de salud hace falta identificar la EPS, IPS o entidad involucrada.")
-        if not diagnosis:
-            problems.append("Para analizar un caso de salud hace falta el diagnostico o la condicion medica principal.")
-        if not treatment_needed:
-            problems.append("Para analizar un caso de salud hace falta el servicio, medicamento o procedimiento requerido.")
-        if len(_text(description)) < 80 and len(case_story) < 80:
-            problems.append("Para el preview de salud hace falta contar mejor que paso y que sigue ocurriendo.")
-        if not current_harm_present:
-            problems.append("Para el preview de salud hace falta explicar la urgencia, el riesgo o la afectacion actual.")
+        if "impugnacion" in action:
+            if not ruling_attachment_present:
+                problems.append("Para analizar una impugnacion en salud debes subir el fallo de tutela que quieres controvertir.")
+            elif not ruling_analysis_ready:
+                problems.append("Sube un fallo de tutela legible para que la IA pueda leerlo y extraer la decision, fechas y fundamentos principales.")
+        elif "desacato" in action:
+            if not ruling_attachment_present:
+                problems.append("Para analizar un desacato en salud debes subir el fallo de tutela favorable que contiene la orden incumplida.")
+            elif not ruling_analysis_ready:
+                problems.append("Sube un fallo de tutela legible para que la IA pueda leer la orden judicial incumplida antes de analizar el desacato.")
+        else:
+            if not target_entity:
+                problems.append("Para analizar un caso de salud hace falta identificar la EPS, IPS o entidad involucrada.")
+            if not diagnosis:
+                problems.append("Para analizar un caso de salud hace falta el diagnostico o la condicion medica principal.")
+            if not treatment_needed:
+                problems.append("Para analizar un caso de salud hace falta el servicio, medicamento o procedimiento requerido.")
+            if len(_text(description)) < 80 and len(case_story) < 80:
+                problems.append("Para el preview de salud hace falta contar mejor que paso y que sigue ocurriendo.")
+            if not current_harm_present:
+                problems.append("Para el preview de salud hace falta explicar la urgencia, el riesgo o la afectacion actual.")
     elif stage == "save":
-        if not target_entity:
-            problems.append("En salud debe quedar clara la EPS, IPS o entidad accionada.")
-        if not diagnosis:
-            problems.append("En salud falta el diagnostico o condicion medica principal.")
-        if not treatment_needed:
-            problems.append("En salud falta el tratamiento, medicamento o servicio concreto requerido.")
-        if not current_harm_present:
-            problems.append("En salud falta explicar con mas fuerza la urgencia, el riesgo o el servicio requerido.")
-        if not chronology_present:
-            problems.append("En salud faltan fechas o referencias temporales minimas para ordenar la cronologia.")
-        if not concrete_request:
-            problems.append("En salud falta una solicitud concreta o resultado claramente pedido a la entidad.")
-        if not supports_present:
-            warnings.append("Conviene describir formula, historia clinica, autorizacion, negacion o cualquier soporte medico disponible.")
+        if "impugnacion" in action:
+            if not ruling_attachment_present:
+                problems.append("La impugnacion en salud exige cargar el fallo de tutela que se va a controvertir.")
+            elif not ruling_analysis_ready:
+                problems.append("El fallo de tutela cargado no es suficientemente legible todavia para que la IA lo analice.")
+        elif "desacato" in action:
+            if not ruling_attachment_present:
+                problems.append("El desacato en salud exige cargar el fallo de tutela favorable que contiene la orden incumplida.")
+            elif not ruling_analysis_ready:
+                problems.append("El fallo de tutela cargado no es suficientemente legible todavia para que la IA identifique la orden incumplida.")
+        else:
+            if not target_entity:
+                problems.append("En salud debe quedar clara la EPS, IPS o entidad accionada.")
+            if not diagnosis:
+                problems.append("En salud falta el diagnostico o condicion medica principal.")
+            if not treatment_needed:
+                problems.append("En salud falta el tratamiento, medicamento o servicio concreto requerido.")
+            if not current_harm_present:
+                problems.append("En salud falta explicar con mas fuerza la urgencia, el riesgo o el servicio requerido.")
+            if not chronology_present:
+                problems.append("En salud faltan fechas o referencias temporales minimas para ordenar la cronologia.")
+            if not concrete_request:
+                problems.append("En salud falta una solicitud concreta o resultado claramente pedido a la entidad.")
+            if not supports_present:
+                warnings.append("Conviene describir formula, historia clinica, autorizacion, negacion o cualquier soporte medico disponible.")
     elif stage == "generate":
         if "derecho de peticion" in action:
             if not clinical_record_present:
@@ -327,6 +385,10 @@ def _validate_health_stage_readiness(
             if not _intake_text(facts, "response_channel", "copy_email"):
                 warnings.append("Conviene definir un canal de respuesta expreso para el derecho de peticion.")
         elif "impugnacion" in action:
+            if not ruling_attachment_present:
+                problems.append("La impugnacion en salud solo puede generarse si subes el fallo de tutela que se va a impugnar.")
+            elif not ruling_analysis_ready:
+                problems.append("La IA no pudo leer suficientemente el fallo de tutela cargado. Sube una copia mas legible antes de generar la impugnacion.")
             if not clinical_record_present:
                 problems.append("La impugnacion en salud debe venir con historia clinica o soporte medico equivalente para revisar bien el caso.")
             if not _intake_text(facts, "tutela_court_name"):
@@ -338,6 +400,10 @@ def _validate_health_stage_readiness(
             if not _intake_text(facts, "tutela_appeal_reason"):
                 problems.append("La impugnacion en salud debe exponer el motivo concreto de inconformidad.")
         elif "desacato" in action:
+            if not ruling_attachment_present:
+                problems.append("El desacato en salud solo puede generarse si subes el fallo de tutela favorable incumplido.")
+            elif not ruling_analysis_ready:
+                problems.append("La IA no pudo leer suficientemente el fallo de tutela cargado. Sube una copia mas legible antes de generar el desacato.")
             if not clinical_record_present:
                 problems.append("El desacato en salud debe venir con historia clinica o soporte medico equivalente para sustentar el incumplimiento actual.")
             if not _intake_text(facts, "tutela_court_name"):

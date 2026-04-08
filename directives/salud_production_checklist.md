@@ -40,12 +40,12 @@ Regla de alcance:
   - generacion del documento
   - radicacion cuando aplique
   - continuidad sugerida
-- [ ] Confirmar que `salud` sale primero con estos productos y no con otros.
+- [x] Confirmar que `salud` sale primero con estos productos y no con otros.
 - [x] La regla actual de entrada en salud ya opera con ambos, usando motor de recomendacion:
   - `Derecho de peticion en salud` por defecto
   - `Accion de tutela en salud` cuando hay urgencia o la via previa requerida ya esta cumplida
-- [ ] Confirmar que impugnacion y desacato se ofrecen solo como continuidad del caso y no como entrada fria sin contexto.
-- [ ] Confirmar que la promesa comercial de salud no sobrevende resultado judicial ni exito del caso.
+- [x] Confirmar que impugnacion y desacato se ofrecen solo como continuidad del caso y no como entrada fria sin contexto.
+- [x] Confirmar que la promesa comercial de salud no sobrevende resultado judicial ni exito del caso.
 
 Estado confirmado hoy:
 
@@ -58,18 +58,18 @@ Estado confirmado hoy:
 
 ## 2. Producto y oferta comercial
 
-- [ ] Confirmar nombre comercial visible de cada producto de salud.
-- [ ] Confirmar precios oficiales para salud:
+- [x] Confirmar nombre comercial visible de cada producto de salud.
+- [x] Confirmar precios oficiales para salud:
   - solo documento
   - documento + radicacion
-- [ ] Confirmar que el usuario entiende exactamente que compra en cada opcion.
-- [ ] Confirmar la promesa exacta de `menos de 5 minutos` para salud:
+- [x] Confirmar que el usuario entiende exactamente que compra en cada opcion.
+- [x] Confirmar la promesa exacta de `menos de 5 minutos` para salud:
   - que incluye
   - cuando aplica
   - cuando no aplica
-- [ ] Cerrar texto legal y comercial previo al pago para salud.
-- [ ] Cerrar politica de reembolso para productos de salud.
-- [ ] Confirmar como se presenta la continuidad:
+- [x] Cerrar texto legal y comercial previo al pago para salud.
+- [x] Cerrar politica de reembolso para productos de salud.
+- [x] Confirmar como se presenta la continuidad:
   - impugnacion
   - desacato
   - seguimiento
@@ -89,6 +89,8 @@ Estado implementado hoy en backend:
 
 - Primera capa endurecida de recomendacion en `backend/workflows.py`.
 - `Impugnacion` y `desacato` ya se detectan solo si hay senales de fallo previo.
+- `Impugnacion` y `desacato` ya pueden entrar desde el inicio del flujo, pero solo con filtro estricto y exigiendo fallo previo cargado.
+- `Impugnacion` y `desacato` ya exigen que la IA lea el fallo previo antes de desbloquear generacion.
 - `Tutela` en salud ya no depende solo de palabras urgentes; ahora exige mejor combinacion de:
   - nucleo medico minimo
   - barrera de EPS o IPS
@@ -324,23 +326,24 @@ Estado implementado hoy:
 - Comando de validacion:
   - `python -B execution/health_submission_smoke.py`
 - Resultado actual:
-  - `4 politica(s) de radicacion validadas correctamente`
+  - existe smoke operativo para validar radicacion por las cuatro rutas
+  - despues de endurecer la regla de fallo previo en impugnacion y desacato, conviene rerun corto antes de volver a dar este punto por cerrado
 
 ## 9. UX y panel del cliente
 
-- [ ] Validar que el landing, wizard y dashboard solo empujen salud.
+- [x] Validar que el landing, wizard y dashboard solo empujen salud.
 - [ ] Validar que el informe gratis de salud explique:
   - problema detectado
   - derecho afectado
   - ruta sugerida
   - datos faltantes
-- [ ] Validar que antes del pago el usuario vea descripcion clara del producto.
+- [x] Validar que antes del pago el usuario vea descripcion clara del producto.
 - [ ] Validar que despues del pago el usuario vea:
   - estado de pago
   - estado del documento
   - estado de radicacion
   - siguiente paso sugerido
-- [ ] Validar que impugnacion y desacato aparezcan como continuidad cuando corresponda.
+- [x] Validar que impugnacion y desacato aparezcan como continuidad cuando corresponda.
 - [ ] Validar que la UI se comporte bien si la redireccion vuelve antes que el webhook.
 
 Estado implementado hoy:
@@ -490,8 +493,8 @@ Solo se considera lista la salida de salud cuando se cumpla todo esto:
 
 - [ ] Endurecer y cerrar la regla final de recomendacion entre peticion y tutela en salud.
 - [ ] Intake definitivo de salud con campos obligatorios por etapa.
-- [ ] Politica de reembolso.
-- [ ] Texto legal final antes de pago.
+- [x] Politica de reembolso.
+- [x] Texto legal final antes de pago.
 - [ ] Regla operativa de radicacion y comprobante.
 - [ ] Casos de prueba reales o anonimizados para salud.
 
@@ -518,18 +521,21 @@ Solo se considera lista la salida de salud cuando se cumpla todo esto:
 ### Falta por cerrar antes de abrir bien
 
 - [ ] Pulido juridico fino de la tutela y de los documentos de continuidad.
-- [ ] Copy final de compra y explicacion exacta del producto.
-- [ ] Texto legal final antes del pago.
-- [ ] Politica de reembolso.
+- [x] Copy final de compra y explicacion exacta del producto.
+- [x] Texto legal final antes del pago.
+- [x] Politica de reembolso.
 - [ ] Seguimiento del caso mejor presentado para cliente final.
 - [ ] Trazabilidad completa y auditada de pagos, webhook y errores operativos.
 - [ ] SOPs de soporte para incidencias de pago, documento, radicado y seguimiento.
+  - ya existe primer SOP de pagos y conciliacion en `docs/sop_pagos_y_conciliacion_salud.md`
+  - ya existe primer SOP de QA, radicado y seguimiento en `docs/sop_qa_radicado_y_seguimiento_salud.md`
 - [ ] QA end to end con casos reales o anonimizados de cliente.
+  - ya existe paquete base de QA corto en `docs/casos_qa_lanzamiento_salud.md`
 
 ### Bloqueantes reales de salida
 
 - [ ] Documento final de tutela en salud todavia requiere una ultima ronda fuerte de pulido juridico y de redaccion.
-- [ ] Falta cerrar el paquete comercial y legal que el usuario acepta antes de pagar.
+- [x] Paquete comercial y legal base ya quedo cerrado para UI y vistas legales.
 - [ ] Falta definir operacion de seguimiento y soporte desde panel con claridad para cliente.
 - [ ] Falta corrida formal de QA de punta a punta sobre casos reales.
 

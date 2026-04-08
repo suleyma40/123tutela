@@ -114,7 +114,7 @@ SIMPLE_SIGNATURE_CONSENT_TEXT = (
 )
 
 ADDON_PRICES_COP = {
-    "filing_bundle": 9_900,
+    "filing_bundle": 36_000,
     "filing_auto": 34_000,
     "filing_guide": 17_000,
     "follow_up": 17_000,
@@ -752,6 +752,30 @@ def _payment_entitlements_from_orders(orders: list[dict[str, Any]]) -> dict[str,
     }
 
 
+def _payment_summary_from_orders(orders: list[dict[str, Any]]) -> dict[str, Any]:
+    if not orders:
+        return {}
+
+    latest = orders[0]
+    approved = [item for item in orders if _lower(item.get("status")) == "approved"]
+    latest_approved = approved[0] if approved else None
+    source = latest_approved or latest
+    return {
+        "latest_reference": source.get("reference"),
+        "latest_status": _lower(source.get("status") or "pending"),
+        "latest_provider_status": source.get("provider_status"),
+        "latest_product_name": source.get("product_name"),
+        "latest_amount_cop": source.get("amount_cop"),
+        "latest_include_filing": bool(source.get("include_filing")),
+        "latest_provider_transaction_id": source.get("provider_transaction_id"),
+        "latest_approved_at": source.get("approved_at"),
+        "latest_created_at": source.get("created_at"),
+        "orders_count": len(orders),
+        "approved_orders_count": len(approved),
+        "has_webhook_payload": bool(source.get("webhook_payload")),
+    }
+
+
 def _is_ai_owned_quality_issue(issue: object) -> bool:
     lowered = str(issue or "").lower()
     ai_owned_patterns = (
@@ -1122,6 +1146,7 @@ def _snapshot_case_detail(case: dict[str, Any]) -> CaseDetailResponse:
     case["submission_summary"] = {
         **(case.get("submission_summary") or {}),
         "payment_entitlements": _payment_entitlements_from_orders(orders),
+        "payment_summary": _payment_summary_from_orders(orders),
     }
     return CaseDetailResponse(
         case=_normalize_case(case),
@@ -1773,7 +1798,7 @@ def create_wompi_checkout_session(
         amount_cop = product.price_with_filing_cop if payload.include_filing else product.price_cop
         amount_in_cents = amount_cop_to_cents(amount_cop)
         reference = build_reference(case_id, product.code)
-        product_name = product.name if not payload.include_filing else f"{product.name} + radicacion y seguimiento"
+        product_name = product.name if not payload.include_filing else f"{product.name} + radicacion"
         product_code = product.code
         include_filing = payload.include_filing
         description = product.short_description
@@ -2115,7 +2140,7 @@ def submit_case(
     if payload.mode == "auto" and not payment_entitlements.get("filing_auto_paid"):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Debes pagar el paquete de radicacion y seguimiento antes de ejecutar este envio.",
+            detail="Debes pagar el paquete de radicacion antes de ejecutar este envio.",
         )
     if payload.mode == "manual_contact" and not payment_entitlements.get("filing_guide_paid"):
         raise HTTPException(

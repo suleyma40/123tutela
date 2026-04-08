@@ -44,6 +44,33 @@ def _base_facts(intake_form: dict[str, Any], *, problem: str = "salud", dates: s
     }
 
 
+def _with_judicial_ruling_attachment(
+    facts: dict[str, Any],
+    *,
+    filename: str,
+    court_name: str,
+    ruling_date: str,
+    decision_result: str = "",
+    order_summary: str = "",
+) -> dict[str, Any]:
+    enriched = dict(facts)
+    enriched["uploaded_evidence_files"] = [filename]
+    enriched["attachment_intelligence"] = {
+        "profiles": [{"type": "fallo_tutela", "original_name": filename}],
+        "judicial_ruling_analysis": {
+            "attachment_present": True,
+            "attachments_count": 1,
+            "source_name": filename,
+            "court_name": court_name,
+            "ruling_date": ruling_date,
+            "decision_result": decision_result,
+            "order_summary": order_summary,
+            "analysis_ready": True,
+        },
+    }
+    return enriched
+
+
 CASES: list[HealthRegressionCase] = [
     HealthRegressionCase(
         name="continuidad_tratamiento",
@@ -161,20 +188,27 @@ CASES: list[HealthRegressionCase] = [
         description=(
             "El juzgado concedio la tutela, ordeno entregar el medicamento en 48 horas y la EPS sigue sin cumplir."
         ),
-        facts=_base_facts(
-            {
-                "target_entity": "Compensar EPS",
-                "eps_name": "Compensar EPS",
-                "diagnosis": "Artritis reumatoide severa",
-                "treatment_needed": "Entrega inmediata de medicamento biologico ordenado",
-                "tutela_court_name": "Juzgado 12 Civil Municipal de Bogota",
-                "tutela_ruling_date": "2026-03-01",
-                "tutela_order_summary": "Ordeno entregar el medicamento en 48 horas",
-                "tutela_noncompliance_detail": "Han pasado varios dias y la EPS sigue sin entregar el medicamento.",
-                "case_story": "Existe fallo favorable pero la EPS sigue incumpliendo la orden.",
-                "concrete_request": "Promover incidente de desacato por incumplimiento del fallo.",
-            },
-            dates="2026-03-01, 2026-03-07",
+        facts=_with_judicial_ruling_attachment(
+            _base_facts(
+                {
+                    "target_entity": "Compensar EPS",
+                    "eps_name": "Compensar EPS",
+                    "diagnosis": "Artritis reumatoide severa",
+                    "treatment_needed": "Entrega inmediata de medicamento biologico ordenado",
+                    "tutela_court_name": "Juzgado 12 Civil Municipal de Bogota",
+                    "tutela_ruling_date": "2026-03-01",
+                    "tutela_order_summary": "Ordeno entregar el medicamento en 48 horas",
+                    "tutela_noncompliance_detail": "Han pasado varios dias y la EPS sigue sin entregar el medicamento.",
+                    "case_story": "Existe fallo favorable pero la EPS sigue incumpliendo la orden.",
+                    "concrete_request": "Promover incidente de desacato por incumplimiento del fallo.",
+                },
+                dates="2026-03-01, 2026-03-07",
+            ),
+            filename="Fallo tutela favorable Compensar.pdf",
+            court_name="Juzgado 12 Civil Municipal de Bogota",
+            ruling_date="2026-03-01",
+            decision_result="Tutela concedida",
+            order_summary="Ordeno entregar el medicamento en 48 horas",
         ),
         prior_actions=[],
         expected_workflow="desacato",
@@ -187,20 +221,26 @@ CASES: list[HealthRegressionCase] = [
             "El juzgado nego la tutela por considerar que no habia urgencia, "
             "pero omitio valorar la historia clinica y la orden de tratamiento continuo."
         ),
-        facts=_base_facts(
-            {
-                "target_entity": "Famisanar EPS",
-                "eps_name": "Famisanar EPS",
-                "diagnosis": "Esclerosis multiple",
-                "treatment_needed": "Continuidad de medicamento inmunomodulador formulado por neurologia",
-                "tutela_court_name": "Juzgado 8 Penal Municipal de Bogota",
-                "tutela_ruling_date": "2026-03-05",
-                "tutela_decision_result": "Tutela negada por supuesta falta de urgencia",
-                "tutela_appeal_reason": "El fallo omitio la historia clinica, la orden medica y el riesgo por suspender el tratamiento.",
-                "case_story": "Existe fallo adverso de tutela y se necesita controvertir la valoracion probatoria del juez.",
-                "concrete_request": "Impugnar el fallo y revocar la decision que nego la tutela.",
-            },
-            dates="2026-03-05",
+        facts=_with_judicial_ruling_attachment(
+            _base_facts(
+                {
+                    "target_entity": "Famisanar EPS",
+                    "eps_name": "Famisanar EPS",
+                    "diagnosis": "Esclerosis multiple",
+                    "treatment_needed": "Continuidad de medicamento inmunomodulador formulado por neurologia",
+                    "tutela_court_name": "Juzgado 8 Penal Municipal de Bogota",
+                    "tutela_ruling_date": "2026-03-05",
+                    "tutela_decision_result": "Tutela negada por supuesta falta de urgencia",
+                    "tutela_appeal_reason": "El fallo omitio la historia clinica, la orden medica y el riesgo por suspender el tratamiento.",
+                    "case_story": "Existe fallo adverso de tutela y se necesita controvertir la valoracion probatoria del juez.",
+                    "concrete_request": "Impugnar el fallo y revocar la decision que nego la tutela.",
+                },
+                dates="2026-03-05",
+            ),
+            filename="Fallo tutela impugnacion Famisanar.pdf",
+            court_name="Juzgado 8 Penal Municipal de Bogota",
+            ruling_date="2026-03-05",
+            decision_result="Tutela negada por supuesta falta de urgencia",
         ),
         prior_actions=[],
         expected_workflow="impugnacion",

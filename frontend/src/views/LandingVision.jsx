@@ -1,15 +1,14 @@
 import React from "react";
-import { ArrowRight, CheckCircle2, Heart, Landmark, Scale, Shield, ShoppingCart, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileText, Gavel, Heart, Scale } from "lucide-react";
 
 import { Badge, Button } from "../ui";
 import { C } from "../theme";
 
 const categories = [
-  { title: "Salud / EPS", desc: "Tutelas, peticiones y desacatos por tratamientos, citas o medicamentos.", icon: Heart, color: "#F97316" },
-  { title: "Laboral", desc: "Despido, salarios, acoso, estabilidad reforzada y minimo vital.", icon: Landmark, color: "#F59E0B" },
-  { title: "Servicios", desc: "Cobros, cortes y reclamaciones por servicios publicos.", icon: Zap, color: "#14B8A6" },
-  { title: "Consumidor", desc: "Garantias, devoluciones y publicidad enganosa.", icon: ShoppingCart, color: "#10B981" },
-  { title: "Datos", desc: "Habeas data, correccion y eliminacion de informacion.", icon: Shield, color: "#EC4899" },
+  { title: "Derecho de peticion", desc: "Para pedir autorizacion, respuesta, medicamento, cita o explicacion formal a la EPS o IPS.", icon: FileText, color: "#2563EB" },
+  { title: "Tutela en salud", desc: "Para proteger el derecho a la salud cuando hay urgencia, barrera seria o riesgo actual.", icon: Heart, color: "#F97316" },
+  { title: "Impugnacion", desc: "Para controvertir un fallo de tutela cuando fue negado o limito la proteccion.", icon: Gavel, color: "#0F766E" },
+  { title: "Desacato", desc: "Para exigir cumplimiento cuando ya existe un fallo favorable y la entidad no obedece.", icon: Scale, color: "#7C3AED" },
 ];
 
 const steps = [
@@ -131,7 +130,7 @@ export default function LandingVision({ onStart, onLogin, onLegalNavigate }) {
               barreras.
             </h1>
             <p style={{ marginTop: 22, maxWidth: 560, color: "rgba(255,255,255,0.74)", fontSize: 18, lineHeight: 1.7 }}>
-              Analisis gratis, identificacion del derecho vulnerado, informe claro y pago por evento. El cliente decide si compra solo el documento o documento mas radicacion.
+              Analisis gratis para casos de salud. La plataforma recomienda la ruta correcta y el usuario decide si activa solo el documento o documento mas radicacion.
             </p>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 28 }}>
               <Button size="lg" onClick={onStart} icon={ArrowRight}>
@@ -147,7 +146,7 @@ export default function LandingVision({ onStart, onLogin, onLegalNavigate }) {
               </Button>
             </div>
             <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 24, color: "rgba(255,255,255,0.76)" }}>
-              <span>Sin abogado</span>
+              <span>Solo salud</span>
               <span>Informe gratis</span>
               <span>Panel de seguimiento</span>
             </div>
@@ -179,8 +178,8 @@ export default function LandingVision({ onStart, onLogin, onLegalNavigate }) {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
                 {[
                   { label: "Analisis", value: "Gratis" },
-                  { label: "Promesa", value: "< 5 min" },
-                  { label: "Seguimiento", value: "Incluido" },
+                  { label: "Promesa", value: "Documento en minutos" },
+                  { label: "Cobertura", value: "Salud" },
                 ].map((item) => (
                   <div key={item.label} style={{ padding: 16, borderRadius: 16, background: "#F8FAFD", border: `1px solid ${C.border}` }}>
                     <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}>{item.label}</div>
@@ -198,17 +197,17 @@ export default function LandingVision({ onStart, onLogin, onLegalNavigate }) {
           <div>
             <Badge color={C.primary}>Categorias</Badge>
             <h2 style={{ marginTop: 12, fontSize: 44, lineHeight: 1.05, fontFamily: "'Playfair Display', serif" }}>
-              Casos que la app ya puede
+              Productos de salud que ya podemos
               <br />
-              encaminar contigo.
+              sacar a produccion.
             </h2>
           </div>
           <p style={{ maxWidth: 420, color: C.textMuted }}>
-            El analisis no cobra. El cliente ve el informe y luego decide si paga el documento o el paquete con radicacion.
+            En esta salida inicial solo abrimos salud: peticion, tutela, impugnacion y desacato.
           </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
           {categories.map((item) => (
             <div key={item.title} className="glass-card" style={{ padding: 20 }}>
               <div
@@ -267,7 +266,7 @@ export default function LandingVision({ onStart, onLogin, onLegalNavigate }) {
               decides activar.
             </h2>
             <p style={{ marginTop: 16, color: C.textMuted, lineHeight: 1.7, maxWidth: 520 }}>
-              La promesa comercial es simple: diagnostico gratis, producto claro, radicacion opcional y seguimiento visible. Sin suscripciones ni paquetes confusos.
+              La promesa comercial es simple: diagnostico gratis, producto claro y radicacion opcional cuando el caso y el canal lo permiten.
             </p>
             <div style={{ display: "grid", gap: 12, marginTop: 22 }}>
               {priceHighlights.map((item) => (
@@ -288,8 +287,8 @@ export default function LandingVision({ onStart, onLogin, onLegalNavigate }) {
             }}
           >
             <div style={{ fontSize: 14, color: C.textMuted, fontWeight: 700 }}>Ejemplo visible para el cliente</div>
-            <div style={{ marginTop: 12, fontSize: 42, fontWeight: 800 }}>Tutela desde $76.900</div>
-            <div style={{ color: C.textMuted }}>Radicacion automatizada opcional desde $36.000 adicionales.</div>
+            <div style={{ marginTop: 12, fontSize: 42, fontWeight: 800 }}>Tutela desde $67.900</div>
+            <div style={{ color: C.textMuted }}>Radicacion opcional por $36.000 adicionales.</div>
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
                 <span>Analisis juridico inicial</span>
@@ -297,11 +296,11 @@ export default function LandingVision({ onStart, onLogin, onLegalNavigate }) {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
                 <span>Documento individual</span>
-                <strong>Desde $32.900</strong>
+                <strong>Desde $36.900</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
                 <span>Documento + radicacion</span>
-                <strong>Desde $68.900</strong>
+                <strong>Desde $72.900</strong>
               </div>
             </div>
             <div style={{ marginTop: 24 }}>

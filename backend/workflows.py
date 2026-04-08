@@ -761,19 +761,61 @@ def build_submission_guidance(
 
     next_step = "Seguir el caso desde el panel y esperar respuesta de la autoridad o entidad."
     continuity = ["seguimiento del caso"]
+    follow_up_watch_items = [
+        "Revisa si la entidad o el juzgado envia una respuesta, requerimiento o acuse.",
+        "Si recibes una llamada, correo o mensaje por fuera del panel, reportalo en este mismo expediente.",
+        "Conserva formulas, respuestas, acuses y cualquier soporte nuevo del caso.",
+    ]
+    escalation_triggers = [
+        "Reporta cualquier novedad nueva para que el panel actualice el siguiente paso.",
+    ]
     lowered_action = recommended_action.lower()
     if "tutela" in lowered_action:
         next_step = "Si niegan o limitan la tutela, evaluar impugnacion; si incumplen, evaluar desacato."
         continuity = ["seguimiento del caso", "impugnacion de tutela", "incidente de desacato"]
+        follow_up_watch_items = [
+            "Revisa si el juzgado admite, requiere informacion adicional o notifica fallo.",
+            "Si el fallo sale desfavorable o incompleto, reportalo para evaluar impugnacion.",
+            "Si el fallo sale favorable pero la orden no se cumple, reportalo para evaluar desacato.",
+        ]
+        escalation_triggers = [
+            "Pasa a impugnacion si el fallo niega o limita la tutela.",
+            "Pasa a desacato si existe fallo favorable y la orden sigue incumplida.",
+        ]
     elif "peticion" in lowered_action:
         next_step = "Si no responden o responden de forma evasiva, evaluar tutela, reclamo o actuacion posterior."
         continuity = ["seguimiento del caso", "accion de tutela", "reclamo administrativo"]
+        follow_up_watch_items = [
+            "Espera respuesta de fondo de la EPS o entidad dentro del termino aplicable.",
+            "Si responden de forma evasiva, parcial o negativa, sube esa respuesta al expediente.",
+            "Si no responden dentro del termino, reportalo para evaluar tutela o actuacion posterior.",
+        ]
+        escalation_triggers = [
+            "Pasa a tutela si persiste la barrera en salud con urgencia o riesgo actual.",
+            "Pasa a una actuacion posterior si la respuesta fue evasiva, parcial o insuficiente.",
+        ]
     elif "desacato" in lowered_action:
         next_step = "Monitorear cumplimiento efectivo del fallo y nuevas ordenes del juzgado."
         continuity = ["seguimiento del caso"]
+        follow_up_watch_items = [
+            "Revisa si el juzgado abre traslado, pide soporte adicional o dicta nuevas ordenes.",
+            "Si la EPS cumple parcial o totalmente, reportalo en el expediente.",
+            "Si el incumplimiento persiste, conserva evidencia actualizada del dano o barrera.",
+        ]
+        escalation_triggers = [
+            "Reporta de inmediato cualquier cumplimiento parcial o nuevo incumplimiento.",
+        ]
     elif "impugnacion" in lowered_action:
         next_step = "Esperar decision de segunda instancia y evaluar cumplimiento o desacato segun el resultado."
         continuity = ["seguimiento del caso", "incidente de desacato"]
+        follow_up_watch_items = [
+            "Revisa si llega decision de segunda instancia o requerimiento del despacho.",
+            "Si la segunda instancia concede la tutela, verifica cumplimiento real de la orden.",
+            "Si ya hay fallo favorable y no cumplen, reportalo para evaluar desacato.",
+        ]
+        escalation_triggers = [
+            "Pasa a desacato si la segunda instancia concede y la orden sigue incumplida.",
+        ]
 
     delivery_channels = ["panel"]
     if user_email:
@@ -819,6 +861,8 @@ def build_submission_guidance(
         "estimated_response_window": estimated_response_window,
         "next_step_suggestion": next_step,
         "continuity_offers": continuity,
+        "follow_up_watch_items": follow_up_watch_items,
+        "escalation_triggers": escalation_triggers,
         "judicial_radicado_note": radicado_destination_note,
         "post_radicado_copy": {
             "headline": "Tu tramite fue enviado y ya puedes seguirlo desde tu panel.",

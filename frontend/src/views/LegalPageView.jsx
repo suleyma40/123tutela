@@ -6,78 +6,98 @@ import { C } from "../theme";
 
 const PAGE_COPY = {
   terminos: {
-    badge: "Términos",
-    title: "Términos del servicio",
-    subtitle: "Condiciones base para el uso de 123tutela y la compra de documentos o radicaciones.",
+    badge: "Terminos",
+    title: "Terminos del servicio",
+    subtitle: "Condiciones de uso para el bloque de salud y para la compra de documentos o radicacion operativa.",
     sections: [
       {
-        title: "Qué hace la plataforma",
+        title: "Que hace la plataforma",
         body:
-          "123tutela analiza la información entregada por el usuario, recomienda la ruta jurídica disponible y permite pagar por la generación del documento y, cuando aplica, por la radicación del trámite.",
+          "123tutela recibe la informacion del caso, revisa los soportes cargados, recomienda la via juridica disponible y permite pagar por la preparacion del documento. Cuando el producto lo incluye, tambien permite activar una radicacion operativa del tramite.",
       },
       {
-        title: "Qué no promete",
+        title: "Alcance de salida",
         body:
-          "La plataforma no garantiza resultados judiciales o administrativos. La recomendación y los documentos dependen de la información suministrada por el usuario y de la respuesta de las entidades o juzgados.",
+          "En esta etapa la plataforma opera solo para derecho de peticion en salud, tutela en salud, impugnacion y desacato. Impugnacion y desacato solo se habilitan cuando el usuario aporta el fallo previo en copia legible para lectura de la IA.",
       },
       {
-        title: "Pago y activación",
+        title: "Que no prometemos",
         body:
-          "El análisis inicial puede ser gratuito. El documento final y la radicación solo se activan cuando el pago correspondiente haya sido confirmado de forma segura por el sistema.",
+          "La plataforma no garantiza resultados judiciales, administrativos ni medicos. Tampoco garantiza que una EPS, IPS, juzgado o entidad responda en un plazo especifico ni que el despacho admita o falle a favor del usuario.",
+      },
+      {
+        title: "Pago y activacion",
+        body:
+          "El documento final y la radicacion operativa solo se activan cuando el pago haya sido confirmado de forma segura por el sistema. Si el pago no se confirma, el producto pago no se habilita aunque el usuario haya completado el formulario.",
+      },
+      {
+        title: "Tiempo de respuesta",
+        body:
+          "La referencia comercial de menos de 5 minutos aplica a la generacion del documento y al inicio del envio digital cuando el caso ya esta completo, el pago fue aprobado y el canal permite tramite inmediato. No significa respuesta de la entidad ni radicado definitivo dentro de ese mismo tiempo.",
       },
       {
         title: "Continuidad del caso",
         body:
-          "Pasos posteriores como seguimiento, impugnación o desacato pueden requerir validación adicional y nuevos cobros por evento cuando aplique.",
+          "Impugnacion, desacato y otros pasos posteriores pueden requerir nueva validacion documental, verificacion de terminos y cobro independiente. Si falta un soporte esencial, la plataforma puede impedir la compra o pedir informacion adicional antes de seguir.",
+      },
+      {
+        title: "Reembolsos",
+        body:
+          "Si el usuario paga y el sistema no presta el servicio contratado por una falla operativa imputable a la plataforma, puede solicitar revision para reverso o reembolso. No aplica reembolso cuando el documento ya fue generado con base en la informacion entregada, cuando la radicacion no procede por datos incompletos, o cuando el resultado desfavorable depende de la entidad o del juzgado.",
       },
     ],
   },
   privacidad: {
     badge: "Privacidad",
-    title: "Política de privacidad",
-    subtitle: "Cómo usamos la información personal y documental dentro del servicio.",
+    title: "Politica de privacidad",
+    subtitle: "Como usamos la informacion personal, clinica y documental dentro del servicio.",
     sections: [
       {
         title: "Datos que tratamos",
         body:
-          "Tratamos datos de identificación, contacto, ubicación, información del caso, documentos aportados y registros operativos del expediente para poder analizar, generar y radicar trámites cuando el usuario lo solicite.",
+          "Tratamos datos de identificacion, contacto, ciudad, informacion del caso, datos de salud que el usuario cargue, documentos de soporte, fallos judiciales previos y registros tecnicos del expediente para poder operar el servicio.",
       },
       {
         title: "Finalidad del tratamiento",
         body:
-          "La información se usa para operar la cuenta, analizar el caso, generar documentos, ejecutar pagos, soportar la radicación, mantener trazabilidad y comunicar al usuario los estados y siguientes pasos del trámite.",
+          "La informacion se usa para analizar el caso, generar documentos, validar requisitos, ejecutar pagos, soportar radicacion operativa, mantener trazabilidad y comunicar estados, incidencias y siguientes pasos al usuario.",
       },
       {
-        title: "Compartición limitada",
+        title: "Comparticion limitada",
         body:
-          "Solo se comparte la información necesaria con proveedores tecnológicos y canales de pago, y con entidades o despachos cuando la radicación del trámite así lo requiera.",
+          "Solo compartimos la informacion necesaria con proveedores tecnologicos, canales de pago y, cuando el usuario activa la radicacion, con las entidades o despachos ante los que deba presentarse el tramite.",
+      },
+      {
+        title: "Conservacion y seguridad",
+        body:
+          "Aplicamos medidas tecnicas y operativas razonables para proteger la informacion. Aun asi, ningun sistema digital es completamente inmune a incidentes, por lo que el usuario debe cargar informacion veraz y mantener control sobre sus credenciales.",
       },
       {
         title: "Derechos del titular",
         body:
-          "El usuario puede solicitar actualización, corrección o supresión de datos cuando proceda, usando los canales de contacto publicados por la plataforma.",
+          "El usuario puede solicitar acceso, actualizacion, correccion o supresion de datos cuando proceda legalmente, usando los canales oficiales de contacto publicados por la plataforma.",
       },
     ],
   },
   contacto: {
     badge: "Contacto",
     title: "Soporte y contacto",
-    subtitle: "Canales para resolver dudas de acceso, pagos o estado del trámite.",
+    subtitle: "Canales para resolver dudas sobre acceso, pagos, radicacion y estado del expediente.",
     sections: [
       {
         title: "Soporte general",
         body:
-          "Para consultas sobre acceso, pagos, expedientes o estado del proceso, el usuario puede escribir al correo oficial de soporte y detallar su referencia o número de caso.",
+          "Para consultas sobre acceso, pagos, expediente o estado del proceso, escribe al canal principal de soporte con el correo de tu cuenta y una descripcion corta del problema.",
       },
       {
-        title: "Pagos y conciliación",
+        title: "Pagos y conciliacion",
         body:
-          "Si un pago fue aprobado pero no se refleja de inmediato en la interfaz, el usuario debe reportar la referencia de la transacción para validar el estado en el panel y en los registros internos.",
+          "Si un pago fue aprobado pero no se refleja en la interfaz, reporta la referencia de la transaccion para revisar el estado en el panel y en los registros internos del sistema.",
       },
       {
-        title: "Casos sensibles",
+        title: "Impugnacion y desacato",
         body:
-          "Cuando el trámite requiera continuidad como impugnación, desacato o seguimiento, el usuario debe revisar primero el estado del expediente y luego contactar soporte si necesita orientación adicional.",
+          "Si tu caso requiere impugnacion o desacato, adjunta el fallo previo en formato legible. Sin ese documento no se puede validar ni preparar correctamente el siguiente escrito.",
       },
     ],
   },
@@ -89,7 +109,16 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
   return (
     <div style={{ minHeight: "100vh", background: "#F5F7FB", color: C.text }}>
       <div style={{ maxWidth: 1080, margin: "0 auto", padding: "32px 24px 80px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 28 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 16,
+            alignItems: "center",
+            flexWrap: "wrap",
+            marginBottom: 28,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div
               style={{
@@ -116,8 +145,19 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
         <div className="glass-card" style={{ padding: "34px 32px", display: "grid", gap: 28 }}>
           <div>
             <Badge color={page === "contacto" ? C.accent : C.primary}>{content.badge}</Badge>
-            <h1 style={{ marginTop: 14, fontSize: 50, lineHeight: 1, fontFamily: "'Playfair Display', serif" }}>{content.title}</h1>
-            <p style={{ marginTop: 14, color: C.textMuted, maxWidth: 760, lineHeight: 1.75 }}>{content.subtitle}</p>
+            <h1
+              style={{
+                marginTop: 14,
+                fontSize: 50,
+                lineHeight: 1,
+                fontFamily: "'Playfair Display', serif",
+              }}
+            >
+              {content.title}
+            </h1>
+            <p style={{ marginTop: 14, color: C.textMuted, maxWidth: 760, lineHeight: 1.75 }}>
+              {content.subtitle}
+            </p>
           </div>
 
           {content.sections.map((section) => (
@@ -135,16 +175,16 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
                   soporte@123tutelaapp.com
                 </div>
                 <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
-                  Canal principal para soporte, conciliación de pagos y seguimiento del expediente.
+                  Canal principal para soporte, conciliacion de pagos y validacion del expediente.
                 </p>
               </div>
               <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.accent, fontWeight: 800 }}>
                   <ShieldCheck size={18} />
-                  Respuesta con referencia
+                  Escribe con referencia
                 </div>
                 <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
-                  Cuando escribas, incluye el correo de la cuenta y la referencia del pago o el identificador del expediente.
+                  Incluye el correo de la cuenta, la referencia del pago o el identificador del expediente para acelerar la revision.
                 </p>
               </div>
               <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
@@ -153,7 +193,7 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
                   radicaciones@123tutelaapp.com
                 </div>
                 <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
-                  Buzon operativo para envios judiciales y recepcion inicial de acuses o radicados cuando el despacho responde al canal de salida.
+                  Buzon operativo para tramites enviados, acuses, radicados y novedades del canal de presentacion.
                 </p>
               </div>
               <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
@@ -162,7 +202,7 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
                   notificaciones@123tutelaapp.com
                 </div>
                 <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
-                  Remitente operativo para copias al cliente, avisos del expediente y comprobantes que luego tambien quedan visibles en el panel.
+                  Remitente operativo para copias al cliente, avisos del expediente y comprobantes visibles en el panel.
                 </p>
               </div>
             </div>
