@@ -131,6 +131,59 @@ def _contains_health_urgency_signal(text: str) -> bool:
     )
 
 
+def _contains_health_manifest_urgency_signal(text: str) -> bool:
+    negative_markers = [
+        "no es una urgencia",
+        "no hay urgencia",
+        "no es urgente",
+        "sin urgencia",
+        "no hay un riesgo vital",
+        "no existe riesgo vital",
+    ]
+    if any(marker in text for marker in negative_markers):
+        return False
+    return _contains_any(
+        text,
+        [
+            "uci",
+            "hospitalizacion",
+            "hospitalización",
+            "cirugia urgente",
+            "cirugía urgente",
+            "riesgo vital",
+            "riesgo de muerte",
+            "peligro de muerte",
+            "perjuicio irremediable",
+            "convulsion",
+            "convulsión",
+            "sangrado",
+            "hemorrag",
+            "aneurisma",
+            "acv",
+            "stroke",
+            "sepsis",
+            "infarto",
+            "paro card",
+            "perdida de conciencia",
+            "pérdida de conciencia",
+            "desmayo",
+            "inconsciente",
+            "deficit neurologico",
+            "déficit neurológico",
+            "paralisis",
+            "parálisis",
+            "embarazo de alto riesgo",
+            "gestacion de alto riesgo",
+            "gestación de alto riesgo",
+            "cancer",
+            "cáncer",
+            "quimioterapia",
+            "dialisis",
+            "diálisis",
+        ],
+    )
+
+
 def _contains_health_continuity_signal(text: str) -> bool:
     return _contains_any(
         text,
@@ -237,7 +290,7 @@ def _infer_health_workflow(
     ) or _contains_any(lowered, ["orden medica", "formula", "historia clinica", "historia clínica", "medico", "médico"])
     has_barrier = bool(prior_claim_result or _health_intake_text(facts, "eps_request_date", "eps_request_reference")) or _contains_any(
         lowered,
-        ["negar", "negaron", "negada", "demora", "demoraron", "silencio", "sin respuesta", "no autorizan", "no autorizan", "no entregan", "no entregaron", "barrera", "suspendieron", "no agendan", "eps", "ips"],
+        ["negar", "negaron", "negada", "demora", "demoraron", "silencio", "sin respuesta", "no autorizan", "no entregan", "no entregaron", "barrera", "suspendieron", "no agendan"],
     )
     has_continuity_risk = bool(continuity_detail) and _contains_health_continuity_signal(_lower(continuity_detail) + " " + lowered)
     has_urgency = _health_text_supports_urgency(urgency_detail, current_harm, lowered) or urgent or has_continuity_risk
@@ -246,7 +299,8 @@ def _infer_health_workflow(
     prior_claim_done = all_required_done or bool(prior_actions) or prior_claim in {"si", "sí", "reclame", "reclamo", "radicado"} or bool(
         _health_intake_text(facts, "eps_request_date", "eps_request_reference", "eps_request_channel")
     )
-    urgency_without_waiting = has_urgency and (has_special_protection or has_continuity_risk or _contains_health_urgency_signal(_lower(current_harm) + " " + lowered))
+    manifest_urgency = _contains_health_manifest_urgency_signal(" ".join([_lower(urgency_detail), _lower(current_harm), lowered]))
+    urgency_without_waiting = manifest_urgency or (has_continuity_risk and has_special_protection)
 
     has_prior_ruling = bool(tutela_ruling_date or tutela_order_summary or tutela_decision_result) or _contains_any(
         lowered,
@@ -273,9 +327,10 @@ def _infer_health_workflow(
     if has_health_core and has_barrier and has_medical_support and (has_urgency or has_special_protection):
         if not prior_claim_done:
             if urgency_without_waiting:
-                warnings.append("Se recomienda tutela en salud aunque la via previa no este completa, porque el expediente muestra urgencia reforzada o continuidad de tratamiento que no deberia esperar.")
-            else:
-                warnings.append("Se recomienda tutela por urgencia en salud, pero conviene dejar mejor explicada la gestion previa ante la EPS o por que no era exigible esperar.")
+                warnings.append("Se recomienda tutela en salud aunque la via previa no este completa, porque el expediente muestra urgencia manifiesta o una continuidad critica que no deberia esperar.")
+                return "tutela", "Accion de tutela", warnings
+            warnings.append("Sin una gestion previa documentada ante la EPS, este caso debe iniciar por derecho de peticion salvo que exista una urgencia manifiesta realmente reforzada.")
+            return "derecho_peticion", "Derecho de peticion a EPS", warnings
         return "tutela", "Accion de tutela", warnings
 
     if has_health_core and has_barrier and prior_claim_done:
