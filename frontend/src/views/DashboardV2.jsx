@@ -3751,13 +3751,13 @@ function DetailPanel({
   return (
     <div style={{ display: "grid", gap: 18 }}>
       <div className="glass-card" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr" }}>
-          <div style={{ padding: 22, borderRight: `1px solid ${C.border}`, background: "linear-gradient(180deg, #F4F7FB 0%, #EDF3FB 100%)", display: "grid", alignContent: "space-between", minHeight: 720 }}>
+        <div style={{ display: "grid", gridTemplateColumns: flowStep >= 3 ? "92px 1fr" : "220px 1fr" }}>
+          <div style={{ padding: flowStep >= 3 ? 14 : 22, borderRight: `1px solid ${C.border}`, background: "linear-gradient(180deg, #F4F7FB 0%, #EDF3FB 100%)", display: "grid", alignContent: "space-between", minHeight: 720 }}>
             <div style={{ display: "grid", gap: 14 }}>
-              <div>
+              {flowStep < 3 && <div>
                 <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>EXPEDIENTE</div>
                 <div style={{ marginTop: 6, color: C.text, fontWeight: 800 }}>{item.id.slice(0, 18)}</div>
-              </div>
+              </div>}
               <div style={{ padding: 18, borderRadius: 20, background: "linear-gradient(180deg, #101827 0%, #182338 100%)", color: "#fff", boxShadow: "0 18px 30px rgba(15,23,42,0.18)" }}>
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 700 }}>Estado actual</div>
                 <div style={{ marginTop: 8, fontSize: 22, lineHeight: 1.15, fontWeight: 800 }}>
@@ -3769,7 +3769,7 @@ function DetailPanel({
                     : paymentNextStepCopy}
                 </div>
               </div>
-              <div style={{ padding: 16, borderRadius: 18, background: "#FFFFFF", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+              {flowStep < 3 && <div style={{ padding: 16, borderRadius: 18, background: "#FFFFFF", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
                 <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>RESUMEN RAPIDO</div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
                   <span style={{ color: C.textMuted, fontSize: 13 }}>Pago</span>
@@ -3785,7 +3785,7 @@ function DetailPanel({
                   <span style={{ color: C.textMuted, fontSize: 13 }}>Viabilidad</span>
                   <span style={{ color: detailViability.color, fontWeight: 800 }}>{detailViability.label}</span>
                 </div>
-              </div>
+              </div>}
               {!!paymentSummary.latest_reference && (
                 <div style={{ padding: 16, borderRadius: 18, background: "#FFFFFF", border: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
                   <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 800 }}>TRAZABILIDAD DE PAGO</div>
