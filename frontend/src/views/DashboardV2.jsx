@@ -407,6 +407,7 @@ const buildSubmissionSignatureNote = (signatureForm = {}, baseNote = "") => {
 const SIMPLE_SIGNATURE_CONSENT_VERSION = "ses_v1";
 const SIMPLE_SIGNATURE_CONSENT_TEXT =
   "Autorizo a 123tutela para usar mi firma electronica simple en la radicacion o envio del documento generado para este caso. Confirmo que revise el contenido final antes de aceptarlo, que los datos de identificacion y ciudad que suministro son correctos, y que esta aceptacion expresa representa mi voluntad de presentar este documento por medios electronicos en el canal aplicable. Entiendo que la plataforma conservara evidencia basica de esta aceptacion, incluida la fecha y hora, la version del consentimiento y metadatos tecnicos del envio disponibles en el sistema.";
+const FILING_BUNDLE_PRICE_COP = 36000;
 
 const timelineEventLabelMap = {
   case_created: "Expediente creado",
@@ -3139,7 +3140,7 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
   const jumpToDocumentGeneration = async () => {
     if (caseItem?.payment_status === "pagado" && !caseItem?.generated_document && onGenerateDocument) {
       await onGenerateDocument(caseItem.id);
-      return;
+      await onRefreshCase(caseItem.id);
     }
     window.setTimeout(() => {
       document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3322,8 +3323,8 @@ function PaymentCard({ title, caseItem, catalog, onCreateWompiSession, onConfirm
     return null;
   }
 
-  const finalPrice = isBasePaid ? 9900 : includeFiling ? lockedProduct?.price_with_filing_cop : lockedProduct?.price_cop;
-  const filingPrice = lockedProduct ? lockedProduct.price_with_filing_cop - lockedProduct.price_cop : 0;
+  const filingPrice = lockedProduct ? lockedProduct.price_with_filing_cop - lockedProduct.price_cop : FILING_BUNDLE_PRICE_COP;
+  const finalPrice = isBasePaid ? filingPrice : includeFiling ? lockedProduct?.price_with_filing_cop : lockedProduct?.price_cop;
 
   return (
     <SessionCard title={title} subtitle={isBasePaid ? "Tu documento ya esta activo. Aqui agregas un solo paquete adicional." : "El analisis es gratis. Te llevamos a una compra principal simple."}>
@@ -4488,7 +4489,7 @@ function DetailPanel({
                   </div>
                 )}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginTop: 18 }}>
-                  <Button disabled={!signatureReady || !filingAutoPaid} onClick={() => onSubmitCase({ mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed, judicial_destination_confirmed: !requiresJudicialConfirmation || judicialDestinationConfirmed })}>Radicar por mi (+$9.900)</Button>
+                  <Button disabled={!signatureReady || !filingAutoPaid} onClick={() => onSubmitCase({ mode: "auto", notes: buildSubmissionSignatureNote(signatureForm, submissionNote), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed, judicial_destination_confirmed: !requiresJudicialConfirmation || judicialDestinationConfirmed })}>{`Radicar por mi (+$${FILING_BUNDLE_PRICE_COP.toLocaleString("es-CO")})`}</Button>
                   <Button disabled={!signatureReady} variant="ghost" style={{ background: "#F8FAFD", border: `1px solid ${C.border}` }} onClick={() => onManualRadicado({ radicado: radicadoManual || `AUTO-${Date.now()}`, notes: buildSubmissionSignatureNote(signatureForm, radicadoNote || "Usuario decidio radicar por su cuenta."), signature: { ...signatureForm, accepted: signatureAccepted, consent_version: SIMPLE_SIGNATURE_CONSENT_VERSION, consent_text: SIMPLE_SIGNATURE_CONSENT_TEXT }, reviewed_document: documentReviewed })}>Yo lo radico por mi cuenta</Button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
@@ -5268,6 +5269,14 @@ export default function DashboardV2(props) {
     if (target) {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+  };
+
+  const generateAndFocusCase = async (caseId) => {
+    await onGenerateDocument(caseId);
+    await onRefreshCase(caseId);
+    window.setTimeout(() => {
+      document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
   };
 
   const content = {
@@ -6069,16 +6078,11 @@ export default function DashboardV2(props) {
                   </div>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Button
-                      onClick={async () => {
-                        await onGenerateDocument(activeCaseDetail.case.id);
-                        window.setTimeout(() => {
-                          document.getElementById("case-next-stage")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }, 120);
-                      }}
+                      onClick={() => generateAndFocusCase(activeCaseDetail.case.id)}
                       icon={ArrowRight}
                       disabled={loading || activeCaseDetail.case.payment_status !== "pagado"}
                     >
-                      Ir a generar documento
+                      Generar documento ahora
                     </Button>
                   </div>
                 </div>
@@ -6095,7 +6099,7 @@ export default function DashboardV2(props) {
                         : "Genera el escrito final cuando el pago ya este confirmado."}
                     </div>
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <Button variant="secondary" onClick={() => onGenerateDocument(activeCaseDetail.case.id)} disabled={activeCaseDetail.case.payment_status !== "pagado"} icon={FileText}>
+                      <Button variant="secondary" onClick={() => generateAndFocusCase(activeCaseDetail.case.id)} disabled={activeCaseDetail.case.payment_status !== "pagado"} icon={FileText}>
                         {activeCaseDetail.case.generated_document ? "Regenerar documento" : "Generar documento"}
                       </Button>
                     </div>
