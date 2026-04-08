@@ -695,7 +695,18 @@ def _read_docx(path: Path) -> str:
     try:
         document = Document(str(path))
         parts = [(paragraph.text or "").strip() for paragraph in document.paragraphs[:240]]
-        return "\n".join([item for item in parts if item])
+        table_parts: list[str] = []
+        for table in document.tables[:40]:
+            for row in table.rows:
+                cell_values: list[str] = []
+                for cell in row.cells:
+                    cell_text = re.sub(r"\s+", " ", str(cell.text or "")).strip()
+                    if cell_text:
+                        cell_values.append(cell_text)
+                if cell_values:
+                    table_parts.append(" | ".join(cell_values))
+        combined_parts = [item for item in parts if item] + table_parts
+        return "\n".join(combined_parts[:320])
     except Exception:
         return ""
 
