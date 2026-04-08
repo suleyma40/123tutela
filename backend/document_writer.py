@@ -2309,6 +2309,14 @@ def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) 
     request_type = str(intake.get("request_type") or "interes_particular").strip().replace("_", " ")
     request_type_label = request_type if request_type.startswith("interes ") else f"interes {request_type}"
     treatment_needed = _normalize_health_service_text(intake.get("treatment_needed") or _health_attachment_suggestions(case).get("treatment_needed") or "")
+    patient_identity = _health_patient_identity_fragments(case)
+    represented_person_name = patient_identity["name"]
+    represented_person_relationship = _infer_health_relationship(case, represented_person_name)
+    represented_person_age = patient_identity["age"]
+    represented_person_document = patient_identity["document"]
+    represented_person_birth_date = patient_identity["birth_date"]
+    special_protection = str(intake.get("special_protection") or "").strip()
+    has_representation = _should_present_health_representation(case, patient_identity)
     explicit_request_lines = _split_numbered_requests(str(intake.get("numbered_requests") or "").strip())
     request_lines = explicit_request_lines or [
         f"RESPONDER de fondo, de manera clara, congruente y completa, la solicitud relacionada con {treatment_needed or 'el servicio de salud requerido'}.",
@@ -2348,9 +2356,35 @@ def _build_health_petition_document(case: dict[str, Any], rule: dict[str, Any]) 
         .replace("December", "diciembre")
     )
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    represented_fragment = ""
+    petitioner_name = ctx["user_name"]
+    petitioner_doc = ctx["user_doc"]
+    petitioner_email = ctx["user_email"]
+    petitioner_phone = ctx["user_phone"]
+    petitioner_address = ctx["address"]
+    if represented_person_name and has_representation:
+        identity_bits: list[str] = []
+        if represented_person_age:
+            identity_bits.append(f"de {represented_person_age}")
+        normalized_birth_date = _normalize_health_display_date(represented_person_birth_date)
+        if normalized_birth_date and normalized_birth_date != represented_person_age:
+            identity_bits.append(f"nacido el {normalized_birth_date}")
+        if represented_person_document:
+            identity_bits.append(f"identificado con documento No. {represented_person_document}")
+        elif special_protection.lower() == "menor de edad":
+            identity_bits.append("identificado conforme al registro civil aportado como anexo")
+        age_fragment = f", {', '.join(identity_bits)}" if identity_bits else ""
+        role = "actuando en representacion"
+        if represented_person_relationship:
+            role = f"actuando en calidad de {represented_person_relationship}"
+        elif special_protection.lower() == "menor de edad":
+            role = "actuando como acudiente"
+        represented_fragment = f", {role} de {represented_person_name}{age_fragment}, persona afectada por la necesidad de atencion en salud aqui descrita"
+        petitioner_name = ctx["account_name"] or petitioner_name
+        petitioner_doc = ctx["account_doc"] or petitioner_doc
     intro = (
-        f"Yo, {ctx['user_name']}, persona mayor de edad, titular de la cedula de ciudadania No. {ctx['user_doc']}, con domicilio en {ctx['address']}, {ctx['city']}, {ctx['department']}, "
-        f"correo electronico {ctx['user_email']} y telefono {ctx['user_phone']}, presento derecho de peticion en {request_type_label} contra {target}."
+        f"Yo, {petitioner_name}, persona mayor de edad, titular de la cedula de ciudadania No. {petitioner_doc}, con domicilio en {petitioner_address}, {ctx['city']}, {ctx['department']}, "
+        f"correo electronico {petitioner_email} y telefono {petitioner_phone}{represented_fragment}, presento derecho de peticion en {request_type_label} contra {target}."
     )
     return f"""{ctx['city'] or 'Colombia'}, {header_date}
 Señores
@@ -2384,10 +2418,10 @@ Solicito que toda respuesta, decision o requerimiento relacionado con esta petic
 Constancia de generacion: {generated_at}
 
 Atentamente,
-{ctx['user_name']}
-CC: {ctx['user_doc']}
-Correo: {ctx['user_email']}
-Telefono: {ctx['user_phone']}
+{petitioner_name}
+CC: {petitioner_doc}
+Correo: {petitioner_email}
+Telefono: {petitioner_phone}
 """
 
 
