@@ -29,7 +29,8 @@ def deploy_frontend() -> None:
     host = os.getenv("VPS_IP")
     user = os.getenv("VPS_USER", "root")
     password = os.getenv("VPS_PASSWORD")
-    remote_dir = os.getenv("REMOTE_REPO_DIR", "/tmp/tutelaapp-build/frontend")
+    remote_root = os.getenv("REMOTE_REPO_DIR", "/opt/tutelaapp-build")
+    remote_dir = f"{remote_root}/frontend"
     service_name = os.getenv("FRONTEND_SERVICE_NAME", "tutela-frontend-qn2lo4")
 
     if not host or not password:
@@ -39,7 +40,7 @@ def deploy_frontend() -> None:
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, username=user, password=password, timeout=30)
     try:
-        _run(ssh, "cd /tmp/tutelaapp-build && git fetch origin main && git checkout main && git reset --hard origin/main")
+        _run(ssh, f"cd {remote_root} && git fetch origin main && git checkout main && git reset --hard origin/main")
         _run(ssh, f"cd {remote_dir} && docker build -t {service_name}:latest .", timeout=3600)
         _run(ssh, f"docker service update --force {service_name}")
         _run(ssh, "curl -I https://123tutelaapp.com/dashboard", timeout=120)
