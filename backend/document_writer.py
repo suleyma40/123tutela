@@ -1547,10 +1547,14 @@ def _health_fact_lines(case: dict[str, Any]) -> list[str]:
     merged = list(lines)
     for item in synthesis_chronology:
         formal_item = _sentence(_title_sentence(item), fallback="").strip()
+        if broad_history_only and _health_line_overstates_barrier(formal_item):
+            continue
         if formal_item and _is_concrete_health_timeline_line(formal_item) and not _is_redundant_health_line(formal_item, merged):
             merged.append(formal_item)
     if focus != "circulo_burocratico":
         for item in chronology_lines:
+            if broad_history_only and _health_line_overstates_barrier(item):
+                continue
             if not _is_redundant_health_line(item, merged):
                 merged.append(item)
     return _dedupe_lines(merged)

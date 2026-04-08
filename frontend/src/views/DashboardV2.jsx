@@ -3916,7 +3916,7 @@ function DetailPanel({
                   )}
                 </div>
               </div>
-            ) : (
+            ) : flowStep < 3 ? (
               <div className="glass-card" style={{ padding: 20, background: "linear-gradient(180deg, #FCFDFF 0%, #F8FAFD 100%)", border: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, color: C.textMuted }}>ACTIVACION Y RADICACION</div>
                 <div style={{ marginTop: 8, color: C.text, fontWeight: 800, fontSize: 22 }}>Primero activas el documento. Luego se libera la radicacion.</div>
@@ -3924,7 +3924,7 @@ function DetailPanel({
                   Al activar el documento final, la plataforma confirma el canal disponible, prepara la version lista para firma y te muestra la opcion de radicar con apoyo o por tu cuenta.
                 </div>
               </div>
-            )}
+            ) : null}
 
             {!!paymentSummary.latest_reference && flowStep < 3 && (
               <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", border: `1px solid ${C.border}` }}>
