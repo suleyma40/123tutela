@@ -56,6 +56,50 @@ def _looks_same_service(service_a: Any, service_b: Any) -> bool:
     return len(tokens_a & tokens_b) >= min(2, len(tokens_a), len(tokens_b))
 
 
+def _health_attachment_types(facts: dict[str, Any]) -> set[str]:
+    attachment_context = facts.get("attachment_intelligence") or {}
+    profiles = attachment_context.get("attachment_profiles") or []
+    return {
+        str((profile or {}).get("type") or "").strip().lower()
+        for profile in profiles
+        if str((profile or {}).get("type") or "").strip()
+    }
+
+
+def _looks_like_provider_entity(value: Any) -> bool:
+    normalized = _match_key(value)
+    if not normalized:
+        return False
+    provider_tokens = (
+        "ips",
+        "clinica",
+        "clinica",
+        "hospital",
+        "centro medico",
+        "comfama",
+        "san vicente",
+        "pablo tobon",
+    )
+    return any(token in normalized for token in provider_tokens)
+
+
+def _looks_like_eps_entity(value: Any) -> bool:
+    normalized = _match_key(value)
+    if not normalized:
+        return False
+    eps_tokens = (
+        "eps",
+        "nueva eps",
+        "sanitas",
+        "sura",
+        "famisanar",
+        "compensar",
+        "savia",
+        "coosalud",
+    )
+    return any(token in normalized for token in eps_tokens)
+
+
 def _health_supports_present(facts: dict[str, Any], combined_text: str) -> bool:
     return bool(
         _intake_text(
@@ -203,6 +247,9 @@ def _detect_health_contradictions(*, description: str, facts: dict[str, Any]) ->
     urgency_detail = _text(intake.get("urgency_detail") or intake.get("current_harm") or intake.get("ongoing_harm") or intake.get("tutela_immediacy_detail"))
     attachment_context = facts.get("attachment_intelligence") or {}
     evidence_record = attachment_context.get("health_evidence_record") or {}
+    attachment_types = _health_attachment_types(facts)
+    has_broad_clinical_record = "historia_clinica" in attachment_types
+    has_precise_medical_order = "formula" in attachment_types
     evidence_patient_name = _text(evidence_record.get("patient_name"))
     evidence_patient_document = _text(evidence_record.get("patient_document"))
     evidence_target_entity = _text(evidence_record.get("target_entity"))
@@ -246,10 +293,21 @@ def _detect_health_contradictions(*, description: str, facts: dict[str, Any]) ->
         warnings.append("El relato sugiere urgencia, pero falta dejar ese riesgo actual en el campo especifico de urgencia del caso.")
 
     if evidence_target_entity and target_entity and not _looks_same_entity(evidence_target_entity, target_entity):
-        problems.append("Las pruebas medicas apuntan a una entidad de salud distinta de la que quedo en el intake. Debe unificarse la EPS o IPS accionada antes de redactar.")
+        provider_vs_eps_gap = _looks_like_provider_entity(evidence_target_entity) and _looks_like_eps_entity(target_entity)
+        if has_broad_clinical_record or provider_vs_eps_gap:
+            warnings.append(
+                "Los soportes medicos mencionan una IPS o entidad tratante distinta a la entidad accionada del intake. La IA debe tomar la historia clinica como soporte y conservar como accionada la EPS o entidad responsable salvo que el caso pruebe una barrera directa de la IPS."
+            )
+        else:
+            problems.append("Las pruebas medicas apuntan a una entidad de salud distinta de la que quedo en el intake. Debe unificarse la EPS o IPS accionada antes de redactar.")
 
     if evidence_requested_service and intake_service and not _looks_same_service(evidence_requested_service, intake_service):
-        problems.append("El servicio reclamado en el intake no coincide con el servicio que muestran las pruebas medicas. Debe corregirse el expediente antes de generar.")
+        if has_broad_clinical_record and not has_precise_medical_order:
+            warnings.append(
+                "La historia clinica es amplia y menciona varios servicios o antecedentes. La IA debe priorizar el servicio actual reclamado en el expediente y usar el soporte clinico como contexto, sin bloquear al usuario por no aislar tecnicamente cada referencia medica."
+            )
+        else:
+            problems.append("El servicio reclamado en el intake no coincide con el servicio que muestran las pruebas medicas. Debe corregirse el expediente antes de generar.")
 
     if evidence_diagnosis and intake_diagnosis and evidence_diagnosis.lower() not in intake_diagnosis.lower() and intake_diagnosis.lower() not in evidence_diagnosis.lower():
         warnings.append("El diagnostico del intake no coincide del todo con el diagnostico detectado en los soportes. Conviene unificarlo antes de entregar.")
