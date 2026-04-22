@@ -35,6 +35,14 @@ CATEGORY_CONFIG: dict[str, dict[str, Any]] = {
             {"id": "reclamo_banco", "label": "Presentar reclamación ante la entidad financiera", "required": True},
         ],
     },
+    "Tránsito": {
+        "module": "TRANSITO",
+        "default_workflow": "derecho_peticion",
+        "urgent_keywords": ["embargo", "inmovilizado", "prescripcion", "prescripción", "desembargo"],
+        "prerequisites": [
+            {"id": "consulta_expediente", "label": "Consultar comparendo, cobro o estado del expediente", "required": True},
+        ],
+    },
     "Servicios": {
         "module": "SERVICIOS",
         "default_workflow": "reclamacion",
@@ -420,6 +428,20 @@ def infer_workflow(
             recommended_action = "Reclamacion financiera"
             if not all_required_done:
                 warnings.append("Debes agotar la reclamacion directa ante la entidad financiera antes de escalar a tutela salvo vulneracion urgente.")
+    elif category == "Tránsito":
+        has_resource_signal = _contains_any(lowered, ["recurso", "comparendo", "fotomulta", "audiencia"])
+        has_prescription_signal = _contains_any(lowered, ["prescripcion", "prescripción", "desembargo", "cobro coactivo", "embargo"])
+        if has_prescription_signal:
+            workflow_type = "derecho_peticion"
+            recommended_action = "Solicitud de prescripcion o desembargo"
+        elif has_resource_signal:
+            workflow_type = "reclamacion"
+            recommended_action = "Recurso o solicitud de revision de transito"
+        else:
+            workflow_type = "derecho_peticion"
+            recommended_action = "Derecho de peticion de transito"
+        if not all_required_done:
+            warnings.append("Antes de presentar la solicitud conviene tener a la mano el estado del comparendo, cobro o expediente de transito.")
     elif category == "Servicios":
         if all_required_done and urgent:
             workflow_type = "tutela"

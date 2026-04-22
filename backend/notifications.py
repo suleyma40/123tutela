@@ -501,3 +501,135 @@ def send_signed_submission_email(
         "subject": subject,
         "attachments": attached_files,
     }
+
+
+def build_guest_delivery_email(case: dict[str, Any], delivery_package: dict[str, Any], note: str | None = None) -> dict[str, str]:
+    guide = delivery_package.get("customer_guide") or {}
+    attachments = guide.get("required_attachments") or []
+    asks = guide.get("what_to_ask_for") or []
+    subject = f"HazloPorMi | Tu documento esta listo: {case.get('recommended_action') or 'tramite'}"
+    text = f"""
+Tu documento ya esta listo.
+
+Documento recomendado: {case.get('recommended_action') or 'tramite'}
+Categoria: {case.get('categoria') or ''}
+
+Que vas a presentar:
+{guide.get('what_you_will_present') or ''}
+
+Donde presentarlo:
+{guide.get('where_to_submit') or ''}
+
+Como presentarlo:
+{guide.get('how_to_submit') or ''}
+
+Documentos que debes llevar o adjuntar:
+{chr(10).join(f"- {item}" for item in attachments)}
+
+Que pedir exactamente:
+{chr(10).join(f"- {item}" for item in asks)}
+
+Como guardar prueba:
+{guide.get('how_to_keep_proof') or ''}
+
+Tiempo esperado:
+{guide.get('estimated_response_window') or ''}
+
+Si no responden:
+{guide.get('next_step_if_no_response') or ''}
+
+Si niegan la solicitud:
+{guide.get('next_step_if_denied') or ''}
+
+{note or ''}
+""".strip()
+    html = f"""
+<h2>Tu documento ya esta listo</h2>
+<p><strong>Documento recomendado:</strong> {case.get('recommended_action') or 'tramite'}</p>
+<p><strong>Categoria:</strong> {case.get('categoria') or ''}</p>
+<p><strong>Que vas a presentar:</strong><br>{guide.get('what_you_will_present') or ''}</p>
+<p><strong>Donde presentarlo:</strong><br>{guide.get('where_to_submit') or ''}</p>
+<p><strong>Como presentarlo:</strong><br>{guide.get('how_to_submit') or ''}</p>
+<p><strong>Documentos que debes llevar o adjuntar:</strong></p>
+<ul>{''.join(f'<li>{item}</li>' for item in attachments)}</ul>
+<p><strong>Que pedir exactamente:</strong></p>
+<ul>{''.join(f'<li>{item}</li>' for item in asks)}</ul>
+<p><strong>Como guardar prueba:</strong><br>{guide.get('how_to_keep_proof') or ''}</p>
+<p><strong>Tiempo esperado:</strong><br>{guide.get('estimated_response_window') or ''}</p>
+<p><strong>Si no responden:</strong><br>{guide.get('next_step_if_no_response') or ''}</p>
+<p><strong>Si niegan la solicitud:</strong><br>{guide.get('next_step_if_denied') or ''}</p>
+<p>{note or ''}</p>
+""".strip()
+    return {"subject": subject, "text": text, "html": html}
+
+
+def send_guest_delivery_email(
+    *,
+    recipient: str | None,
+    case: dict[str, Any],
+    delivery_package: dict[str, Any],
+    note: str | None = None,
+    attachments: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    content = build_guest_delivery_email(case, delivery_package, note)
+    return send_signed_submission_email(
+        recipient=recipient,
+        subject=content["subject"],
+        body_text=content["text"],
+        body_html=content["html"],
+        attachments=attachments,
+        reply_to=_notification_reply_to_email(),
+    )
+
+
+def send_guest_delivery_whatsapp(
+    *,
+    phone: str | None,
+    case: dict[str, Any],
+    delivery_package: dict[str, Any],
+) -> dict[str, Any]:
+    guide = delivery_package.get("customer_guide") or {}
+    message = (
+        f"HazloPorMi: tu documento ya esta listo.\n\n"
+        f"Documento: {case.get('recommended_action') or 'tramite'}\n"
+        f"Donde presentarlo: {guide.get('where_to_submit') or ''}\n"
+        f"Tiempo esperado: {guide.get('estimated_response_window') or ''}\n"
+        f"Si no responden: {guide.get('next_step_if_no_response') or ''}"
+    )
+    attempted_at = datetime.now(timezone.utc).isoformat()
+    normalized_phone = _normalize_whatsapp_number(phone)
+    base_result = {
+        "provider": "n8n" if _is_n8n_whatsapp_configured() else "evolution",
+        "transport": "whatsapp",
+        "attempted_at": attempted_at,
+        "recipient": normalized_phone or phone,
+    }
+    if not normalized_phone:
+        return {**base_result, "status": "skipped", "reason": "missing_phone"}
+    if _is_n8n_whatsapp_configured():
+        try:
+            response_payload = _post_json(
+                settings.n8n_whatsapp_webhook_url,
+                {"number": normalized_phone, "text": message, "case_id": case.get("id"), "document": case.get("recommended_action")},
+                {"Content-Type": "application/json"},
+            )
+            return {**base_result, "status": "sent", "response_payload": response_payload}
+        except urllib.error.HTTPError as exc:  # pragma: no cover
+            body = exc.read().decode("utf-8", errors="ignore")
+            return {**base_result, "status": "error", "reason": f"http_{exc.code}", "response_body": body[:500]}
+        except Exception as exc:  # pragma: no cover
+            return {**base_result, "status": "error", "reason": str(exc)}
+    if not _is_whatsapp_configured():
+        return {**base_result, "status": "pending_configuration", "reason": "evolution_not_configured"}
+    try:
+        response_payload = _post_json(
+            f"{settings.evolution_base_url.rstrip('/')}/message/sendText/{settings.evolution_instance}",
+            {"number": normalized_phone, "text": message, "linkPreview": False},
+            {"Content-Type": "application/json", "apikey": settings.evolution_api_key},
+        )
+        return {**base_result, "status": "sent", "response_payload": response_payload}
+    except urllib.error.HTTPError as exc:  # pragma: no cover
+        body = exc.read().decode("utf-8", errors="ignore")
+        return {**base_result, "status": "error", "reason": f"http_{exc.code}", "response_body": body[:500]}
+    except Exception as exc:  # pragma: no cover
+        return {**base_result, "status": "error", "reason": str(exc)}

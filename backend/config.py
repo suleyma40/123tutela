@@ -73,6 +73,7 @@ class Settings:
     qa_test_radicado_email: str = os.getenv("QA_TEST_RADICADO_EMAIL", "su-ley23@hotmail.com")
     qa_test_emails: list[str] = None  # type: ignore[assignment]
     n8n_whatsapp_webhook_url: str = os.getenv("N8N_WHATSAPP_WEBHOOK_URL", "")
+    n8n_ops_webhook_url: str = os.getenv("N8N_OPS_WEBHOOK_URL", "")
     evolution_base_url: str = os.getenv("EVOLUTION_BASE_URL", "")
     evolution_api_key: str = os.getenv("EVOLUTION_API_KEY", "")
     evolution_instance: str = os.getenv("EVOLUTION_INSTANCE", "")

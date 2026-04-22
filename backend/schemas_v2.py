@@ -159,7 +159,7 @@ class WompiCheckoutSessionRequest(BaseModel):
 class PaymentOrderResponse(BaseModel):
     id: str
     case_id: str
-    user_id: str
+    user_id: str | None = None
     provider: str
     environment: str
     product_code: str
@@ -193,6 +193,74 @@ class WompiWebhookResponse(BaseModel):
 class WompiReconcileRequest(BaseModel):
     transaction_id: str = Field(min_length=3, max_length=120)
     reference: str | None = Field(default=None, min_length=3, max_length=120)
+
+
+class GuestLeadCreateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    phone: str = Field(min_length=7, max_length=40)
+    category: str = Field(min_length=2, max_length=80)
+    department: str = Field(min_length=2, max_length=80)
+    city: str = Field(min_length=2, max_length=80)
+    description: str = Field(min_length=20, max_length=6000)
+    entity_name: str | None = Field(default=None, max_length=180)
+    urgency_level: str | None = Field(default=None, max_length=80)
+    prior_actions: list[str] = Field(default_factory=list)
+    form_data: dict[str, Any] = Field(default_factory=dict)
+
+
+class GuestDiagnosisResponse(BaseModel):
+    case: CaseResponse
+    public_token: str
+    next_step: str
+    commercial_summary: dict[str, Any] = Field(default_factory=dict)
+    price_cop: int
+
+
+class GuestCheckoutSessionRequest(BaseModel):
+    public_token: str = Field(min_length=12, max_length=120)
+
+
+class GuestCheckoutSessionResponse(BaseModel):
+    public_token: str
+    order: PaymentOrderResponse
+    checkout: dict[str, Any] = Field(default_factory=dict)
+
+
+class GuestIntakeUpdateRequest(BaseModel):
+    public_token: str = Field(min_length=12, max_length=120)
+    name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    phone: str = Field(min_length=7, max_length=40)
+    document_number: str = Field(min_length=4, max_length=40)
+    city: str = Field(min_length=2, max_length=80)
+    department: str = Field(min_length=2, max_length=80)
+    address: str = Field(min_length=5, max_length=180)
+    description: str = Field(min_length=20, max_length=8000)
+    form_data: dict[str, Any] = Field(default_factory=dict)
+
+
+class GuestPaymentReconcileRequest(BaseModel):
+    transaction_id: str = Field(min_length=3, max_length=120)
+    reference: str | None = Field(default=None, min_length=3, max_length=120)
+    public_token: str | None = Field(default=None, min_length=12, max_length=120)
+
+
+class GuestCaseStatusResponse(BaseModel):
+    case: CaseResponse
+    public_token: str
+    customer_summary: dict[str, Any] = Field(default_factory=dict)
+    customer_guide: dict[str, Any] = Field(default_factory=dict)
+    delivery_package: dict[str, Any] = Field(default_factory=dict)
+    latest_payment: dict[str, Any] = Field(default_factory=dict)
+    files: list[UploadedFileResponse] = Field(default_factory=list)
+
+
+class GuestDeliveryRequest(BaseModel):
+    document_title: str = Field(min_length=5, max_length=180)
+    document_text: str = Field(min_length=20, max_length=30000)
+    delivery_note: str | None = Field(default=None, max_length=1000)
+    send_whatsapp: bool = True
 
 
 class CaseSubmitRequest(BaseModel):

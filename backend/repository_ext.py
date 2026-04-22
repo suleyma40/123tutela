@@ -88,7 +88,7 @@ def update_user_profile(
 
 def create_temp_file(
     *,
-    uploaded_by: str,
+    uploaded_by: str | None,
     file_kind: str,
     original_name: str,
     stored_name: str,
@@ -162,7 +162,7 @@ def attach_files_to_case(case_id: str, user_id: str, file_ids: list[str]) -> lis
 def create_case_file(
     *,
     case_id: str,
-    uploaded_by: str,
+    uploaded_by: str | None,
     file_kind: str,
     original_name: str,
     stored_name: str,
@@ -383,6 +383,99 @@ def create_case_record(
         return cursor.fetchone()
 
 
+def create_guest_case_record(
+    *,
+    public_token: str,
+    user_name: str,
+    user_email: str,
+    user_phone: str,
+    city: str,
+    department: str,
+    workflow_type: str,
+    category: str,
+    description: str,
+    recommended_action: str,
+    strategy_text: str,
+    facts: dict[str, Any],
+    legal_analysis: dict[str, Any],
+    routing: dict[str, Any],
+    prerequisites: list[dict[str, Any]],
+    warnings: list[str],
+    submission_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    query = """
+        INSERT INTO casos (
+            user_id,
+            public_token,
+            usuario_nombre,
+            usuario_email,
+            usuario_telefono,
+            usuario_ciudad,
+            usuario_departamento,
+            workflow_type,
+            categoria,
+            descripcion,
+            facts,
+            legal_analysis,
+            routing,
+            prerequisites,
+            warnings,
+            recommended_action,
+            strategy_text,
+            payment_status,
+            estado,
+            submission_summary
+        )
+        VALUES (
+            NULL,
+            %(public_token)s,
+            %(user_name)s,
+            %(user_email)s,
+            %(user_phone)s,
+            %(city)s,
+            %(department)s,
+            %(workflow_type)s,
+            %(category)s,
+            %(description)s,
+            %(facts)s::jsonb,
+            %(legal_analysis)s::jsonb,
+            %(routing)s::jsonb,
+            %(prerequisites)s::jsonb,
+            %(warnings)s::jsonb,
+            %(recommended_action)s,
+            %(strategy_text)s,
+            'pendiente',
+            'diagnosticado',
+            %(submission_summary)s::jsonb
+        )
+        RETURNING *;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "public_token": public_token,
+                "user_name": user_name,
+                "user_email": user_email.lower(),
+                "user_phone": user_phone,
+                "city": city,
+                "department": department,
+                "workflow_type": workflow_type,
+                "category": category,
+                "description": description,
+                "facts": _json(facts),
+                "legal_analysis": _json(legal_analysis),
+                "routing": _json(routing),
+                "prerequisites": _json(prerequisites),
+                "warnings": _json(warnings),
+                "recommended_action": recommended_action,
+                "strategy_text": strategy_text,
+                "submission_summary": _json(submission_summary or {}),
+            },
+        )
+        return cursor.fetchone()
+
+
 def list_cases_for_user(user_id: str) -> list[dict[str, Any]]:
     query = """
         SELECT *
@@ -446,6 +539,24 @@ def get_case_by_id(case_id: str) -> dict[str, Any] | None:
         return cursor.fetchone()
 
 
+def get_case_by_public_token(public_token: str) -> dict[str, Any] | None:
+    query = "SELECT * FROM casos WHERE public_token = %(public_token)s;"
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"public_token": public_token})
+        return cursor.fetchone()
+
+
+def get_case_by_id_and_public_token(case_id: str, public_token: str) -> dict[str, Any] | None:
+    query = """
+        SELECT *
+        FROM casos
+        WHERE id = %(case_id)s AND public_token = %(public_token)s;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"case_id": case_id, "public_token": public_token})
+        return cursor.fetchone()
+
+
 def update_case_intake(
     case_id: str,
     *,
@@ -494,10 +605,85 @@ def update_case_intake(
         return cursor.fetchone()
 
 
+def update_guest_case_intake(
+    case_id: str,
+    *,
+    user_name: str,
+    user_email: str,
+    user_document: str,
+    user_phone: str,
+    city: str,
+    department: str,
+    address: str,
+    workflow_type: str,
+    description: str,
+    facts: dict[str, Any],
+    legal_analysis: dict[str, Any],
+    routing: dict[str, Any],
+    prerequisites: list[dict[str, Any]],
+    warnings: list[str],
+    recommended_action: str,
+    strategy_text: str,
+    submission_summary: dict[str, Any] | None = None,
+    status: str = "pagado_en_revision",
+) -> dict[str, Any] | None:
+    query = """
+        UPDATE casos
+        SET usuario_nombre = %(user_name)s,
+            usuario_email = %(user_email)s,
+            usuario_documento = %(user_document)s,
+            usuario_telefono = %(user_phone)s,
+            usuario_ciudad = %(city)s,
+            usuario_departamento = %(department)s,
+            usuario_direccion = %(address)s,
+            workflow_type = %(workflow_type)s,
+            descripcion = %(description)s,
+            facts = %(facts)s::jsonb,
+            legal_analysis = %(legal_analysis)s::jsonb,
+            routing = %(routing)s::jsonb,
+            prerequisites = %(prerequisites)s::jsonb,
+            warnings = %(warnings)s::jsonb,
+            recommended_action = %(recommended_action)s,
+            strategy_text = %(strategy_text)s,
+            submission_summary = %(submission_summary)s::jsonb,
+            estado = %(status)s,
+            updated_at = %(updated_at)s
+        WHERE id = %(case_id)s
+        RETURNING *;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "case_id": case_id,
+                "user_name": user_name,
+                "user_email": user_email.lower(),
+                "user_document": user_document,
+                "user_phone": user_phone,
+                "city": city,
+                "department": department,
+                "address": address,
+                "workflow_type": workflow_type,
+                "description": description,
+                "facts": _json(facts),
+                "legal_analysis": _json(legal_analysis),
+                "routing": _json(routing),
+                "prerequisites": _json(prerequisites),
+                "warnings": _json(warnings),
+                "recommended_action": recommended_action,
+                "strategy_text": strategy_text,
+                "submission_summary": _json(submission_summary or {}),
+                "status": status,
+                "updated_at": datetime.now(timezone.utc),
+            },
+        )
+        return cursor.fetchone()
+
+
 def create_payment_order(
     *,
     case_id: str,
-    user_id: str,
+    user_id: str | None,
     environment: str,
     product_code: str,
     product_name: str,
@@ -616,7 +802,14 @@ def update_payment_order_status(
 
 
 def update_case_payment(case_id: str, payment_reference: str, payment_status: str = "pagado") -> dict[str, Any] | None:
-    next_state = "listo_para_envio" if payment_status == "pagado" else "pendiente_pago"
+    current = get_case_by_id(case_id)
+    if not current:
+        return None
+    is_guest = not current.get("user_id") and bool(current.get("public_token"))
+    if payment_status == "pagado":
+        next_state = "pagado_pendiente_intake" if is_guest else "listo_para_envio"
+    else:
+        next_state = "checkout_pendiente" if is_guest else "pendiente_pago"
     query = """
         UPDATE casos
         SET payment_status = %(payment_status)s,
@@ -696,10 +889,7 @@ def update_case_status(
     query = """
         UPDATE casos
         SET estado = %(status)s,
-            submission_summary = CASE
-                WHEN %(submission_summary)s IS NULL THEN submission_summary
-                ELSE %(submission_summary)s::jsonb
-            END,
+            submission_summary = COALESCE(%(submission_summary)s::jsonb, submission_summary),
             updated_at = %(updated_at)s
         WHERE id = %(case_id)s
         RETURNING *;

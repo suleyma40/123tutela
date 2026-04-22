@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS conocimiento_legal (
 CREATE TABLE IF NOT EXISTS casos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES app_users(id),
+    public_token TEXT UNIQUE,
     usuario_nombre TEXT NOT NULL,
     usuario_email TEXT NOT NULL,
     usuario_documento TEXT,
@@ -111,6 +112,7 @@ CREATE TABLE IF NOT EXISTS casos (
 );
 
 ALTER TABLE casos ADD COLUMN IF NOT EXISTS user_id UUID;
+ALTER TABLE casos ADD COLUMN IF NOT EXISTS public_token TEXT;
 ALTER TABLE casos ADD COLUMN IF NOT EXISTS usuario_nombre TEXT;
 ALTER TABLE casos ADD COLUMN IF NOT EXISTS usuario_email TEXT;
 ALTER TABLE casos ADD COLUMN IF NOT EXISTS usuario_documento TEXT;
@@ -246,7 +248,7 @@ CREATE TABLE IF NOT EXISTS case_events (
 CREATE TABLE IF NOT EXISTS payment_orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     case_id UUID NOT NULL REFERENCES casos(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES app_users(id) ON DELETE CASCADE,
     provider TEXT NOT NULL DEFAULT 'wompi',
     environment TEXT NOT NULL DEFAULT 'sandbox',
     product_code TEXT NOT NULL,

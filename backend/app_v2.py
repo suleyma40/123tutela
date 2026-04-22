@@ -34,6 +34,8 @@ from backend.legal_sources import (
 from backend.notifications import send_post_radicado_email
 from backend.notifications import send_post_radicado_whatsapp
 from backend.notifications import send_signed_submission_email
+from backend.notifications import send_guest_delivery_email
+from backend.notifications import send_guest_delivery_whatsapp
 from backend.submission_artifacts import create_signed_submission_artifacts
 from backend.schemas_v2 import (
     AnalysisPreviewRequest,
@@ -54,6 +56,14 @@ from backend.schemas_v2 import (
     FollowUpReportRequest,
     PaymentOrderResponse,
     PaymentConfirmationRequest,
+    GuestCaseStatusResponse,
+    GuestCheckoutSessionRequest,
+    GuestCheckoutSessionResponse,
+    GuestDeliveryRequest,
+    GuestDiagnosisResponse,
+    GuestIntakeUpdateRequest,
+    GuestLeadCreateRequest,
+    GuestPaymentReconcileRequest,
     RegisterRequest,
     UploadedFileResponse,
     UserProfileUpdateRequest,
@@ -65,6 +75,7 @@ from backend.schemas_v2 import (
 )
 from backend.security import create_token, decode_token, hash_password, verify_password
 from backend.storage import absolute_path, move_relative_path, save_upload
+from backend.storage import ensure_upload_root
 from backend.attachment_intelligence import (
     build_attachment_context,
     enrich_description_with_attachment_context,
@@ -91,13 +102,28 @@ from backend.workflows import (
     infer_workflow,
     user_profile_complete,
 )
+from backend.guest_flow import (
+    BASE_SERVICE_PRICE_COP,
+    SERVICE_PRODUCT_CODE,
+    SERVICE_PRODUCT_NAME,
+    build_customer_guide,
+    build_customer_summary,
+    build_delivery_package,
+    build_operational_brief,
+    build_pdf_filename,
+    build_public_token,
+    compute_sla_deadline,
+    normalize_guest_category,
+    sync_case_to_ops,
+)
+from backend.simple_pdf import render_text_pdf
 
 
 app = FastAPI(title=settings.app_name)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https?://([A-Za-z0-9-]+\.)?123tutelaapp\.com$|https?://localhost(:\d+)?$|https?://127\.0\.0\.1(:\d+)?$",
+    allow_origin_regex=r"https?://([A-Za-z0-9-]+\.)?hazlopormi.app$|https?://localhost(:\d+)?$|https?://127\.0\.0\.1(:\d+)?$",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -106,7 +132,7 @@ analyzer = LegalAnalyzer(settings.knowledge_base_json)
 
 SIMPLE_SIGNATURE_CONSENT_VERSION = "ses_v1"
 SIMPLE_SIGNATURE_CONSENT_TEXT = (
-    "Autorizo a 123tutela para usar mi firma electronica simple en la radicacion o envio del documento generado para este caso. "
+    "Autorizo a HazloPorMi para usar mi firma electronica simple en la radicacion o envio del documento generado para este caso. "
     "Confirmo que revise el contenido final antes de aceptarlo, que los datos de identificacion y ciudad que suministro son correctos, "
     "y que esta aceptacion expresa representa mi voluntad de presentar este documento por medios electronicos en el canal aplicable. "
     "Entiendo que la plataforma conservara evidencia basica de esta aceptacion, incluida la fecha y hora, la version del consentimiento "
@@ -124,12 +150,12 @@ ADDON_ORDER_CONFIG = {
     "filing_bundle": {
         "code": "addon_filing_bundle",
         "name": "Radicación y seguimiento",
-        "description": "Paquete de radicación por 123tutela y seguimiento posterior del expediente.",
+        "description": "Paquete de radicación por HazloPorMi y seguimiento posterior del expediente.",
     },
     "filing_auto": {
         "code": "addon_filing_auto",
-        "name": "Radicacion por 123tutela",
-        "description": "Gestion de radicacion por parte de 123tutela cuando el canal lo permita.",
+        "name": "Radicacion por HazloPorMi",
+        "description": "Gestion de radicacion por parte de HazloPorMi cuando el canal lo permita.",
     },
     "filing_guide": {
         "code": "addon_filing_guide",
@@ -287,7 +313,7 @@ def _normalize_payment_order(order: dict[str, Any]) -> PaymentOrderResponse:
     return PaymentOrderResponse(
         id=str(order["id"]),
         case_id=str(order["case_id"]),
-        user_id=str(order["user_id"]),
+        user_id=str(order["user_id"]) if order.get("user_id") else None,
         provider=order["provider"],
         environment=order["environment"],
         product_code=order["product_code"],
@@ -1200,6 +1226,150 @@ def _role_for_email(email: str) -> str:
     return "internal" if email.lower() in settings.internal_admin_emails else "citizen"
 
 
+def _get_guest_case_or_404(case_id: str, public_token: str) -> dict[str, Any]:
+    case = repository.get_case_by_id_and_public_token(case_id, public_token)
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caso publico no encontrado.")
+    return case
+
+
+def _merge_submission_summary(case: dict[str, Any], **extra: Any) -> dict[str, Any]:
+    return {
+        **(case.get("submission_summary") or {}),
+        **extra,
+    }
+
+
+def _guest_status_response(case: dict[str, Any]) -> GuestCaseStatusResponse:
+    files = repository.list_files_for_case(str(case["id"]))
+    orders = repository.list_payment_orders_for_case(str(case["id"]))
+    summary = case.get("submission_summary") or {}
+    latest_order = orders[0] if orders else None
+    return GuestCaseStatusResponse(
+        case=_normalize_case(_reconcile_case_payment(case)),
+        public_token=str(case.get("public_token") or summary.get("public_token") or ""),
+        customer_summary={
+            **(summary.get("customer_summary") or build_customer_summary(case)),
+            "invoice": summary.get("invoice") or {},
+            "raffle": summary.get("raffle") or {},
+        },
+        customer_guide=summary.get("customer_guide") or build_customer_guide(case),
+        delivery_package=summary.get("delivery_package") or {},
+        latest_payment={
+            "reference": latest_order.get("reference") if latest_order else case.get("payment_reference"),
+            "status": latest_order.get("status") if latest_order else case.get("payment_status"),
+            "approved_at": latest_order.get("approved_at") if latest_order else None,
+            "invoice": summary.get("invoice") or {},
+            "raffle": summary.get("raffle") or {},
+        },
+        files=[_normalize_file(item) for item in files],
+    )
+
+
+def _persist_guest_ops(case: dict[str, Any]) -> dict[str, Any]:
+    result = sync_case_to_ops(case)
+    merged = _merge_submission_summary(case, ops_sync=result)
+    updated = repository.update_case_status(str(case["id"]), status=case.get("estado") or "pagado_en_revision", submission_summary=merged)
+    return updated or case
+
+
+def _latest_payment_order(case_id: str) -> dict[str, Any] | None:
+    orders = repository.list_payment_orders_for_case(case_id)
+    return orders[0] if orders else None
+
+
+def _build_invoice_number(case: dict[str, Any], approved_at: datetime | None) -> str:
+    period = (approved_at or datetime.now(timezone.utc)).strftime("%Y%m")
+    return f"HPM-FAC-{period}-{str(case.get('id') or '').replace('-', '').upper()[:8]}"
+
+
+def _build_raffle_code(case: dict[str, Any], approved_at: datetime | None) -> str:
+    period = (approved_at or datetime.now(timezone.utc)).strftime("%y%m")
+    suffix = str(case.get("id") or "").replace("-", "").upper()[-6:]
+    return f"HPM-{period}-{suffix}"
+
+
+def _ensure_payment_artifacts(case_id: str) -> dict[str, Any] | None:
+    case = repository.get_case_by_id(case_id)
+    if not case or case.get("payment_status") != "pagado":
+        return case
+    latest_order = _latest_payment_order(case_id)
+    summary = dict(case.get("submission_summary") or {})
+    existing_invoice = summary.get("invoice") or {}
+    existing_raffle = summary.get("raffle") or {}
+    if existing_invoice.get("number") and existing_raffle.get("code"):
+        return case
+
+    approved_at = latest_order.get("approved_at") if latest_order else None
+    invoice_number = existing_invoice.get("number") or _build_invoice_number(case, approved_at)
+    raffle_code = existing_raffle.get("code") or _build_raffle_code(case, approved_at)
+    amount_cop = int((latest_order or {}).get("amount_cop") or BASE_SERVICE_PRICE_COP)
+    period_label = (approved_at or datetime.now(timezone.utc)).strftime("%Y-%m")
+
+    invoice_title = f"Factura {invoice_number}"
+    invoice_text = "\n".join(
+        [
+            f"Factura operativa: {invoice_number}",
+            f"Fecha de pago: {(approved_at or datetime.now(timezone.utc)).strftime('%Y-%m-%d %H:%M UTC')}",
+            f"Cliente: {case.get('usuario_nombre') or ''}",
+            f"Email: {case.get('usuario_email') or ''}",
+            f"Telefono: {case.get('usuario_telefono') or ''}",
+            f"Servicio: {SERVICE_PRODUCT_NAME}",
+            f"Categoria: {case.get('categoria') or ''}",
+            f"Documento sugerido: {case.get('recommended_action') or ''}",
+            f"Referencia de pago: {latest_order.get('reference') if latest_order else case.get('payment_reference') or ''}",
+            f"Valor pagado: {amount_cop} COP",
+            "",
+            f"Codigo unico de participacion promocional: {raffle_code}",
+            f"Periodo promocional: {period_label}",
+            "Cada pago aprobado genera un codigo unico de referencia promocional.",
+        ]
+    )
+    invoice_filename = f"{invoice_number}.pdf"
+    invoice_dir = ensure_upload_root() / "invoices" / case_id
+    invoice_dir.mkdir(parents=True, exist_ok=True)
+    invoice_path = invoice_dir / invoice_filename
+    invoice_path.write_bytes(render_text_pdf(title=invoice_title, text=invoice_text))
+    relative_path = invoice_path.relative_to(ensure_upload_root()).as_posix()
+
+    if not existing_invoice.get("relative_path"):
+        repository.create_case_file(
+            case_id=case_id,
+            uploaded_by=None,
+            file_kind="invoice_document",
+            original_name=invoice_filename,
+            stored_name=invoice_filename,
+            mime_type="application/pdf",
+            file_size=invoice_path.stat().st_size,
+            relative_path=relative_path,
+            metadata={"invoice_number": invoice_number, "raffle_code": raffle_code},
+        )
+
+    summary["invoice"] = {
+        "number": invoice_number,
+        "relative_path": relative_path,
+        "issued_at": (approved_at or datetime.now(timezone.utc)).isoformat(),
+        "amount_cop": amount_cop,
+        "reference": latest_order.get("reference") if latest_order else case.get("payment_reference"),
+    }
+    summary["raffle"] = {
+        "code": raffle_code,
+        "period": period_label,
+        "status": "active",
+    }
+    updated = repository.update_case_status(case_id, status=case.get("estado") or "pagado_pendiente_intake", submission_summary=summary) or case
+    if not updated.get("user_id") and updated.get("public_token"):
+        updated = _persist_guest_ops(updated)
+    repository.create_event(
+        case_id=case_id,
+        event_type="payment_artifacts_issued",
+        actor_type="system",
+        actor_id=None,
+        payload={"invoice_number": invoice_number, "raffle_code": raffle_code, "reference": summary["invoice"]["reference"]},
+    )
+    return updated
+
+
 @app.get("/health")
 def healthcheck() -> dict[str, str]:
     return {"status": "ok", "app": settings.app_name}
@@ -1216,6 +1386,390 @@ def get_catalog_entities(q: str, limit: int = 8) -> list[EntityAutocompleteRespo
         return []
     entities = search_entity_directory(q, limit=max(1, min(limit, 12)))
     return [EntityAutocompleteResponse(**entity) for entity in entities]
+
+
+@app.get("/public/files/{relative_path:path}")
+def get_public_generated_file(relative_path: str) -> FileResponse:
+    root = ensure_upload_root().resolve()
+    file_path = absolute_path(relative_path).resolve()
+    if root not in file_path.parents and file_path != root:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado.")
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado.")
+    return FileResponse(file_path)
+
+
+@app.post("/public/leads/diagnosis", response_model=GuestDiagnosisResponse, status_code=status.HTTP_201_CREATED)
+def create_guest_lead(payload: GuestLeadCreateRequest) -> GuestDiagnosisResponse:
+    category = normalize_guest_category(payload.category)
+    form_data = dict(payload.form_data or {})
+    if payload.entity_name:
+        form_data.setdefault("target_entity", payload.entity_name)
+        form_data.setdefault("entity_name", payload.entity_name)
+    if payload.urgency_level:
+        form_data.setdefault("urgency_level", payload.urgency_level)
+
+    result = analyzer.full_analysis(payload.description, category=category)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
+
+    result["facts"] = _merge_intake_into_facts(
+        existing_facts=result["facts"],
+        form_data=form_data,
+        description=payload.description,
+        category=category,
+    )
+    workflow = infer_workflow(
+        category=category,
+        description=payload.description,
+        facts=result["facts"],
+        legal_analysis=result["legal_analysis"],
+        prior_actions=payload.prior_actions,
+    )
+    routing = build_routing(
+        category=category,
+        city=payload.city,
+        department=payload.department,
+        facts=result["facts"],
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+    )
+    strategy = build_strategy_text(
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        legal_analysis=result["legal_analysis"],
+        warnings=workflow["warnings"],
+    )
+    intake_review = validate_intake(
+        category=category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        description=payload.description,
+        facts=result["facts"],
+        prior_actions=payload.prior_actions,
+    )
+    preview_gate = validate_submission_readiness(
+        category=category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        description=payload.description,
+        facts=result["facts"],
+        prior_actions=payload.prior_actions,
+        stage="preview",
+    )
+    document_rule_review = evaluate_document_rule(
+        recommended_action=workflow["recommended_action"],
+        workflow_type=workflow["workflow_type"],
+        description=payload.description,
+        facts=result["facts"],
+    )
+    result["facts"]["intake_review"] = intake_review
+    result["facts"]["preview_gate"] = preview_gate
+    result["facts"]["document_rule_review"] = document_rule_review
+    result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
+        category=category,
+        description=payload.description,
+        workflow=workflow,
+        facts=result["facts"],
+        legal_analysis=result["legal_analysis"],
+        routing=routing,
+        intake_review=intake_review,
+        preview_gate=preview_gate,
+        document_rule_review=document_rule_review,
+        prior_actions=payload.prior_actions,
+    )
+    combined_warnings = (
+        workflow["warnings"]
+        + intake_review.get("blocking_issues", [])
+        + intake_review.get("warnings", [])
+        + preview_gate.get("blocking_issues", [])
+        + preview_gate.get("warnings", [])
+        + document_rule_review.get("blocking_issues", [])
+        + document_rule_review.get("warnings", [])
+        + result["facts"].get("dx_result", {}).get("blocking_reasons", [])
+        + result["facts"].get("dx_result", {}).get("warnings", [])
+    )
+    public_token = build_public_token()
+    summary = {
+        "public_token": public_token,
+        "customer_summary": {},
+        "lead_source": "public_web",
+    }
+    case = repository.create_guest_case_record(
+        public_token=public_token,
+        user_name=payload.name,
+        user_email=payload.email,
+        user_phone=payload.phone,
+        city=payload.city,
+        department=payload.department,
+        workflow_type=workflow["workflow_type"],
+        category=category,
+        description=payload.description,
+        recommended_action=workflow["recommended_action"],
+        strategy_text=strategy,
+        facts=result["facts"],
+        legal_analysis=result["legal_analysis"],
+        routing=routing,
+        prerequisites=workflow["prerequisites"],
+        warnings=list(dict.fromkeys(combined_warnings)),
+        submission_summary=summary,
+    )
+    customer_summary = build_customer_summary(case)
+    case = repository.update_case_status(
+        str(case["id"]),
+        status="diagnosticado",
+        submission_summary={**summary, "customer_summary": customer_summary},
+    ) or case
+    repository.create_event(
+        case_id=str(case["id"]),
+        event_type="guest_case_created",
+        actor_type="guest",
+        actor_id=None,
+        payload={"category": category, "recommended_action": workflow["recommended_action"]},
+    )
+    return GuestDiagnosisResponse(
+        case=_normalize_case(case),
+        public_token=public_token,
+        next_step="Completa el pago para desbloquear el formulario completo y la redaccion humana en hasta 24 horas habiles.",
+        commercial_summary=customer_summary,
+        price_cop=BASE_SERVICE_PRICE_COP,
+    )
+
+
+@app.get("/public/cases/{case_id}", response_model=GuestCaseStatusResponse)
+def get_public_case_status(case_id: str, public_token: str) -> GuestCaseStatusResponse:
+    case = _get_guest_case_or_404(case_id, public_token)
+    return _guest_status_response(case)
+
+
+@app.post("/public/cases/{case_id}/payments/wompi/session", response_model=GuestCheckoutSessionResponse)
+def create_guest_wompi_checkout_session(
+    case_id: str,
+    payload: GuestCheckoutSessionRequest,
+) -> GuestCheckoutSessionResponse:
+    ensure_checkout_configured()
+    case = _get_guest_case_or_404(case_id, payload.public_token)
+    if case.get("payment_status") == "pagado":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este caso ya tiene un pago aprobado.")
+    amount_in_cents = amount_cop_to_cents(BASE_SERVICE_PRICE_COP)
+    reference = build_reference(case_id, SERVICE_PRODUCT_CODE)
+    checkout = build_checkout_payload(
+        reference=reference,
+        amount_in_cents=amount_in_cents,
+        product_name=SERVICE_PRODUCT_NAME,
+        description="Diagnostico, redaccion humana y guia detallada HazloPorMi en hasta 24 horas habiles.",
+        customer_email=case["usuario_email"],
+    )
+    order = repository.create_payment_order(
+        case_id=case_id,
+        user_id=None,
+        environment=settings.wompi_environment,
+        product_code=SERVICE_PRODUCT_CODE,
+        product_name=SERVICE_PRODUCT_NAME,
+        include_filing=False,
+        amount_cop=BASE_SERVICE_PRICE_COP,
+        amount_in_cents=amount_in_cents,
+        currency="COP",
+        reference=reference,
+        checkout_payload=checkout,
+    )
+    updated = repository.update_case_status(
+        case_id,
+        status="checkout_pendiente",
+        submission_summary=_merge_submission_summary(case, checkout_reference=reference),
+    ) or case
+    repository.create_event(
+        case_id=case_id,
+        event_type="guest_payment_order_created",
+        actor_type="guest",
+        actor_id=None,
+        payload={"reference": reference, "amount_cop": BASE_SERVICE_PRICE_COP},
+    )
+    return GuestCheckoutSessionResponse(public_token=payload.public_token, order=_normalize_payment_order(order), checkout=checkout)
+
+
+@app.post("/public/payments/wompi/reconcile", response_model=GuestCaseStatusResponse)
+def reconcile_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseStatusResponse:
+    transaction = fetch_transaction(payload.transaction_id)
+    result = _process_wompi_transaction_reconciliation(transaction, payload.reference)
+    reference = result.reference or payload.reference
+    if not reference:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible identificar la referencia del pago.")
+    order = repository.get_payment_order_by_reference(reference)
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pago no encontrado.")
+    case = repository.get_case_by_id(str(order["case_id"]))
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado.")
+    if payload.public_token and str(case.get("public_token") or "") != payload.public_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a este caso.")
+    return _guest_status_response(case)
+
+
+@app.patch("/public/cases/{case_id}/intake", response_model=GuestCaseStatusResponse)
+def update_public_case_intake(case_id: str, payload: GuestIntakeUpdateRequest) -> GuestCaseStatusResponse:
+    case = _get_guest_case_or_404(case_id, payload.public_token)
+    if case.get("payment_status") != "pagado":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Primero debes completar el pago.")
+
+    category = normalize_guest_category(case.get("categoria") or case.get("category") or "")
+    prior_actions = [item["id"] for item in (case.get("prerequisites") or []) if item.get("completed")]
+    attachment_records = repository.list_files_for_case(case_id)
+    attachment_context = build_attachment_context(attachment_records)
+    enriched_description = enrich_description_with_attachment_context(payload.description, attachment_context)
+    enriched_form_data = _merge_form_with_attachment_suggestions(
+        form_data=payload.form_data or {},
+        description=enriched_description,
+        category=category,
+        attachment_context=attachment_context,
+    )
+    facts = _merge_intake_into_facts(
+        existing_facts=case.get("facts") or {},
+        form_data=enriched_form_data,
+        description=enriched_description,
+        category=category,
+    )
+    legal_analysis = case.get("legal_analysis") or {}
+    workflow = infer_workflow(
+        category=category,
+        description=enriched_description,
+        facts=facts,
+        legal_analysis=legal_analysis,
+        prior_actions=prior_actions,
+    )
+    routing = build_routing(
+        category=category,
+        city=payload.city,
+        department=payload.department,
+        facts=facts,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+    )
+    strategy = build_strategy_text(
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        legal_analysis=legal_analysis,
+        warnings=workflow["warnings"],
+    )
+    intake_review = validate_intake(
+        category=category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        description=enriched_description,
+        facts=facts,
+        prior_actions=prior_actions,
+    )
+    preview_gate = validate_submission_readiness(
+        category=category,
+        workflow_type=workflow["workflow_type"],
+        recommended_action=workflow["recommended_action"],
+        description=enriched_description,
+        facts=facts,
+        prior_actions=prior_actions,
+        stage="save",
+    )
+    document_rule_review = evaluate_document_rule(
+        recommended_action=workflow["recommended_action"],
+        workflow_type=workflow["workflow_type"],
+        description=enriched_description,
+        facts=facts,
+    )
+    facts["intake_review"] = intake_review
+    facts["preview_gate"] = preview_gate
+    facts["document_rule_review"] = document_rule_review
+    facts["attachment_intelligence"] = attachment_context
+    facts["autofill_suggestions"] = enriched_form_data.get("_autofill") or {}
+    facts, legal_analysis, routing = _enrich_architecture_outputs(
+        category=category,
+        description=enriched_description,
+        workflow=workflow,
+        facts=facts,
+        legal_analysis=legal_analysis,
+        routing=routing,
+        intake_review=intake_review,
+        preview_gate=preview_gate,
+        document_rule_review=document_rule_review,
+        prior_actions=prior_actions,
+    )
+    combined_warnings = (
+        workflow["warnings"]
+        + intake_review.get("blocking_issues", [])
+        + intake_review.get("warnings", [])
+        + preview_gate.get("blocking_issues", [])
+        + preview_gate.get("warnings", [])
+        + document_rule_review.get("blocking_issues", [])
+        + document_rule_review.get("warnings", [])
+        + facts.get("dx_result", {}).get("blocking_reasons", [])
+        + facts.get("dx_result", {}).get("warnings", [])
+    )
+    case_for_summary = {**case, "categoria": category, "recommended_action": workflow["recommended_action"], "facts": facts}
+    customer_guide = build_customer_guide(case_for_summary)
+    operational_brief = build_operational_brief(case_for_summary)
+    delivery_package = build_delivery_package(case_for_summary)
+    sla_deadline_at = compute_sla_deadline().isoformat()
+    submission_summary = _merge_submission_summary(
+        case,
+        public_token=payload.public_token,
+        customer_summary=build_customer_summary(case_for_summary),
+        customer_guide=customer_guide,
+        operational_brief=operational_brief,
+        delivery_package=delivery_package,
+        sla_deadline_at=sla_deadline_at,
+    )
+    updated = repository.update_guest_case_intake(
+        case_id,
+        user_name=payload.name,
+        user_email=payload.email,
+        user_document=payload.document_number,
+        user_phone=payload.phone,
+        city=payload.city,
+        department=payload.department,
+        address=payload.address,
+        workflow_type=workflow["workflow_type"],
+        description=enriched_description,
+        facts=facts,
+        legal_analysis=legal_analysis,
+        routing=routing,
+        prerequisites=workflow["prerequisites"],
+        warnings=list(dict.fromkeys(combined_warnings)),
+        recommended_action=workflow["recommended_action"],
+        strategy_text=strategy,
+        submission_summary=submission_summary,
+        status="pagado_en_revision",
+    )
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible actualizar el caso.")
+    updated = _persist_guest_ops(updated)
+    repository.create_event(
+        case_id=case_id,
+        event_type="guest_intake_completed",
+        actor_type="guest",
+        actor_id=None,
+        payload={"sla_deadline_at": sla_deadline_at, "recommended_action": workflow["recommended_action"]},
+    )
+    return _guest_status_response(updated)
+
+
+@app.post("/public/cases/{case_id}/uploads", response_model=UploadedFileResponse, status_code=status.HTTP_201_CREATED)
+async def upload_public_case_file(
+    case_id: str,
+    public_token: str = Form(...),
+    file: UploadFile = File(...),
+    file_kind: str = Form(default="attachment"),
+) -> UploadedFileResponse:
+    case = _get_guest_case_or_404(case_id, public_token)
+    if case.get("payment_status") != "pagado":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Primero debes completar el pago.")
+    saved = save_upload(file, bucket="cases", owner_id=str(case["id"]))
+    record = repository.create_case_file(case_id=case_id, uploaded_by=None, file_kind=file_kind, **saved)
+    repository.create_event(
+        case_id=case_id,
+        event_type="guest_attachment_added",
+        actor_type="guest",
+        actor_id=None,
+        payload={"file_id": str(record["id"]), "name": record["original_name"]},
+    )
+    return _normalize_file(record)
 
 
 @app.post("/auth/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -1728,6 +2282,7 @@ def confirm_payment(
     updated = repository.update_case_payment(case_id, payload.reference)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible registrar el pago.")
+    updated = _ensure_payment_artifacts(case_id) or updated
 
     repository.create_event(
         case_id=case_id,
@@ -1754,6 +2309,7 @@ def confirm_test_payment(
     updated = repository.update_case_payment(case_id, reference)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible registrar el pago de prueba.")
+    updated = _ensure_payment_artifacts(case_id) or updated
 
     repository.create_event(
         case_id=case_id,
@@ -2540,6 +3096,8 @@ def _process_wompi_webhook(event_payload: dict[str, Any]) -> WompiWebhookRespons
             str(reference),
             payment_status=_wompi_case_payment_status(provider_status),
         )
+        if provider_status == "APPROVED":
+            _ensure_payment_artifacts(str(existing["case_id"]))
 
     if existing.get("status") != next_order_status:
         repository.create_event(
@@ -2588,6 +3146,8 @@ def _process_wompi_transaction_reconciliation(transaction: dict[str, Any], refer
             reference,
             payment_status=_wompi_case_payment_status(provider_status),
         )
+        if provider_status == "APPROVED":
+            _ensure_payment_artifacts(str(existing["case_id"]))
         repository.create_event(
             case_id=str(existing["case_id"]),
             event_type="payment_reconciled",
@@ -2677,4 +3237,75 @@ def update_internal_status(
         actor_id=str(current_user["id"]),
         payload={"status": payload.status, "note": payload.note},
     )
+    return _snapshot_case_detail(updated)
+
+
+@app.post("/internal/cases/{case_id}/deliver", response_model=CaseDetailResponse)
+def deliver_guest_case(
+    case_id: str,
+    payload: GuestDeliveryRequest,
+    current_user: dict[str, Any] = Depends(get_internal_user),
+) -> CaseDetailResponse:
+    case = repository.get_case_by_id(case_id)
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
+
+    filename = build_pdf_filename(case, payload.document_title)
+    pdf_bytes = render_text_pdf(title=payload.document_title, text=payload.document_text)
+    target_dir = ensure_upload_root() / "deliveries" / str(case_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = target_dir / filename
+    pdf_path.write_bytes(pdf_bytes)
+    relative_path = pdf_path.relative_to(ensure_upload_root()).as_posix()
+    repository.create_case_file(
+        case_id=case_id,
+        uploaded_by=None,
+        file_kind="delivery_document",
+        original_name=filename,
+        stored_name=filename,
+        mime_type="application/pdf",
+        file_size=pdf_path.stat().st_size,
+        relative_path=relative_path,
+        metadata={"generated_by": "internal_delivery"},
+    )
+    repository.update_case_document(case_id, payload.document_text)
+    refreshed_case = repository.get_case_by_id(case_id) or case
+    delivery_package = build_delivery_package(refreshed_case, relative_path)
+    merged_summary = _merge_submission_summary(
+        refreshed_case,
+        customer_guide=delivery_package.get("customer_guide") or build_customer_guide(refreshed_case),
+        delivery_package=delivery_package,
+    )
+    email_result = send_guest_delivery_email(
+        recipient=refreshed_case.get("usuario_email"),
+        case=refreshed_case,
+        delivery_package=delivery_package,
+        note=payload.delivery_note,
+        attachments=[{"relative_path": relative_path, "filename": filename, "mime_type": "application/pdf"}],
+    )
+    whatsapp_result = (
+        send_guest_delivery_whatsapp(phone=refreshed_case.get("usuario_telefono"), case=refreshed_case, delivery_package=delivery_package)
+        if payload.send_whatsapp
+        else {"status": "skipped", "reason": "disabled"}
+    )
+    updated = repository.update_case_status(
+        case_id,
+        status="entregado",
+        submission_summary={
+            **merged_summary,
+            "delivery_package": delivery_package,
+            "delivery_email": email_result,
+            "delivery_whatsapp": whatsapp_result,
+            "delivered_at": datetime.now(timezone.utc).isoformat(),
+            "delivered_by": str(current_user["id"]),
+        },
+    ) or refreshed_case
+    repository.create_event(
+        case_id=case_id,
+        event_type="guest_case_delivered",
+        actor_type="internal",
+        actor_id=str(current_user["id"]),
+        payload={"filename": filename, "email_status": email_result.get("status"), "whatsapp_status": whatsapp_result.get("status")},
+    )
+    updated = _persist_guest_ops(updated)
     return _snapshot_case_detail(updated)
