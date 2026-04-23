@@ -75,6 +75,31 @@ def http_json(method: str, url: str, payload: dict | None = None, headers: dict[
         return exc.code, parsed
 
 
+def remote_http_json(
+    client: paramiko.SSHClient,
+    *,
+    method: str,
+    url: str,
+    payload: dict | None = None,
+    headers: dict[str, str] | None = None,
+) -> tuple[int, dict]:
+    def shell_escape(value: str) -> str:
+        return value.replace("'", "'\"'\"'")
+
+    payload_text = json.dumps(payload) if payload is not None else ""
+    header_args = " ".join(
+        f"-H '{shell_escape(name)}: {shell_escape(value)}'"
+        for name, value in (headers or {}).items()
+    )
+    data_arg = f"-d '{shell_escape(payload_text)}'" if payload is not None else ""
+    command = f"curl -sS -X {method.upper()} {header_args} {data_arg} '{url}'".strip()
+    _, out, _ = run(client, command, timeout=60, check=False)
+    try:
+        return 200, json.loads(out) if out.strip() else {}
+    except json.JSONDecodeError:
+        return 200, {"raw": out}
+
+
 def wait_for_remote_http(client: paramiko.SSHClient, *, port: str, timeout_s: int = 120) -> None:
     start = time.time()
     while time.time() - start < timeout_s:
@@ -108,9 +133,17 @@ def main() -> None:
     remote_dir = "/opt/evolution-api"
     env_text = textwrap.dedent(
         f"""
+        SERVER_TYPE=http
+        SERVER_PORT=8080
         SERVER_URL={base_url}
         AUTHENTICATION_API_KEY={api_key}
-        CONFIG_SESSION_PHONE_CLIENT=123tutela
+        TZ=America/Bogota
+        CORS_ORIGIN=*
+        WEBSOCKET_ENABLED=true
+        WEBSOCKET_GLOBAL_EVENTS=true
+        LOG_LEVEL=ERROR,WARN,INFO,LOG,WEBHOOKS
+        LOG_BAILEYS=debug
+        CONFIG_SESSION_PHONE_CLIENT=Chrome
         CONFIG_SESSION_PHONE_NAME=Chrome
         DEL_INSTANCE=false
         DATABASE_ENABLED=true
@@ -174,36 +207,44 @@ def main() -> None:
         write_remote_file(client, f"{remote_dir}/docker-compose.yml", compose_text)
         run(client, f"cd {remote_dir} && docker compose up -d", timeout=300)
         wait_for_remote_http(client, port=args.port, timeout_s=180)
+        headers = {"Content-Type": "application/json", "apikey": api_key}
+        create_payload: dict[str, object] = {
+            "instanceName": args.instance,
+            "integration": "WHATSAPP-BAILEYS",
+            "qrcode": True,
+        }
+        if args.webhook_url:
+            create_payload["webhook"] = {
+                "url": args.webhook_url,
+                "byEvents": True,
+                "base64": False,
+                "events": ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"],
+            }
+        create_status, create_response = remote_http_json(
+            client,
+            method="POST",
+            url=f"http://127.0.0.1:{args.port}/instance/create",
+            payload=create_payload,
+            headers=headers,
+        )
+        connect_status, connect_response = remote_http_json(
+            client,
+            method="GET",
+            url=f"http://127.0.0.1:{args.port}/instance/connect/{args.instance}",
+            headers={"apikey": api_key},
+        )
+        summary = {
+            "base_url": base_url,
+            "api_key": api_key,
+            "instance": args.instance,
+            "create_status": create_status,
+            "create_response": create_response,
+            "connect_status": connect_status,
+            "connect_response": connect_response,
+        }
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
     finally:
         client.close()
-
-    headers = {"Content-Type": "application/json", "apikey": api_key}
-    create_payload: dict[str, object] = {
-        "instanceName": args.instance,
-        "integration": "WHATSAPP-BAILEYS",
-        "qrcode": True,
-    }
-    if args.webhook_url:
-        create_payload["webhook"] = {
-            "url": args.webhook_url,
-            "byEvents": True,
-            "base64": False,
-            "events": ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"],
-        }
-    create_status, create_response = http_json("POST", f"{base_url}/instance/create", payload=create_payload, headers=headers)
-
-    connect_status, connect_response = http_json("GET", f"{base_url}/instance/connect/{args.instance}", headers=headers)
-
-    summary = {
-        "base_url": base_url,
-        "api_key": api_key,
-        "instance": args.instance,
-        "create_status": create_status,
-        "create_response": create_response,
-        "connect_status": connect_status,
-        "connect_response": connect_response,
-    }
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

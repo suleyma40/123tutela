@@ -1,0 +1,4 @@
+interface:
+  display_name: "Coolify n8n Deploy"
+  short_description: "Deploy services with Coolify and n8n"
+  default_prompt: "Use $coolify-n8n-deploy to prepare repo-local MCP templates, deployment steps, and rollout checks for Coolify and n8n."

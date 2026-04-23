@@ -1,0 +1,31 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "coolify": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "@masonator/coolify-mcp"
+      ],
+      "environment": {
+        "COOLIFY_ACCESS_TOKEN": "${COOLIFY_ACCESS_TOKEN}",
+        "COOLIFY_BASE_URL": "${COOLIFY_BASE_URL}"
+      }
+    },
+    "n8n": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "n8n-mcp"
+      ],
+      "environment": {
+        "N8N_BASE_URL": "${N8N_BASE_URL}",
+        "N8N_API_KEY": "${N8N_API_KEY}"
+      }
+    }
+  }
+}
