@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import re
 from pathlib import Path
 from typing import Any
@@ -1262,6 +1263,7 @@ def _guest_status_response(case: dict[str, Any]) -> GuestCaseStatusResponse:
         public_token=str(case.get("public_token") or summary.get("public_token") or ""),
         customer_summary={
             **(summary.get("customer_summary") or build_customer_summary(case)),
+            "customer_case": summary.get("customer_case") or {},
             "invoice": summary.get("invoice") or {},
             "raffle": summary.get("raffle") or {},
         },
@@ -1271,6 +1273,7 @@ def _guest_status_response(case: dict[str, Any]) -> GuestCaseStatusResponse:
             "reference": latest_order.get("reference") if latest_order else case.get("payment_reference"),
             "status": latest_order.get("status") if latest_order else case.get("payment_status"),
             "approved_at": latest_order.get("approved_at") if latest_order else None,
+            "customer_case": summary.get("customer_case") or {},
             "invoice": summary.get("invoice") or {},
             "raffle": summary.get("raffle") or {},
         },
@@ -1290,15 +1293,44 @@ def _latest_payment_order(case_id: str) -> dict[str, Any] | None:
     return orders[0] if orders else None
 
 
+def _build_payment_token(
+    case: dict[str, Any],
+    approved_at: datetime | None,
+    label: str,
+    *,
+    length: int = 8,
+) -> str:
+    latest_order = _latest_payment_order(str(case.get("id") or ""))
+    raw = "|".join(
+        [
+            label,
+            str(case.get("id") or ""),
+            str(case.get("public_token") or ""),
+            str(case.get("payment_reference") or ""),
+            str((latest_order or {}).get("reference") or ""),
+            (approved_at or datetime.now(timezone.utc)).isoformat(),
+            settings.jwt_secret,
+        ]
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest().upper()[:length]
+
+
+def _build_customer_case_code(case: dict[str, Any], approved_at: datetime | None) -> str:
+    period = (approved_at or datetime.now(timezone.utc)).strftime("%y%m")
+    token = _build_payment_token(case, approved_at, "customer_case", length=8)
+    return f"HPM-CAS-{period}-{token}"
+
+
 def _build_invoice_number(case: dict[str, Any], approved_at: datetime | None) -> str:
     period = (approved_at or datetime.now(timezone.utc)).strftime("%Y%m")
-    return f"HPM-FAC-{period}-{str(case.get('id') or '').replace('-', '').upper()[:8]}"
+    token = _build_payment_token(case, approved_at, "invoice", length=8)
+    return f"HPM-FAC-{period}-{token}"
 
 
 def _build_raffle_code(case: dict[str, Any], approved_at: datetime | None) -> str:
     period = (approved_at or datetime.now(timezone.utc)).strftime("%y%m")
-    suffix = str(case.get("id") or "").replace("-", "").upper()[-6:]
-    return f"HPM-{period}-{suffix}"
+    token = _build_payment_token(case, approved_at, "raffle", length=8)
+    return f"HPM-RIFA-{period}-{token}"
 
 
 def _ensure_payment_artifacts(case_id: str) -> dict[str, Any] | None:
@@ -1309,10 +1341,12 @@ def _ensure_payment_artifacts(case_id: str) -> dict[str, Any] | None:
     summary = dict(case.get("submission_summary") or {})
     existing_invoice = summary.get("invoice") or {}
     existing_raffle = summary.get("raffle") or {}
-    if existing_invoice.get("number") and existing_raffle.get("code"):
+    existing_customer_case = summary.get("customer_case") or {}
+    if existing_invoice.get("number") and existing_raffle.get("code") and existing_customer_case.get("code"):
         return case
 
     approved_at = latest_order.get("approved_at") if latest_order else None
+    customer_case_code = existing_customer_case.get("code") or _build_customer_case_code(case, approved_at)
     invoice_number = existing_invoice.get("number") or _build_invoice_number(case, approved_at)
     raffle_code = existing_raffle.get("code") or _build_raffle_code(case, approved_at)
     amount_cop = int((latest_order or {}).get("amount_cop") or BASE_SERVICE_PRICE_COP)
@@ -1321,6 +1355,7 @@ def _ensure_payment_artifacts(case_id: str) -> dict[str, Any] | None:
     invoice_title = f"Factura {invoice_number}"
     invoice_text = "\n".join(
         [
+            f"Expediente HazloPorMi: {customer_case_code}",
             f"Factura operativa: {invoice_number}",
             f"Fecha de pago: {(approved_at or datetime.now(timezone.utc)).strftime('%Y-%m-%d %H:%M UTC')}",
             f"Cliente: {case.get('usuario_nombre') or ''}",
@@ -1364,6 +1399,11 @@ def _ensure_payment_artifacts(case_id: str) -> dict[str, Any] | None:
         "amount_cop": amount_cop,
         "reference": latest_order.get("reference") if latest_order else case.get("payment_reference"),
     }
+    summary["customer_case"] = {
+        "code": customer_case_code,
+        "label": "Expediente HazloPorMi",
+        "issued_at": (approved_at or datetime.now(timezone.utc)).isoformat(),
+    }
     summary["raffle"] = {
         "code": raffle_code,
         "period": period_label,
@@ -1377,7 +1417,12 @@ def _ensure_payment_artifacts(case_id: str) -> dict[str, Any] | None:
         event_type="payment_artifacts_issued",
         actor_type="system",
         actor_id=None,
-        payload={"invoice_number": invoice_number, "raffle_code": raffle_code, "reference": summary["invoice"]["reference"]},
+        payload={
+            "customer_case_code": customer_case_code,
+            "invoice_number": invoice_number,
+            "raffle_code": raffle_code,
+            "reference": summary["invoice"]["reference"],
+        },
     )
     return updated
 

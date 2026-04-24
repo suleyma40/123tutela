@@ -255,6 +255,7 @@ def build_ops_sync_payload(case: dict[str, Any]) -> dict[str, Any]:
         "public_token": summary.get("public_token") or case.get("public_token"),
         "paid_at": summary.get("payment_summary", {}).get("approved_at"),
         "sla_deadline_at": summary.get("sla_deadline_at"),
+        "customer_case_code": (summary.get("customer_case") or {}).get("code"),
         "name": case.get("usuario_nombre"),
         "phone": case.get("usuario_telefono"),
         "email": case.get("usuario_email"),

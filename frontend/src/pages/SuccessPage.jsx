@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Navbar from '../components/Navbar';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Trophy, FileText, Upload, Send, Loader2, Mail, MessageSquareMore } from 'lucide-react';
+import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
 
 const QUESTION_FIELD_MAP = {
@@ -46,47 +46,79 @@ const buildFormDataPayload = (form) => {
   return payload;
 };
 
+const StatusPill = ({ children, tone = 'default' }) => {
+  const styles = {
+    default: 'bg-brand/10 text-brand',
+    success: 'bg-success/10 text-success',
+    danger: 'bg-red-100 text-red-600',
+  };
+  return <span className={`px-3 py-1 rounded-full text-xs font-black ${styles[tone] || styles.default}`}>{children}</span>;
+};
+
+const CodeCard = ({ label, value, subtle = false }) => (
+  <div className={`rounded-[2rem] border border-brand/10 p-5 ${subtle ? 'bg-brand/5' : 'bg-white'}`}>
+    <p className="text-[11px] font-black uppercase tracking-wide text-brand/50 mb-2">{label}</p>
+    <p className="font-mono text-lg font-black text-brand break-all">{value}</p>
+  </div>
+);
+
+const TimelineStep = ({ step, title, detail, active = false, done = false }) => (
+  <div className="flex gap-4">
+    <div
+      className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
+        done ? 'bg-success text-white' : active ? 'bg-accent text-brand' : 'bg-brand/10 text-brand/30'
+      }`}
+    >
+      {step}
+    </div>
+    <div>
+      <p className="font-bold text-brand text-sm">{title}</p>
+      <p className="text-brand/40 text-[11px] font-medium tracking-tight">{detail}</p>
+    </div>
+  </div>
+);
+
 const SuccessPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [caseData, setCaseData] = useState(null);
   const [intakeFiles, setIntakeFiles] = useState([]);
   const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    document_number: "",
-    city: "",
-    department: "Bogotá D.C.",
-    address: "",
-    copy_email: "",
-    target_entity: "",
-    diagnosis: "",
-    treatment_needed: "",
-    urgency_detail: "",
-    prior_claim_result: "",
-    concrete_request: "",
-    case_story: "",
-    key_dates: "",
-    medical_support_detail: "",
-    extra_details: "",
+    name: '',
+    email: '',
+    phone: '',
+    document_number: '',
+    city: '',
+    department: 'Bogota D.C.',
+    address: '',
+    copy_email: '',
+    target_entity: '',
+    diagnosis: '',
+    treatment_needed: '',
+    urgency_detail: '',
+    prior_claim_result: '',
+    concrete_request: '',
+    case_story: '',
+    key_dates: '',
+    medical_support_detail: '',
+    extra_details: '',
   });
 
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const transactionId = params.get("id");
+  const transactionId = params.get('id');
   const prompts = useMemo(() => buildPromptList(caseData), [caseData]);
   const requiredAttachments = caseData?.customer_guide?.required_attachments || [];
   const uploadedFiles = caseData?.files || [];
   const opsSync = caseData?.case?.submission_summary?.ops_sync || {};
   const opsStatus = String(opsSync.status || '').toLowerCase();
-  const opsSummary = caseData?.case?.facts?.agent_state?.ops_summary || "";
+  const opsSummary = caseData?.case?.facts?.agent_state?.ops_summary || '';
   const uploadedNames = uploadedFiles.map((item) => item?.original_name).filter(Boolean);
 
   useEffect(() => {
-    const saved = localStorage.getItem("hazlopormi-guest-case");
+    const saved = localStorage.getItem('hazlopormi-guest-case');
     if (!saved) {
       navigate('/');
       return;
@@ -124,19 +156,19 @@ const SuccessPage = () => {
     const run = async () => {
       try {
         if (transactionId) {
-          const response = await api.post("/public/payments/wompi/reconcile", {
+          const response = await api.post('/public/payments/wompi/reconcile', {
             transaction_id: transactionId,
-            public_token: guestCase.publicToken
+            public_token: guestCase.publicToken,
           });
           hydrate(response.data);
         } else {
           const response = await api.get(`/public/cases/${guestCase.caseId}`, {
-            params: { public_token: guestCase.publicToken }
+            params: { public_token: guestCase.publicToken },
           });
           hydrate(response.data);
         }
       } catch (err) {
-        setError(extractError(err, "No pudimos verificar el estado de tu pago."));
+        setError(extractError(err, 'No pudimos verificar el estado de tu pago.'));
       } finally {
         setLoading(false);
       }
@@ -149,23 +181,23 @@ const SuccessPage = () => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!caseData) return;
     setSubmitting(true);
-    setError("");
-    setSuccessMessage("");
+    setError('');
+    setSuccessMessage('');
 
-    const saved = JSON.parse(localStorage.getItem("hazlopormi-guest-case"));
+    const saved = JSON.parse(localStorage.getItem('hazlopormi-guest-case'));
 
     try {
       for (const file of intakeFiles) {
         const formData = new FormData();
-        formData.append("public_token", saved.publicToken);
-        formData.append("file_kind", "supporting_evidence");
-        formData.append("file", file);
+        formData.append('public_token', saved.publicToken);
+        formData.append('file_kind', 'supporting_evidence');
+        formData.append('file', file);
         await api.post(`/public/cases/${saved.caseId}/uploads`, formData, {
-          headers: { "Content-Type": "multipart/form-data" }
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
 
@@ -183,26 +215,31 @@ const SuccessPage = () => {
       });
 
       setCaseData(response.data);
-      setSuccessMessage("Informacion recibida. El expediente ya quedo listo para produccion humana.");
+      setSuccessMessage('Informacion recibida. El expediente ya quedo listo para produccion humana.');
       setIntakeFiles([]);
     } catch (err) {
-      setError(extractError(err, "No pudimos guardar la informacion."));
+      setError(extractError(err, 'No pudimos guardar la informacion.'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-cream">
-      <div className="text-center">
-        <Loader2 className="w-12 h-12 text-brand animate-spin mx-auto mb-4" />
-        <p className="font-bold text-brand">Verificando tu pago...</p>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-brand animate-spin mx-auto mb-4" />
+          <p className="font-bold text-brand">Verificando tu pago...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  const isPaid = caseData?.case?.payment_status === "pagado";
-  const isDelivered = caseData?.case?.status === "entregado";
+  const isPaid = caseData?.case?.payment_status === 'pagado';
+  const isDelivered = caseData?.case?.status === 'entregado';
+  const customerCaseCode = caseData?.latest_payment?.customer_case?.code || caseData?.customer_summary?.customer_case?.code;
+  const invoiceNumber = caseData?.latest_payment?.invoice?.number || caseData?.customer_summary?.invoice?.number;
+  const paymentReference = caseData?.latest_payment?.reference || caseData?.case?.payment_reference;
   const raffleCode = caseData?.latest_payment?.raffle?.code || caseData?.customer_summary?.raffle?.code;
 
   return (
@@ -220,17 +257,36 @@ const SuccessPage = () => {
               <CheckCircle2 size={40} />
             </motion.div>
             <h1 className="text-4xl font-extrabold text-brand mb-4">
-              {isPaid ? "Pago confirmado" : "Pago en procesamiento"}
+              {isPaid ? 'Pago confirmado' : 'Pago en procesamiento'}
             </h1>
             <p className="text-brand/60 text-lg max-w-2xl mx-auto font-medium">
               {isPaid
-                ? "Ahora el agente debe dejar el expediente claro para produccion humana. Responde lo que falte y sube los soportes disponibles."
-                : "Estamos esperando la confirmacion final del pago. Esto puede tardar unos minutos."}
+                ? 'Tu pago ya quedo confirmado. Ahora necesitamos cerrar datos y soportes para que produccion humana redacte sin repreguntas ni retrasos.'
+                : 'Estamos esperando la confirmacion final del pago. Esto puede tardar unos minutos.'}
             </p>
           </div>
 
           <div className="grid lg:grid-cols-5 gap-8">
             <div className="lg:col-span-3 space-y-8">
+              {(customerCaseCode || invoiceNumber || paymentReference) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-brand/5"
+                >
+                  <p className="text-xs font-black uppercase tracking-widest text-brand/50 mb-3">Identificadores de tu pago</p>
+                  <h3 className="text-2xl font-extrabold text-brand mb-3">Guarda estos codigos</h3>
+                  <p className="text-sm text-brand/60 font-medium mb-6">
+                    No usamos consecutivos visibles. Cada pago recibe codigos unicos para seguimiento operativo y para la rifa mensual.
+                  </p>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {customerCaseCode && <CodeCard label="Expediente" value={customerCaseCode} subtle />}
+                    {invoiceNumber && <CodeCard label="Factura operativa" value={invoiceNumber} />}
+                    {paymentReference && <CodeCard label="Referencia de pago" value={paymentReference} />}
+                  </div>
+                </motion.div>
+              )}
+
               {raffleCode && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -241,8 +297,11 @@ const SuccessPage = () => {
                     <Trophy size={120} />
                   </div>
                   <div className="relative z-10">
-                    <p className="text-accent font-black uppercase text-xs tracking-widest mb-2">Participación en Rifa Mensual</p>
-                    <h3 className="text-2xl font-extrabold mb-4">Tu código único es:</h3>
+                    <p className="text-accent font-black uppercase text-xs tracking-widest mb-2">Participacion en rifa mensual</p>
+                    <h3 className="text-2xl font-extrabold mb-3">Tu codigo unico es:</h3>
+                    <p className="text-white/80 text-sm font-medium mb-4 max-w-xl">
+                      Este codigo identifica tu participacion al cierre del periodo promocional. Es unico por pago aprobado y no sigue una secuencia publica.
+                    </p>
                     <div className="bg-white/10 border border-white/20 inline-block px-6 py-3 rounded-2xl font-mono text-3xl font-black tracking-tighter">
                       {raffleCode}
                     </div>
@@ -253,7 +312,7 @@ const SuccessPage = () => {
               {isPaid && !isDelivered && (
                 <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-brand/5">
                   <h3 className="text-2xl font-extrabold text-brand mb-8 flex items-center gap-3">
-                    <MessageSquareMore className="text-accent" /> Agente de Producción
+                    <MessageSquareMore className="text-accent" /> Agente de Produccion
                   </h3>
 
                   <div className="grid gap-4 mb-8">
@@ -262,16 +321,12 @@ const SuccessPage = () => {
                         <div>
                           <p className="text-sm font-black uppercase tracking-wide text-brand mb-2">Estado del expediente</p>
                           <p className="text-sm text-brand/70 font-medium">
-                            {opsSummary || "Estamos consolidando tu expediente para que el equipo humano redacte sin repreguntas."}
+                            {opsSummary || 'Estamos consolidando tu expediente para que el equipo humano redacte sin repreguntas.'}
                           </p>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-black ${
-                          opsStatus === 'sent' ? 'bg-success/10 text-success' :
-                          opsStatus === 'error' ? 'bg-red-100 text-red-600' :
-                          'bg-brand/10 text-brand'
-                        }`}>
-                          {opsStatus === 'sent' ? 'Sincronizado con producción' : opsStatus === 'error' ? 'Sincronización con incidencia' : 'Pendiente de sincronización'}
-                        </span>
+                        {opsStatus === 'sent' && <StatusPill tone="success">Sincronizado con produccion</StatusPill>}
+                        {opsStatus === 'error' && <StatusPill tone="danger">Sincronizacion con incidencia</StatusPill>}
+                        {!['sent', 'error'].includes(opsStatus) && <StatusPill>Pendiente de sincronizacion</StatusPill>}
                       </div>
                     </div>
 
@@ -280,20 +335,29 @@ const SuccessPage = () => {
                         <p className="text-xs font-black uppercase tracking-wide text-brand/50 mb-3">Ya tenemos</p>
                         <div className="flex flex-wrap gap-2">
                           <span className="px-3 py-1 rounded-full bg-success/10 text-success text-xs font-bold">Pago confirmado</span>
+                          {customerCaseCode && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Codigo de expediente</span>}
                           {form.name && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Nombre</span>}
                           {form.document_number && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Documento</span>}
                           {form.city && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Ciudad</span>}
                           {uploadedNames.length > 0 && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">{uploadedNames.length} soporte(s)</span>}
                         </div>
                       </div>
+
                       <div className="rounded-[2rem] border border-brand/10 p-5">
-                        <p className="text-xs font-black uppercase tracking-wide text-brand/50 mb-3">Falta para producción</p>
+                        <p className="text-xs font-black uppercase tracking-wide text-brand/50 mb-3">Falta para produccion</p>
                         <p className="text-sm text-brand/70 font-medium">
                           {prompts.length
-                            ? `Responde ${prompts.length} bloque${prompts.length === 1 ? '' : 's'} de información y sube los soportes que tengas disponibles.`
-                            : "El expediente ya tiene la base suficiente. Si quieres, solo agrega soportes o contexto adicional antes de enviarlo."}
+                            ? `Responde ${prompts.length} bloque${prompts.length === 1 ? '' : 's'} de informacion y sube los soportes que tengas disponibles.`
+                            : 'El expediente ya tiene base suficiente. Si quieres, solo agrega soportes o contexto adicional antes de enviarlo al equipo humano.'}
                         </p>
                       </div>
+                    </div>
+
+                    <div className="rounded-[2rem] border border-accent/20 bg-accent/10 p-5">
+                      <p className="text-sm font-black text-brand mb-2">Que pasa despues de enviar esto</p>
+                      <p className="text-sm text-brand/70 font-medium">
+                        Produccion humana revisara tus respuestas, validara anexos y te escribira solo si falta algo critico. El tiempo corre desde que el expediente quede completo.
+                      </p>
                     </div>
                   </div>
 
@@ -301,39 +365,39 @@ const SuccessPage = () => {
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-brand ml-1">Nombre completo</label>
-                        <input required type="text" className="input-field" value={form.name} onChange={(e) => handleFieldChange("name", e.target.value)} />
+                        <input required type="text" className="input-field" value={form.name} onChange={(e) => handleFieldChange('name', e.target.value)} />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-bold text-brand ml-1">Correo electrónico</label>
-                        <input required type="email" className="input-field" value={form.email} onChange={(e) => handleFieldChange("email", e.target.value)} />
+                        <label className="text-sm font-bold text-brand ml-1">Correo electronico</label>
+                        <input required type="email" className="input-field" value={form.email} onChange={(e) => handleFieldChange('email', e.target.value)} />
                       </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-brand ml-1">WhatsApp / celular</label>
-                        <input required type="text" className="input-field" value={form.phone} onChange={(e) => handleFieldChange("phone", e.target.value)} />
+                        <input required type="text" className="input-field" value={form.phone} onChange={(e) => handleFieldChange('phone', e.target.value)} />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-bold text-brand ml-1">Cédula de ciudadanía</label>
-                        <input required type="text" className="input-field" value={form.document_number} onChange={(e) => handleFieldChange("document_number", e.target.value)} />
+                        <label className="text-sm font-bold text-brand ml-1">Cedula de ciudadania</label>
+                        <input required type="text" className="input-field" value={form.document_number} onChange={(e) => handleFieldChange('document_number', e.target.value)} />
                       </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-brand ml-1">Ciudad</label>
-                        <input required type="text" className="input-field" value={form.city} onChange={(e) => handleFieldChange("city", e.target.value)} />
+                        <input required type="text" className="input-field" value={form.city} onChange={(e) => handleFieldChange('city', e.target.value)} />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-brand ml-1">Departamento</label>
-                        <input required type="text" className="input-field" value={form.department} onChange={(e) => handleFieldChange("department", e.target.value)} />
+                        <input required type="text" className="input-field" value={form.department} onChange={(e) => handleFieldChange('department', e.target.value)} />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-brand ml-1">Dirección de notificación</label>
-                      <input required type="text" className="input-field" value={form.address} onChange={(e) => handleFieldChange("address", e.target.value)} />
+                      <label className="text-sm font-bold text-brand ml-1">Direccion de notificacion</label>
+                      <input required type="text" className="input-field" value={form.address} onChange={(e) => handleFieldChange('address', e.target.value)} />
                     </div>
 
                     {!!prompts.length && (
@@ -341,7 +405,7 @@ const SuccessPage = () => {
                         <div className="rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
                           <p className="text-sm font-black uppercase tracking-wide text-brand mb-2">Preguntas del agente</p>
                           <p className="text-sm text-brand/70 font-medium">
-                            Responde estas preguntas para que el humano reciba el expediente sin vacíos ni repreguntas innecesarias.
+                            Responde estas preguntas para que el humano reciba el expediente sin vacios ni repreguntas innecesarias.
                           </p>
                         </div>
                         {prompts.map((prompt) => {
@@ -353,16 +417,16 @@ const SuccessPage = () => {
                                 <textarea
                                   rows={3}
                                   className="input-field resize-none"
-                                  placeholder={prompt.placeholder || "Escribe tu respuesta"}
-                                  value={form[fieldName] || ""}
+                                  placeholder={prompt.placeholder || 'Escribe tu respuesta'}
+                                  value={form[fieldName] || ''}
                                   onChange={(e) => handleFieldChange(fieldName, e.target.value)}
                                 />
                               ) : (
                                 <input
                                   type="text"
                                   className="input-field"
-                                  placeholder={prompt.placeholder || "Escribe tu respuesta"}
-                                  value={form[fieldName] || ""}
+                                  placeholder={prompt.placeholder || 'Escribe tu respuesta'}
+                                  value={form[fieldName] || ''}
                                   onChange={(e) => handleFieldChange(fieldName, e.target.value)}
                                 />
                               )}
@@ -374,14 +438,14 @@ const SuccessPage = () => {
                     )}
 
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-brand ml-1">Petición concreta</label>
+                      <label className="text-sm font-bold text-brand ml-1">Peticion concreta</label>
                       <textarea
                         required
                         rows={3}
                         className="input-field resize-none"
                         placeholder="Ej: Solicito que autoricen el medicamento, programen el procedimiento o respondan de fondo."
                         value={form.concrete_request}
-                        onChange={(e) => handleFieldChange("concrete_request", e.target.value)}
+                        onChange={(e) => handleFieldChange('concrete_request', e.target.value)}
                       />
                     </div>
 
@@ -391,9 +455,9 @@ const SuccessPage = () => {
                         required
                         rows={5}
                         className="input-field resize-none"
-                        placeholder="Cuenta qué pasó, en qué fechas y cómo te afectó."
+                        placeholder="Cuenta que paso, en que fechas y como te afecto."
                         value={form.case_story}
-                        onChange={(e) => handleFieldChange("case_story", e.target.value)}
+                        onChange={(e) => handleFieldChange('case_story', e.target.value)}
                       />
                     </div>
 
@@ -402,9 +466,9 @@ const SuccessPage = () => {
                       <textarea
                         rows={4}
                         className="input-field resize-none"
-                        placeholder="Agrega cualquier dato útil para producción humana."
+                        placeholder="Agrega cualquier dato util para produccion humana."
                         value={form.extra_details}
-                        onChange={(e) => handleFieldChange("extra_details", e.target.value)}
+                        onChange={(e) => handleFieldChange('extra_details', e.target.value)}
                       />
                     </div>
 
@@ -430,9 +494,7 @@ const SuccessPage = () => {
                         />
                         <FileText className="mx-auto text-brand/20 mb-2" size={32} />
                         <p className="text-sm text-brand/60 font-bold">
-                          {intakeFiles.length > 0
-                            ? `${intakeFiles.length} archivos seleccionados`
-                            : "Click o arrastra para subir tus anexos"}
+                          {intakeFiles.length > 0 ? `${intakeFiles.length} archivos seleccionados` : 'Click o arrastra para subir tus anexos'}
                         </p>
                       </div>
                       {!!uploadedNames.length && (
@@ -454,7 +516,7 @@ const SuccessPage = () => {
                       disabled={submitting}
                       className="btn-primary w-full py-4 text-xl flex justify-center items-center gap-3 disabled:opacity-50"
                     >
-                      {submitting ? "Enviando..." : "Enviar expediente a Producción Humana"} <Send size={20} />
+                      {submitting ? 'Enviando...' : 'Enviar expediente a Produccion Humana'} <Send size={20} />
                     </button>
                   </form>
                 </div>
@@ -466,9 +528,7 @@ const SuccessPage = () => {
                     <Mail size={32} />
                   </div>
                   <h3 className="text-3xl font-extrabold text-brand mb-4">Documento entregado</h3>
-                  <p className="text-brand/60 mb-8 font-medium">
-                    Hemos enviado tu kit legal completo a tu correo electrónico.
-                  </p>
+                  <p className="text-brand/60 mb-8 font-medium">Hemos enviado tu kit legal completo a tu correo electronico.</p>
                   <button onClick={() => navigate('/')} className="btn-secondary px-8">Volver al inicio</button>
                 </div>
               )}
@@ -476,39 +536,33 @@ const SuccessPage = () => {
 
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white p-8 rounded-[2.5rem] shadow-lg border border-brand/5">
-                <h4 className="font-extrabold text-brand mb-6">Línea de tiempo</h4>
+                <h4 className="font-extrabold text-brand mb-6">Linea de tiempo</h4>
                 <div className="space-y-6">
-                  <div className="flex gap-4">
-                    <div className="bg-success text-white w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold">1</div>
-                    <div>
-                      <p className="font-bold text-brand text-sm">Pago aprobado</p>
-                      <p className="text-brand/40 text-[11px] font-medium tracking-tight">Confirmado vía Wompi</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${successMessage ? 'bg-success text-white' : 'bg-accent text-brand'}`}>
-                      {successMessage ? '2' : '2'}
-                    </div>
-                    <div>
-                      <p className="font-bold text-brand text-sm">Expediente para producción</p>
-                      <p className="text-brand/40 text-[11px] font-medium tracking-tight">El agente cierra datos y soportes</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${isDelivered ? 'bg-success text-white' : 'bg-brand/10 text-brand/30'}`}>
-                      3
-                    </div>
-                    <div>
-                      <p className="font-bold text-brand text-sm">Redacción humana</p>
-                      <p className="text-brand/40 text-[11px] font-medium tracking-tight">Máximo 24 horas hábiles desde información completa</p>
-                    </div>
-                  </div>
+                  <TimelineStep step="1" title="Pago aprobado" detail="Confirmado via Wompi" done />
+                  <TimelineStep
+                    step="2"
+                    title="Expediente para produccion"
+                    detail="El agente cierra datos, anexos y contexto para el humano"
+                    active={!successMessage}
+                    done={Boolean(successMessage)}
+                  />
+                  <TimelineStep
+                    step="3"
+                    title="Redaccion humana"
+                    detail="Maximo 24 horas habiles desde informacion completa"
+                    done={isDelivered}
+                  />
+                  <TimelineStep
+                    step="4"
+                    title="Entrega y seguimiento"
+                    detail="Te contactamos usando tu codigo de expediente y tu referencia de pago"
+                  />
                 </div>
               </div>
 
               <div className="bg-brand/5 p-8 rounded-[2.5rem] border border-brand/5">
                 <p className="text-xs text-brand/60 leading-relaxed font-medium">
-                  <strong>Nota:</strong> El plazo de entrega corre desde que envías datos completos y soportes suficientes para producción humana.
+                  <strong>Nota:</strong> El plazo de entrega corre desde que envias datos completos y soportes suficientes para produccion humana. Conserva tu codigo de expediente y tu codigo de rifa para cualquier seguimiento.
                 </p>
               </div>
             </div>
