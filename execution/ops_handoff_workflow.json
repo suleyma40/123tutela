@@ -23,6 +23,32 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/1soGLupFZRynK_ykUYsYE5eJGg1WLi9DwaeThKwJInKM/values/Casos!A:Z:append?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"values\": [[ $json.created_at || $now.toISO(), $json.case_id || '', $json.status || 'paid_intake_received', $json.ops_ready ? 'true' : 'false', $json.recommended_action || '', $json.category || '', $json.name || '', $json.email || '', $json.phone || '', $json.payment_reference || '', $json.sla_deadline_at || '', $json.urgency || '', $json.target_entity || '', $json.diagnosis || '', $json.treatment_needed || '', $json.concrete_request || '', Array.isArray($json.key_dates) ? $json.key_dates.join(' | ') : ($json.key_dates || ''), $json.case_story || '', $json.prior_claim_result || '', $json.ongoing_harm || '', Array.isArray($json.ops_missing_reasons) ? $json.ops_missing_reasons.join(' | ') : ($json.ops_missing_reasons || ''), Array.isArray($json.uploaded_files) ? $json.uploaded_files.map((file) => typeof file === 'string' ? file : (file.name || file.url || JSON.stringify(file))).join(' | ') : ($json.uploaded_files || ''), Array.isArray($json.documents_to_request) ? $json.documents_to_request.join(' | ') : ($json.documents_to_request || ''), $json.public_token || '', $json.invoice_number || '', $json.raffle_code || '' ]] } }}",
+        "options": {}
+      },
+      "id": "22222222-3333-4444-5555-666666666666",
+      "name": "Google Sheets - Append Ops Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        620,
+        520
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ZjJ9bl0HAYdee03C",
+          "name": "HazloPorMi Google Sheets Ops"
+        }
+      }
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseBody": "={{ { \"status\": \"accepted\", \"channel\": \"ops_handoff\", \"case_id\": $json[\"case_id\"], \"recommended_action\": $json[\"recommended_action\"], \"ops_ready\": !!$json[\"ops_ready\"], \"missing_count\": ($json[\"ops_missing_reasons\"] || []).length, \"received_name\": $json[\"name\"], \"received_at\": $now } }}"
       },
@@ -39,6 +65,13 @@
   "connections": {
     "Webhook - Ops Handoff": {
       "main": [
+        [
+          {
+            "node": "Google Sheets - Append Ops Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Respuesta - Ops",

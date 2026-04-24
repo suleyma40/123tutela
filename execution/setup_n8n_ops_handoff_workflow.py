@@ -14,6 +14,7 @@ DB_CONTAINER = "tutela-n8n-db-eziicq.1.k9kfbwbxw8fov413sckx2xn1t"
 BACKEND_SERVICE = "tutela-backend-rgqxzr"
 WORKFLOW_ID = "0f1e2d3c-4b5a-6789-8c7d-6e5f4a3b2c10"
 PUBLIC_BASE_URL = "https://n8ntutela.123tutelaapp.com/webhook/"
+DEFAULT_WEBHOOK_PATH = f"{WORKFLOW_ID}/webhook%20-%20ops%20handoff/ops-handoff"
 load_dotenv(ROOT / ".env")
 
 
@@ -60,14 +61,7 @@ def main() -> None:
         run(client, f"docker exec {N8N_CONTAINER} n8n publish:workflow --id={WORKFLOW_ID}", timeout=60)
         run(client, f"docker restart {N8N_CONTAINER}", timeout=60)
 
-        webhook_path = run(
-            client,
-            "docker exec "
-            f"{DB_CONTAINER} "
-            "psql -U postgres -d n8n -At -c "
-            f"\"select \\\"webhookPath\\\" from webhook_entity where \\\"workflowId\\\"='{WORKFLOW_ID}' limit 1;\"",
-            timeout=60,
-        ).strip()
+        webhook_path = DEFAULT_WEBHOOK_PATH
         if not webhook_path:
             raise RuntimeError("No se encontro webhookPath para el workflow de ops.")
 
