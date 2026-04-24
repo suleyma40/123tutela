@@ -51,7 +51,7 @@ const Process = () => {
             Un flujo corto para que tomes accion sin pelearte con el proceso.
           </h2>
           <p className="text-white/68 text-lg leading-relaxed max-w-xl">
-            No te soltamos un PDF y ya. Primero diagnosticamos, luego cerramos la informacion correcta y despues entregamos un kit listo para mover el caso.
+            No te soltamos un PDF y ya. Primero entendemos tu situacion, luego cerramos la informacion importante y despues te entregamos una salida clara para avanzar.
           </p>
 
           <div className="mt-8 rounded-[2rem] border border-white/12 bg-white/8 backdrop-blur-sm p-6">
@@ -60,6 +60,7 @@ const Process = () => {
               <p>Diagnostico inicial gratis antes del pago.</p>
               <p>Codigo unico de expediente para seguimiento interno.</p>
               <p>Entrega comercial en hasta 24 horas habiles desde expediente completo.</p>
+              <p>Participacion en bono promocional para usuarios con pago aprobado hasta el 30 de mayo de 2026.</p>
             </div>
           </div>
         </motion.div>

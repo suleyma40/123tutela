@@ -20,7 +20,7 @@ const Navbar = () => {
           <a href="#precio" className="font-bold text-brand/70 hover:text-accent transition-colors">Precio</a>
           <a href="#faq" className="font-bold text-brand/70 hover:text-accent transition-colors">FAQ</a>
           <Link to="/diagnostico" className="btn-primary flex items-center gap-2 py-2.5 text-sm">
-            Empezar gratis <ArrowRight size={16} />
+            Revisar mi caso <ArrowRight size={16} />
           </Link>
           <Link to="/admin" className="text-brand/40 hover:text-brand transition-colors text-sm font-bold">Admin</Link>
         </div>

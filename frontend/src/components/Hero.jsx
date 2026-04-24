@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, BadgeCheck, Clock3, FileText, ShieldCheck, Sparkles, Trophy, UploadCloud } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Clock3, FileText, Gift, ShieldCheck, Sparkles, Trophy, UploadCloud } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const proofPoints = [
@@ -50,11 +50,11 @@ const Hero = () => {
 
           <div className="space-y-6">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[0.96] tracking-tight text-brand max-w-4xl">
-              Cuando una entidad te frena, <span className="text-accent">HazloPorMi</span> te dice que hacer y te entrega el documento correcto.
+              Si una <span className="text-accent">EPS, banco o entidad</span> te tiene dando vueltas, te ayudamos a entender tu caso y a actuar con claridad.
             </h1>
 
             <p className="text-xl md:text-2xl text-brand/72 max-w-2xl font-medium leading-relaxed">
-              Salud, transito, bancos y reclamos administrativos. Empiezas con un diagnostico gratis y, si avanzas, recibes un kit listo para actuar.
+              Empiezas con un diagnostico gratis. Si decides avanzar, un humano prepara tu documento y tu ruta paso a paso para que no tengas que improvisar.
             </p>
           </div>
 
@@ -69,10 +69,10 @@ const Hero = () => {
 
           <div className="flex flex-col sm:flex-row gap-4 mt-10">
             <Link to="/diagnostico" className="btn-primary text-center px-8 py-4 text-lg flex items-center justify-center gap-2">
-              Empezar diagnostico gratis <ArrowRight size={18} />
+              Quiero revisar mi caso <ArrowRight size={18} />
             </Link>
             <a href="#precio" className="btn-secondary text-center px-8 py-4 text-lg bg-white text-brand border border-brand/10 shadow-sm hover:bg-brand hover:text-white">
-              Ver precio y entregables
+              Ver como funciona
             </a>
           </div>
 
@@ -80,6 +80,23 @@ const Hero = () => {
             <span>Sin abogado presencial</span>
             <span>Solo pagas si decides avanzar</span>
             <span>Pago seguro por Wompi</span>
+          </div>
+
+          <div className="mt-8 rounded-[2rem] border border-accent/25 bg-white/85 p-5 shadow-[0_16px_36px_rgba(26,58,107,0.08)]">
+            <div className="flex items-start gap-4">
+              <div className="rounded-2xl bg-accent text-brand p-3 shrink-0">
+                <Gift size={22} />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] font-black text-brand/45 mb-2">Promocion vigente</p>
+                <p className="text-brand font-extrabold text-lg leading-tight mb-2">
+                  Los usuarios de la app participan por un bono de 2.5 millones de pesos.
+                </p>
+                <p className="text-sm text-brand/68 leading-relaxed">
+                  La campaña aplica para pagos aprobados hechos hasta el <strong>30 de mayo de 2026</strong>. El bono se entrega ese mismo <strong>30 de mayo de 2026</strong>.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4 mt-12">
@@ -147,7 +164,7 @@ const Hero = () => {
                   <div className="rounded-xl bg-white/55 p-2">
                     <Trophy size={18} />
                   </div>
-                  <p className="font-extrabold">Cada pago entra a la rifa mensual</p>
+                  <p className="font-extrabold">Cada pago aprobado participa en el bono</p>
                 </div>
                 <p className="text-sm font-medium leading-relaxed text-brand/85">
                   Recibes codigo unico de expediente y codigo unico de participacion. Nada de consecutivos publicos.

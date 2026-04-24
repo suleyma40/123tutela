@@ -56,9 +56,9 @@ const Pricing = () => {
                     <Trophy size={20} />
                   </div>
                   <div>
-                    <p className="font-extrabold text-white mb-1">Incluye codigo de rifa y codigo de expediente</p>
+                    <p className="font-extrabold text-white mb-1">Incluye codigo de participacion y codigo de expediente</p>
                     <p className="text-white/70 text-sm leading-relaxed">
-                      Cada pago aprobado recibe identificadores unicos, no secuenciales, para seguimiento operativo y para la rifa mensual.
+                      Cada pago aprobado recibe identificadores unicos, no secuenciales, para seguimiento operativo y para la promocion vigente.
                     </p>
                   </div>
                 </div>
@@ -66,7 +66,7 @@ const Pricing = () => {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/diagnostico" className="btn-primary flex justify-center items-center gap-2 px-8 py-4 text-lg">
-                  Empezar gratis <ArrowRight size={18} />
+                  Revisar mi caso gratis <ArrowRight size={18} />
                 </Link>
                 <div className="rounded-2xl bg-white/8 border border-white/10 px-5 py-4 text-sm font-bold text-white/80">
                   Pago seguro con Wompi: PSE, Nequi, tarjetas y transferencias habilitadas.
@@ -104,9 +104,9 @@ const Pricing = () => {
             </ul>
 
             <div className="mt-8 rounded-[2rem] border border-brand/10 bg-brand/5 p-5">
-              <p className="text-sm font-black text-brand mb-2">Importante</p>
+              <p className="text-sm font-black text-brand mb-2">Promocion de mayo 2026</p>
               <p className="text-sm text-brand/65 leading-relaxed">
-                No prometemos un fallo favorable. Lo que vendemos es claridad, velocidad de accion y un documento mejor preparado que hacerlo solo.
+                Los usuarios de la app con pago aprobado hasta el <strong>30 de mayo de 2026</strong> participan por un bono de <strong>2.5 millones de pesos</strong>. El bono se entrega el <strong>30 de mayo de 2026</strong>.
               </p>
             </div>
           </motion.div>
