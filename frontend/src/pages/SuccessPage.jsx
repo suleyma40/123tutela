@@ -79,6 +79,11 @@ const SuccessPage = () => {
   const transactionId = params.get("id");
   const prompts = useMemo(() => buildPromptList(caseData), [caseData]);
   const requiredAttachments = caseData?.customer_guide?.required_attachments || [];
+  const uploadedFiles = caseData?.files || [];
+  const opsSync = caseData?.case?.submission_summary?.ops_sync || {};
+  const opsStatus = String(opsSync.status || '').toLowerCase();
+  const opsSummary = caseData?.case?.facts?.agent_state?.ops_summary || "";
+  const uploadedNames = uploadedFiles.map((item) => item?.original_name).filter(Boolean);
 
   useEffect(() => {
     const saved = localStorage.getItem("hazlopormi-guest-case");
@@ -251,6 +256,47 @@ const SuccessPage = () => {
                     <MessageSquareMore className="text-accent" /> Agente de Producción
                   </h3>
 
+                  <div className="grid gap-4 mb-8">
+                    <div className="rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black uppercase tracking-wide text-brand mb-2">Estado del expediente</p>
+                          <p className="text-sm text-brand/70 font-medium">
+                            {opsSummary || "Estamos consolidando tu expediente para que el equipo humano redacte sin repreguntas."}
+                          </p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-black ${
+                          opsStatus === 'sent' ? 'bg-success/10 text-success' :
+                          opsStatus === 'error' ? 'bg-red-100 text-red-600' :
+                          'bg-brand/10 text-brand'
+                        }`}>
+                          {opsStatus === 'sent' ? 'Sincronizado con producción' : opsStatus === 'error' ? 'Sincronización con incidencia' : 'Pendiente de sincronización'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="rounded-[2rem] border border-brand/10 p-5">
+                        <p className="text-xs font-black uppercase tracking-wide text-brand/50 mb-3">Ya tenemos</p>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="px-3 py-1 rounded-full bg-success/10 text-success text-xs font-bold">Pago confirmado</span>
+                          {form.name && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Nombre</span>}
+                          {form.document_number && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Documento</span>}
+                          {form.city && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Ciudad</span>}
+                          {uploadedNames.length > 0 && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">{uploadedNames.length} soporte(s)</span>}
+                        </div>
+                      </div>
+                      <div className="rounded-[2rem] border border-brand/10 p-5">
+                        <p className="text-xs font-black uppercase tracking-wide text-brand/50 mb-3">Falta para producción</p>
+                        <p className="text-sm text-brand/70 font-medium">
+                          {prompts.length
+                            ? `Responde ${prompts.length} bloque${prompts.length === 1 ? '' : 's'} de información y sube los soportes que tengas disponibles.`
+                            : "El expediente ya tiene la base suficiente. Si quieres, solo agrega soportes o contexto adicional antes de enviarlo."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <form onSubmit={handleSubmit} className="space-y-8">
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-2">
@@ -389,6 +435,15 @@ const SuccessPage = () => {
                             : "Click o arrastra para subir tus anexos"}
                         </p>
                       </div>
+                      {!!uploadedNames.length && (
+                        <div className="flex flex-wrap gap-2">
+                          {uploadedNames.map((name) => (
+                            <span key={name} className="px-3 py-1 rounded-full bg-success/10 text-success text-xs font-bold">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {successMessage && <p className="text-green-700 text-sm font-bold">{successMessage}</p>}
@@ -399,7 +454,7 @@ const SuccessPage = () => {
                       disabled={submitting}
                       className="btn-primary w-full py-4 text-xl flex justify-center items-center gap-3 disabled:opacity-50"
                     >
-                      {submitting ? "Enviando..." : "Enviar a Producción Humana"} <Send size={20} />
+                      {submitting ? "Enviando..." : "Enviar expediente a Producción Humana"} <Send size={20} />
                     </button>
                   </form>
                 </div>
