@@ -5,11 +5,11 @@ import { Link } from 'react-router-dom';
 
 const features = [
   'Documento legal redactado para tu caso',
-  'Checklist de radicacion paso a paso',
-  'Ruta de anexos y soportes necesarios',
-  'Cronograma legal y siguientes pasos',
+  'Checklist de soportes y siguientes pasos',
+  'Ruta sugerida para presentar el caso',
+  'Trazabilidad comercial y operativa',
   'Revision humana antes de entrega',
-  'Codigo unico para seguimiento y rifa',
+  'Codigo unico para seguimiento y bono',
 ];
 
 const Pricing = () => {
@@ -22,7 +22,7 @@ const Pricing = () => {
             Un precio claro para salir del bloqueo y actuar con un documento serio.
           </h2>
           <p className="text-brand/60 text-lg leading-relaxed">
-            El diagnostico inicial es gratis. Solo pagas cuando decides que HazloPorMi y el equipo humano preparen tu kit de accion.
+            El diagnostico inicial es gratis. Solo pagas cuando decides que HazloPorMi y produccion humana preparen tu kit de accion.
           </p>
         </div>
 
@@ -42,7 +42,7 @@ const Pricing = () => {
 
               <h3 className="text-3xl md:text-4xl font-extrabold mb-3">Kit completo HazloPorMi</h3>
               <p className="text-white/70 text-lg max-w-lg mb-8">
-                Para personas que necesitan pasar de la confusion a una accion concreta con diagnostico, redaccion humana y ruta operativa.
+                Para personas que necesitan pasar de la confusion a una accion concreta con diagnostico inicial, cierre de informacion y produccion humana.
               </p>
 
               <div className="flex items-end gap-3 mb-8">
@@ -104,10 +104,10 @@ const Pricing = () => {
             </ul>
 
             <div className="mt-8 rounded-[2rem] border border-brand/10 bg-brand/5 p-5">
-              <p className="text-sm font-black text-brand mb-2">Promocion de mayo 2026</p>
-              <p className="text-sm text-brand/65 leading-relaxed">
-                Los usuarios de la app con pago aprobado hasta el <strong>30 de mayo de 2026</strong> participan por un bono de <strong>2.5 millones de pesos</strong>. El bono se entrega el <strong>30 de mayo de 2026</strong>.
-              </p>
+                <p className="text-sm font-black text-brand mb-2">Promocion de mayo 2026</p>
+                <p className="text-sm text-brand/65 leading-relaxed">
+                  Los usuarios de la app con pago aprobado hasta el <strong>30 de mayo de 2026</strong> participan por un bono de <strong>2.5 millones de pesos</strong>. El bono se entrega el <strong>30 de mayo de 2026</strong>.
+                </p>
             </div>
           </motion.div>
         </div>

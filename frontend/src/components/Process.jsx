@@ -13,7 +13,7 @@ const steps = [
     number: '02',
     icon: Cpu,
     title: 'La IA ordena el caso',
-    desc: 'Detectamos la ruta mas probable, el tipo de escrito y lo que falta para dejar el expediente claro.',
+    desc: 'El agente inicial detecta la ruta mas probable, el tipo de escrito y lo que falta para dejar el expediente claro.',
   },
   {
     number: '03',
@@ -25,7 +25,7 @@ const steps = [
     number: '04',
     icon: PenTool,
     title: 'Produccion humana redacta',
-    desc: 'Un humano revisa tu informacion, aterriza la narrativa y prepara el documento con criterio real.',
+    desc: 'Una persona revisa tu informacion, aterriza la narrativa y prepara el documento final con criterio real.',
   },
   {
     number: '05',
@@ -51,7 +51,7 @@ const Process = () => {
             Un flujo corto para que tomes accion sin pelearte con el proceso.
           </h2>
           <p className="text-white/68 text-lg leading-relaxed max-w-xl">
-            No te soltamos un PDF y ya. Primero entendemos tu situacion, luego cerramos la informacion importante y despues te entregamos una salida clara para avanzar.
+            No te soltamos un PDF y ya. Primero entendemos tu situacion, luego cerramos la informacion importante y despues produccion humana prepara la salida correcta.
           </p>
 
           <div className="mt-8 rounded-[2rem] border border-white/12 bg-white/8 backdrop-blur-sm p-6">

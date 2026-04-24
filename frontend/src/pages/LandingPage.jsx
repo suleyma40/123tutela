@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, Building2, CheckCircle2, Scale, XCircle } from 'lucide-react';
+import { ChevronDown, CheckCircle2, Scale, XCircle } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import Process from '../components/Process';
@@ -9,7 +9,7 @@ const Entities = () => {
   const entities = [
     'EPS Sura', 'Sanitas', 'Compensar', 'Nueva EPS',
     'Bancolombia', 'Davivienda', 'Nu', 'Scotiabank',
-    'Transito Medellin', 'Transito Bogota', 'DIAN', 'Colpensiones',
+    'Transito Bogota', 'Transito Medellin', 'DIAN', 'Colpensiones',
     'EPM', 'Alcaldias', 'Gobernaciones', 'Claro / Movistar',
   ];
 
@@ -19,10 +19,10 @@ const Entities = () => {
         <div className="text-center mb-12">
           <p className="text-accent uppercase tracking-[0.22em] text-xs font-black mb-4">Casos mixtos</p>
           <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-brand">
-            Ya ayudamos a ordenar reclamos frente a estas entidades y categorías
+            Pensado para salud, bancos, transito y otros reclamos donde nadie te explica el siguiente paso
           </h2>
           <p className="text-brand/60 text-lg max-w-2xl mx-auto">
-            Salud, bancos, tránsito y otros bloqueos administrativos donde lo más difícil suele ser saber por dónde empezar.
+            HazloPorMi no te obliga a adivinar. Primero entiende tu caso, luego te dice que hacer y, si pagas, lo pasa a produccion humana.
           </p>
         </div>
 
@@ -44,24 +44,24 @@ const Entities = () => {
 const FAQ = () => {
   const questions = [
     {
-      q: '¿Radican el documento por mí?',
-      a: 'No. Te entregamos el kit completo para que tú radiques con más claridad y control. Incluye documento, checklist, anexos sugeridos y la ruta para presentarlo.',
+      q: '¿HazloPorMi redacta automaticamente con IA?',
+      a: 'No. La IA hace el diagnostico inicial y ayuda a ordenar la informacion. Cuando pagas, el caso pasa a produccion humana para que una persona prepare el documento final.',
     },
     {
-      q: '¿Garantizan el resultado?',
-      a: 'No garantizamos una decisión favorable. Lo que sí hacemos es ayudarte a actuar mejor: con un diagnóstico inicial, una redacción humana y una ruta mucho más clara que hacerlo solo.',
+      q: '¿Que pasa despues del pago?',
+      a: 'Despues del pago te pedimos la informacion y los soportes necesarios. Con eso, el caso se consolida y se entrega al equipo humano para redaccion y seguimiento operativo.',
     },
     {
-      q: '¿Cuánto demora el proceso?',
-      a: 'El diagnóstico inicial es inmediato. Después del pago, el equipo humano entrega el kit en hasta 24 horas hábiles desde que la información y los soportes estén completos.',
+      q: '¿Cuanto demora el proceso?',
+      a: 'El diagnostico inicial es inmediato. Despues del pago, el equipo humano entrega el kit en hasta 24 horas habiles desde que la informacion y los soportes esten completos.',
     },
     {
-      q: '¿Qué documentos incluye el kit?',
-      a: 'Depende del caso, pero normalmente incluye el documento principal, checklist de radicación, cronograma, guía de soportes y siguientes pasos para seguimiento.',
+      q: '¿Que incluye el kit final?',
+      a: 'Incluye el documento principal, el checklist de soportes, la ruta sugerida para presentarlo y los siguientes pasos para no perder trazabilidad.',
     },
     {
-      q: '¿Cómo funciona el bono de mayo de 2026?',
-      a: 'Cada pago aprobado en la app genera un código único de participación. Los usuarios con pago aprobado hasta el 30 de mayo de 2026 participan por un bono de 2.5 millones de pesos, que se entrega el mismo 30 de mayo de 2026.',
+      q: '¿Como funciona el bono de mayo de 2026?',
+      a: 'Cada pago aprobado en la app genera un codigo unico de participacion. Los usuarios con pago aprobado hasta el 30 de mayo de 2026 participan por un bono de 2.5 millones de pesos, que se entrega ese mismo 30 de mayo de 2026.',
     },
   ];
 
@@ -92,41 +92,41 @@ const ChecklistPreview = () => (
     <div className="max-w-5xl mx-auto px-6">
       <div className="text-center mb-12">
         <p className="text-accent uppercase tracking-[0.22em] text-xs font-black mb-4">Entrega</p>
-        <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-brand">Así se ve el kit que recibe el cliente</h2>
+        <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-brand">Asi se siente el flujo cuando ya no estas perdido</h2>
         <p className="text-brand/60 text-lg max-w-2xl mx-auto">
-          Todo está pensado para que no tengas que traducir lenguaje legal ni adivinar qué sigue.
+          No vendemos solo un archivo. Vendemos claridad, orden y una salida concreta para que una persona de produccion pueda ayudarte mejor.
         </p>
       </div>
 
       <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-brand/5 relative overflow-hidden max-w-3xl mx-auto">
         <div className="flex justify-between items-center mb-8 border-b border-brand/10 pb-6">
           <div>
-            <h4 className="font-extrabold text-xl text-brand">Checklist de radicación</h4>
-            <p className="text-xs font-bold text-brand/40 uppercase">Ejemplo de entrega HazloPorMi</p>
+            <h4 className="font-extrabold text-xl text-brand">Ruta del caso HazloPorMi</h4>
+            <p className="text-xs font-bold text-brand/40 uppercase">Ejemplo de experiencia</p>
           </div>
-          <div className="bg-success/10 text-success text-[10px] font-extrabold px-3 py-1 rounded-full uppercase">Listo para usar</div>
+          <div className="bg-success/10 text-success text-[10px] font-extrabold px-3 py-1 rounded-full uppercase">Listo para produccion</div>
         </div>
 
         <div className="space-y-6">
           <div className="flex gap-4">
             <div className="bg-brand text-white w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold">1</div>
             <div>
-              <p className="font-bold text-brand">Revisa y firma tu documento</p>
-              <p className="text-sm text-brand/60">Te explicamos qué validar antes de enviarlo y cómo conservar una copia correcta.</p>
+              <p className="font-bold text-brand">Diagnostico inicial</p>
+              <p className="text-sm text-brand/60">La app ordena tu situacion y te muestra la ruta recomendada antes del pago.</p>
             </div>
           </div>
           <div className="flex gap-4">
             <div className="bg-brand text-white w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold">2</div>
             <div>
-              <p className="font-bold text-brand">Radica por el canal sugerido</p>
-              <p className="text-sm text-brand/60">Te indicamos por dónde enviarlo y qué soporte guardar para demostrar que sí presentaste el caso.</p>
+              <p className="font-bold text-brand">Cierre de datos y soportes</p>
+              <p className="text-sm text-brand/60">Despues del pago te pedimos lo necesario para que el expediente quede claro y sin vacios.</p>
             </div>
           </div>
           <div className="flex gap-4">
             <div className="bg-brand text-white w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold">3</div>
             <div>
-              <p className="font-bold text-brand">Haz seguimiento con fechas claras</p>
-              <p className="text-sm text-brand/60">Incluimos el siguiente paso recomendado si no responden o si la respuesta no resuelve el problema.</p>
+              <p className="font-bold text-brand">Produccion humana</p>
+              <p className="text-sm text-brand/60">Una persona redacta el documento final y deja trazabilidad para entrega y seguimiento.</p>
             </div>
           </div>
         </div>
@@ -140,14 +140,14 @@ const Honesty = () => (
     <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-8">
       <div className="bg-success/5 border border-success/20 p-8 rounded-[2rem]">
         <h3 className="text-2xl font-extrabold text-success mb-6 flex items-center gap-2">
-          <CheckCircle2 /> Lo que sí hacemos
+          <CheckCircle2 /> Lo que si hacemos
         </h3>
         <ul className="space-y-4 font-medium text-brand/80">
-          <li>✓ Diagnóstico inicial para ubicar el mejor camino.</li>
-          <li>✓ Redacción humana del documento final.</li>
-          <li>✓ Checklist y guía para radicar con más orden.</li>
-          <li>✓ Entrega comercial hasta en 24 horas hábiles.</li>
-          <li>✓ Seguimiento usando código de expediente y referencia.</li>
+          <li>✓ Diagnostico inicial para ubicar el mejor camino.</li>
+          <li>✓ Cierre de informacion y soportes despues del pago.</li>
+          <li>✓ Redaccion humana del documento final.</li>
+          <li>✓ Entrega comercial hasta en 24 horas habiles.</li>
+          <li>✓ Seguimiento con codigo de expediente y referencia.</li>
         </ul>
       </div>
       <div className="bg-red-50 border border-red-100 p-8 rounded-[2rem]">
@@ -156,9 +156,9 @@ const Honesty = () => (
         </h3>
         <ul className="space-y-4 font-medium text-brand/80">
           <li>✕ No prometemos un resultado favorable.</li>
-          <li>✕ No somos litigio tradicional con representación presencial.</li>
-          <li>✕ No radicamos por ti ante la entidad.</li>
-          <li>✕ No reemplazamos la necesidad de soportes reales del caso.</li>
+          <li>✕ No hacemos litigio presencial tradicional.</li>
+          <li>✕ No reemplazamos la necesidad de soportes reales.</li>
+          <li>✕ No entregamos el documento final solo con IA automatica.</li>
         </ul>
       </div>
     </div>
@@ -190,7 +190,7 @@ const LandingPage = () => {
             © 2026 HazloPorMi. Todos los derechos reservados. Colombia.
           </div>
           <div className="flex gap-6 font-bold text-sm">
-            <a href="#" className="hover:text-accent">Términos</a>
+            <a href="#" className="hover:text-accent">Terminos</a>
             <a href="#" className="hover:text-accent">Privacidad</a>
             <a href="#" className="hover:text-accent">Contacto</a>
           </div>

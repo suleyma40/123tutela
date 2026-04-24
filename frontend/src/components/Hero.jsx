@@ -5,15 +5,15 @@ import { Link } from 'react-router-dom';
 
 const proofPoints = [
   'Diagnostico inicial inmediato',
-  'Redaccion humana del documento',
-  'Checklist y ruta de radicacion',
+  'Produccion humana despues del pago',
+  'Checklist y siguiente paso claro',
 ];
 
 const deliverables = [
   {
     icon: FileText,
     title: 'Documento listo para usar',
-    text: 'Tutela, derecho de peticion o reclamo segun tu caso.',
+    text: 'Tutela, derecho de peticion o reclamo, segun lo que realmente aplique.',
   },
   {
     icon: UploadCloud,
@@ -23,7 +23,7 @@ const deliverables = [
   {
     icon: ShieldCheck,
     title: 'Ruta clara para actuar',
-    text: 'Donde radicar, que pedir y como conservar prueba.',
+    text: 'Que enviar, que pedir y como no perder trazabilidad.',
   },
   {
     icon: Clock3,
@@ -45,16 +45,16 @@ const Hero = () => {
         >
           <div className="inline-flex items-center gap-2 bg-white/90 border border-brand/10 px-4 py-2 rounded-full text-sm font-bold text-brand shadow-sm mb-7">
             <Sparkles size={16} className="text-accent" />
-            IA inicial + revision humana + guia accionable
+            Agente inicial + produccion humana + guia accionable
           </div>
 
           <div className="space-y-6">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[0.96] tracking-tight text-brand max-w-4xl">
-              Si una <span className="text-accent">EPS, banco o entidad</span> te tiene dando vueltas, te ayudamos a entender tu caso y a actuar con claridad.
+              Si una <span className="text-accent">EPS, banco o entidad</span> te tiene dando vueltas, HazloPorMi te ayuda a entender el caso y a moverlo sin improvisar.
             </h1>
 
             <p className="text-xl md:text-2xl text-brand/72 max-w-2xl font-medium leading-relaxed">
-              Empiezas con un diagnostico gratis. Si decides avanzar, un humano prepara tu documento y tu ruta paso a paso para que no tengas que improvisar.
+              Empiezas con un diagnostico gratis. Si decides avanzar, te pedimos lo necesario y una persona de produccion prepara tu documento final y tu ruta paso a paso.
             </p>
           </div>
 
@@ -138,7 +138,7 @@ const Hero = () => {
             <div className="absolute left-6 top-6 right-6 flex justify-between gap-4">
               <div className="rounded-[1.5rem] bg-white/92 backdrop-blur px-4 py-3 shadow-lg border border-white/70 max-w-[240px]">
                 <p className="text-[11px] uppercase tracking-[0.18em] font-black text-brand/45 mb-1">Promesa comercial</p>
-                <p className="text-brand font-extrabold leading-tight">Diagnostico gratis. Documento humano si decides pagar.</p>
+                <p className="text-brand font-extrabold leading-tight">Diagnostico gratis. Documento final hecho por una persona si decides pagar.</p>
               </div>
               <div className="rounded-[1.5rem] bg-brand text-white px-4 py-3 shadow-lg max-w-[210px] hidden sm:block">
                 <p className="text-[11px] uppercase tracking-[0.18em] font-black text-white/55 mb-1">Entrega</p>
@@ -155,7 +155,7 @@ const Hero = () => {
                   <p className="font-extrabold text-brand">No te dejamos adivinar</p>
                 </div>
                 <p className="text-sm text-brand/65 leading-relaxed">
-                  Te mostramos el camino recomendado, los anexos y los siguientes pasos antes de pagar.
+                  Te mostramos la ruta recomendada, lo que falta y los siguientes pasos antes de pagar.
                 </p>
               </div>
 
