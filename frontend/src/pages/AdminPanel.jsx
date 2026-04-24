@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, Users, FileText, CheckCircle, Clock, Search, Filter, Eye, DollarSign, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 
 const AdminPanel = () => {
@@ -124,7 +125,7 @@ const AdminPanel = () => {
           </Link>
           <button className="w-full flex items-center gap-3 hover:bg-white/5 p-3 rounded-xl font-medium transition-colors">
             <Users size={20} /> Clientes
-          </Link>
+          </button>
           <button className="w-full flex items-center gap-3 hover:bg-white/5 p-3 rounded-xl font-medium transition-colors">
             <DollarSign size={20} /> Ventas
           </button>

@@ -40,6 +40,144 @@ def _represented_identity_is_complete(*, name: str, age_or_birth: str, document:
     return bool(_text(document))
 
 
+def _push_prompt(target: list[dict[str, Any]], prompt: dict[str, Any] | None) -> None:
+    if not prompt:
+        return
+    prompt_id = str(prompt.get("id") or "").strip()
+    if not prompt_id:
+        return
+    if any(str(item.get("id") or "").strip() == prompt_id for item in target):
+        return
+    target.append(prompt)
+
+
+def _collect_ops_follow_up_prompts(*, intake: dict[str, Any], facts: dict[str, Any], workflow_type: str) -> list[dict[str, Any]]:
+    prompts: list[dict[str, Any]] = []
+    attachment_suggestions = ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
+    uploaded_files = facts.get("uploaded_evidence_files") or []
+
+    if not _text(intake.get("document_number")):
+        _push_prompt(
+            prompts,
+            {
+                "id": "document_number",
+                "question": "Cual es tu numero de documento para dejar completo el expediente?",
+                "placeholder": "Ej: 1023456789",
+                "multiline": False,
+                "why": "Operacion necesita identificar con precision a la persona que recibira el documento.",
+            },
+        )
+    if not _text(intake.get("city")):
+        _push_prompt(
+            prompts,
+            {
+                "id": "city",
+                "question": "En que ciudad presentarias o recibirias este documento?",
+                "placeholder": "Ej: Bogota, Medellin, Cali",
+                "multiline": False,
+                "why": "La ciudad ayuda a definir competente, formato y datos de radicacion.",
+            },
+        )
+    if not _text(intake.get("address")):
+        _push_prompt(
+            prompts,
+            {
+                "id": "address",
+                "question": "Cual es tu direccion de notificacion o residencia?",
+                "placeholder": "Ej: Calle 123 # 45-67, Barrio..., Ciudad...",
+                "multiline": False,
+                "why": "El humano necesita cerrar la informacion base del encabezado y notificaciones.",
+            },
+        )
+    if not _text(intake.get("case_story")):
+        _push_prompt(
+            prompts,
+            {
+                "id": "case_story",
+                "question": "Cuenta la historia completa en orden: que paso, cuando reclamaste y que respondio la entidad.",
+                "placeholder": "Escribe los hechos en orden cronologico, sin lenguaje juridico.",
+                "multiline": True,
+                "why": "La redaccion humana necesita una cronologia entendible y no solo un resumen comercial.",
+            },
+        )
+    if not _text(intake.get("key_dates")):
+        _push_prompt(
+            prompts,
+            {
+                "id": "key_dates",
+                "question": "Escribe las fechas clave del caso: orden medica, solicitud, respuesta, negativa o ultimo incumplimiento.",
+                "placeholder": "Ej: 4 de marzo orden medica, 6 de marzo PQRS, 11 de marzo respuesta negativa",
+                "multiline": True,
+                "why": "Las fechas ordenadas facilitan el trabajo del redactor humano y reducen repreguntas.",
+            },
+        )
+    if not _text(intake.get("concrete_request")):
+        _push_prompt(
+            prompts,
+            {
+                "id": "concrete_request",
+                "question": "Que necesitas exactamente que ordenen o solucionen en tu caso?",
+                "placeholder": "Ej: entregar medicamento, autorizar examen, programar cirugia, responder de fondo",
+                "multiline": True,
+                "why": "La pretension concreta debe quedar lista para el redactor humano.",
+            },
+        )
+    if not _text(intake.get("copy_email")):
+        _push_prompt(
+            prompts,
+            {
+                "id": "copy_email",
+                "question": "A que correo quieres que llegue la entrega del documento y las copias del caso?",
+                "placeholder": "Ej: nombre@correo.com",
+                "multiline": False,
+                "why": "Operacion necesita el canal final de entrega confirmado.",
+            },
+        )
+
+    _push_prompt(prompts, _build_next_prompt(intake=intake, facts=facts, workflow_type=workflow_type))
+
+    if workflow_type == "tutela" and not _text(intake.get("ongoing_harm")):
+        _push_prompt(
+            prompts,
+            {
+                "id": "ongoing_harm",
+                "question": "Que dano o riesgo sigue ocurriendo hoy si no resuelven esto?",
+                "placeholder": "Ej: dolor, agravacion, interrupcion del tratamiento, riesgo de crisis o complicacion",
+                "multiline": True,
+                "why": "La redaccion de tutela necesita dano actual explicado con claridad.",
+            },
+        )
+    if workflow_type == "tutela" and not _text(intake.get("tutela_other_means_detail")):
+        _push_prompt(
+            prompts,
+            {
+                "id": "tutela_other_means_detail",
+                "question": "Que gestiones previas hiciste antes de llegar aqui y por que no resolvieron el problema?",
+                "placeholder": "Ej: PQRS, llamada, correo, visita a la EPS, respuesta insuficiente o silencio",
+                "multiline": True,
+                "why": "Esto evita que el humano tenga que reconstruir subsidiariedad desde cero.",
+            },
+        )
+
+    if not uploaded_files and not (
+        _text(intake.get("medical_order_date"))
+        or _text(intake.get("treating_doctor_name"))
+        or _text(attachment_suggestions.get("medical_order_date"))
+        or _text(attachment_suggestions.get("treating_doctor_name"))
+    ):
+        _push_prompt(
+            prompts,
+            {
+                "id": "medical_support",
+                "question": "Que soporte puedes subir hoy: orden medica, formula, historia clinica, respuesta de la EPS o fallo previo?",
+                "placeholder": "Ej: tengo formula y respuesta de la EPS por correo, o aun no tengo soporte escrito",
+                "multiline": True,
+                "why": "Operacion necesita saber si ya puede redactar o si primero debe pedir documentos concretos.",
+            },
+        )
+    return prompts
+
+
 def _build_next_prompt(*, intake: dict[str, Any], facts: dict[str, Any], workflow_type: str) -> dict[str, Any] | None:
     acting_capacity = _lower(intake.get("acting_capacity"))
     target_entity = _text(intake.get("target_entity"))
@@ -249,6 +387,7 @@ def build_health_agent_state(
         ["riesgo", "dolor", "empeor", "crisis", "urgente", "urgencia", "hospital", "sin medicamento", "sin tratamiento", "sin examen"],
     )
     quality_follow_up_questions = [item for item in (facts.get("quality_follow_up_questions") or []) if isinstance(item, dict)]
+    ops_follow_up_prompts = _collect_ops_follow_up_prompts(intake=intake, facts=facts, workflow_type=workflow_type)
 
     next_prompt = _build_next_prompt(intake=intake, facts=facts, workflow_type=workflow_type)
     user_owned_missing: list[str] = []
@@ -312,6 +451,12 @@ def build_health_agent_state(
             else "El agente sigue activo y puede recibir mas datos para terminar de consolidar el expediente."
         )
     )
+    ops_ready = not ops_follow_up_prompts
+    ops_summary = (
+        "El expediente ya tiene contexto suficiente para pasar a redaccion humana."
+        if ops_ready
+        else "Todavia faltan datos operativos o soportes para que el humano redacte sin repreguntar."
+    )
 
     return {
         "enabled": True,
@@ -344,6 +489,9 @@ def build_health_agent_state(
             "files_count": len(uploaded_files) or len(attachment_names),
         },
         "summary": summary,
+        "ops_ready": ops_ready,
+        "ops_summary": ops_summary,
+        "ops_follow_up_prompts": ops_follow_up_prompts,
     }
 
 

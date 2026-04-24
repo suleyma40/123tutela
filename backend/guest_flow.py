@@ -184,6 +184,16 @@ def build_operational_brief(case: dict[str, Any]) -> dict[str, Any]:
     facts = case.get("facts") or {}
     intake = facts.get("intake_form") or {}
     guide = build_customer_guide(case)
+    agent_state = facts.get("agent_state") or {}
+    uploaded_files = list(facts.get("uploaded_evidence_files") or [])
+    attachment_names = [
+        _text(item.get("original_name") or item.get("name"))
+        for item in uploaded_files
+        if isinstance(item, dict) and _text(item.get("original_name") or item.get("name"))
+    ]
+    if not attachment_names:
+        attachment_names = list(((facts.get("attachment_intelligence") or {}).get("evidence_names") or []))
+    ops_prompts = [item for item in (agent_state.get("ops_follow_up_prompts") or []) if isinstance(item, dict)]
     urgency_label = _text(intake.get("urgency_level") or intake.get("urgency") or facts.get("problema_central"))
     return {
         "summary": _text(case.get("description") or case.get("descripcion")),
@@ -192,7 +202,29 @@ def build_operational_brief(case: dict[str, Any]) -> dict[str, Any]:
         "urgency": urgency_label or "Revisar urgencia con el relato y anexos",
         "target_entity": _text(intake.get("target_entity") or intake.get("entity_name")),
         "missing_items": list((facts.get("pending_questions") or []))[:6],
+        "ops_ready": bool(agent_state.get("ops_ready")),
+        "ops_summary": _text(agent_state.get("ops_summary")),
+        "ops_follow_up_prompts": ops_prompts,
+        "ops_missing_reasons": [str(item.get("why") or item.get("question") or "").strip() for item in ops_prompts if str(item.get("why") or item.get("question") or "").strip()],
         "required_attachments": guide.get("required_attachments") or [],
+        "uploaded_files": attachment_names,
+        "documents_to_request_from_client": [
+            attachment
+            for attachment in (guide.get("required_attachments") or [])
+            if attachment not in attachment_names
+        ],
+        "intake_snapshot": {
+            "document_number": _text(intake.get("document_number")),
+            "city": _text(intake.get("city")),
+            "address": _text(intake.get("address")),
+            "diagnosis": _text(intake.get("diagnosis")),
+            "treatment_needed": _text(intake.get("treatment_needed")),
+            "concrete_request": _text(intake.get("concrete_request")),
+            "key_dates": _text(intake.get("key_dates")),
+            "case_story": _text(intake.get("case_story")),
+            "prior_claim_result": _text(intake.get("prior_claim_result") or intake.get("eps_response_detail")),
+            "ongoing_harm": _text(intake.get("ongoing_harm") or intake.get("urgency_detail")),
+        },
         "drafting_notes": [
             "Usar el diagnostico automatico solo como base; validar hechos y solicitud concreta.",
             "Alinear narrativa, pruebas y pretensiones con la accion sugerida.",
@@ -232,6 +264,9 @@ def build_ops_sync_payload(case: dict[str, Any]) -> dict[str, Any]:
         "status": case.get("estado"),
         "invoice_number": (summary.get("invoice") or {}).get("number"),
         "raffle_code": (summary.get("raffle") or {}).get("code"),
+        "ops_ready": brief.get("ops_ready"),
+        "ops_missing_reasons": brief.get("ops_missing_reasons") or [],
+        "uploaded_files": brief.get("uploaded_files") or [],
         "operational_brief": brief,
         "customer_guide": guide,
         "payment_reference": case.get("payment_reference"),

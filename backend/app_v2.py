@@ -1074,6 +1074,18 @@ def _rehydrate_case_intelligence(case: dict[str, Any]) -> dict[str, Any]:
     facts["preview_gate"] = preview_gate
     facts["document_rule_review"] = document_rule_review
     facts["attachment_intelligence"] = attachment_context
+    facts["uploaded_evidence_files"] = [
+        {
+            "id": str(item.get("id")),
+            "original_name": str(item.get("original_name") or ""),
+            "file_kind": str(item.get("file_kind") or ""),
+            "relative_path": str(item.get("relative_path") or ""),
+            "mime_type": str(item.get("mime_type") or ""),
+            "file_size": int(item.get("file_size") or 0),
+        }
+        for item in attachment_records
+        if item.get("original_name")
+    ]
     facts["autofill_suggestions"] = enriched_form_data.get("_autofill") or {}
     facts, legal_analysis, routing = _enrich_architecture_outputs(
         category=category,
