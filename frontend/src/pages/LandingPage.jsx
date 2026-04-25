@@ -1,198 +1,616 @@
 import React from 'react';
-import { ChevronDown, CheckCircle2, Scale, XCircle } from 'lucide-react';
-import Navbar from '../components/Navbar';
-import Hero from '../components/Hero';
-import Process from '../components/Process';
-import Pricing from '../components/Pricing';
+import { Link } from 'react-router-dom';
+import { ArrowRight, CheckCircle2, FileText, Gavel, Heart, Scale } from 'lucide-react';
 
-const Entities = () => {
-  const entities = [
-    'EPS Sura', 'Sanitas', 'Compensar', 'Nueva EPS',
-    'Coosalud', 'Salud Total', 'Famisanar', 'Mutual Ser',
-    'Medicamentos negados', 'Citas demoradas', 'Procedimientos pendientes', 'Cirugias aplazadas',
-    'Autorizaciones', 'Incapacidades', 'Transporte medico', 'Continuidad de tratamiento',
-  ];
-
-  return (
-    <section className="py-20 bg-white">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-12">
-          <p className="text-accent uppercase tracking-[0.22em] text-xs font-black mb-4">Casos de salud</p>
-          <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-brand">
-            Pensado para EPS, IPS, medicamentos, citas, procedimientos y barreras de acceso
-          </h2>
-          <p className="text-brand/60 text-lg max-w-2xl mx-auto">
-            123tutela no te obliga a adivinar. Primero entiende tu caso, luego te dice que hacer y, si pagas, lo pasa a produccion humana.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {entities.map((item) => (
-            <div
-              key={item}
-              className="p-4 border border-brand/10 rounded-2xl text-center font-bold text-brand/70 bg-brand/5 hover:bg-brand hover:text-white transition-colors cursor-default"
-            >
-              {item}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+const palette = {
+  bg: '#F5F7FB',
+  ink: '#12233D',
+  muted: '#667892',
+  primary: '#0D68FF',
+  accent: '#19B7FF',
+  success: '#36D399',
+  warm: '#F97316',
+  teal: '#0F766E',
+  purple: '#7C3AED',
+  border: '#D8E0F0',
+  surface: '#FCFDFF',
+  dark: '#08172E',
 };
 
-const FAQ = () => {
-  const questions = [
-    {
-      q: '¿123tutela redacta automaticamente con IA?',
-      a: 'No. La IA hace el diagnostico inicial y ayuda a ordenar la informacion. Cuando pagas, el caso pasa a produccion humana para que una persona prepare el documento final.',
-    },
-    {
-      q: '¿Que pasa despues del pago?',
-      a: 'Despues del pago te pedimos la informacion y los soportes necesarios. Con eso, el caso se consolida y se entrega al equipo humano para redaccion y seguimiento operativo.',
-    },
-    {
-      q: '¿Cuanto demora el proceso?',
-      a: 'El diagnostico inicial es inmediato. Despues del pago, el equipo humano entrega el kit en hasta 24 horas habiles desde que la informacion y los soportes esten completos.',
-    },
-    {
-      q: '¿Que incluye el kit final?',
-      a: 'Incluye el documento principal, el checklist de soportes, la ruta sugerida para presentarlo y los siguientes pasos para no perder trazabilidad.',
-    },
-    {
-      q: '¿Como funciona el bono de mayo de 2026?',
-      a: 'Cada pago aprobado en la app genera un codigo unico de participacion. Los usuarios con pago aprobado hasta el 30 de mayo de 2026 participan por un bono de 2.5 millones de pesos, que se entrega ese mismo 30 de mayo de 2026.',
-    },
-  ];
+const categories = [
+  {
+    title: 'Derecho de peticion',
+    desc: 'Para pedir autorizacion, respuesta, medicamento, cita o explicacion formal a la EPS o IPS.',
+    icon: FileText,
+    color: palette.primary,
+  },
+  {
+    title: 'Tutela en salud',
+    desc: 'Para proteger el derecho a la salud cuando hay urgencia, barrera seria o riesgo actual.',
+    icon: Heart,
+    color: palette.warm,
+  },
+  {
+    title: 'Impugnacion',
+    desc: 'Para controvertir un fallo de tutela cuando fue negado o limito la proteccion.',
+    icon: Gavel,
+    color: palette.teal,
+  },
+  {
+    title: 'Desacato',
+    desc: 'Para exigir cumplimiento cuando ya existe un fallo favorable y la entidad no obedece.',
+    icon: Scale,
+    color: palette.purple,
+  },
+];
 
-  return (
-    <section id="faq" className="py-24 bg-cream">
-      <div className="max-w-3xl mx-auto px-6">
-        <h2 className="text-4xl font-extrabold text-center mb-12 text-brand">Preguntas frecuentes</h2>
-        <div className="space-y-4">
-          {questions.map((item) => (
-            <details key={item.q} className="group bg-white rounded-2xl shadow-sm border border-brand/5 overflow-hidden">
-              <summary className="list-none p-6 font-bold text-lg flex justify-between items-center cursor-pointer hover:bg-brand/5 transition-colors text-brand">
-                {item.q}
-                <ChevronDown className="group-open:rotate-180 transition-transform text-accent" />
-              </summary>
-              <div className="px-6 pb-6 text-brand/70 leading-relaxed">
-                {item.a}
-              </div>
-            </details>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-};
+const steps = [
+  {
+    index: '01',
+    title: 'Describe tu problema',
+    description: 'Nos cuentas que paso y subes soportes si los tienes.',
+  },
+  {
+    index: '02',
+    title: 'La IA analiza tu caso',
+    description: 'Identifica el derecho vulnerado y te entrega un informe inicial gratis.',
+  },
+  {
+    index: '03',
+    title: 'Eliges que activar',
+    description: 'Documento o documento mas radicacion. Todo queda visible en tu panel.',
+  },
+];
 
-const ChecklistPreview = () => (
-  <section className="py-24 bg-brand/5">
-    <div className="max-w-5xl mx-auto px-6">
-      <div className="text-center mb-12">
-        <p className="text-accent uppercase tracking-[0.22em] text-xs font-black mb-4">Entrega</p>
-        <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-brand">Asi se siente el flujo cuando ya no estas perdido frente a la EPS</h2>
-        <p className="text-brand/60 text-lg max-w-2xl mx-auto">
-          No vendemos solo un archivo. Vendemos claridad, orden y una salida concreta para que una persona de produccion pueda ayudarte mejor.
-        </p>
-      </div>
+const highlights = [
+  'Analisis detallado del caso sin costo.',
+  'Documento listo para pago individual por tipo de tramite.',
+  'Radicacion automatizada cuando el cliente la elige.',
+];
 
-      <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-brand/5 relative overflow-hidden max-w-3xl mx-auto">
-        <div className="flex justify-between items-center mb-8 border-b border-brand/10 pb-6">
-          <div>
-            <h4 className="font-extrabold text-xl text-brand">Ruta del caso 123tutela</h4>
-            <p className="text-xs font-bold text-brand/40 uppercase">Ejemplo de experiencia</p>
-          </div>
-          <div className="bg-success/10 text-success text-[10px] font-extrabold px-3 py-1 rounded-full uppercase">Listo para produccion</div>
-        </div>
+const faq = [
+  {
+    q: '¿123tutela redacta automaticamente con IA?',
+    a: 'No. La IA hace el diagnostico inicial y ordena la informacion. Cuando pagas, el flujo pasa por produccion humana antes de la entrega final.',
+  },
+  {
+    q: '¿Que pasa despues del pago?',
+    a: 'Se habilita el producto correspondiente, se consolida la informacion del expediente y el cliente ve el siguiente paso desde el panel.',
+  },
+  {
+    q: '¿Cuanto demora?',
+    a: 'El diagnostico inicial es inmediato. La promesa comercial visible para el producto se muestra antes del pago.',
+  },
+];
 
-        <div className="space-y-6">
-          <div className="flex gap-4">
-            <div className="bg-brand text-white w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold">1</div>
-            <div>
-              <p className="font-bold text-brand">Diagnostico inicial</p>
-              <p className="text-sm text-brand/60">La app ordena tu situacion y te muestra la ruta recomendada antes del pago.</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="bg-brand text-white w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold">2</div>
-            <div>
-              <p className="font-bold text-brand">Cierre de datos y soportes</p>
-              <p className="text-sm text-brand/60">Despues del pago te pedimos lo necesario para que el expediente quede claro y sin vacios.</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="bg-brand text-white w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold">3</div>
-            <div>
-              <p className="font-bold text-brand">Produccion humana</p>
-              <p className="text-sm text-brand/60">Una persona redacta el documento final y deja trazabilidad para entrega y seguimiento.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+const Badge = ({ children, color = palette.primary }) => (
+  <span
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '6px 12px',
+      borderRadius: 999,
+      fontSize: 12,
+      fontWeight: 800,
+      background: `${color}18`,
+      color,
+    }}
+  >
+    {children}
+  </span>
 );
 
-const Honesty = () => (
-  <section className="py-20 px-6">
-    <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-8">
-      <div className="bg-success/5 border border-success/20 p-8 rounded-[2rem]">
-        <h3 className="text-2xl font-extrabold text-success mb-6 flex items-center gap-2">
-          <CheckCircle2 /> Lo que si hacemos
-        </h3>
-        <ul className="space-y-4 font-medium text-brand/80">
-          <li>✓ Diagnostico inicial para ubicar el mejor camino.</li>
-          <li>✓ Cierre de informacion y soportes despues del pago.</li>
-          <li>✓ Redaccion humana del documento final.</li>
-          <li>✓ Entrega comercial hasta en 24 horas habiles.</li>
-          <li>✓ Seguimiento con codigo de expediente y referencia.</li>
-        </ul>
-      </div>
-      <div className="bg-red-50 border border-red-100 p-8 rounded-[2rem]">
-        <h3 className="text-2xl font-extrabold text-red-600 mb-6 flex items-center gap-2">
-          <XCircle /> Lo que no hacemos
-        </h3>
-        <ul className="space-y-4 font-medium text-brand/80">
-          <li>✕ No prometemos un resultado favorable.</li>
-          <li>✕ No hacemos litigio presencial tradicional.</li>
-          <li>✕ No reemplazamos la necesidad de soportes reales.</li>
-          <li>✕ No entregamos el documento final solo con IA automatica.</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-);
+const landingStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Playfair+Display:wght@700;800&display=swap');
+  .landing-vision {
+    background: ${palette.bg};
+    color: ${palette.ink};
+    min-height: 100vh;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .landing-vision * {
+    box-sizing: border-box;
+  }
+  .landing-wrap {
+    width: min(1200px, calc(100vw - 48px));
+    margin: 0 auto;
+  }
+  .landing-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(18px);
+    background: rgba(245, 247, 251, 0.82);
+    border-bottom: 1px solid ${palette.border};
+  }
+  .landing-nav__row {
+    min-height: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .landing-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .landing-logo__mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, ${palette.primary} 0%, ${palette.accent} 100%);
+    display: grid;
+    place-items: center;
+    color: #fff;
+  }
+  .landing-logo__text {
+    font-size: 30px;
+    font-weight: 800;
+  }
+  .landing-logo__text span {
+    color: ${palette.primary};
+  }
+  .landing-nav__links {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    color: ${palette.muted};
+    font-weight: 700;
+  }
+  .landing-nav__links a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .landing-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 14px;
+    padding: 14px 22px;
+    font-size: 15px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+  }
+  .landing-btn:hover {
+    transform: translateY(-1px);
+    opacity: 0.96;
+  }
+  .landing-btn--primary {
+    background: ${palette.primary};
+    color: #fff;
+  }
+  .landing-btn--outline {
+    border: 1px solid ${palette.border};
+    color: ${palette.primary};
+    background: transparent;
+  }
+  .landing-btn--ghost {
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    background: rgba(255,255,255,0.08);
+  }
+  .landing-hero {
+    padding: 56px 0 44px;
+  }
+  .landing-hero__grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 28px;
+    align-items: stretch;
+  }
+  .landing-card {
+    border: 1px solid ${palette.border};
+    border-radius: 26px;
+    background: ${palette.surface};
+    box-shadow: 0 18px 55px rgba(18, 35, 61, 0.06);
+  }
+  .landing-card--hero {
+    padding: 38px 34px;
+    background: radial-gradient(circle at top left, rgba(13,104,255,0.14), transparent 36%), ${palette.dark};
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .landing-card--hero h1,
+  .landing-section h2,
+  .landing-process h2,
+  .landing-pricing h2 {
+    font-family: 'Playfair Display', serif;
+    letter-spacing: 0;
+  }
+  .landing-card--hero h1 {
+    margin: 22px 0 0;
+    font-size: 64px;
+    line-height: 0.98;
+    font-weight: 700;
+  }
+  .landing-card--hero p {
+    margin-top: 22px;
+    max-width: 560px;
+    color: rgba(255,255,255,0.76);
+    font-size: 18px;
+    line-height: 1.7;
+  }
+  .landing-chip-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+    color: rgba(255,255,255,0.78);
+    font-weight: 700;
+  }
+  .landing-preview {
+    padding: 28px;
+  }
+  .landing-preview__top,
+  .landing-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .landing-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .landing-kpi {
+    padding: 16px;
+    border-radius: 16px;
+    background: #F8FAFD;
+    border: 1px solid ${palette.border};
+  }
+  .landing-section {
+    padding: 8px 0 56px;
+  }
+  .landing-section__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .landing-section__head h2,
+  .landing-pricing h2 {
+    margin: 12px 0 0;
+    font-size: 44px;
+    line-height: 1.05;
+  }
+  .landing-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .landing-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .landing-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+  .landing-category {
+    padding: 20px;
+  }
+  .landing-process {
+    background: ${palette.dark};
+    color: #fff;
+    padding: 72px 0;
+  }
+  .landing-process h2 {
+    margin-top: 16px;
+    font-size: 54px;
+  }
+  .landing-process__step {
+    padding: 28px;
+    border-radius: 24px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .landing-pricing {
+    padding: 68px 0 96px;
+  }
+  .landing-pricing__panel {
+    padding: 34px 32px;
+  }
+  .landing-faq {
+    padding: 0 0 80px;
+  }
+  .landing-faq__list {
+    display: grid;
+    gap: 12px;
+  }
+  .landing-faq details {
+    background: #fff;
+    border: 1px solid ${palette.border};
+    border-radius: 18px;
+    padding: 18px 20px;
+  }
+  .landing-faq summary {
+    cursor: pointer;
+    font-weight: 800;
+    list-style: none;
+  }
+  .landing-footer {
+    padding: 26px 0 36px;
+    border-top: 1px solid ${palette.border};
+    color: ${palette.muted};
+  }
+  @media (max-width: 980px) {
+    .landing-hero__grid,
+    .landing-grid-2,
+    .landing-grid-3,
+    .landing-grid-4,
+    .landing-kpi-grid {
+      grid-template-columns: 1fr;
+    }
+    .landing-card--hero h1,
+    .landing-process h2 {
+      font-size: 46px;
+    }
+    .landing-section__head h2,
+    .landing-pricing h2 {
+      font-size: 36px;
+    }
+    .landing-nav__links {
+      width: 100%;
+      justify-content: flex-start;
+    }
+  }
+`;
 
 const LandingPage = () => {
   return (
-    <div className="min-h-screen">
-      <Navbar />
-      <Hero />
-      <Entities />
-      <Process />
-      <ChecklistPreview />
-      <Honesty />
-      <Pricing />
-      <FAQ />
-      <footer className="bg-brand text-white py-12 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-2">
-            <div className="bg-white p-2 rounded-lg">
-              <Scale className="text-brand w-6 h-6" />
+    <div className="landing-vision">
+      <style>{landingStyles}</style>
+
+      <nav className="landing-nav">
+        <div className="landing-wrap landing-nav__row">
+          <Link to="/" className="landing-logo">
+            <div className="landing-logo__mark">
+              <Scale size={20} />
             </div>
-            <span className="font-headings text-xl font-extrabold tracking-tight">
-              123tutela
-            </span>
+            <strong className="landing-logo__text">
+              123<span>tutela</span>
+            </strong>
+          </Link>
+
+          <div className="landing-nav__links">
+            <a href="#como-funciona">Como funciona</a>
+            <a href="#categorias">Categorias</a>
+            <a href="#precios">Precios</a>
+            <Link to="/admin" className="landing-btn landing-btn--outline">Iniciar sesion</Link>
+            <Link to="/diagnostico" className="landing-btn landing-btn--primary">Empezar gratis</Link>
           </div>
-          <div className="text-white/50 text-sm font-medium">
-            © 2026 123tutela. Todos los derechos reservados. Colombia.
+        </div>
+      </nav>
+
+      <section className="landing-hero">
+        <div className="landing-wrap landing-hero__grid">
+          <div className="landing-card landing-card--hero">
+            <Badge color={palette.success}>Impulsado por IA juridica colombiana</Badge>
+            <h1>
+              Tu tutela de salud,
+              <br />
+              sin barreras.
+            </h1>
+            <p>
+              Analisis gratis para casos de salud. La plataforma recomienda la ruta correcta y el usuario decide si activa solo el documento o documento mas radicacion.
+            </p>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 28 }}>
+              <Link to="/diagnostico" className="landing-btn landing-btn--primary">
+                Empezar mi tramite <ArrowRight size={18} />
+              </Link>
+              <Link to="/admin" className="landing-btn landing-btn--ghost">
+                Ya tengo cuenta
+              </Link>
+            </div>
+            <div className="landing-chip-row">
+              <span>Solo salud</span>
+              <span>Informe gratis</span>
+              <span>Panel de seguimiento</span>
+            </div>
           </div>
-          <div className="flex gap-6 font-bold text-sm">
-            <a href="#" className="hover:text-accent">Terminos</a>
-            <a href="#" className="hover:text-accent">Privacidad</a>
-            <a href="#" className="hover:text-accent">Contacto</a>
+
+          <div className="landing-card landing-preview">
+            <div className="landing-preview__top">
+              <span style={{ color: palette.muted, fontWeight: 700 }}>Caso analizado hace 2 min</span>
+              <Badge color={palette.accent}>En vivo</Badge>
+            </div>
+
+            <div style={{ display: 'grid', gap: 16, marginTop: 18 }}>
+              <div style={{ padding: 18, borderRadius: 18, background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#15803D', marginBottom: 6 }}>DERECHO VULNERADO IDENTIFICADO</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: palette.ink }}>Salud</div>
+                <div style={{ color: palette.muted }}>Acceso a tratamiento y continuidad del servicio.</div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Badge color="#DC2626">EPS nego tratamiento</Badge>
+                <Badge color={palette.primary}>Ley 1751/2015</Badge>
+                <Badge color={palette.purple}>T-760/2008</Badge>
+              </div>
+
+              <div style={{ padding: 20, borderRadius: 18, background: '#0F2C5F', color: '#fff' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#93C5FD', marginBottom: 6 }}>ACCION RECOMENDADA</div>
+                <div style={{ fontSize: 30, fontWeight: 800 }}>Accion de tutela</div>
+                <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.76)' }}>
+                  Documento listo para pago y radicacion digital si el cliente la elige.
+                </div>
+              </div>
+
+              <div className="landing-kpi-grid">
+                {[
+                  { label: 'Analisis', value: 'Gratis' },
+                  { label: 'Promesa', value: 'Ruta clara' },
+                  { label: 'Cobertura', value: 'Salud' },
+                ].map((item) => (
+                  <div key={item.label} className="landing-kpi">
+                    <div style={{ fontSize: 12, color: palette.muted, fontWeight: 700 }}>{item.label}</div>
+                    <div style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="categorias" className="landing-section">
+        <div className="landing-wrap">
+          <div className="landing-section__head">
+            <div>
+              <Badge color={palette.primary}>Categorias</Badge>
+              <h2>
+                Productos de salud que ya podemos
+                <br />
+                sacar a produccion.
+              </h2>
+            </div>
+            <p style={{ maxWidth: 420, color: palette.muted }}>
+              En esta salida inicial solo abrimos salud: peticion, tutela, impugnacion y desacato.
+            </p>
+          </div>
+
+          <div className="landing-grid-4">
+            {categories.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.title} className="landing-card landing-category">
+                  <div
+                    style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 16,
+                      background: `${item.color}18`,
+                      display: 'grid',
+                      placeItems: 'center',
+                      marginBottom: 16,
+                    }}
+                  >
+                    <Icon size={22} style={{ color: item.color }} />
+                  </div>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{item.title}</h3>
+                  <p style={{ marginTop: 8, color: palette.muted, fontSize: 14, lineHeight: 1.65 }}>{item.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section id="como-funciona" className="landing-process">
+        <div className="landing-wrap">
+          <div style={{ textAlign: 'center', marginBottom: 34 }}>
+            <Badge color={palette.success}>Como funciona</Badge>
+            <h2>Tres pasos. Sin complicaciones.</h2>
+          </div>
+
+          <div className="landing-grid-3">
+            {steps.map((step) => (
+              <div key={step.index} className="landing-process__step">
+                <div style={{ fontSize: 52, color: '#1D4ED8', fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{step.index}</div>
+                <h3 style={{ marginTop: 18, fontSize: 34, lineHeight: 1.1 }}>{step.title}</h3>
+                <p style={{ marginTop: 14, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7 }}>{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="precios" className="landing-pricing">
+        <div className="landing-wrap">
+          <div className="landing-card landing-pricing__panel landing-grid-2">
+            <div>
+              <Badge color={palette.primary}>Precios</Badge>
+              <h2>
+                Pagas solo por lo que
+                <br />
+                decides activar.
+              </h2>
+              <p style={{ marginTop: 16, color: palette.muted, lineHeight: 1.7, maxWidth: 520 }}>
+                La promesa comercial es simple: diagnostico gratis, producto claro y radicacion opcional cuando el caso y el canal lo permiten.
+              </p>
+              <div style={{ display: 'grid', gap: 12, marginTop: 22 }}>
+                {highlights.map((item) => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <CheckCircle2 size={18} style={{ color: palette.accent }} />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                borderRadius: 26,
+                padding: 24,
+                background: 'linear-gradient(180deg, #F8FBFF 0%, #EEF4FF 100%)',
+                border: `1px solid ${palette.border}`,
+              }}
+            >
+              <div style={{ fontSize: 14, color: palette.muted, fontWeight: 700 }}>Ejemplo visible para el cliente</div>
+              <div style={{ marginTop: 12, fontSize: 42, fontWeight: 800 }}>Tutela desde $67.900</div>
+              <div style={{ color: palette.muted }}>Radicacion opcional por $36.000 adicionales.</div>
+              <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${palette.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
+                  <span>Analisis juridico inicial</span>
+                  <strong>Gratis</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
+                  <span>Documento individual</span>
+                  <strong>Desde $36.900</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
+                  <span>Documento + radicacion</span>
+                  <strong>Desde $72.900</strong>
+                </div>
+              </div>
+              <div style={{ marginTop: 24 }}>
+                <Link to="/diagnostico" className="landing-btn landing-btn--primary" style={{ width: '100%' }}>
+                  Crear mi cuenta y empezar
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-faq">
+        <div className="landing-wrap" style={{ maxWidth: 860 }}>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <Badge color={palette.primary}>FAQ</Badge>
+            <h2 style={{ marginTop: 12, fontSize: 40, fontFamily: "'Playfair Display', serif" }}>Preguntas frecuentes</h2>
+          </div>
+          <div className="landing-faq__list">
+            {faq.map((item) => (
+              <details key={item.q}>
+                <summary>{item.q}</summary>
+                <div style={{ marginTop: 12, color: palette.muted, lineHeight: 1.7 }}>{item.a}</div>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div className="landing-wrap landing-footer">
+          <div>© 2026 123tutela Colombia. No reemplazamos asesoria legal personalizada en casos penales o de alta complejidad.</div>
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+            <Link to="/terminos" style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>Terminos</Link>
+            <Link to="/privacidad" style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>Privacidad</Link>
+            <Link to="/contacto" style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>Contacto</Link>
           </div>
         </div>
       </footer>
