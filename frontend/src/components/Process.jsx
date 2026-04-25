@@ -19,7 +19,7 @@ const steps = [
     number: '03',
     icon: CreditCard,
     title: 'Pagas solo si te sirve',
-    desc: 'Precio unico. Sin planes, sin sorpresas y con codigo propio para seguimiento y rifa.',
+    desc: 'Precio claro. Sin planes, sin sorpresas y con codigo propio para seguimiento.',
   },
   {
     number: '04',
@@ -51,7 +51,7 @@ const Process = () => {
             Un flujo corto para que tomes accion sin pelearte con el proceso.
           </h2>
           <p className="text-white/68 text-lg leading-relaxed max-w-xl">
-            No te soltamos un PDF y ya. Primero entendemos tu situacion, luego cerramos la informacion importante y despues produccion humana prepara la salida correcta.
+            No te soltamos un PDF y ya. Primero entendemos tu situacion de salud, luego cerramos la informacion importante y despues produccion humana prepara la salida correcta.
           </p>
 
           <div className="mt-8 rounded-[2rem] border border-white/12 bg-white/8 backdrop-blur-sm p-6">

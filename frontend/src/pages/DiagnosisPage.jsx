@@ -109,11 +109,11 @@ const DiagnosisPage = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-brand ml-1">Entidad (EPS, Banco, etc.)</label>
+                    <label className="text-sm font-bold text-brand ml-1">Entidad de salud (EPS, IPS, operador, etc.)</label>
                     <input 
                       required
                       type="text" 
-                      placeholder="Ej: EPS Sura, Bancolombia..."
+                      placeholder="Ej: EPS Sura, Sanitas, Nueva EPS..."
                       className="input-field"
                       value={form.entity_name}
                       onChange={e => setForm({...form, entity_name: e.target.value})}
@@ -130,9 +130,6 @@ const DiagnosisPage = () => {
                       onChange={e => setForm({...form, category: e.target.value})}
                     >
                       <option>Salud</option>
-                      <option>Tránsito</option>
-                      <option>Bancos</option>
-                      <option>Otros</option>
                     </select>
                   </div>
                   <div className="space-y-2">

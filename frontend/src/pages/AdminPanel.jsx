@@ -116,7 +116,7 @@ const AdminPanel = () => {
           <div className="bg-accent p-1.5 rounded">
             <LayoutDashboard className="text-brand w-5 h-5" />
           </div>
-          <span className="font-headings font-bold text-lg">HazloPorMi Admin</span>
+          <span className="font-headings font-bold text-lg">123tutela Admin</span>
         </div>
         
         <nav className="space-y-2">

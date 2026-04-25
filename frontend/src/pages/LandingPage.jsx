@@ -8,21 +8,21 @@ import Pricing from '../components/Pricing';
 const Entities = () => {
   const entities = [
     'EPS Sura', 'Sanitas', 'Compensar', 'Nueva EPS',
-    'Bancolombia', 'Davivienda', 'Nu', 'Scotiabank',
-    'Transito Bogota', 'Transito Medellin', 'DIAN', 'Colpensiones',
-    'EPM', 'Alcaldias', 'Gobernaciones', 'Claro / Movistar',
+    'Coosalud', 'Salud Total', 'Famisanar', 'Mutual Ser',
+    'Medicamentos negados', 'Citas demoradas', 'Procedimientos pendientes', 'Cirugias aplazadas',
+    'Autorizaciones', 'Incapacidades', 'Transporte medico', 'Continuidad de tratamiento',
   ];
 
   return (
     <section className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-12">
-          <p className="text-accent uppercase tracking-[0.22em] text-xs font-black mb-4">Casos mixtos</p>
+          <p className="text-accent uppercase tracking-[0.22em] text-xs font-black mb-4">Casos de salud</p>
           <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-brand">
-            Pensado para salud, bancos, transito y otros reclamos donde nadie te explica el siguiente paso
+            Pensado para EPS, IPS, medicamentos, citas, procedimientos y barreras de acceso
           </h2>
           <p className="text-brand/60 text-lg max-w-2xl mx-auto">
-            HazloPorMi no te obliga a adivinar. Primero entiende tu caso, luego te dice que hacer y, si pagas, lo pasa a produccion humana.
+            123tutela no te obliga a adivinar. Primero entiende tu caso, luego te dice que hacer y, si pagas, lo pasa a produccion humana.
           </p>
         </div>
 
@@ -44,7 +44,7 @@ const Entities = () => {
 const FAQ = () => {
   const questions = [
     {
-      q: '¿HazloPorMi redacta automaticamente con IA?',
+      q: '¿123tutela redacta automaticamente con IA?',
       a: 'No. La IA hace el diagnostico inicial y ayuda a ordenar la informacion. Cuando pagas, el caso pasa a produccion humana para que una persona prepare el documento final.',
     },
     {
@@ -92,7 +92,7 @@ const ChecklistPreview = () => (
     <div className="max-w-5xl mx-auto px-6">
       <div className="text-center mb-12">
         <p className="text-accent uppercase tracking-[0.22em] text-xs font-black mb-4">Entrega</p>
-        <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-brand">Asi se siente el flujo cuando ya no estas perdido</h2>
+        <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-brand">Asi se siente el flujo cuando ya no estas perdido frente a la EPS</h2>
         <p className="text-brand/60 text-lg max-w-2xl mx-auto">
           No vendemos solo un archivo. Vendemos claridad, orden y una salida concreta para que una persona de produccion pueda ayudarte mejor.
         </p>
@@ -101,7 +101,7 @@ const ChecklistPreview = () => (
       <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-brand/5 relative overflow-hidden max-w-3xl mx-auto">
         <div className="flex justify-between items-center mb-8 border-b border-brand/10 pb-6">
           <div>
-            <h4 className="font-extrabold text-xl text-brand">Ruta del caso HazloPorMi</h4>
+            <h4 className="font-extrabold text-xl text-brand">Ruta del caso 123tutela</h4>
             <p className="text-xs font-bold text-brand/40 uppercase">Ejemplo de experiencia</p>
           </div>
           <div className="bg-success/10 text-success text-[10px] font-extrabold px-3 py-1 rounded-full uppercase">Listo para produccion</div>
@@ -183,11 +183,11 @@ const LandingPage = () => {
               <Scale className="text-brand w-6 h-6" />
             </div>
             <span className="font-headings text-xl font-extrabold tracking-tight">
-              HazloPorMi
+              123tutela
             </span>
           </div>
           <div className="text-white/50 text-sm font-medium">
-            © 2026 HazloPorMi. Todos los derechos reservados. Colombia.
+            © 2026 123tutela. Todos los derechos reservados. Colombia.
           </div>
           <div className="flex gap-6 font-bold text-sm">
             <a href="#" className="hover:text-accent">Terminos</a>

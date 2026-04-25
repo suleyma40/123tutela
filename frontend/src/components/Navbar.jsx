@@ -11,7 +11,7 @@ const Navbar = () => {
             <Scale className="text-accent w-6 h-6" />
           </div>
           <span className="font-headings text-xl font-extrabold text-brand tracking-tight">
-            HazloPorMi
+            123<span className="text-accent">tutela</span>
           </span>
         </Link>
         
