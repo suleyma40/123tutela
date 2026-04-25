@@ -53,19 +53,19 @@ const steps = [
   {
     index: '02',
     title: 'La IA analiza tu caso',
-    description: 'Identifica el derecho vulnerado y te entrega un informe inicial gratis.',
+    description: 'Identifica el derecho vulnerado y te muestra la mejor ruta antes de pagar.',
   },
   {
     index: '03',
-    title: 'Eliges que activar',
-    description: 'Documento o documento mas radicacion. Todo queda visible en tu panel.',
+    title: 'Activas tu documento',
+    description: 'Pagas una sola vez y dejas tu expediente listo para avanzar desde el panel.',
   },
 ];
 
 const highlights = [
-  'Analisis detallado del caso sin costo.',
-  'Documento listo para pago individual por tipo de tramite.',
-  'Radicacion automatizada cuando el cliente la elige.',
+  'Precio unico de $49.900 por documento.',
+  'Ruta clara antes de pagar, sin adivinar el tramite.',
+  'Participas por un bono de 2.5 millones de pesos en mayo.',
 ];
 
 const faq = [
@@ -75,11 +75,15 @@ const faq = [
   },
   {
     q: '¿Que pasa despues del pago?',
-    a: 'Se habilita el producto correspondiente, se consolida la informacion del expediente y el cliente ve el siguiente paso desde el panel.',
+    a: 'Se habilita tu documento, se consolida el expediente y ves el siguiente paso desde el panel.',
   },
   {
     q: '¿Cuanto demora?',
-    a: 'El diagnostico inicial es inmediato. La promesa comercial visible para el producto se muestra antes del pago.',
+    a: 'El diagnostico inicial es inmediato. Luego activas tu documento con un precio unico visible antes del pago.',
+  },
+  {
+    q: '¿Como funciona el bono de mayo de 2026?',
+    a: 'Los usuarios de la app con pago aprobado durante mayo de 2026 participan por un bono de 2.5 millones de pesos. La entrega se hace en vivo el 30 de mayo de 2026.',
   },
 ];
 
@@ -109,13 +113,8 @@ const landingStyles = `
     min-height: 100vh;
     font-family: 'DM Sans', sans-serif;
   }
-  .landing-vision * {
-    box-sizing: border-box;
-  }
-  .landing-wrap {
-    width: min(1200px, calc(100vw - 48px));
-    margin: 0 auto;
-  }
+  .landing-vision * { box-sizing: border-box; }
+  .landing-wrap { width: min(1200px, calc(100vw - 48px)); margin: 0 auto; }
   .landing-nav {
     position: sticky;
     top: 0;
@@ -148,13 +147,8 @@ const landingStyles = `
     place-items: center;
     color: #fff;
   }
-  .landing-logo__text {
-    font-size: 30px;
-    font-weight: 800;
-  }
-  .landing-logo__text span {
-    color: ${palette.primary};
-  }
+  .landing-logo__text { font-size: 30px; font-weight: 800; }
+  .landing-logo__text span { color: ${palette.primary}; }
   .landing-nav__links {
     display: flex;
     align-items: center;
@@ -163,10 +157,7 @@ const landingStyles = `
     color: ${palette.muted};
     font-weight: 700;
   }
-  .landing-nav__links a {
-    color: inherit;
-    text-decoration: none;
-  }
+  .landing-nav__links a { color: inherit; text-decoration: none; }
   .landing-btn {
     display: inline-flex;
     align-items: center;
@@ -179,27 +170,11 @@ const landingStyles = `
     text-decoration: none;
     transition: transform 0.18s ease, opacity 0.18s ease;
   }
-  .landing-btn:hover {
-    transform: translateY(-1px);
-    opacity: 0.96;
-  }
-  .landing-btn--primary {
-    background: ${palette.primary};
-    color: #fff;
-  }
-  .landing-btn--outline {
-    border: 1px solid ${palette.border};
-    color: ${palette.primary};
-    background: transparent;
-  }
-  .landing-btn--ghost {
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #fff;
-    background: rgba(255,255,255,0.08);
-  }
-  .landing-hero {
-    padding: 56px 0 44px;
-  }
+  .landing-btn:hover { transform: translateY(-1px); opacity: 0.96; }
+  .landing-btn--primary { background: ${palette.primary}; color: #fff; }
+  .landing-btn--outline { border: 1px solid ${palette.border}; color: ${palette.primary}; background: transparent; }
+  .landing-btn--ghost { border: 1px solid rgba(255,255,255,0.1); color: #fff; background: rgba(255,255,255,0.08); }
+  .landing-hero { padding: 56px 0 44px; }
   .landing-hero__grid {
     display: grid;
     grid-template-columns: 1.05fr 0.95fr;
@@ -246,9 +221,7 @@ const landingStyles = `
     color: rgba(255,255,255,0.78);
     font-weight: 700;
   }
-  .landing-preview {
-    padding: 28px;
-  }
+  .landing-preview { padding: 28px; }
   .landing-preview__top,
   .landing-footer {
     display: flex;
@@ -268,9 +241,7 @@ const landingStyles = `
     background: #F8FAFD;
     border: 1px solid ${palette.border};
   }
-  .landing-section {
-    padding: 8px 0 56px;
-  }
+  .landing-section { padding: 8px 0 56px; }
   .landing-section__head {
     display: flex;
     justify-content: space-between;
@@ -285,63 +256,29 @@ const landingStyles = `
     font-size: 44px;
     line-height: 1.05;
   }
-  .landing-grid-4 {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-  }
-  .landing-grid-3 {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-  }
-  .landing-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 28px;
-  }
-  .landing-category {
-    padding: 20px;
-  }
-  .landing-process {
-    background: ${palette.dark};
-    color: #fff;
-    padding: 72px 0;
-  }
-  .landing-process h2 {
-    margin-top: 16px;
-    font-size: 54px;
-  }
+  .landing-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .landing-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .landing-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .landing-category { padding: 20px; }
+  .landing-process { background: ${palette.dark}; color: #fff; padding: 72px 0; }
+  .landing-process h2 { margin-top: 16px; font-size: 54px; }
   .landing-process__step {
     padding: 28px;
     border-radius: 24px;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
   }
-  .landing-pricing {
-    padding: 68px 0 96px;
-  }
-  .landing-pricing__panel {
-    padding: 34px 32px;
-  }
-  .landing-faq {
-    padding: 0 0 80px;
-  }
-  .landing-faq__list {
-    display: grid;
-    gap: 12px;
-  }
+  .landing-pricing { padding: 68px 0 96px; }
+  .landing-pricing__panel { padding: 34px 32px; }
+  .landing-faq { padding: 0 0 80px; }
+  .landing-faq__list { display: grid; gap: 12px; }
   .landing-faq details {
     background: #fff;
     border: 1px solid ${palette.border};
     border-radius: 18px;
     padding: 18px 20px;
   }
-  .landing-faq summary {
-    cursor: pointer;
-    font-weight: 800;
-    list-style: none;
-  }
+  .landing-faq summary { cursor: pointer; font-weight: 800; list-style: none; }
   .landing-footer {
     padding: 26px 0 36px;
     border-top: 1px solid ${palette.border};
@@ -352,21 +289,12 @@ const landingStyles = `
     .landing-grid-2,
     .landing-grid-3,
     .landing-grid-4,
-    .landing-kpi-grid {
-      grid-template-columns: 1fr;
-    }
+    .landing-kpi-grid { grid-template-columns: 1fr; }
     .landing-card--hero h1,
-    .landing-process h2 {
-      font-size: 46px;
-    }
+    .landing-process h2 { font-size: 46px; }
     .landing-section__head h2,
-    .landing-pricing h2 {
-      font-size: 36px;
-    }
-    .landing-nav__links {
-      width: 100%;
-      justify-content: flex-start;
-    }
+    .landing-pricing h2 { font-size: 36px; }
+    .landing-nav__links { width: 100%; justify-content: flex-start; }
   }
 `;
 
@@ -391,7 +319,7 @@ const LandingPage = () => {
             <a href="#categorias">Categorias</a>
             <a href="#precios">Precios</a>
             <Link to="/admin" className="landing-btn landing-btn--outline">Iniciar sesion</Link>
-            <Link to="/diagnostico" className="landing-btn landing-btn--primary">Empezar gratis</Link>
+            <Link to="/diagnostico" className="landing-btn landing-btn--primary">Quiero mi documento</Link>
           </div>
         </div>
       </nav>
@@ -399,18 +327,18 @@ const LandingPage = () => {
       <section className="landing-hero">
         <div className="landing-wrap landing-hero__grid">
           <div className="landing-card landing-card--hero">
-            <Badge color={palette.success}>Impulsado por IA juridica colombiana</Badge>
+            <Badge color={palette.success}>IA juridica colombiana + oferta de mayo</Badge>
             <h1>
-              Tu tutela de salud,
+              Tu documento legal en salud,
               <br />
-              sin barreras.
+              por $49.900.
             </h1>
             <p>
-              Analisis gratis para casos de salud. La plataforma recomienda la ruta correcta y el usuario decide si activa solo el documento o documento mas radicacion.
+              123tutela analiza tu caso, te muestra la ruta correcta y te deja activar tu documento por un precio unico. En mayo, ademas, los usuarios de la app participan por un bono de 2.5 millones de pesos.
             </p>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 28 }}>
               <Link to="/diagnostico" className="landing-btn landing-btn--primary">
-                Empezar mi tramite <ArrowRight size={18} />
+                Quiero mi documento <ArrowRight size={18} />
               </Link>
               <Link to="/admin" className="landing-btn landing-btn--ghost">
                 Ya tengo cuenta
@@ -418,8 +346,8 @@ const LandingPage = () => {
             </div>
             <div className="landing-chip-row">
               <span>Solo salud</span>
-              <span>Informe gratis</span>
-              <span>Panel de seguimiento</span>
+              <span>Precio unico</span>
+              <span>Bono en vivo el 30 de mayo de 2026</span>
             </div>
           </div>
 
@@ -446,15 +374,15 @@ const LandingPage = () => {
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#93C5FD', marginBottom: 6 }}>ACCION RECOMENDADA</div>
                 <div style={{ fontSize: 30, fontWeight: 800 }}>Accion de tutela</div>
                 <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.76)' }}>
-                  Documento listo para pago y radicacion digital si el cliente la elige.
+                  Documento listo para activar por $49.900 desde la app.
                 </div>
               </div>
 
               <div className="landing-kpi-grid">
                 {[
                   { label: 'Analisis', value: 'Gratis' },
-                  { label: 'Promesa', value: 'Ruta clara' },
-                  { label: 'Cobertura', value: 'Salud' },
+                  { label: 'Precio', value: '$49.900' },
+                  { label: 'Bono', value: '2.5M' },
                 ].map((item) => (
                   <div key={item.label} className="landing-kpi">
                     <div style={{ fontSize: 12, color: palette.muted, fontWeight: 700 }}>{item.label}</div>
@@ -473,13 +401,13 @@ const LandingPage = () => {
             <div>
               <Badge color={palette.primary}>Categorias</Badge>
               <h2>
-                Productos de salud que ya podemos
+                Documentos de salud
                 <br />
-                sacar a produccion.
+                listos para activar.
               </h2>
             </div>
             <p style={{ maxWidth: 420, color: palette.muted }}>
-              En esta salida inicial solo abrimos salud: peticion, tutela, impugnacion y desacato.
+              El mismo precio para cualquier documento del catalogo activo de salud: peticion, tutela, impugnacion y desacato.
             </p>
           </div>
 
@@ -514,7 +442,7 @@ const LandingPage = () => {
         <div className="landing-wrap">
           <div style={{ textAlign: 'center', marginBottom: 34 }}>
             <Badge color={palette.success}>Como funciona</Badge>
-            <h2>Tres pasos. Sin complicaciones.</h2>
+            <h2>Tres pasos. CTA directo.</h2>
           </div>
 
           <div className="landing-grid-3">
@@ -533,14 +461,14 @@ const LandingPage = () => {
         <div className="landing-wrap">
           <div className="landing-card landing-pricing__panel landing-grid-2">
             <div>
-              <Badge color={palette.primary}>Precios</Badge>
+              <Badge color={palette.primary}>Oferta</Badge>
               <h2>
-                Pagas solo por lo que
+                Un precio claro.
                 <br />
-                decides activar.
+                Un gancho fuerte.
               </h2>
               <p style={{ marginTop: 16, color: palette.muted, lineHeight: 1.7, maxWidth: 520 }}>
-                La promesa comercial es simple: diagnostico gratis, producto claro y radicacion opcional cuando el caso y el canal lo permiten.
+                La promesa comercial es simple: diagnostico inicial, ruta clara y documento activable por un solo precio. Durante mayo de 2026, cada pago aprobado participa por el bono en vivo.
               </p>
               <div style={{ display: 'grid', gap: 12, marginTop: 22 }}>
                 {highlights.map((item) => (
@@ -560,26 +488,33 @@ const LandingPage = () => {
                 border: `1px solid ${palette.border}`,
               }}
             >
-              <div style={{ fontSize: 14, color: palette.muted, fontWeight: 700 }}>Ejemplo visible para el cliente</div>
-              <div style={{ marginTop: 12, fontSize: 42, fontWeight: 800 }}>Tutela desde $67.900</div>
-              <div style={{ color: palette.muted }}>Radicacion opcional por $36.000 adicionales.</div>
+              <div style={{ fontSize: 14, color: palette.muted, fontWeight: 700 }}>Precio visible para cualquier documento</div>
+              <div style={{ marginTop: 12, fontSize: 52, fontWeight: 800 }}>$49.900</div>
+              <div style={{ color: palette.muted }}>Mismo precio para cualquier documento del catalogo activo de salud.</div>
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${palette.border}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
-                  <span>Analisis juridico inicial</span>
+                  <span>Analisis inicial del caso</span>
                   <strong>Gratis</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
-                  <span>Documento individual</span>
-                  <strong>Desde $36.900</strong>
+                  <span>Cualquier documento</span>
+                  <strong>$49.900</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
-                  <span>Documento + radicacion</span>
-                  <strong>Desde $72.900</strong>
+                  <span>Bono mayo 2026</span>
+                  <strong>2.5 millones</strong>
+                </div>
+              </div>
+              <div style={{ marginTop: 18, padding: 18, borderRadius: 18, background: '#0F2C5F', color: '#fff' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#93C5FD', marginBottom: 6 }}>ENTREGA ESPECIAL</div>
+                <div style={{ fontSize: 22, fontWeight: 800 }}>En vivo el 30 de mayo de 2026</div>
+                <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.76)', lineHeight: 1.6 }}>
+                  Los usuarios de la app con pago aprobado en mayo participan por este bono especial de 2.5 millones de pesos.
                 </div>
               </div>
               <div style={{ marginTop: 24 }}>
                 <Link to="/diagnostico" className="landing-btn landing-btn--primary" style={{ width: '100%' }}>
-                  Crear mi cuenta y empezar
+                  Activar mi documento ahora
                 </Link>
               </div>
             </div>
