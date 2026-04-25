@@ -1,20 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertCircle, ArrowRight, CheckCircle2, ShieldCheck, Trophy } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import { motion } from 'framer-motion';
-import { CreditCard, CheckCircle2, ShieldCheck, Trophy, ArrowRight, Scale, AlertCircle } from 'lucide-react';
 import { api, extractError } from '../lib/api';
 
-const widgetScriptUrl = "https://checkout.wompi.co/widget.js";
+const widgetScriptUrl = 'https://checkout.wompi.co/widget.js';
 
 const PaymentPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [guestCase, setGuestCase] = useState(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("hazlopormi-guest-case");
+    const saved = localStorage.getItem('hazlopormi-guest-case');
     if (saved) {
       setGuestCase(JSON.parse(saved));
     } else {
@@ -26,7 +25,7 @@ const PaymentPage = () => {
     new Promise((resolve, reject) => {
       const start = () => {
         if (!window.WidgetCheckout) {
-          reject(new Error("Widget de Wompi no disponible."));
+          reject(new Error('Widget de Wompi no disponible.'));
           return;
         }
         try {
@@ -35,9 +34,9 @@ const PaymentPage = () => {
             amountInCents: checkout.amount_in_cents,
             reference: checkout.reference,
             publicKey: checkout.public_key,
-            redirectUrl: checkout["redirect-url"],
-            customerData: { email: checkout["customer-data:email"] },
-            signature: { integrity: checkout["signature:integrity"] },
+            redirectUrl: checkout['redirect-url'],
+            customerData: { email: checkout['customer-data:email'] },
+            signature: { integrity: checkout['signature:integrity'] },
           });
           widget.open((result) => resolve(result || {}));
         } catch (error) {
@@ -50,13 +49,13 @@ const PaymentPage = () => {
       }
       const existing = document.querySelector('script[data-wompi-widget="true"]');
       if (existing) {
-        existing.addEventListener("load", start, { once: true });
+        existing.addEventListener('load', start, { once: true });
         return;
       }
-      const script = document.createElement("script");
+      const script = document.createElement('script');
       script.src = widgetScriptUrl;
       script.async = true;
-      script.dataset.wompiWidget = "true";
+      script.dataset.wompiWidget = 'true';
       script.onload = start;
       document.body.appendChild(script);
     });
@@ -64,14 +63,14 @@ const PaymentPage = () => {
   const handlePayment = async () => {
     if (!guestCase) return;
     setLoading(true);
-    setError("");
+    setError('');
     try {
-      const response = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, { 
-        public_token: guestCase.publicToken 
+      const response = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, {
+        public_token: guestCase.publicToken,
       });
       await launchWidget(response.data.checkout);
     } catch (err) {
-      setError(extractError(err, "No fue posible iniciar el pago. Intenta de nuevo."));
+      setError(extractError(err, 'No fue posible iniciar el pago. Intenta de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -80,98 +79,106 @@ const PaymentPage = () => {
   if (!guestCase) return null;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
       <Navbar />
-      
+
       <main className="pt-32 pb-20 px-6">
-        <div className="max-w-4xl mx-auto">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-[3rem] shadow-2xl border-4 border-brand overflow-hidden"
-          >
-            <div className="grid md:grid-cols-2">
-              
-              {/* Summary Side */}
-              <div className="p-8 md:p-12 border-b md:border-b-0 md:border-r border-brand/10">
-                <div className="inline-flex items-center gap-2 bg-success/10 text-success px-4 py-1.5 rounded-full text-xs font-black uppercase mb-6">
-                  <CheckCircle2 size={14} /> Caso Analizado
-                </div>
-                
-                <h2 className="text-3xl font-extrabold text-brand mb-4">Estrategia Recomendada</h2>
-                <div className="bg-brand/5 p-6 rounded-2xl mb-8">
-                  <h4 className="font-bold text-brand flex items-center gap-2 mb-2">
-                    <Scale size={18} className="text-accent" /> {guestCase.recommendedAction}
-                  </h4>
-                  <p className="text-brand/70 text-sm leading-relaxed">
-                    {guestCase.strategyText}
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="font-bold text-brand text-sm uppercase">Tu kit incluirá:</h4>
-                  <ul className="space-y-3">
-                    <li className="flex items-center gap-3 text-sm font-medium text-brand/80">
-                      <CheckCircle2 size={16} className="text-success" /> Documento legal redactado
-                    </li>
-                    <li className="flex items-center gap-3 text-sm font-medium text-brand/80">
-                      <CheckCircle2 size={16} className="text-success" /> Guía paso a paso de radicación
-                    </li>
-                    <li className="flex items-center gap-3 text-sm font-medium text-brand/80">
-                      <CheckCircle2 size={16} className="text-success" /> Código para la Rifa Mensual
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              {/* Payment Side */}
-              <div className="p-8 md:p-12 bg-brand/5 flex flex-col justify-center relative">
-                <div className="absolute top-6 right-[-40px] bg-accent text-brand font-bold py-1 px-12 rotate-45 shadow-lg text-[10px]">
-                  <Trophy size={12} className="inline mr-1" /> RIFA ACTIVA
-                </div>
-
-                <div className="text-center mb-8">
-                  <p className="text-brand/60 font-bold uppercase text-xs mb-2">Total a pagar</p>
-                  <div className="flex items-baseline justify-center gap-2">
-                    <span className="text-5xl font-black text-brand">$59.900</span>
-                    <span className="text-brand/60 font-bold">COP</span>
-                  </div>
-                </div>
-
-                <div className="space-y-4 mb-8">
-                  <div className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-brand/5">
-                    <ShieldCheck className="text-success shrink-0" />
-                    <p className="text-xs text-brand/70 font-medium">Pago procesado de forma segura por Wompi (Bancolombia).</p>
-                  </div>
-                  <div className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-brand/5">
-                    <AlertCircle className="text-accent shrink-0" />
-                    <p className="text-xs text-brand/70 font-medium">Recibirás tu kit en tu correo en menos de 24 horas hábiles.</p>
-                  </div>
-                </div>
-
-                {error && (
-                  <p className="text-red-600 text-xs font-bold text-center mb-4">{error}</p>
-                )}
-
-                <button 
-                  onClick={handlePayment}
-                  disabled={loading}
-                  className="btn-primary w-full py-5 text-xl flex justify-center items-center gap-3 shadow-[0_10px_30px_rgba(245,166,35,0.4)]"
-                >
-                  {loading ? "Iniciando..." : "Pagar y Activar Kit"} <ArrowRight />
-                </button>
-
-                <div className="mt-6 flex justify-center gap-4">
-                  <img src="https://checkout.wompi.co/images/payment-methods.png" alt="Métodos de pago" className="h-6 opacity-60 grayscale" />
-                </div>
-              </div>
-
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-[0.95fr_1.05fr] gap-8">
+          <section className="rounded-[28px] border border-white/10 bg-[#08172E] p-8 md:p-10 text-white shadow-[0_18px_55px_rgba(18,35,61,0.12)]">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#36D399]/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-[#36D399]">
+              <CheckCircle2 size={14} />
+              Caso analizado
             </div>
-          </motion.div>
-          
-          <p className="text-center mt-8 text-brand/40 text-sm font-medium">
-            Al realizar el pago, aceptas nuestros términos de servicio y políticas de privacidad.
-          </p>
+
+            <h1 className="mt-6 text-4xl md:text-5xl font-black leading-none">Activa tu documento</h1>
+            <p className="mt-4 text-white/72 text-lg leading-7">
+              Ya tienes una ruta recomendada. Ahora puedes activar tu documento con pago seguro y entrar al sorteo especial de mayo.
+            </p>
+
+            <div className="mt-8 rounded-[24px] border border-white/10 bg-white/5 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45 mb-3">Ruta sugerida</p>
+              <h2 className="text-2xl font-black">{guestCase.recommendedAction}</h2>
+              <p className="text-sm text-white/70 mt-3 leading-6">{guestCase.strategyText}</p>
+            </div>
+
+            <div className="grid gap-4 mt-8">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-[#36D399] mt-1 shrink-0" />
+                <p className="text-sm text-white/72">Documento legal alineado con la ruta detectada por la plataforma.</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <ShieldCheck size={18} className="text-[#19B7FF] mt-1 shrink-0" />
+                <p className="text-sm text-white/72">Confirmacion segura por Wompi. El documento solo se habilita cuando el pago queda aprobado.</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <Trophy size={18} className="text-[#F59E0B] mt-1 shrink-0" />
+                <p className="text-sm text-white/72">Cada pago aprobado en mayo participa por un bono de 2.5 millones entregado en vivo el 30 de mayo de 2026.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-slate-200 bg-white p-8 md:p-10 shadow-[0_18px_55px_rgba(18,35,61,0.06)]">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400 mb-3">Checkout</p>
+            <h2 className="text-4xl font-black leading-none">$49.900</h2>
+            <p className="text-slate-500 mt-3">Precio unico para cualquier documento del catalogo activo de salud.</p>
+
+            <div className="grid gap-4 mt-8">
+              <div className="rounded-[22px] border border-slate-200 bg-[#FCFDFF] p-5">
+                <div className="flex justify-between gap-4 text-sm">
+                  <span className="text-slate-500">Analisis inicial del caso</span>
+                  <strong>Gratis</strong>
+                </div>
+                <div className="flex justify-between gap-4 text-sm mt-3">
+                  <span className="text-slate-500">Documento</span>
+                  <strong>$49.900</strong>
+                </div>
+                <div className="flex justify-between gap-4 text-sm mt-3">
+                  <span className="text-slate-500">Participacion bono mayo</span>
+                  <strong>Incluida</strong>
+                </div>
+              </div>
+
+              <div className="rounded-[22px] border border-slate-200 bg-[#F8FBFF] p-5">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400 mb-2">Gancho de conversion</p>
+                <p className="text-lg font-black text-slate-900">Bono de 2.5 millones de pesos</p>
+                <p className="text-sm text-slate-500 mt-2 leading-6">
+                  Se entrega en vivo el 30 de mayo de 2026 entre los usuarios de la app con pago aprobado en mayo.
+                </p>
+              </div>
+
+              <div className="grid gap-3">
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                  <ShieldCheck className="text-[#36D399] shrink-0" />
+                  <p className="text-sm text-slate-600">Pago procesado de forma segura por Wompi.</p>
+                </div>
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                  <AlertCircle className="text-[#F59E0B] shrink-0" />
+                  <p className="text-sm text-slate-600">Despues del pago veras el estado real del expediente y el siguiente paso operativo.</p>
+                </div>
+              </div>
+            </div>
+
+            {error && (
+              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm font-semibold text-red-600">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handlePayment}
+              disabled={loading}
+              className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-[#0D68FF] px-6 py-5 text-lg font-black text-white disabled:opacity-60"
+            >
+              {loading ? 'Iniciando pago...' : 'Pagar y activar documento'}
+              <ArrowRight size={20} />
+            </button>
+
+            <img
+              src="https://checkout.wompi.co/images/payment-methods.png"
+              alt="Metodos de pago"
+              className="h-6 opacity-60 grayscale mx-auto mt-6"
+            />
+          </section>
         </div>
       </main>
     </div>

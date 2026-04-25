@@ -1,28 +1,41 @@
 import React from 'react';
 import { Scale, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const Navbar = () => {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
-      <div className="max-w-7xl mx-auto flex justify-between items-center rounded-full border border-white/70 bg-white/78 backdrop-blur-xl shadow-[0_10px_35px_rgba(26,58,107,0.12)] px-5 py-3">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="bg-brand p-2 rounded-xl shadow-sm">
-            <Scale className="text-accent w-6 h-6" />
-          </div>
-          <span className="font-headings text-xl font-extrabold text-brand tracking-tight">
-            123<span className="text-accent">tutela</span>
-          </span>
-        </Link>
-        
-        <div className="hidden md:flex items-center gap-8">
-          <a href="#proceso" className="font-bold text-brand/70 hover:text-accent transition-colors">Como funciona</a>
-          <a href="#precio" className="font-bold text-brand/70 hover:text-accent transition-colors">Precio</a>
-          <a href="#faq" className="font-bold text-brand/70 hover:text-accent transition-colors">FAQ</a>
-          <Link to="/diagnostico" className="btn-primary flex items-center gap-2 py-2.5 text-sm">
-            Revisar mi caso <ArrowRight size={16} />
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200/80 bg-[rgba(245,247,251,0.82)] backdrop-blur-xl">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="min-h-[84px] flex items-center justify-between gap-4 flex-wrap">
+          <Link to="/" className="flex items-center gap-3 no-underline">
+            <div className="w-10 h-10 rounded-[14px] bg-[linear-gradient(135deg,#0D68FF_0%,#19B7FF_100%)] grid place-items-center text-white">
+              <Scale className="w-5 h-5" />
+            </div>
+            <span className="text-[30px] leading-none font-black text-slate-900">
+              123<span className="text-[#0D68FF]">tutela</span>
+            </span>
           </Link>
-          <Link to="/admin" className="text-brand/40 hover:text-brand transition-colors text-sm font-bold">Admin</Link>
+
+          <div className="flex items-center gap-3 flex-wrap text-sm font-bold text-slate-500">
+            {!isAdmin && <Link to="/" className="text-inherit no-underline">Inicio</Link>}
+            {!isAdmin && <Link to="/terminos" className="text-inherit no-underline">Terminos</Link>}
+            {!isAdmin && <Link to="/privacidad" className="text-inherit no-underline">Privacidad</Link>}
+            {!isAdmin && <Link to="/contacto" className="text-inherit no-underline">Contacto</Link>}
+            <Link to="/admin" className="rounded-xl border border-slate-200 px-4 py-2 text-[#0D68FF] no-underline">
+              Admin
+            </Link>
+            {!isAdmin && (
+              <Link
+                to="/diagnostico"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0D68FF] px-4 py-2 text-white no-underline"
+              >
+                Quiero mi documento <ArrowRight size={16} />
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </nav>

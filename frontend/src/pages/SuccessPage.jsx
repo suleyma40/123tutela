@@ -226,10 +226,10 @@ const SuccessPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-cream">
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FB]">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-brand animate-spin mx-auto mb-4" />
-          <p className="font-bold text-brand">Verificando tu pago...</p>
+          <p className="font-bold text-slate-900">Verificando tu pago...</p>
         </div>
       </div>
     );
@@ -243,7 +243,7 @@ const SuccessPage = () => {
   const raffleCode = caseData?.latest_payment?.raffle?.code || caseData?.customer_summary?.raffle?.code;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
       <Navbar />
 
       <main className="pt-32 pb-20 px-6">
@@ -252,14 +252,14 @@ const SuccessPage = () => {
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              className="bg-success text-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl"
+              className="bg-[#36D399] text-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl"
             >
               <CheckCircle2 size={40} />
             </motion.div>
-            <h1 className="text-4xl font-extrabold text-brand mb-4">
+            <h1 className="text-4xl font-extrabold text-slate-900 mb-4">
               {isPaid ? 'Pago confirmado' : 'Pago en procesamiento'}
             </h1>
-            <p className="text-brand/60 text-lg max-w-2xl mx-auto font-medium">
+            <p className="text-slate-500 text-lg max-w-2xl mx-auto font-medium">
               {isPaid
                 ? 'Tu pago ya quedo confirmado. Ahora necesitamos cerrar datos y soportes para que produccion humana redacte sin repreguntas ni retrasos.'
                 : 'Estamos esperando la confirmacion final del pago. Esto puede tardar unos minutos.'}
@@ -272,11 +272,11 @@ const SuccessPage = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-brand/5"
-                >
-                  <p className="text-xs font-black uppercase tracking-widest text-brand/50 mb-3">Identificadores de tu pago</p>
-                  <h3 className="text-2xl font-extrabold text-brand mb-3">Guarda estos codigos</h3>
-                  <p className="text-sm text-brand/60 font-medium mb-6">
+                className="bg-white p-8 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-slate-200"
+              >
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Identificadores de tu pago</p>
+                  <h3 className="text-2xl font-extrabold text-slate-900 mb-3">Guarda estos codigos</h3>
+                  <p className="text-sm text-slate-500 font-medium mb-6">
                     No usamos consecutivos visibles. Cada pago recibe codigos unicos para seguimiento operativo y para la rifa mensual.
                   </p>
                   <div className="grid md:grid-cols-3 gap-4">
@@ -291,13 +291,13 @@ const SuccessPage = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-brand text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden"
-                >
+                className="bg-[#08172E] text-white p-8 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.12)] relative overflow-hidden"
+              >
                   <div className="absolute top-0 right-0 p-8 opacity-10">
                     <Trophy size={120} />
                   </div>
                   <div className="relative z-10">
-                    <p className="text-accent font-black uppercase text-xs tracking-widest mb-2">Participacion en rifa mensual</p>
+                    <p className="text-[#19B7FF] font-black uppercase text-xs tracking-widest mb-2">Participacion en rifa mensual</p>
                     <h3 className="text-2xl font-extrabold mb-3">Tu codigo unico es:</h3>
                     <p className="text-white/80 text-sm font-medium mb-4 max-w-xl">
                       Este codigo identifica tu participacion al cierre del periodo promocional. Es unico por pago aprobado y no sigue una secuencia publica.
@@ -310,17 +310,17 @@ const SuccessPage = () => {
               )}
 
               {isPaid && !isDelivered && (
-                <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-brand/5">
-                  <h3 className="text-2xl font-extrabold text-brand mb-8 flex items-center gap-3">
-                    <MessageSquareMore className="text-accent" /> Agente de Produccion
+                <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-slate-200">
+                  <h3 className="text-2xl font-extrabold text-slate-900 mb-8 flex items-center gap-3">
+                    <MessageSquareMore className="text-[#19B7FF]" /> Agente de Produccion
                   </h3>
 
                   <div className="grid gap-4 mb-8">
-                    <div className="rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
+                    <div className="rounded-[2rem] border border-slate-200 bg-[#F8FBFF] p-6">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-black uppercase tracking-wide text-brand mb-2">Estado del expediente</p>
-                          <p className="text-sm text-brand/70 font-medium">
+                          <p className="text-sm font-black uppercase tracking-wide text-slate-900 mb-2">Estado del expediente</p>
+                          <p className="text-sm text-slate-500 font-medium">
                             {opsSummary || 'Estamos consolidando tu expediente para que el equipo humano redacte sin repreguntas.'}
                           </p>
                         </div>
@@ -331,8 +331,8 @@ const SuccessPage = () => {
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
-                      <div className="rounded-[2rem] border border-brand/10 p-5">
-                        <p className="text-xs font-black uppercase tracking-wide text-brand/50 mb-3">Ya tenemos</p>
+                      <div className="rounded-[2rem] border border-slate-200 p-5">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-3">Ya tenemos</p>
                         <div className="flex flex-wrap gap-2">
                           <span className="px-3 py-1 rounded-full bg-success/10 text-success text-xs font-bold">Pago confirmado</span>
                           {customerCaseCode && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Codigo de expediente</span>}
@@ -343,9 +343,9 @@ const SuccessPage = () => {
                         </div>
                       </div>
 
-                      <div className="rounded-[2rem] border border-brand/10 p-5">
-                        <p className="text-xs font-black uppercase tracking-wide text-brand/50 mb-3">Falta para produccion</p>
-                        <p className="text-sm text-brand/70 font-medium">
+                      <div className="rounded-[2rem] border border-slate-200 p-5">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-3">Falta para produccion</p>
+                        <p className="text-sm text-slate-500 font-medium">
                           {prompts.length
                             ? `Responde ${prompts.length} bloque${prompts.length === 1 ? '' : 's'} de informacion y sube los soportes que tengas disponibles.`
                             : 'El expediente ya tiene base suficiente. Si quieres, solo agrega soportes o contexto adicional antes de enviarlo al equipo humano.'}
@@ -353,9 +353,9 @@ const SuccessPage = () => {
                       </div>
                     </div>
 
-                    <div className="rounded-[2rem] border border-accent/20 bg-accent/10 p-5">
-                      <p className="text-sm font-black text-brand mb-2">Que pasa despues de enviar esto</p>
-                      <p className="text-sm text-brand/70 font-medium">
+                    <div className="rounded-[2rem] border border-[#19B7FF]/20 bg-[#19B7FF]/10 p-5">
+                      <p className="text-sm font-black text-slate-900 mb-2">Que pasa despues de enviar esto</p>
+                      <p className="text-sm text-slate-600 font-medium">
                         Produccion humana revisara tus respuestas, validara anexos y te escribira solo si falta algo critico. El tiempo corre desde que el expediente quede completo.
                       </p>
                     </div>
@@ -514,7 +514,7 @@ const SuccessPage = () => {
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="btn-primary w-full py-4 text-xl flex justify-center items-center gap-3 disabled:opacity-50"
+                      className="w-full py-4 text-xl flex justify-center items-center gap-3 disabled:opacity-50 rounded-2xl bg-[#0D68FF] text-white font-black"
                     >
                       {submitting ? 'Enviando...' : 'Enviar expediente a Produccion Humana'} <Send size={20} />
                     </button>
@@ -523,20 +523,20 @@ const SuccessPage = () => {
               )}
 
               {isDelivered && (
-                <div className="bg-white p-12 rounded-[2.5rem] shadow-xl border border-success/20 text-center">
-                  <div className="bg-success/10 text-success w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+                <div className="bg-white p-12 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-emerald-200 text-center">
+                  <div className="bg-emerald-50 text-emerald-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Mail size={32} />
                   </div>
-                  <h3 className="text-3xl font-extrabold text-brand mb-4">Documento entregado</h3>
-                  <p className="text-brand/60 mb-8 font-medium">Hemos enviado tu kit legal completo a tu correo electronico.</p>
-                  <button onClick={() => navigate('/')} className="btn-secondary px-8">Volver al inicio</button>
+                  <h3 className="text-3xl font-extrabold text-slate-900 mb-4">Documento entregado</h3>
+                  <p className="text-slate-500 mb-8 font-medium">Hemos enviado tu kit legal completo a tu correo electronico.</p>
+                  <button onClick={() => navigate('/')} className="rounded-2xl bg-[#08172E] px-8 py-4 text-white font-black">Volver al inicio</button>
                 </div>
               )}
             </div>
 
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white p-8 rounded-[2.5rem] shadow-lg border border-brand/5">
-                <h4 className="font-extrabold text-brand mb-6">Linea de tiempo</h4>
+              <div className="bg-white p-8 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-slate-200">
+                <h4 className="font-extrabold text-slate-900 mb-6">Linea de tiempo</h4>
                 <div className="space-y-6">
                   <TimelineStep step="1" title="Pago aprobado" detail="Confirmado via Wompi" done />
                   <TimelineStep
@@ -560,8 +560,8 @@ const SuccessPage = () => {
                 </div>
               </div>
 
-              <div className="bg-brand/5 p-8 rounded-[2.5rem] border border-brand/5">
-                <p className="text-xs text-brand/60 leading-relaxed font-medium">
+              <div className="bg-[#F8FBFF] p-8 rounded-[2rem] border border-slate-200">
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">
                   <strong>Nota:</strong> El plazo de entrega corre desde que envias datos completos y soportes suficientes para produccion humana. Conserva tu codigo de expediente y tu codigo de rifa para cualquier seguimiento.
                 </p>
               </div>

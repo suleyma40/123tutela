@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Send, FileDown, Sparkles, User, Mail, MapPin, Building, Calendar, Shield, ExternalLink, Paperclip } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Paperclip } from 'lucide-react';
 import { api } from '../lib/api';
 
 const AdminCaseDetail = () => {
@@ -18,11 +18,10 @@ const AdminCaseDetail = () => {
     try {
       const token = localStorage.getItem('admin-token');
       const response = await api.get(`/internal/cases/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setCaso(response.data);
     } catch (error) {
-      console.error(error);
       if (error.response?.status === 401) navigate('/admin');
     } finally {
       setLoading(false);
@@ -34,141 +33,135 @@ const AdminCaseDetail = () => {
     try {
       const token = localStorage.getItem('admin-token');
       await api.post(`/internal/cases/${id}/status`, { status: newStatus }, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      alert(`Estado actualizado a: ${newStatus}`);
       fetchCaso();
-    } catch (error) {
-      alert("Error actualizando estado");
     } finally {
       setIsUpdating(false);
     }
   };
 
-  if (loading) return <div className="p-20 text-center font-bold text-brand">Cargando detalle del caso...</div>;
-  if (!caso) return <div className="p-20 text-center text-red-500 font-bold">Caso no encontrado</div>;
+  if (loading) return <div className="min-h-screen bg-[#F5F7FB] p-20 text-center font-black text-slate-900">Cargando detalle del caso...</div>;
+  if (!caso) return <div className="min-h-screen bg-[#F5F7FB] p-20 text-center font-black text-red-600">Caso no encontrado</div>;
 
   const c = caso.case;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/admin')} className="p-2 hover:bg-white rounded-xl transition-colors">
-              <ArrowLeft size={24} />
+    <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
+      <main className="max-w-7xl mx-auto px-6 py-10">
+        <header className="flex justify-between items-start gap-6 flex-wrap mb-10">
+          <div className="flex items-start gap-4">
+            <button onClick={() => navigate('/admin')} className="rounded-2xl border border-slate-200 bg-white p-3">
+              <ArrowLeft size={20} />
             </button>
-            <h1 className="text-2xl font-extrabold text-brand">Detalle del Caso</h1>
-            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${
-              c.status === 'entregado' ? 'bg-success/10 text-success' : 'bg-orange-100 text-orange-600'
-            }`}>
-              {c.status}
-            </span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400 mb-2">Expediente</p>
+              <h1 className="text-4xl font-black">Detalle del caso</h1>
+              <div className="flex items-center gap-3 mt-3 flex-wrap">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase text-slate-600">{c.category}</span>
+                <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase ${c.status === 'entregado' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{c.status}</span>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-3">
-             <select 
-               className="bg-white border border-gray-200 px-4 py-2 rounded-xl font-bold text-sm focus:outline-none"
-               value={c.status}
-               onChange={(e) => handleStatusUpdate(e.target.value)}
-             >
-                <option value="checkout_pendiente">Pendiente Checkout</option>
-                <option value="pagado_pendiente_intake">Pagado (Sin Formulario)</option>
-                <option value="en_revision">En Revisión Humana</option>
-                <option value="entregado">Entregado</option>
-             </select>
-          </div>
+
+          <select
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-bold outline-none"
+            value={c.status}
+            disabled={isUpdating}
+            onChange={(e) => handleStatusUpdate(e.target.value)}
+          >
+            <option value="checkout_pendiente">Pendiente checkout</option>
+            <option value="pagado_pendiente_intake">Pagado sin formulario</option>
+            <option value="en_revision">En revision humana</option>
+            <option value="entregado">Entregado</option>
+          </select>
         </header>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Info Column */}
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h3 className="font-bold text-brand mb-4 flex items-center gap-2 border-b pb-2"><User size={18} className="text-accent"/> Información Cliente</h3>
-              <div className="space-y-3 text-sm">
-                <p><strong className="text-brand/40 uppercase text-[10px]">Nombre:</strong><br/> {c.user_name || 'No suministrado'}</p>
-                <p><strong className="text-brand/40 uppercase text-[10px]">Correo:</strong><br/> {c.user_email}</p>
-                <p><strong className="text-brand/40 uppercase text-[10px]">Teléfono:</strong><br/> {c.user_phone || 'N/A'}</p>
-                <p><strong className="text-brand/40 uppercase text-[10px]">Cédula:</strong><br/> {c.user_document || 'N/A'}</p>
+        <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-8">
+          <div className="grid gap-6">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-4">Cliente</p>
+              <div className="grid gap-3 text-sm">
+                <p><strong className="text-slate-500">Nombre:</strong> {c.user_name || 'No suministrado'}</p>
+                <p><strong className="text-slate-500">Correo:</strong> {c.user_email}</p>
+                <p><strong className="text-slate-500">Telefono:</strong> {c.user_phone || 'N/A'}</p>
+                <p><strong className="text-slate-500">Documento:</strong> {c.user_document || 'N/A'}</p>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h3 className="font-bold text-brand mb-4 flex items-center gap-2 border-b pb-2"><Shield size={18} className="text-accent"/> Diagnóstico IA</h3>
-              <div className="space-y-3 text-sm">
-                <p><strong className="text-brand/40 uppercase text-[10px]">Acción Sugerida:</strong><br/> {c.recommended_action}</p>
-                <p><strong className="text-brand/40 uppercase text-[10px]">Categoría:</strong><br/> {c.category}</p>
-                <p><strong className="text-brand/40 uppercase text-[10px]">Entidad:</strong><br/> {c.target_entity}</p>
+            <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-4">Diagnostico</p>
+              <div className="grid gap-3 text-sm">
+                <p><strong className="text-slate-500">Accion sugerida:</strong> {c.recommended_action}</p>
+                <p><strong className="text-slate-500">Entidad:</strong> {c.target_entity}</p>
+                <p><strong className="text-slate-500">Pago:</strong> {c.payment_status}</p>
               </div>
             </div>
 
             {caso.latest_payment && (
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-brand mb-4 flex items-center gap-2 border-b pb-2 text-success"><ExternalLink size={18}/> Pago Wompi</h3>
-                <div className="space-y-3 text-sm">
-                  <p><strong className="text-brand/40 uppercase text-[10px]">Referencia:</strong><br/> {caso.latest_payment.reference}</p>
-                  <p><strong className="text-brand/40 uppercase text-[10px]">Monto:</strong><br/> ${caso.latest_payment.amount_in_cents / 100}</p>
-                  <p><strong className="text-brand/40 uppercase text-[10px]">Estado:</strong><br/> {caso.latest_payment.status}</p>
-                  {caso.latest_payment.raffle && (
-                    <p className="bg-accent/10 p-2 rounded-lg font-bold text-accent">Rifa: {caso.latest_payment.raffle.code}</p>
-                  )}
+              <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-4">Pago Wompi</p>
+                <div className="grid gap-3 text-sm">
+                  <p><strong className="text-slate-500">Referencia:</strong> {caso.latest_payment.reference}</p>
+                  <p><strong className="text-slate-500">Monto:</strong> ${caso.latest_payment.amount_in_cents / 100}</p>
+                  <p><strong className="text-slate-500">Estado:</strong> {caso.latest_payment.status}</p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Main Content Column */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-              <h3 className="font-bold text-brand mb-4 flex items-center gap-2">Descripción del Problema</h3>
-              <p className="text-sm text-brand/70 leading-relaxed italic bg-gray-50 p-6 rounded-xl border border-gray-100">
-                "{c.description}"
+          <div className="grid gap-6">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-4">Relato del caso</p>
+              <p className="rounded-[20px] border border-slate-200 bg-[#FCFDFF] p-5 text-sm leading-7 text-slate-600">
+                {c.description}
               </p>
             </div>
 
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-              <h3 className="font-bold text-brand mb-6 flex items-center gap-2 border-b pb-4">Archivos Adjuntos</h3>
+            <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-4">Archivos adjuntos</p>
               {caso.files && caso.files.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {caso.files.map(file => (
-                    <a 
-                      key={file.id} 
-                      href={`/public/files/${file.relative_path}`} 
-                      target="_blank" 
+                <div className="grid md:grid-cols-2 gap-4">
+                  {caso.files.map((file) => (
+                    <a
+                      key={file.id}
+                      href={`/public/files/${file.relative_path}`}
+                      target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-3 p-4 border border-gray-100 rounded-xl hover:bg-brand/5 transition-colors group"
+                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-[#FCFDFF] px-4 py-4 text-slate-700 no-underline"
                     >
-                      <Paperclip size={18} className="text-brand/30 group-hover:text-brand" />
+                      <Paperclip size={16} />
                       <div className="overflow-hidden">
-                        <p className="text-sm font-bold text-brand truncate">{file.original_name}</p>
-                        <p className="text-[10px] text-brand/40 uppercase font-black">{file.file_kind}</p>
+                        <p className="font-bold truncate">{file.original_name}</p>
+                        <p className="text-[11px] uppercase text-slate-400 font-black">{file.file_kind}</p>
                       </div>
+                      <ExternalLink size={14} className="ml-auto shrink-0" />
                     </a>
                   ))}
                 </div>
               ) : (
-                <p className="text-center py-8 text-brand/30 font-medium">No hay archivos cargados para este caso.</p>
+                <p className="text-sm text-slate-400 font-semibold">No hay archivos cargados para este caso.</p>
               )}
             </div>
 
-            {/* Facts and Intake Data */}
             {c.facts?.intake_form && (
-               <div className="bg-brand text-white p-8 rounded-2xl shadow-sm">
-                  <h3 className="font-bold mb-6 text-accent">Datos del Formulario Completo</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                     <div>
-                        <strong className="text-white/40 uppercase text-[10px]">Petición Concreta:</strong>
-                        <p className="mt-1">{c.facts.intake_form.concrete_request}</p>
-                     </div>
-                     <div>
-                        <strong className="text-white/40 uppercase text-[10px]">Detalles Extra:</strong>
-                        <p className="mt-1">{c.facts.intake_form.extra_details}</p>
-                     </div>
+              <div className="rounded-[24px] border border-white/10 bg-[#08172E] p-6 text-white">
+                <p className="text-xs font-black uppercase tracking-wide text-white/45 mb-4">Formulario completo</p>
+                <div className="grid md:grid-cols-2 gap-6 text-sm">
+                  <div>
+                    <p className="text-white/45 font-black uppercase text-[11px] mb-2">Peticion concreta</p>
+                    <p className="text-white/80 leading-6">{c.facts.intake_form.concrete_request}</p>
                   </div>
-               </div>
+                  <div>
+                    <p className="text-white/45 font-black uppercase text-[11px] mb-2">Detalles extra</p>
+                    <p className="text-white/80 leading-6">{c.facts.intake_form.extra_details}</p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

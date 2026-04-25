@@ -6,6 +6,7 @@ import PaymentPage from './pages/PaymentPage';
 import SuccessPage from './pages/SuccessPage';
 import AdminPanel from './pages/AdminPanel';
 import AdminCaseDetail from './pages/AdminCaseDetail';
+import LegalPageView from './views/LegalPageView';
 
 function App() {
   return (
@@ -16,6 +17,9 @@ function App() {
         <Route path="/pago" element={<PaymentPage />} />
         <Route path="/pago/resultado" element={<SuccessPage />} />
         <Route path="/gracias" element={<SuccessPage />} />
+        <Route path="/terminos" element={<LegalPageView page="terminos" onBackHome={() => window.history.back()} />} />
+        <Route path="/privacidad" element={<LegalPageView page="privacidad" onBackHome={() => window.history.back()} />} />
+        <Route path="/contacto" element={<LegalPageView page="contacto" onBackHome={() => window.history.back()} />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/admin/caso/:id" element={<AdminCaseDetail />} />
       </Routes>

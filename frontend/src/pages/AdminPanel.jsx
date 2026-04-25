@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, Users, FileText, CheckCircle, Clock, Search, Filter, Eye, DollarSign, Activity } from 'lucide-react';
+import { DollarSign, Eye, Filter, LayoutDashboard, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 
 const AdminPanel = () => {
@@ -13,9 +12,7 @@ const AdminPanel = () => {
   const [loginError, setLoginError] = useState('');
 
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchCasos();
-    }
+    if (isLoggedIn) fetchCasos();
   }, [isLoggedIn]);
 
   const handleLogin = async (e) => {
@@ -26,8 +23,8 @@ const AdminPanel = () => {
       const response = await api.post('/auth/login', loginForm);
       localStorage.setItem('admin-token', response.data.token);
       setIsLoggedIn(true);
-    } catch (err) {
-      setLoginError("Credenciales inválidas o no tienes permisos de admin.");
+    } catch {
+      setLoginError('Credenciales invalidas o sin permisos de admin.');
     } finally {
       setLoading(false);
     }
@@ -38,11 +35,10 @@ const AdminPanel = () => {
     try {
       const token = localStorage.getItem('admin-token');
       const response = await api.get('/internal/cases', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setCasos(response.data);
     } catch (error) {
-      console.error("Error fetching cases:", error);
       if (error.response?.status === 401) {
         setIsLoggedIn(false);
         localStorage.removeItem('admin-token');
@@ -52,7 +48,7 @@ const AdminPanel = () => {
     }
   };
 
-  const filteredCasos = casos.filter(c => 
+  const filteredCasos = casos.filter((c) =>
     (c.user_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.user_email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.target_entity || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -60,177 +56,143 @@ const AdminPanel = () => {
 
   const stats = {
     total: casos.length,
-    ventas: casos.filter(c => c.payment_status === 'pagado').length,
-    pendientes: casos.filter(c => c.status !== 'entregado').length,
-    totalIngresos: casos.filter(c => c.payment_status === 'pagado').length * 59900
+    ventas: casos.filter((c) => c.payment_status === 'pagado').length,
+    pendientes: casos.filter((c) => c.status !== 'entregado').length,
+    totalIngresos: casos.filter((c) => c.payment_status === 'pagado').length * 49900,
   };
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-brand flex items-center justify-center px-6">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl max-w-md w-full">
+      <div className="min-h-screen bg-[#F5F7FB] flex items-center justify-center px-6">
+        <div className="w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-8 shadow-[0_18px_55px_rgba(18,35,61,0.06)]">
           <div className="flex items-center gap-3 mb-8 justify-center">
-            <div className="bg-brand p-2 rounded-lg">
-              <LayoutDashboard className="text-accent w-6 h-6" />
+            <div className="w-11 h-11 rounded-2xl bg-[linear-gradient(135deg,#0D68FF_0%,#19B7FF_100%)] grid place-items-center text-white">
+              <LayoutDashboard className="w-5 h-5" />
             </div>
-            <span className="font-headings text-2xl font-extrabold text-brand tracking-tight">Admin Login</span>
+            <span className="text-2xl font-black text-slate-900">123tutela Admin</span>
           </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-brand/40 uppercase ml-1">Email</label>
-              <input 
-                type="email" 
-                className="input-field mt-1" 
-                placeholder="admin@hazlopormi.com"
+          <form onSubmit={handleLogin} className="grid gap-4">
+            <label className="grid gap-2">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Email</span>
+              <input
+                type="email"
+                className="rounded-2xl border border-slate-200 px-4 py-4 outline-none"
+                placeholder="admin@123tutelaapp.com"
                 value={loginForm.email}
-                onChange={e => setLoginForm({...loginForm, email: e.target.value})}
+                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
                 required
               />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-brand/40 uppercase ml-1">Contraseña</label>
-              <input 
-                type="password" 
-                className="input-field mt-1" 
-                placeholder="••••••••"
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Contraseña</span>
+              <input
+                type="password"
+                className="rounded-2xl border border-slate-200 px-4 py-4 outline-none"
                 value={loginForm.password}
-                onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                 required
               />
-            </div>
-            {loginError && <p className="text-red-600 text-xs font-bold text-center">{loginError}</p>}
-            <button type="submit" disabled={loading} className="btn-primary w-full py-4 text-lg">
-              {loading ? "Entrando..." : "Entrar al Panel"}
+            </label>
+            {loginError && <p className="text-sm font-semibold text-red-600">{loginError}</p>}
+            <button type="submit" disabled={loading} className="rounded-2xl bg-[#0D68FF] px-4 py-4 text-white font-black">
+              {loading ? 'Entrando...' : 'Entrar al panel'}
             </button>
           </form>
-        </motion.div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-brand text-white p-6 hidden md:block shrink-0">
-        <div className="flex items-center gap-2 mb-12">
-          <div className="bg-accent p-1.5 rounded">
-            <LayoutDashboard className="text-brand w-5 h-5" />
+    <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
+      <main className="max-w-7xl mx-auto px-6 py-10">
+        <header className="flex justify-between items-start gap-6 flex-wrap mb-10">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Panel operativo</p>
+            <h1 className="text-4xl font-black">123tutela Admin</h1>
+            <p className="text-slate-500 mt-3">Casos, pagos y seguimiento bajo el mismo lenguaje visual del producto.</p>
           </div>
-          <span className="font-headings font-bold text-lg">123tutela Admin</span>
-        </div>
-        
-        <nav className="space-y-2">
-          <Link to="/admin" className="flex items-center gap-3 bg-white/10 p-3 rounded-xl font-bold">
-            <FileText size={20} /> Casos
-          </Link>
-          <button className="w-full flex items-center gap-3 hover:bg-white/5 p-3 rounded-xl font-medium transition-colors">
-            <Users size={20} /> Clientes
-          </button>
-          <button className="w-full flex items-center gap-3 hover:bg-white/5 p-3 rounded-xl font-medium transition-colors">
-            <DollarSign size={20} /> Ventas
-          </button>
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 p-8 overflow-auto">
-        <header className="flex justify-between items-center mb-12">
-          <h1 className="text-3xl font-extrabold text-brand">Panel de Gestión</h1>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="Buscar por cliente o entidad..." 
-                className="bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-accent"
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                type="text"
+                placeholder="Buscar cliente o entidad"
+                className="rounded-2xl border border-slate-200 bg-white pl-11 pr-4 py-3 w-72 outline-none"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button className="bg-white p-2 rounded-xl border border-gray-200 hover:bg-gray-50">
-              <Filter size={20} className="text-gray-600" />
+            <button className="rounded-2xl border border-slate-200 bg-white p-3">
+              <Filter size={18} className="text-slate-500" />
             </button>
           </div>
         </header>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <p className="text-gray-500 font-bold text-xs uppercase mb-1">Total Interacciones</p>
-            <p className="text-3xl font-extrabold text-brand">{stats.total}</p>
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <p className="text-gray-500 font-bold text-xs uppercase mb-1">Ventas (Pagos)</p>
-            <p className="text-3xl font-extrabold text-accent">{stats.ventas}</p>
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <p className="text-gray-500 font-bold text-xs uppercase mb-1">Ingresos Brutos</p>
-            <p className="text-3xl font-extrabold text-success">
-              ${stats.totalIngresos.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <p className="text-gray-500 font-bold text-xs uppercase mb-1">Pendientes</p>
-            <p className="text-3xl font-extrabold text-orange-500">{stats.pendientes}</p>
-          </div>
-        </div>
+        <section className="grid md:grid-cols-4 gap-5 mb-10">
+          {[
+            { label: 'Total interacciones', value: stats.total, tone: 'text-slate-900' },
+            { label: 'Pagos aprobados', value: stats.ventas, tone: 'text-[#0D68FF]' },
+            { label: 'Ingresos brutos', value: `$${stats.totalIngresos.toLocaleString()}`, tone: 'text-[#0F766E]' },
+            { label: 'Pendientes', value: stats.pendientes, tone: 'text-[#F97316]' },
+          ].map((item) => (
+            <div key={item.label} className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">{item.label}</p>
+              <p className={`text-3xl font-black ${item.tone}`}>{item.value}</p>
+            </div>
+          ))}
+        </section>
 
-        {/* Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <section className="rounded-[28px] border border-slate-200 bg-white overflow-hidden shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
           <table className="w-full text-left">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-[#F8FBFF] border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 font-bold text-gray-600 text-xs uppercase">Cliente</th>
-                <th className="px-6 py-4 font-bold text-gray-600 text-xs uppercase">Entidad</th>
-                <th className="px-6 py-4 font-bold text-gray-600 text-xs uppercase">Categoría</th>
-                <th className="px-6 py-4 font-bold text-gray-600 text-xs uppercase">Pago</th>
-                <th className="px-6 py-4 font-bold text-gray-600 text-xs uppercase">Estado</th>
-                <th className="px-6 py-4 font-bold text-gray-600 text-xs uppercase">Acción</th>
+                <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Cliente</th>
+                <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Entidad</th>
+                <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Categoria</th>
+                <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Pago</th>
+                <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Estado</th>
+                <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Accion</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan="6" className="px-6 py-12 text-center text-gray-400 font-medium">Cargando base de datos...</td></tr>
+                <tr><td colSpan="6" className="px-6 py-16 text-center text-slate-400 font-semibold">Cargando base operativa...</td></tr>
               ) : filteredCasos.length === 0 ? (
-                <tr><td colSpan="6" className="px-6 py-12 text-center text-gray-400 font-medium">No se encontraron registros</td></tr>
-              ) : filteredCasos.map(caso => (
-                <tr key={caso.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-brand">{caso.user_name || 'Anónimo'}</p>
-                    <p className="text-xs text-gray-400">{caso.user_email}</p>
+                <tr><td colSpan="6" className="px-6 py-16 text-center text-slate-400 font-semibold">No se encontraron registros</td></tr>
+              ) : filteredCasos.map((caso) => (
+                <tr key={caso.id} className="hover:bg-[#FCFDFF]">
+                  <td className="px-6 py-5">
+                    <p className="font-black text-slate-900">{caso.user_name || 'Anonimo'}</p>
+                    <p className="text-xs text-slate-400 mt-1">{caso.user_email}</p>
                   </td>
-                  <td className="px-6 py-4 font-medium text-sm text-brand/80">
-                    {caso.target_entity || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[10px] font-black bg-brand/5 text-brand px-2 py-1 rounded-full uppercase">
+                  <td className="px-6 py-5 text-sm text-slate-600 font-semibold">{caso.target_entity || 'N/A'}</td>
+                  <td className="px-6 py-5">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase text-slate-600">
                       {caso.category}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase ${
-                      caso.payment_status === 'pagado' ? 'bg-success/10 text-success' : 'bg-gray-100 text-gray-400'
-                    }`}>
+                  <td className="px-6 py-5">
+                    <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase ${caso.payment_status === 'pagado' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
                       {caso.payment_status}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase ${
-                      caso.status === 'entregado' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
-                    }`}>
+                  <td className="px-6 py-5">
+                    <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase ${caso.status === 'entregado' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
                       {caso.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <Link to={`/admin/caso/${caso.id}`} className="text-brand hover:text-accent p-2 rounded-lg hover:bg-brand/5 transition-colors inline-block">
-                      <Eye size={20} />
+                  <td className="px-6 py-5">
+                    <Link to={`/admin/caso/${caso.id}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-700 no-underline">
+                      <Eye size={16} />
+                      Ver
                     </Link>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </section>
       </main>
     </div>
   );
