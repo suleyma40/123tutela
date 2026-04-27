@@ -700,8 +700,8 @@ def build_strategy_text(
 ) -> str:
     rights = legal_analysis.get("derechos_vulnerados") or []
     rules = legal_analysis.get("normas_relevantes") or []
-    rights_text = ", ".join(rights) if isinstance(rights, list) else str(rights)
-    rules_text = ", ".join(rules) if isinstance(rules, list) else str(rules)
+    rights_text = ", ".join(str(r.get("derecho") or r.get("name") or r) if isinstance(r, dict) else str(r) for r in rights) if isinstance(rights, list) else str(rights)
+    rules_text = ", ".join(str(r.get("norma") or r.get("name") or r) if isinstance(r, dict) else str(r) for r in rules) if isinstance(rules, list) else str(rules)
     warning_text = f" Advertencias operativas: {' | '.join(warnings)}." if warnings else ""
     return (
         f"La ruta sugerida es {recommended_action} ({workflow_type.replace('_', ' ')}). "
@@ -968,8 +968,8 @@ def build_document(case: dict[str, Any]) -> str:
     contact = (routing.get("primary_target") or {}).get("contact") or "Canal por definir"
     rights = legal_analysis.get("derechos_vulnerados") or []
     rules = legal_analysis.get("normas_relevantes") or []
-    rights_text = ", ".join(rights) if isinstance(rights, list) else str(rights)
-    rules_text = ", ".join(rules) if isinstance(rules, list) else str(rules)
+    rights_text = ", ".join(str(r.get("derecho") or r.get("name") or r) if isinstance(r, dict) else str(r) for r in rights) if isinstance(rights, list) else str(rights)
+    rules_text = ", ".join(str(r.get("norma") or r.get("name") or r) if isinstance(r, dict) else str(r) for r in rules) if isinstance(rules, list) else str(rules)
     facts = case.get("facts") or {}
     summary = facts.get("hechos_principales") or case.get("descripcion") or ""
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
