@@ -95,24 +95,36 @@ const PaymentPage = () => {
               Ya tienes una ruta recomendada. Ahora puedes activar tu documento con pago seguro y entrar al sorteo especial de mayo.
             </p>
 
-            <div className="mt-8 rounded-[24px] border border-white/10 bg-white/5 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45 mb-3">Ruta sugerida</p>
+            <div className="mt-8 rounded-[24px] border border-white/10 bg-white/5 p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-white/5 to-transparent rounded-bl-full pointer-events-none"></div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45 mb-3">Resultado del Análisis</p>
               <h2 className="text-2xl font-black">{guestCase.recommendedAction}</h2>
-              <p className="text-sm text-white/70 mt-3 leading-6">{guestCase.strategyText}</p>
+              <p className="text-sm text-white/70 mt-4 leading-6">
+                Hemos evaluado la viabilidad de tu caso y la ruta legal recomendada es iniciar una <strong>{guestCase.recommendedAction}</strong>. 
+                Al adquirir el documento, nuestro sistema preparará la redacción con todo el <strong>sustento jurídico necesario</strong>.
+              </p>
+              <p className="text-sm text-white/70 mt-3 leading-6">
+                Adicionalmente, te entregaremos una <strong>guía paso a paso</strong> indicándote exactamente:
+              </p>
+              <ul className="mt-3 space-y-1 text-sm text-white/70 list-disc list-inside">
+                <li>A qué entidad dirigirte y por qué canal.</li>
+                <li>Los tiempos exactos de respuesta que dicta la ley.</li>
+                <li>Qué esperar y qué hacer si no te responden.</li>
+              </ul>
             </div>
 
             <div className="grid gap-4 mt-8">
               <div className="flex items-start gap-3">
                 <CheckCircle2 size={18} className="text-[#36D399] mt-1 shrink-0" />
-                <p className="text-sm text-white/72">Documento legal alineado con la ruta detectada por la plataforma.</p>
+                <p className="text-sm text-white/72">Documento legal robusto y listo para presentar, sin que tengas que redactar nada.</p>
               </div>
               <div className="flex items-start gap-3">
                 <ShieldCheck size={18} className="text-[#19B7FF] mt-1 shrink-0" />
-                <p className="text-sm text-white/72">Confirmacion segura por Wompi. El documento solo se habilita cuando el pago queda aprobado.</p>
+                <p className="text-sm text-white/72">Seguridad total en tu pago a través de Wompi. Tu documento se generará de inmediato.</p>
               </div>
               <div className="flex items-start gap-3">
                 <Trophy size={18} className="text-[#F59E0B] mt-1 shrink-0" />
-                <p className="text-sm text-white/72">Cada pago aprobado en mayo participa por un bono de 2.5 millones entregado en vivo el 30 de mayo de 2026.</p>
+                <p className="text-sm text-white/72">Acceso automático al sorteo de $2.500.000 COP, solo para usuarios registrados.</p>
               </div>
             </div>
           </section>
@@ -138,11 +150,14 @@ const PaymentPage = () => {
                 </div>
               </div>
 
-              <div className="rounded-[22px] border border-slate-200 bg-[#F8FBFF] p-5">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400 mb-2">Gancho de conversion</p>
-                <p className="text-lg font-black text-slate-900">Bono de 2.5 millones de pesos</p>
-                <p className="text-sm text-slate-500 mt-2 leading-6">
-                  Se entrega en vivo el 30 de mayo de 2026 entre los usuarios de la app con pago aprobado en mayo.
+              <div className="rounded-[22px] border border-slate-200 bg-gradient-to-br from-[#F8FBFF] to-[#EFF5FF] p-5 relative overflow-hidden">
+                <div className="absolute -right-6 -top-6 text-[#0D68FF]/5">
+                  <Trophy size={100} />
+                </div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0D68FF] mb-2">Beneficio Exclusivo</p>
+                <p className="text-lg font-black text-slate-900">Gran Sorteo de $2.5 Millones</p>
+                <p className="text-sm text-slate-500 mt-2 leading-6 relative z-10">
+                  Al completar tu solicitud hoy, participas automáticamente por un bono de $2.500.000 COP que sortearemos en vivo el próximo 30 de mayo de 2026.
                 </p>
               </div>
 
