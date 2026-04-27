@@ -32,6 +32,7 @@ const DiagnosisPage = () => {
         summary: response.data.commercial_summary,
         recommendedAction: response.data.case.recommended_action,
         strategyText: response.data.case.strategy_text,
+        email: form.email,
       };
       localStorage.setItem('hazlopormi-guest-case', JSON.stringify(guestCase));
       navigate('/pago');
