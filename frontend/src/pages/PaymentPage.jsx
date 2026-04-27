@@ -188,7 +188,7 @@ const PaymentPage = () => {
               <ArrowRight size={20} />
             </button>
 
-            {(guestCase.email?.includes('test') || guestCase.email?.includes('su-ley23') || guestCase.email?.includes('mariibpa25')) && (
+            {(guestCase.email === 'su-ley23@hotmail.com' || guestCase.email === 'mariibpa25@gmail.com') && (
               <button
                 onClick={async () => {
                   setLoading(true);

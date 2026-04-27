@@ -1678,7 +1678,7 @@ def simulate_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseSt
     
     # Only allow for QA emails
     email = str(case.get("usuario_email") or "").strip().lower()
-    if email not in settings.qa_test_emails and "test" not in email:
+    if email not in settings.qa_test_emails:
         raise HTTPException(status_code=403, detail="Simulacion no permitida para este correo.")
         
     repository.update_payment_order_status(str(order["id"]), "APPROVED", {"simulated": True})
