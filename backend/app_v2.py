@@ -1682,17 +1682,13 @@ def simulate_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseSt
         raise HTTPException(status_code=403, detail="Simulacion no permitida para este correo.")
         
     repository.update_payment_order_status(
-        payload.reference, 
-        status="APPROVED", 
-        webhook_payload={"simulated": True},
-        approved_at=datetime.now(timezone.utc)
+        payload.reference,
+        status="APPROVED",
+        provider_transaction_id=payload.transaction_id,
+        provider_status="APPROVED",
+        approved_at=datetime.now(timezone.utc),
     )
     updated_case = repository.update_case_payment(str(case["id"]), payload.reference, payment_status="pagado") or case
-    updated_case = repository.update_case_status(
-        str(case["id"]), 
-        status=updated_case.get("estado", "pagado_pendiente_intake"), 
-        submission_summary=_merge_submission_summary(case, payment_summary={"approved_at": datetime.now(timezone.utc).isoformat()})
-    ) or updated_case
     repository.create_event(str(case["id"]), "payment_approved_simulated", "system", None, {"reference": payload.reference})
     sync_case_to_ops(updated_case)
     return _guest_status_response(updated_case)
