@@ -1663,6 +1663,37 @@ def reconcile_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseS
     return _guest_status_response(case)
 
 
+@app.post("/public/payments/simulate", response_model=GuestCaseStatusResponse)
+def simulate_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseStatusResponse:
+    if not payload.reference:
+        raise HTTPException(status_code=400, detail="Falta reference")
+    order = repository.get_payment_order_by_reference(payload.reference)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pago no encontrado.")
+    case = repository.get_case_by_id(str(order["case_id"]))
+    if not case:
+        raise HTTPException(status_code=404, detail="Caso no encontrado.")
+    if payload.public_token and str(case.get("public_token") or "") != payload.public_token:
+        raise HTTPException(status_code=403, detail="No tienes acceso a este caso.")
+    
+    # Only allow for QA emails
+    email = str(case.get("usuario_email") or "").strip().lower()
+    if email not in settings.qa_test_emails and "test" not in email:
+        raise HTTPException(status_code=403, detail="Simulacion no permitida para este correo.")
+        
+    repository.update_payment_order_status(str(order["id"]), "APPROVED", {"simulated": True})
+    updated_case = repository.update_case_status(
+        str(case["id"]), 
+        status="pagado", 
+        payment_status="pagado", 
+        payment_reference=payload.reference,
+        submission_summary=_merge_submission_summary(case, payment_summary={"approved_at": datetime.now(timezone.utc).isoformat()})
+    ) or case
+    repository.create_event(case["id"], "payment_approved_simulated", "system", None, {"reference": payload.reference})
+    sync_case_to_ops(updated_case)
+    return _guest_status_response(updated_case)
+
+
 @app.patch("/public/cases/{case_id}/intake", response_model=GuestCaseStatusResponse)
 def update_public_case_intake(case_id: str, payload: GuestIntakeUpdateRequest) -> GuestCaseStatusResponse:
     case = _get_guest_case_or_404(case_id, payload.public_token)

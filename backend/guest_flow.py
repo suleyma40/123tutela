@@ -11,7 +11,7 @@ from uuid import uuid4
 from backend.config import settings
 
 
-BASE_SERVICE_PRICE_COP = 59_900
+BASE_SERVICE_PRICE_COP = 49_900
 SERVICE_PRODUCT_CODE = "hazlopormi_v1"
 SERVICE_PRODUCT_NAME = "HazloPorMi 24h"
 

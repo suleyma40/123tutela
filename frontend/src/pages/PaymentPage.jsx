@@ -182,11 +182,30 @@ const PaymentPage = () => {
             <button
               onClick={handlePayment}
               disabled={loading}
-              className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-[#0D68FF] px-6 py-5 text-lg font-black text-white disabled:opacity-60"
+              className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-[#0D68FF] px-6 py-5 text-lg font-black text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
               {loading ? 'Iniciando pago...' : 'Pagar y activar documento'}
               <ArrowRight size={20} />
             </button>
+
+            {(guestCase.email?.includes('test') || guestCase.email?.includes('su-ley23') || guestCase.email?.includes('mariibpa25')) && (
+              <button
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, { public_token: guestCase.publicToken });
+                    await api.post(`/public/payments/simulate`, { reference: sess.data.checkout.reference, public_token: guestCase.publicToken });
+                    navigate(`/pago/resultado?id=simulated_${sess.data.checkout.reference}`);
+                  } catch(e) {
+                    setError('Error en simulación: ' + extractError(e));
+                  } finally { setLoading(false); }
+                }}
+                disabled={loading}
+                className="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-800 px-6 py-4 text-sm font-black text-white hover:bg-slate-700 transition-colors disabled:opacity-60"
+              >
+                Simular Pago (Modo Prueba)
+              </button>
+            )}
 
             <img
               src="https://checkout.wompi.co/images/payment-methods.png"
