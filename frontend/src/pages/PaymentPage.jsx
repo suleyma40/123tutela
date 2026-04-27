@@ -188,7 +188,7 @@ const PaymentPage = () => {
               <ArrowRight size={20} />
             </button>
 
-            {(guestCase.email?.trim().toLowerCase() === 'su-ley23@hotmail.com' || guestCase.email?.trim().toLowerCase() === 'mariibpa25@gmail.com') && (
+            {(import.meta.env.DEV || guestCase.email?.trim().toLowerCase() === 'su-ley23@hotmail.com' || guestCase.email?.trim().toLowerCase() === 'mariibpa25@gmail.com') && (
               <button
                 onClick={async () => {
                   setLoading(true);

@@ -308,16 +308,27 @@ class LegalAnalyzer:
         if not self.client:
             return self._legal_match_fallback(fact_data)
 
-        kb_summary = json.dumps(self.knowledge_base, ensure_ascii=False)
         prompt = f"""
+        Actúa como un abogado experto en derecho constitucional colombiano.
         Usando esta base jurídica colombiana:
         {kb_summary}
 
-        Y estos hechos:
+        Y estos hechos reportados por el usuario:
         {json.dumps(fact_data, ensure_ascii=False)}
 
+        Tu tarea principal es DIAGNOSTICAR la acción legal correcta.
+        REGLAS DE DIAGNÓSTICO:
+        - Si hay riesgo vital inmediato, menor enfermo, perjuicio irremediable, o si el usuario ya presentó una queja/petición y no le resolvieron la barrera -> "Accion de tutela" (workflow_type: "tutela").
+        - Si es el primer contacto sin urgencia vital y no se ha reclamado formalmente antes -> "Derecho de peticion a EPS" (workflow_type: "derecho_peticion").
+        - Si ya hubo un fallo de tutela favorable pero fue incumplido -> "Incidente de desacato" (workflow_type: "desacato").
+        - Si hay un fallo de tutela desfavorable reciente y hay argumentos -> "Impugnacion de tutela" (workflow_type: "impugnacion").
+
         Responde solo JSON con:
-        derechos_vulnerados, normas_relevantes, precedentes_jurisprudenciales, recommended_action.
+        - derechos_vulnerados (lista de strings)
+        - normas_relevantes (lista de strings)
+        - precedentes_jurisprudenciales (lista de strings)
+        - recommended_action (string exacto según las reglas)
+        - workflow_type (string exacto según las reglas)
         """
         try:
             return self._ask_json(prompt)

@@ -304,8 +304,12 @@ def _infer_health_workflow(
     has_urgency = _health_text_supports_urgency(urgency_detail, current_harm, lowered) or urgent or has_continuity_risk
     has_special_protection = special_protection not in {"", "no aplica", "ninguno"} or _contains_special_protection_signal(lowered)
     has_resolved_signal = _contains_health_resolved_signal(lowered)
-    prior_claim_done = all_required_done or bool(prior_actions) or prior_claim in {"si", "sí", "reclame", "reclamo", "radicado"} or bool(
-        _health_intake_text(facts, "eps_request_date", "eps_request_reference", "eps_request_channel")
+    prior_claim_done = (
+        all_required_done
+        or bool(prior_actions)
+        or prior_claim in {"si", "sí", "reclame", "reclamo", "radicado"}
+        or bool(_health_intake_text(facts, "eps_request_date", "eps_request_reference", "eps_request_channel"))
+        or _contains_any(lowered, ["derecho de peticion", "derecho de petición", "peticion previa", "petición previa", "ya reclame", "ya reclamé", "ya radiqué", "ya radique", "ya pase derecho de peticion", "ya presenté", "ya presente"])
     )
     manifest_urgency = _contains_health_manifest_urgency_signal(" ".join([_lower(urgency_detail), _lower(current_harm), lowered]))
     urgency_without_waiting = manifest_urgency or (has_continuity_risk and has_special_protection)
@@ -342,8 +346,8 @@ def _infer_health_workflow(
         return "tutela", "Accion de tutela", warnings
 
     if has_health_core and has_barrier and prior_claim_done:
-        warnings.append("Se conserva derecho de peticion como ruta inicial mientras se refuerza la urgencia o el dano actual para una tutela en salud.")
-        return "derecho_peticion", "Derecho de peticion a EPS", warnings
+        warnings.append("Dado que ya hay gestion previa y barrera, se habilita tutela aunque falte reforzar urgencia o pruebas.")
+        return "tutela", "Accion de tutela", warnings
 
     warnings.append("Antes de tutela en salud, la via previa ante EPS debe quedar documentada salvo urgencia manifiesta.")
     return "derecho_peticion", "Derecho de peticion a EPS", warnings
@@ -377,15 +381,19 @@ def infer_workflow(
     rights = legal_analysis.get("derechos_vulnerados") or []
     warnings: list[str] = []
 
-    workflow_type = config["default_workflow"]
-    recommended_action = legal_analysis.get("recommended_action") or "Reclamacion"
+    agent_workflow_type = legal_analysis.get("workflow_type")
+    agent_recommended_action = legal_analysis.get("recommended_action")
+
+    workflow_type = agent_workflow_type or config["default_workflow"]
+    recommended_action = agent_recommended_action or "Reclamacion"
+
     has_habeas_signal = _contains_any(lowered, ["habeas", "datacredito", "cifin", "reporte", "central de riesgo", "dato personal"])
     has_petition_signal = _contains_any(lowered, ["derecho de peticion", "derecho de petición", "respondan", "entreguen", "informacion", "información", "documentos", "consulta", "certifiquen"])
     has_complaint_signal = _contains_any(lowered, ["queja", "reclamo", "garantia", "garantía", "devolucion", "devolución", "factura", "cobro", "bloqueo", "corte", "incumplimiento"])
     has_tutela_signal = _contains_any(lowered, ["tutela", "derecho fundamental", "minimo vital", "mínimo vital", "vida", "salud", "urgencia", "riesgo", "perjuicio irremediable"])
 
     if category == "Salud":
-        workflow_type, recommended_action, health_warnings = _infer_health_workflow(
+        calc_workflow, calc_action, health_warnings = _infer_health_workflow(
             facts=facts,
             lowered=lowered,
             prior_actions=prior_actions,
@@ -393,14 +401,18 @@ def infer_workflow(
             urgent=urgent,
         )
         warnings.extend(health_warnings)
+        if not agent_workflow_type:
+            workflow_type = calc_workflow
+            recommended_action = calc_action
     elif category == "Datos":
-        if all_required_done and has_habeas_signal:
-            workflow_type = "tutela"
-            recommended_action = "Accion de tutela por habeas data"
-        else:
-            workflow_type = "reclamacion"
-            recommended_action = "Reclamacion de habeas data"
-            warnings.append("La tutela en habeas data se reserva para cuando la reclamacion previa no resuelve o existe afectacion grave.")
+        if not agent_workflow_type:
+            if all_required_done and has_habeas_signal:
+                workflow_type = "tutela"
+                recommended_action = "Accion de tutela por habeas data"
+            else:
+                workflow_type = "reclamacion"
+                recommended_action = "Reclamacion de habeas data"
+                warnings.append("La tutela en habeas data se reserva para cuando la reclamacion previa no resuelve o existe afectacion grave.")
     elif category == "Laboral":
         if urgent or "minimo vital" in lowered or "mínimo vital" in lowered or has_tutela_signal:
             workflow_type = "tutela"
