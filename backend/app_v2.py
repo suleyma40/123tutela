@@ -1677,7 +1677,7 @@ def simulate_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseSt
         raise HTTPException(status_code=403, detail="No tienes acceso a este caso.")
     
     # Only allow for QA emails
-    email = str(case.get("usuario_email") or "").strip().lower()
+    email = str(case.get("user_email") or "").strip().lower()
     if email not in settings.qa_test_emails:
         raise HTTPException(status_code=403, detail="Simulacion no permitida para este correo.")
         
