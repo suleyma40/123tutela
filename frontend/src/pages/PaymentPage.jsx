@@ -194,7 +194,11 @@ const PaymentPage = () => {
                   setLoading(true);
                   try {
                     const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, { public_token: guestCase.publicToken });
-                    await api.post(`/public/payments/simulate`, { reference: sess.data.checkout.reference, public_token: guestCase.publicToken });
+                    await api.post(`/public/payments/simulate`, { 
+                      transaction_id: `simulated_${sess.data.checkout.reference}`,
+                      reference: sess.data.checkout.reference, 
+                      public_token: guestCase.publicToken 
+                    });
                     navigate(`/pago/resultado?id=simulated_${sess.data.checkout.reference}`);
                   } catch(e) {
                     setError('Error en simulación: ' + extractError(e));
