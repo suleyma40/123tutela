@@ -308,6 +308,7 @@ class LegalAnalyzer:
         if not self.client:
             return self._legal_match_fallback(fact_data)
 
+        kb_summary = json.dumps(self.knowledge_base, ensure_ascii=False)
         prompt = f"""
         Actúa como un abogado experto en derecho constitucional colombiano.
         Usando esta base jurídica colombiana:
