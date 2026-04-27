@@ -5,6 +5,7 @@ import { Link, useLocation } from 'react-router-dom';
 const Navbar = () => {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
+  const isLanding = location.pathname === '/';
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200/80 bg-[rgba(245,247,251,0.82)] backdrop-blur-xl">
@@ -19,18 +20,28 @@ const Navbar = () => {
             </span>
           </Link>
 
-          <div className="flex items-center gap-3 flex-wrap text-sm font-bold text-slate-500">
-            {!isAdmin && <Link to="/" className="text-inherit no-underline">Inicio</Link>}
-            {!isAdmin && <Link to="/terminos" className="text-inherit no-underline">Terminos</Link>}
-            {!isAdmin && <Link to="/privacidad" className="text-inherit no-underline">Privacidad</Link>}
-            {!isAdmin && <Link to="/contacto" className="text-inherit no-underline">Contacto</Link>}
-            <Link to="/admin" className="rounded-xl border border-slate-200 px-4 py-2 text-[#0D68FF] no-underline">
+          <div className="flex items-center gap-4 flex-wrap text-sm font-bold text-slate-500">
+            {isLanding ? (
+              <>
+                <a href="#como-funciona" className="text-inherit no-underline hover:text-slate-900 transition-colors">Como funciona</a>
+                <a href="#categorias" className="text-inherit no-underline hover:text-slate-900 transition-colors">Categorias</a>
+                <a href="#precios" className="text-inherit no-underline hover:text-slate-900 transition-colors">Precios</a>
+              </>
+            ) : (
+              <>
+                {!isAdmin && <Link to="/" className="text-inherit no-underline hover:text-slate-900 transition-colors">Inicio</Link>}
+                {!isAdmin && <Link to="/terminos" className="text-inherit no-underline hover:text-slate-900 transition-colors">Terminos</Link>}
+                {!isAdmin && <Link to="/privacidad" className="text-inherit no-underline hover:text-slate-900 transition-colors">Privacidad</Link>}
+                {!isAdmin && <Link to="/contacto" className="text-inherit no-underline hover:text-slate-900 transition-colors">Contacto</Link>}
+              </>
+            )}
+            <Link to="/admin" className="rounded-xl border border-slate-200 px-4 py-2 text-[#0D68FF] no-underline hover:bg-slate-50 transition-colors">
               Admin
             </Link>
             {!isAdmin && (
               <Link
                 to="/diagnostico"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#0D68FF] px-4 py-2 text-white no-underline"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0D68FF] px-4 py-2 text-white no-underline hover:bg-[#0D68FF]/90 transition-colors"
               >
                 Quiero mi documento <ArrowRight size={16} />
               </Link>

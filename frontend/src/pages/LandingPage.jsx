@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import Navbar from '../components/Navbar';
 import { ArrowRight, CheckCircle2, FileText, Gavel, Heart, Scale } from 'lucide-react';
 
 const palette = {
@@ -115,14 +116,6 @@ const landingStyles = `
   }
   .landing-vision * { box-sizing: border-box; }
   .landing-wrap { width: min(1200px, calc(100vw - 48px)); margin: 0 auto; }
-  .landing-nav {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    backdrop-filter: blur(18px);
-    background: rgba(245, 247, 251, 0.82);
-    border-bottom: 1px solid ${palette.border};
-  }
   .landing-nav__row {
     min-height: 84px;
     display: flex;
@@ -174,7 +167,7 @@ const landingStyles = `
   .landing-btn--primary { background: ${palette.primary}; color: #fff; }
   .landing-btn--outline { border: 1px solid ${palette.border}; color: ${palette.primary}; background: transparent; }
   .landing-btn--ghost { border: 1px solid rgba(255,255,255,0.1); color: #fff; background: rgba(255,255,255,0.08); }
-  .landing-hero { padding: 56px 0 44px; }
+  .landing-hero { padding: 130px 0 44px; }
   .landing-hero__grid {
     display: grid;
     grid-template-columns: 1.05fr 0.95fr;
@@ -303,26 +296,7 @@ const LandingPage = () => {
     <div className="landing-vision">
       <style>{landingStyles}</style>
 
-      <nav className="landing-nav">
-        <div className="landing-wrap landing-nav__row">
-          <Link to="/" className="landing-logo">
-            <div className="landing-logo__mark">
-              <Scale size={20} />
-            </div>
-            <strong className="landing-logo__text">
-              123<span>tutela</span>
-            </strong>
-          </Link>
-
-          <div className="landing-nav__links">
-            <a href="#como-funciona">Como funciona</a>
-            <a href="#categorias">Categorias</a>
-            <a href="#precios">Precios</a>
-            <Link to="/admin" className="landing-btn landing-btn--outline">Iniciar sesion</Link>
-            <Link to="/diagnostico" className="landing-btn landing-btn--primary">Quiero mi documento</Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       <section className="landing-hero">
         <div className="landing-wrap landing-hero__grid">

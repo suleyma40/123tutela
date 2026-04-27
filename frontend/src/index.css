@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Playfair+Display:wght@700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,75 +6,71 @@
 
 @layer base {
   body {
-    background-color: #F7F5F0;
-    color: #1A3A6B;
+    background-color: #F5F7FB;
+    color: #0F172A;
     font-family: 'DM Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Syne', sans-serif;
   }
 }
 
 @layer components {
   .btn-primary {
-    background-color: #F5A623;
-    color: #1A3A6B;
-    font-weight: 700;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    transition: all 0.3s ease;
-    transform: translateZ(0);
-    box-shadow: 0 10px 18px rgba(26, 58, 107, 0.15);
+    background-color: #0D68FF;
+    color: #ffffff;
+    font-weight: 800;
+    padding: 1rem 1.5rem;
+    border-radius: 1rem;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
   }
   
   .btn-secondary {
-    background-color: #1A3A6B;
+    background-color: #08172E;
     color: #fff;
-    font-weight: 700;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    transition: all 0.3s ease;
-    transform: translateZ(0);
-    box-shadow: 0 8px 16px rgba(26, 58, 107, 0.12);
+    font-weight: 800;
+    padding: 1rem 1.5rem;
+    border-radius: 1rem;
+    transition: all 0.2s ease;
   }
   
   .card {
-    background: #fff;
-    border: 1px solid rgb(243 244 246);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    background: #ffffff;
+    border: 1px solid #E2E8F0;
+    border-radius: 1.75rem;
+    padding: 2rem;
+    box-shadow: 0 18px 55px rgba(18, 35, 61, 0.06);
     transition: box-shadow 0.2s ease;
   }
   
   .input-field {
     width: 100%;
-    background: #fff;
-    border: 1px solid rgb(229 231 235);
-    border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
+    background: #FCFDFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
     transition: all 0.2s ease;
   }
 }
 
 .btn-primary:hover,
 .btn-secondary:hover {
-  transform: scale(1.02);
-  filter: brightness(0.97);
+  transform: translateY(-1px);
+  opacity: 0.96;
 }
 
 .btn-primary:active,
 .btn-secondary:active {
-  transform: scale(0.98);
+  transform: translateY(0);
 }
 
 .input-field:focus {
   outline: none;
-  border-color: transparent;
-  box-shadow: 0 0 0 2px rgba(26, 58, 107, 0.22);
+  border-color: #0D68FF;
+  box-shadow: 0 0 0 3px rgba(13, 104, 255, 0.15);
 }
 
 /* Glassmorphism utility */
@@ -88,7 +84,7 @@
 .timeline-line {
   position: relative;
   padding-left: 2rem;
-  border-left: 2px solid #F5A623;
+  border-left: 2px solid #0D68FF;
   margin-left: 1rem;
 }
 
@@ -99,6 +95,6 @@
   width: 1rem;
   height: 1rem;
   border-radius: 9999px;
-  background: #F5A623;
-  border: 4px solid #F7F5F0;
+  background: #0D68FF;
+  border: 4px solid #F5F7FB;
 }
