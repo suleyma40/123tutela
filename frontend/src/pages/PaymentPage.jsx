@@ -155,9 +155,9 @@ const PaymentPage = () => {
                   <Trophy size={100} />
                 </div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0D68FF] mb-2">Beneficio Exclusivo</p>
-                <p className="text-lg font-black text-slate-900">Gran Sorteo de $2.5 Millones</p>
+                <p className="text-lg font-black text-slate-900">Sorteo de $2.5 Millones COP</p>
                 <p className="text-sm text-slate-500 mt-2 leading-6 relative z-10">
-                  Al completar tu solicitud hoy, participas automáticamente por un bono de $2.500.000 COP que sortearemos en vivo el próximo 30 de mayo de 2026.
+                  Al completar tu solicitud hoy, participas automáticamente por un bono de $2.500.000 pesos colombianos que sortearemos en vivo el próximo 30 de mayo de 2026.
                 </p>
               </div>
 
@@ -188,7 +188,7 @@ const PaymentPage = () => {
               <ArrowRight size={20} />
             </button>
 
-            {(guestCase.email === 'su-ley23@hotmail.com' || guestCase.email === 'mariibpa25@gmail.com') && (
+            {(guestCase.email?.trim().toLowerCase() === 'su-ley23@hotmail.com' || guestCase.email?.trim().toLowerCase() === 'mariibpa25@gmail.com') && (
               <button
                 onClick={async () => {
                   setLoading(true);
