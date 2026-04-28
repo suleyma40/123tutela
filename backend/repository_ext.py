@@ -776,10 +776,7 @@ def update_payment_order_status(
         SET status = %(status)s,
             provider_transaction_id = COALESCE(%(provider_transaction_id)s, provider_transaction_id),
             provider_status = COALESCE(%(provider_status)s, provider_status),
-            webhook_payload = CASE
-                WHEN %(webhook_payload)s IS NULL THEN webhook_payload
-                ELSE %(webhook_payload)s::jsonb
-            END,
+            webhook_payload = COALESCE(%(webhook_payload)s::jsonb, webhook_payload),
             approved_at = COALESCE(%(approved_at)s, approved_at),
             updated_at = %(updated_at)s
         WHERE reference = %(reference)s
@@ -799,6 +796,7 @@ def update_payment_order_status(
             },
         )
         return cursor.fetchone()
+
 
 
 def update_case_payment(case_id: str, payment_reference: str, payment_status: str = "pagado") -> dict[str, Any] | None:
