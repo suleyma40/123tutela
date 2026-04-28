@@ -192,16 +192,23 @@ const PaymentPage = () => {
               <button
                 onClick={async () => {
                   setLoading(true);
+                  setError('');
                   try {
                     const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, { public_token: guestCase.publicToken });
+                    const ref = sess.data.checkout.reference;
                     await api.post(`/public/payments/simulate`, { 
-                      transaction_id: `simulated_${sess.data.checkout.reference}`,
-                      reference: sess.data.checkout.reference, 
+                      transaction_id: `simulated_${ref}`,
+                      reference: ref, 
                       public_token: guestCase.publicToken 
                     });
-                    navigate(`/pago/resultado?id=simulated_${sess.data.checkout.reference}`);
+                    navigate(`/pago/resultado?id=simulated_${ref}`);
                   } catch(e) {
-                    setError('Error en simulación: ' + extractError(e));
+                    const msg = extractError(e);
+                    if (msg && msg.toLowerCase().includes('pago aprobado')) {
+                      navigate(`/pago/resultado?simulated=true`);
+                    } else {
+                      setError('Error en simulación: ' + msg);
+                    }
                   } finally { setLoading(false); }
                 }}
                 disabled={loading}
