@@ -15,6 +15,15 @@ const AdminPanel = () => {
   const [loginError, setLoginError] = useState('');
   const [panelError, setPanelError] = useState('');
 
+  const handleLogout = () => {
+    localStorage.removeItem('admin-token');
+    setIsLoggedIn(false);
+    setCasos([]);
+    setPanelError('');
+    setLoginError('');
+    setLoginForm({ email: '', password: '' });
+  };
+
   useEffect(() => {
     if (isLoggedIn) fetchCasos();
   }, [isLoggedIn]);
@@ -180,6 +189,12 @@ const AdminPanel = () => {
                 <option value="entregado">Entregado</option>
               </select>
             </div>
+            <button
+              onClick={handleLogout}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-600 hover:bg-slate-50"
+            >
+              Cerrar sesion
+            </button>
           </div>
         </header>
 
@@ -199,7 +214,15 @@ const AdminPanel = () => {
 
         {panelError && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
-            {panelError}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <span>{panelError}</span>
+              <button
+                onClick={handleLogout}
+                className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black uppercase text-amber-700 hover:bg-amber-100"
+              >
+                Ingresar con otro usuario
+              </button>
+            </div>
           </div>
         )}
 
