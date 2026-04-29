@@ -1689,8 +1689,9 @@ def simulate_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseSt
         approved_at=datetime.now(timezone.utc),
     )
     updated_case = repository.update_case_payment(str(case["id"]), payload.reference, payment_status="pagado") or case
+    updated_case = _ensure_payment_artifacts(str(case["id"])) or updated_case
     repository.create_event(str(case["id"]), "payment_approved_simulated", "system", None, {"reference": payload.reference})
-    sync_case_to_ops(updated_case)
+    updated_case = _persist_guest_ops(updated_case)
     return _guest_status_response(updated_case)
 
 
