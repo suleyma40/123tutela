@@ -13,6 +13,7 @@ const AdminPanel = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('admin-token'));
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');
+  const [panelError, setPanelError] = useState('');
 
   useEffect(() => {
     if (isLoggedIn) fetchCasos();
@@ -43,6 +44,7 @@ const AdminPanel = () => {
 
   const fetchCasos = async () => {
     setLoading(true);
+    setPanelError('');
     try {
       const token = localStorage.getItem('admin-token');
       const response = await api.get('/internal/cases', {
@@ -53,7 +55,14 @@ const AdminPanel = () => {
       if (error.response?.status === 401) {
         setIsLoggedIn(false);
         localStorage.removeItem('admin-token');
+        return;
       }
+      if (error.response?.status === 403) {
+        setPanelError('Tu usuario no tiene permisos internos para ver esta bandeja operativa.');
+        setCasos([]);
+        return;
+      }
+      setPanelError('No fue posible cargar los casos en este momento.');
     } finally {
       setLoading(false);
     }
@@ -70,6 +79,10 @@ const AdminPanel = () => {
       if (error.response?.status === 401) {
         setIsLoggedIn(false);
         localStorage.removeItem('admin-token');
+        return;
+      }
+      if (error.response?.status === 403) {
+        setPanelError('Tu usuario no tiene permisos internos para actualizar estados.');
       }
     }
   };
@@ -183,6 +196,12 @@ const AdminPanel = () => {
             </div>
           ))}
         </section>
+
+        {panelError && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
+            {panelError}
+          </div>
+        )}
 
         <section className="rounded-[28px] border border-slate-200 bg-white overflow-hidden shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
           <table className="w-full text-left">
