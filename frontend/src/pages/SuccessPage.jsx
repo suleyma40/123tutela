@@ -70,6 +70,12 @@ const StatusPill = ({ children, tone = 'default' }) => {
   return <span className={`px-3 py-1 rounded-full text-xs font-black ${styles[tone] || styles.default}`}>{children}</span>;
 };
 
+const completionRatio = (form) => {
+  const requiredFields = ['name', 'email', 'phone', 'document_number', 'city', 'department', 'address', 'concrete_request', 'case_story'];
+  const completed = requiredFields.filter((key) => String(form[key] || '').trim()).length;
+  return Math.round((completed / requiredFields.length) * 100);
+};
+
 const CodeCard = ({ label, value, subtle = false }) => (
   <div className={`rounded-[2rem] border border-brand/10 p-5 ${subtle ? 'bg-brand/5' : 'bg-white'}`}>
     <p className="text-[11px] font-black uppercase tracking-wide text-brand/50 mb-2">{label}</p>
@@ -271,8 +277,10 @@ const SuccessPage = () => {
   const invoiceNumber = caseData?.latest_payment?.invoice?.number || caseData?.customer_summary?.invoice?.number;
   const paymentReference = caseData?.latest_payment?.reference || caseData?.case?.payment_reference;
   const raffleCode = caseData?.latest_payment?.raffle?.code || caseData?.customer_summary?.raffle?.code;
-  const unifiedTrackingCode = raffleCode || customerCaseCode;
+  const fallbackCaseId = caseData?.case?.id ? String(caseData.case.id).slice(0, 8).toUpperCase() : '';
+  const unifiedTrackingCode = raffleCode || customerCaseCode || paymentReference || (fallbackCaseId ? `EXP-${fallbackCaseId}` : '');
   const tutelaFlow = isTutelaFlow(caseData);
+  const progress = completionRatio(form);
 
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -690,7 +698,8 @@ const SuccessPage = () => {
               )}
             </div>
 
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2">
+              <div className="lg:sticky lg:top-28 space-y-6">
               <div className="bg-white p-8 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-slate-200">
                 <h4 className="font-extrabold text-slate-900 mb-6">Linea de tiempo</h4>
                 <div className="space-y-6">
@@ -716,6 +725,30 @@ const SuccessPage = () => {
                 </div>
               </div>
 
+              <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-[0_18px_55px_rgba(18,35,61,0.06)]">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-3">Progreso del formulario</p>
+                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-[#0D68FF]" style={{ width: `${progress}%` }} />
+                </div>
+                <p className="text-sm text-slate-600 font-semibold mt-3">{progress}% completo</p>
+                <p className="text-sm text-slate-500 mt-3">
+                  Entre mas completo quede el expediente, mas rapido y preciso trabaja el equipo especialista.
+                </p>
+              </div>
+
+              <div className="bg-[#08172E] text-white p-8 rounded-[2rem] border border-white/10 shadow-[0_18px_55px_rgba(18,35,61,0.12)]">
+                <p className="text-xs font-black uppercase tracking-wide text-[#19B7FF] mb-3">Respaldo profesional</p>
+                <p className="text-lg font-extrabold leading-tight mb-3">Tu caso lo prepara un equipo experto con control de calidad juridico.</p>
+                <p className="text-sm text-white/75 leading-6 mb-4">
+                  Revisa todo antes de enviar: hechos, fechas, respuesta de la entidad y soportes clave.
+                </p>
+                <div className="space-y-2 text-sm text-white/80">
+                  <p>- Fundamentacion legal por tipo de tramite.</p>
+                  <p>- Checklist de anexos y canal de radicacion.</p>
+                  <p>- Trazabilidad por codigo unico de seguimiento.</p>
+                </div>
+              </div>
+
               <div className="bg-[#F8FBFF] p-8 rounded-[2rem] border border-slate-200">
                 <p className="text-xs text-slate-500 leading-relaxed font-medium">
                   <strong>Nota:</strong> El plazo de entrega corre desde que envías datos completos y soportes suficientes. Conserva tu número de expediente y tu código de rifa para cualquier seguimiento.
@@ -724,6 +757,7 @@ const SuccessPage = () => {
             </div>
           </div>
         </div>
+      </div>
       </main>
     </div>
   );
