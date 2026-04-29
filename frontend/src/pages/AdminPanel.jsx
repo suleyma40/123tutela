@@ -7,6 +7,7 @@ const AdminPanel = () => {
   const [casos, setCasos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('todos');
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('admin-token'));
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');
@@ -48,11 +49,30 @@ const AdminPanel = () => {
     }
   };
 
+  const handleQuickStatus = async (caseId, newStatus) => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      await api.post(`/internal/cases/${caseId}/status`, { status: newStatus }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await fetchCasos();
+    } catch (error) {
+      if (error.response?.status === 401) {
+        setIsLoggedIn(false);
+        localStorage.removeItem('admin-token');
+      }
+    }
+  };
+
   const filteredCasos = casos.filter((c) =>
     (c.user_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.user_email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.target_entity || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ).filter((c) => {
+    if (statusFilter === 'todos') return true;
+    if (statusFilter === 'cola') return c.payment_status === 'pagado' && c.status !== 'entregado';
+    return c.status === statusFilter;
+  });
 
   const stats = {
     total: casos.length,
@@ -123,9 +143,20 @@ const AdminPanel = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button className="rounded-2xl border border-slate-200 bg-white p-3">
-              <Filter size={18} className="text-slate-500" />
-            </button>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 flex items-center gap-2">
+              <Filter size={16} className="text-slate-500" />
+              <select
+                className="bg-transparent outline-none text-sm font-bold text-slate-600"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="todos">Todos</option>
+                <option value="cola">Cola operativa</option>
+                <option value="pagado_en_revision">Pagado en revision</option>
+                <option value="en_revision">En revision</option>
+                <option value="entregado">Entregado</option>
+              </select>
+            </div>
           </div>
         </header>
 
@@ -152,14 +183,15 @@ const AdminPanel = () => {
                 <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Categoria</th>
                 <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Pago</th>
                 <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Estado</th>
+                <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Checklist</th>
                 <th className="px-6 py-4 text-xs font-black uppercase tracking-wide text-slate-400">Accion</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan="6" className="px-6 py-16 text-center text-slate-400 font-semibold">Cargando base operativa...</td></tr>
+                <tr><td colSpan="7" className="px-6 py-16 text-center text-slate-400 font-semibold">Cargando base operativa...</td></tr>
               ) : filteredCasos.length === 0 ? (
-                <tr><td colSpan="6" className="px-6 py-16 text-center text-slate-400 font-semibold">No se encontraron registros</td></tr>
+                <tr><td colSpan="7" className="px-6 py-16 text-center text-slate-400 font-semibold">No se encontraron registros</td></tr>
               ) : filteredCasos.map((caso) => (
                 <tr key={caso.id} className="hover:bg-[#FCFDFF]">
                   <td className="px-6 py-5">
@@ -181,6 +213,22 @@ const AdminPanel = () => {
                     <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase ${caso.status === 'entregado' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
                       {caso.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => handleQuickStatus(caso.id, 'en_revision')}
+                        className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-black uppercase text-slate-600 hover:bg-slate-50"
+                      >
+                        Chulear revision
+                      </button>
+                      <button
+                        onClick={() => handleQuickStatus(caso.id, 'entregado')}
+                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-100"
+                      >
+                        Chulear enviado
+                      </button>
+                    </div>
                   </td>
                   <td className="px-6 py-5">
                     <Link to={`/admin/caso/${caso.id}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-700 no-underline">

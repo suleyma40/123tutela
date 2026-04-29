@@ -748,12 +748,12 @@ const SuccessPage = () => {
                   <p>- Trazabilidad por codigo unico de seguimiento.</p>
                 </div>
                 <div className="mt-6 rounded-2xl border border-white/15 bg-white/10 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-[#19B7FF] mb-2">Rifa Colombia</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-[#19B7FF] mb-2">Rifa mayo 2026</p>
                   <p className="text-sm text-white/85 leading-6">
-                    En Colombia la fe tambien mueve decisiones. Con pago aprobado participas en la rifa de mayo por un bono de $2.500.000 COP.
+                    Con pago aprobado participas en la rifa por un bono de $2.500.000 COP.
                   </p>
                   <p className="text-sm text-white/70 mt-2">
-                    Completa y envia tu expediente hoy para quedar activo en el sorteo.
+                    Completa y envia tu expediente para quedar activo en el sorteo.
                   </p>
                 </div>
               </div>
