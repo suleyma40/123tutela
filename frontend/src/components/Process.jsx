@@ -24,8 +24,8 @@ const steps = [
   {
     number: '04',
     icon: PenTool,
-    title: 'Produccion humana redacta',
-    desc: 'Una persona revisa tu informacion, aterriza la narrativa y prepara el documento final con criterio real.',
+    title: 'Equipo experto redacta',
+    desc: 'Especialistas revisan tu informacion, estructuran la narrativa y preparan el documento final con criterio juridico.',
   },
   {
     number: '05',
@@ -51,7 +51,7 @@ const Process = () => {
             Un flujo corto para que tomes accion sin pelearte con el proceso.
           </h2>
           <p className="text-white/68 text-lg leading-relaxed max-w-xl">
-            No te soltamos un PDF y ya. Primero entendemos tu situacion de salud, luego cerramos la informacion importante y despues produccion humana prepara la salida correcta.
+            No te soltamos un PDF y ya. Primero entendemos tu situacion de salud, luego cerramos la informacion importante y despues especialistas preparan la salida correcta.
           </p>
 
           <div className="mt-8 rounded-[2rem] border border-white/12 bg-white/8 backdrop-blur-sm p-6">

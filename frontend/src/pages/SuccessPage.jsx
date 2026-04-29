@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Trophy, FileText, Upload, Send, Loader2, Mail, MessageSquareMore } from 'lucide-react';
+import { CheckCircle2, Trophy, FileText, Upload, Send, Loader2, Mail, MessageSquareMore, UserCheck, Users } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
 
@@ -43,6 +43,7 @@ const buildFormDataPayload = (form) => {
   delete payload.city;
   delete payload.department;
   delete payload.address;
+  payload.is_third_party = Boolean(form.beneficiary_name || form.beneficiary_document || form.beneficiary_relationship);
   return payload;
 };
 
@@ -86,6 +87,7 @@ const SuccessPage = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [caseData, setCaseData] = useState(null);
   const [intakeFiles, setIntakeFiles] = useState([]);
+  const [isThirdParty, setIsThirdParty] = useState(false);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -105,6 +107,10 @@ const SuccessPage = () => {
     key_dates: '',
     medical_support_detail: '',
     extra_details: '',
+    // Datos del beneficiario (tercero)
+    beneficiary_name: '',
+    beneficiary_document: '',
+    beneficiary_relationship: '',
   });
 
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -150,7 +156,11 @@ const SuccessPage = () => {
         key_dates: intake.key_dates || current.key_dates,
         medical_support_detail: intake.medical_support_detail || current.medical_support_detail,
         extra_details: intake.extra_details || current.extra_details,
+        beneficiary_name: intake.beneficiary_name || current.beneficiary_name,
+        beneficiary_document: intake.beneficiary_document || current.beneficiary_document,
+        beneficiary_relationship: intake.beneficiary_relationship || current.beneficiary_relationship,
       }));
+      setIsThirdParty(Boolean(intake.beneficiary_name || intake.beneficiary_document || intake.beneficiary_relationship));
     };
 
     const run = async () => {
@@ -215,7 +225,7 @@ const SuccessPage = () => {
       });
 
       setCaseData(response.data);
-      setSuccessMessage('Informacion recibida. El expediente ya quedo listo para produccion humana.');
+      setSuccessMessage('Información recibida. El expediente ya quedó listo para revisión por nuestro equipo jurídico.');
       setIntakeFiles([]);
     } catch (err) {
       setError(extractError(err, 'No pudimos guardar la informacion.'));
@@ -261,8 +271,8 @@ const SuccessPage = () => {
             </h1>
             <p className="text-slate-500 text-lg max-w-2xl mx-auto font-medium">
               {isPaid
-                ? 'Tu pago ya quedo confirmado. Ahora necesitamos cerrar datos y soportes para que produccion humana redacte sin repreguntas ni retrasos.'
-                : 'Estamos esperando la confirmacion final del pago. Esto puede tardar unos minutos.'}
+                ? 'Tu pago ya quedó confirmado. Ahora necesitamos completar tus datos y documentos de soporte para que nuestro equipo jurídico elabore tu documento sin demoras.'
+                : 'Estamos esperando la confirmación final del pago. Esto puede tardar unos minutos.'}
             </p>
           </div>
 
@@ -274,15 +284,13 @@ const SuccessPage = () => {
                   animate={{ opacity: 1, y: 0 }}
                 className="bg-white p-8 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-slate-200"
               >
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Identificadores de tu pago</p>
-                  <h3 className="text-2xl font-extrabold text-slate-900 mb-3">Guarda estos codigos</h3>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Tu expediente</p>
+                  <h3 className="text-2xl font-extrabold text-slate-900 mb-3">Codigo de expediente</h3>
                   <p className="text-sm text-slate-500 font-medium mb-6">
-                    No usamos consecutivos visibles. Cada pago recibe codigos unicos para seguimiento operativo y para la rifa mensual.
+                    Este es tu numero de expediente para seguimiento y soporte.
                   </p>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    {customerCaseCode && <CodeCard label="Expediente" value={customerCaseCode} subtle />}
-                    {invoiceNumber && <CodeCard label="Factura operativa" value={invoiceNumber} />}
-                    {paymentReference && <CodeCard label="Referencia de pago" value={paymentReference} />}
+                  <div className="grid gap-4">
+                    {customerCaseCode && <CodeCard label="Número de expediente" value={customerCaseCode} subtle />}
                   </div>
                 </motion.div>
               )}
@@ -297,10 +305,10 @@ const SuccessPage = () => {
                     <Trophy size={120} />
                   </div>
                   <div className="relative z-10">
-                    <p className="text-[#19B7FF] font-black uppercase text-xs tracking-widest mb-2">Participacion en rifa mensual</p>
-                    <h3 className="text-2xl font-extrabold mb-3">Tu codigo unico es:</h3>
+                    <p className="text-[#19B7FF] font-black uppercase text-xs tracking-widest mb-2">Codigo de participacion</p>
+                    <h3 className="text-2xl font-extrabold mb-3">Sorteo mayo 2026</h3>
                     <p className="text-white/80 text-sm font-medium mb-4 max-w-xl">
-                      Este codigo identifica tu participacion al cierre del periodo promocional. Es unico por pago aprobado y no sigue una secuencia publica.
+                      Este codigo confirma tu participacion con pago aprobado.
                     </p>
                     <div className="bg-white/10 border border-white/20 inline-block px-6 py-3 rounded-2xl font-mono text-3xl font-black tracking-tighter">
                       {raffleCode}
@@ -312,7 +320,7 @@ const SuccessPage = () => {
               {isPaid && !isDelivered && (
                 <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-slate-200">
                   <h3 className="text-2xl font-extrabold text-slate-900 mb-8 flex items-center gap-3">
-                    <MessageSquareMore className="text-[#19B7FF]" /> Agente de Produccion
+                    <MessageSquareMore className="text-[#19B7FF]" /> Completar expediente
                   </h3>
 
                   <div className="grid gap-4 mb-8">
@@ -321,12 +329,12 @@ const SuccessPage = () => {
                         <div>
                           <p className="text-sm font-black uppercase tracking-wide text-slate-900 mb-2">Estado del expediente</p>
                           <p className="text-sm text-slate-500 font-medium">
-                            {opsSummary || 'Estamos consolidando tu expediente para que el equipo humano redacte sin repreguntas.'}
+                            {opsSummary || 'Estamos consolidando tu expediente para que nuestros especialistas elaboren tu documento.'}
                           </p>
                         </div>
-                        {opsStatus === 'sent' && <StatusPill tone="success">Sincronizado con produccion</StatusPill>}
-                        {opsStatus === 'error' && <StatusPill tone="danger">Sincronizacion con incidencia</StatusPill>}
-                        {!['sent', 'error'].includes(opsStatus) && <StatusPill>Pendiente de sincronizacion</StatusPill>}
+                        {opsStatus === 'sent' && <StatusPill tone="success">Enviado al equipo jurídico</StatusPill>}
+                        {opsStatus === 'error' && <StatusPill tone="danger">Sincronización con incidencia</StatusPill>}
+                        {!['sent', 'error'].includes(opsStatus) && <StatusPill>Pendiente de envío</StatusPill>}
                       </div>
                     </div>
 
@@ -344,31 +352,63 @@ const SuccessPage = () => {
                       </div>
 
                       <div className="rounded-[2rem] border border-slate-200 p-5">
-                        <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-3">Falta para produccion</p>
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-3">Pendiente para elaboración</p>
                         <p className="text-sm text-slate-500 font-medium">
                           {prompts.length
-                            ? `Responde ${prompts.length} bloque${prompts.length === 1 ? '' : 's'} de informacion y sube los soportes que tengas disponibles.`
-                            : 'El expediente ya tiene base suficiente. Si quieres, solo agrega soportes o contexto adicional antes de enviarlo al equipo humano.'}
+                            ? `Responde ${prompts.length} bloque${prompts.length === 1 ? '' : 's'} de información y sube los soportes que tengas disponibles.`
+                            : 'El expediente ya tiene base suficiente. Si deseas, agrega soportes o contexto adicional antes de enviarlo a nuestros especialistas.'}
                         </p>
                       </div>
                     </div>
 
                     <div className="rounded-[2rem] border border-[#19B7FF]/20 bg-[#19B7FF]/10 p-5">
-                      <p className="text-sm font-black text-slate-900 mb-2">Que pasa despues de enviar esto</p>
+                      <p className="text-sm font-black text-slate-900 mb-2">¿Qué pasa después de enviar esto?</p>
                       <p className="text-sm text-slate-600 font-medium">
-                        Produccion humana revisara tus respuestas, validara anexos y te escribira solo si falta algo critico. El tiempo corre desde que el expediente quede completo.
+                        Nuestro equipo jurídico revisará tus respuestas, validará los anexos y te contactará solo si falta información crítica. El plazo de entrega corre desde que el expediente quede completo.
                       </p>
                     </div>
                   </div>
 
                   <form onSubmit={handleSubmit} className="space-y-8">
+                    {/* Selector: nombre propio o tercero */}
+                    <div className="rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
+                      <p className="text-sm font-black uppercase tracking-wide text-brand mb-4">¿Para quién es el documento?</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setIsThirdParty(false)}
+                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all font-bold text-sm ${
+                            !isThirdParty
+                              ? 'border-[#0D68FF] bg-[#0D68FF]/10 text-[#0D68FF]'
+                              : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                          }`}
+                        >
+                          <UserCheck size={20} /> A mi nombre
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsThirdParty(true)}
+                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all font-bold text-sm ${
+                            isThirdParty
+                              ? 'border-[#0D68FF] bg-[#0D68FF]/10 text-[#0D68FF]'
+                              : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                          }`}
+                        >
+                          <Users size={20} /> A nombre de otra persona
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      {isThirdParty ? 'Datos de quien solicita (tú)' : 'Tus datos personales'}
+                    </p>
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-brand ml-1">Nombre completo</label>
                         <input required type="text" className="input-field" value={form.name} onChange={(e) => handleFieldChange('name', e.target.value)} />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-bold text-brand ml-1">Correo electronico</label>
+                        <label className="text-sm font-bold text-brand ml-1">Correo electrónico</label>
                         <input required type="email" className="input-field" value={form.email} onChange={(e) => handleFieldChange('email', e.target.value)} />
                       </div>
                     </div>
@@ -379,7 +419,7 @@ const SuccessPage = () => {
                         <input required type="text" className="input-field" value={form.phone} onChange={(e) => handleFieldChange('phone', e.target.value)} />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-bold text-brand ml-1">Cedula de ciudadania</label>
+                        <label className="text-sm font-bold text-brand ml-1">Cédula de ciudadanía</label>
                         <input required type="text" className="input-field" value={form.document_number} onChange={(e) => handleFieldChange('document_number', e.target.value)} />
                       </div>
                     </div>
@@ -396,16 +436,57 @@ const SuccessPage = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-brand ml-1">Direccion de notificacion</label>
+                      <label className="text-sm font-bold text-brand ml-1">Dirección de notificación</label>
                       <input required type="text" className="input-field" value={form.address} onChange={(e) => handleFieldChange('address', e.target.value)} />
                     </div>
+
+                    {/* Datos del beneficiario (tercero) */}
+                    {isThirdParty && (
+                      <>
+                        <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6">
+                          <p className="text-sm font-black uppercase tracking-wide text-amber-700 mb-2">Datos del beneficiario</p>
+                          <p className="text-sm text-amber-600 font-medium">
+                            Completa los datos de la persona a cuyo nombre se elaborará el documento legal.
+                          </p>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <label className="text-sm font-bold text-brand ml-1">Nombre completo del beneficiario</label>
+                            <input required type="text" className="input-field" placeholder="Nombre de la persona beneficiaria" value={form.beneficiary_name} onChange={(e) => handleFieldChange('beneficiary_name', e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-bold text-brand ml-1">Cédula del beneficiario</label>
+                            <input required type="text" className="input-field" placeholder="Número de documento" value={form.beneficiary_document} onChange={(e) => handleFieldChange('beneficiary_document', e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-brand ml-1">Parentesco o relación</label>
+                          <select
+                            required
+                            className="input-field"
+                            value={form.beneficiary_relationship}
+                            onChange={(e) => handleFieldChange('beneficiary_relationship', e.target.value)}
+                          >
+                            <option value="">Selecciona la relación</option>
+                            <option value="hijo_menor">Hijo/a menor de edad</option>
+                            <option value="hijo_mayor">Hijo/a mayor de edad</option>
+                            <option value="padre_madre">Padre / Madre</option>
+                            <option value="conyuge">Cónyuge o compañero/a permanente</option>
+                            <option value="hermano">Hermano/a</option>
+                            <option value="abuelo">Abuelo/a</option>
+                            <option value="representante_legal">Representante legal</option>
+                            <option value="otro">Otro</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
 
                     {!!prompts.length && (
                       <div className="space-y-6">
                         <div className="rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
-                          <p className="text-sm font-black uppercase tracking-wide text-brand mb-2">Preguntas del agente</p>
+                          <p className="text-sm font-black uppercase tracking-wide text-brand mb-2">Información complementaria</p>
                           <p className="text-sm text-brand/70 font-medium">
-                            Responde estas preguntas para que el humano reciba el expediente sin vacios ni repreguntas innecesarias.
+                            Responde estas preguntas para que nuestros especialistas reciban el expediente completo y puedan elaborar tu documento sin demoras.
                           </p>
                         </div>
                         {prompts.map((prompt) => {
@@ -466,7 +547,7 @@ const SuccessPage = () => {
                       <textarea
                         rows={4}
                         className="input-field resize-none"
-                        placeholder="Agrega cualquier dato util para produccion humana."
+                        placeholder="Agrega cualquier dato adicional que consideres relevante para tu caso."
                         value={form.extra_details}
                         onChange={(e) => handleFieldChange('extra_details', e.target.value)}
                       />
@@ -516,7 +597,7 @@ const SuccessPage = () => {
                       disabled={submitting}
                       className="w-full py-4 text-xl flex justify-center items-center gap-3 disabled:opacity-50 rounded-2xl bg-[#0D68FF] text-white font-black"
                     >
-                      {submitting ? 'Enviando...' : 'Enviar expediente a Produccion Humana'} <Send size={20} />
+                      {submitting ? 'Enviando...' : 'Enviar expediente al equipo jurídico'} <Send size={20} />
                     </button>
                   </form>
                 </div>
@@ -538,31 +619,31 @@ const SuccessPage = () => {
               <div className="bg-white p-8 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-slate-200">
                 <h4 className="font-extrabold text-slate-900 mb-6">Linea de tiempo</h4>
                 <div className="space-y-6">
-                  <TimelineStep step="1" title="Pago aprobado" detail="Confirmado via Wompi" done />
+                  <TimelineStep step="1" title="Pago aprobado" detail="Confirmado vía pasarela segura" done />
                   <TimelineStep
                     step="2"
-                    title="Expediente para produccion"
-                    detail="El agente cierra datos, anexos y contexto para el humano"
+                    title="Completar expediente"
+                    detail="Completa tus datos y adjunta los documentos de soporte"
                     active={!successMessage}
                     done={Boolean(successMessage)}
                   />
                   <TimelineStep
                     step="3"
-                    title="Redaccion humana"
-                    detail="Maximo 24 horas habiles desde informacion completa"
+                    title="Elaboración por especialistas"
+                    detail="Máximo 24 horas hábiles desde información completa"
                     done={isDelivered}
                   />
                   <TimelineStep
                     step="4"
                     title="Entrega y seguimiento"
-                    detail="Te contactamos usando tu codigo de expediente y tu referencia de pago"
+                    detail="Recibirás tu documento listo para radicar"
                   />
                 </div>
               </div>
 
               <div className="bg-[#F8FBFF] p-8 rounded-[2rem] border border-slate-200">
                 <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                  <strong>Nota:</strong> El plazo de entrega corre desde que envias datos completos y soportes suficientes para produccion humana. Conserva tu codigo de expediente y tu codigo de rifa para cualquier seguimiento.
+                  <strong>Nota:</strong> El plazo de entrega corre desde que envías datos completos y soportes suficientes. Conserva tu número de expediente y tu código de rifa para cualquier seguimiento.
                 </p>
               </div>
             </div>

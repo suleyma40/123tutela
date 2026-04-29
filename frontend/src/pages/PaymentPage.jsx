@@ -92,7 +92,7 @@ const PaymentPage = () => {
 
             <h1 className="mt-6 text-4xl md:text-5xl font-black leading-none">Activa tu documento</h1>
             <p className="mt-4 text-white/72 text-lg leading-7">
-              Ya tienes una ruta recomendada. Ahora puedes activar tu documento con pago seguro y entrar al sorteo especial de mayo.
+              Ya tienes una ruta recomendada. Activa tu documento con pago seguro y, despues del pago, completa tus datos y anexa soportes para que el equipo experto lo elabore.
             </p>
 
             <div className="mt-8 rounded-[24px] border border-white/10 bg-white/5 p-6 relative overflow-hidden">
@@ -100,8 +100,8 @@ const PaymentPage = () => {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45 mb-3">Resultado del Análisis</p>
               <h2 className="text-2xl font-black">{guestCase.recommendedAction}</h2>
               <p className="text-sm text-white/70 mt-4 leading-6">
-                Hemos evaluado la viabilidad de tu caso y la ruta legal recomendada es iniciar una <strong>{guestCase.recommendedAction}</strong>. 
-                Al adquirir el documento, nuestro sistema preparará la redacción con todo el <strong>sustento jurídico necesario</strong>.
+                Hemos evaluado la viabilidad de tu caso y la ruta legal recomendada es iniciar una <strong>{guestCase.recommendedAction}</strong>.
+                Al activar el servicio, especialistas juridicos elaboraran el documento con el <strong>sustento legal necesario</strong>, segun la informacion y soportes que compartas.
               </p>
               <p className="text-sm text-white/70 mt-3 leading-6">
                 Adicionalmente, te entregaremos una <strong>guía paso a paso</strong> indicándote exactamente:
@@ -116,11 +116,11 @@ const PaymentPage = () => {
             <div className="grid gap-4 mt-8">
               <div className="flex items-start gap-3">
                 <CheckCircle2 size={18} className="text-[#36D399] mt-1 shrink-0" />
-                <p className="text-sm text-white/72">Documento legal robusto y listo para presentar, sin que tengas que redactar nada.</p>
+                <p className="text-sm text-white/72">Documento legal elaborado por especialistas, listo para presentar.</p>
               </div>
               <div className="flex items-start gap-3">
                 <ShieldCheck size={18} className="text-[#19B7FF] mt-1 shrink-0" />
-                <p className="text-sm text-white/72">Seguridad total en tu pago a través de Wompi. Tu documento se generará de inmediato.</p>
+                <p className="text-sm text-white/72">Pago seguro por Wompi. La elaboracion inicia cuando completes datos y anexos del expediente.</p>
               </div>
               <div className="flex items-start gap-3">
                 <Trophy size={18} className="text-[#F59E0B] mt-1 shrink-0" />

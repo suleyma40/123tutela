@@ -404,7 +404,7 @@ export default function MainAppV2() {
   }
 
   if (view === "terminos") {
-    return <LegalView title="Terminos y condiciones" body={"HazloPorMi entrega diagnostico inicial, redaccion humana del documento y guia detallada. No garantiza resultados judiciales o administrativos. El plazo comercial es hasta 24 horas habiles desde pago aprobado e informacion completa. Las promociones o incentivos, cuando existan, se sujetan a terminos publicados y normativa aplicable."} />;
+    return <LegalView title="Terminos y condiciones" body={"HazloPorMi entrega diagnostico inicial, redaccion del documento por especialistas y guia detallada. No garantiza resultados judiciales o administrativos. El plazo comercial es hasta 24 horas habiles desde pago aprobado e informacion completa. Las promociones o incentivos, cuando existan, se sujetan a terminos publicados y normativa aplicable."} />;
   }
   if (view === "privacidad") {
     return <LegalView title="Politica de datos" body={"Tratamos los datos de contacto y los documentos adjuntos para analizar el caso, preparar el documento solicitado, operar pagos, hacer seguimiento y entregar el servicio por email o WhatsApp. El usuario debe suministrar informacion veraz y soportes pertinentes."} />;
@@ -440,13 +440,13 @@ export default function MainAppV2() {
           <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 28, marginTop: 56 }}>
             <div>
               <div style={{ display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "rgba(255,255,255,0.10)", fontWeight: 700, fontSize: 13 }}>
-                Diagnóstico inicial + redacción humana + guía detallada
+                Diagnóstico inicial + redacción por especialistas + guía detallada
               </div>
               <h1 style={{ margin: "18px 0 14px", fontSize: 66, lineHeight: 0.98 }}>
                 ¿Tu EPS, tránsito o banco no responde?
               </h1>
               <p style={{ fontSize: 20, lineHeight: 1.7, color: "rgba(255,255,255,0.78)", maxWidth: 700 }}>
-                Cuéntanos tu caso, te decimos qué camino tomar y, si pagas, un humano prepara tu documento y tu paso a paso completo en hasta 24 horas hábiles.
+                Cuéntanos tu caso, te decimos qué camino tomar y, si pagas, especialistas preparan tu documento y tu paso a paso completo en hasta 24 horas hábiles.
               </p>
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 24 }}>
                 <a href="#diagnostico"><button style={buttonStyle("accent")}>Empezar diagnóstico</button></a>
@@ -457,7 +457,7 @@ export default function MainAppV2() {
               <div style={{ color: "rgba(255,255,255,0.7)", fontWeight: 700 }}>Precio de entrada</div>
               <div style={{ fontSize: 60, fontWeight: 900, marginTop: 8 }}>{PRICE_LABEL}</div>
               <p style={{ color: "rgba(255,255,255,0.78)", lineHeight: 1.7 }}>
-                Incluye diagnóstico, revisión humana, documento final y checklist operativo con anexos, canal y siguiente paso si no responden o niegan.
+                Incluye diagnóstico, revisión experta, documento final y checklist operativo con anexos, canal y siguiente paso si no responden o niegan.
               </p>
               <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
                 {["Sin registro obligatorio", "Pago seguro con Wompi", "Entrega por email y WhatsApp", "Hasta 24 horas hábiles"].map((item) => (
@@ -486,11 +486,11 @@ export default function MainAppV2() {
         </div>
       </Section>
 
-      <Section id="como-funciona" title="Cómo funciona" subtitle="El funnel elimina registro y dashboard obligatorio. Primero entiendes tu caso, luego pagas y completas lo necesario para producción humana.">
+      <Section id="como-funciona" title="Cómo funciona" subtitle="El proceso es simple: primero entiendes tu caso, luego pagas y completas la información necesaria para que nuestros especialistas elaboren tu documento.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
           {[
             ["1. Diagnóstico", "Nos dejas tu caso y te mostramos la acción sugerida."],
-            ["2. Pago", `Pagas ${PRICE_LABEL} para desbloquear la redacción humana.`],
+            ["2. Pago", `Pagas ${PRICE_LABEL} para activar la elaboración por especialistas.`],
             ["3. Formulario completo", "Cargas datos, anexos y detalles que faltan."],
             ["4. Entrega", "Recibes documento y guía detallada en hasta 24 horas hábiles."],
           ].map(([title, body]) => (
@@ -549,7 +549,7 @@ export default function MainAppV2() {
             <h3 style={{ marginTop: 0, fontSize: 28 }}>Qué recibes si pagas</h3>
             <div style={{ display: "grid", gap: 14, marginTop: 16 }}>
               {[
-                ["Documento final", "Redactado por un humano con base en tu caso y soportes."],
+                ["Documento final", "Redactado por especialistas con base en tu caso y soportes."],
                 ["Checklist detallado", "Qué presentar, dónde, cómo, qué anexar y qué pedir exactamente."],
                 ["Ruta siguiente", "Qué hacer si no responden o niegan la solicitud."],
                 ["Entrega directa", "Lo recibes por email y WhatsApp, sin panel obligatorio."],
@@ -587,7 +587,7 @@ export default function MainAppV2() {
               <div style={{ background: "#F7F9FE", borderRadius: 24, padding: 24 }}>
                 <div style={{ color: C.muted, fontWeight: 700 }}>Pago único</div>
                 <div style={{ fontSize: 52, fontWeight: 900, color: C.accent, marginTop: 8 }}>{PRICE_LABEL}</div>
-                <p style={{ color: C.muted, lineHeight: 1.7 }}>La redacción humana se activa cuando el pago queda aprobado.</p>
+                <p style={{ color: C.muted, lineHeight: 1.7 }}>Nuestro equipo jurídico comienza a trabajar en cuanto el pago queda aprobado.</p>
                 <button style={buttonStyle("accent")} onClick={startPayment}>{loading ? "Abriendo checkout..." : "Pagar con Wompi"}</button>
               </div>
             </div>
@@ -596,7 +596,7 @@ export default function MainAppV2() {
       )}
 
       {step === "intake" && caseStatus && (
-        <Section title="Completa tus datos para producción" subtitle="El SLA de 24 horas hábiles corre desde que el pago está aprobado y la información queda completa.">
+        <Section title="Completa tus datos" subtitle="El plazo de 24 horas hábiles corre desde que el pago está aprobado y la información queda completa.">
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 28, padding: 28 }}>
             {(invoice.number || raffle.code) && (
               <div style={{ marginBottom: 18, background: "#F7F9FE", border: `1px solid ${C.border}`, borderRadius: 18, padding: 18 }}>
@@ -639,7 +639,7 @@ export default function MainAppV2() {
               {!!intakeFiles.length && <p style={{ color: C.muted }}>{intakeFiles.length} archivo(s) listos para subir.</p>}
             </div>
             <div style={{ marginTop: 18 }}>
-              <button style={buttonStyle("primary")} onClick={submitIntake}>{loading ? "Enviando..." : "Enviar a revisión humana"}</button>
+              <button style={buttonStyle("primary")} onClick={submitIntake}>{loading ? "Enviando..." : "Enviar al equipo jurídico"}</button>
             </div>
             {error && <p style={{ color: C.danger, marginTop: 14 }}>{error}</p>}
           </div>
@@ -659,7 +659,7 @@ export default function MainAppV2() {
               <div style={{ marginTop: 20, display: "grid", gap: 12 }}>
                 <div><strong>SLA objetivo:</strong> {caseStatus.case.submission_summary?.sla_deadline_at || "Se calcula al completar intake."}</div>
                 <div><strong>Último pago:</strong> {caseStatus.latest_payment?.reference || "Pendiente"}</div>
-                <div><strong>Entrega:</strong> {caseStatus.case.status === "entregado" ? "Documento enviado" : "En revisión humana"}</div>
+                <div><strong>Entrega:</strong> {caseStatus.case.status === "entregado" ? "Documento enviado" : "En elaboración por especialistas"}</div>
                 {invoice.number && <div><strong>Factura:</strong> {invoice.number}</div>}
                 {raffle.code && <div><strong>Código de participación:</strong> {raffle.code}</div>}
               </div>
@@ -710,12 +710,12 @@ export default function MainAppV2() {
         </Section>
       )}
 
-      <Section id="precio" title="Precio simple para salir rápido" subtitle="La V1 comercial elimina planes complejos para priorizar conversión y operación humana.">
+      <Section id="precio" title="Precio simple para salir rápido" subtitle="Un solo pago, sin planes complejos. Tu documento elaborado por especialistas.">
         <div style={{ background: C.primaryDark, color: "#fff", borderRadius: 28, padding: 32, display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 20 }}>
           <div>
             <div style={{ fontSize: 52, fontWeight: 900 }}>{PRICE_LABEL}</div>
             <p style={{ color: "rgba(255,255,255,0.78)", lineHeight: 1.8, maxWidth: 720 }}>
-              Incluye diagnóstico preliminar, checkout, intake completo, redacción humana, PDF final y checklist detallado con anexos, canal sugerido, tiempo de respuesta y siguiente paso si no responden o niegan.
+              Incluye diagnóstico preliminar, checkout, formulario completo, elaboración por especialistas, PDF final y checklist detallado con anexos, canal sugerido, tiempo de respuesta y siguiente paso si no responden o niegan.
             </p>
           </div>
           <a href="#diagnostico"><button style={buttonStyle("accent")}>Quiero empezar</button></a>

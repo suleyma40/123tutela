@@ -8,7 +8,7 @@ const features = [
   'Checklist de soportes y siguientes pasos',
   'Ruta sugerida para presentar el caso',
   'Trazabilidad comercial y operativa',
-  'Revision humana antes de entrega',
+  'Revision experta antes de entrega',
   'Codigo unico para seguimiento y bono',
 ];
 
@@ -22,7 +22,7 @@ const Pricing = () => {
             Un precio claro para salir del bloqueo y actuar con un documento serio.
           </h2>
           <p className="text-brand/60 text-lg leading-relaxed">
-            El diagnostico inicial es gratis. Solo pagas cuando decides que 123tutela y produccion humana preparen tu kit de accion.
+            El diagnostico inicial es gratis. Solo pagas cuando decides que 123tutela y nuestro equipo experto preparen tu kit de accion.
           </p>
         </div>
 
@@ -42,7 +42,7 @@ const Pricing = () => {
 
               <h3 className="text-3xl md:text-4xl font-extrabold mb-3">Kit completo 123tutela</h3>
               <p className="text-white/70 text-lg max-w-lg mb-8">
-                Para personas que necesitan pasar de la confusion a una accion concreta en salud, con diagnostico inicial, cierre de informacion y produccion humana.
+                Para personas que necesitan pasar de la confusion a una accion concreta en salud, con diagnostico inicial, cierre de informacion y elaboracion por especialistas.
               </p>
 
               <div className="flex items-end gap-3 mb-8">

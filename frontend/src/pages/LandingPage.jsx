@@ -72,7 +72,7 @@ const highlights = [
 const faq = [
   {
     q: '¿123tutela redacta automaticamente con IA?',
-    a: 'No. La IA hace el diagnostico inicial y ordena la informacion. Cuando pagas, el flujo pasa por produccion humana antes de la entrega final.',
+    a: 'No. La IA hace el diagnostico inicial y ordena la informacion. Cuando pagas, el documento lo elabora un equipo experto antes de la entrega final.',
   },
   {
     q: '¿Que pasa despues del pago?',

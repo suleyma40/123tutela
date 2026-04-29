@@ -45,7 +45,7 @@ const Hero = () => {
         >
           <div className="inline-flex items-center gap-2 bg-white/90 border border-brand/10 px-4 py-2 rounded-full text-sm font-bold text-brand shadow-sm mb-7">
             <Sparkles size={16} className="text-accent" />
-            IA juridica colombiana + produccion humana + guia accionable
+            IA juridica colombiana + validacion experta + guia accionable
           </div>
 
           <div className="space-y-6">
