@@ -24,6 +24,24 @@ const buildPromptList = (caseData) => {
   }))).filter((item) => item.id && item.question);
 };
 
+const buildSuggestedAttachments = (caseData) => {
+  const action = String(caseData?.case?.recommended_action || '').toLowerCase();
+  const category = String(caseData?.case?.category || '').toLowerCase();
+  if (action.includes('desacato') || action.includes('impugnacion')) {
+    return ['Cédula', 'Fallo de tutela', 'Prueba de incumplimiento o inconformidad', 'Historia clínica o soporte actual'];
+  }
+  if (category.includes('salud') || action.includes('tutela')) {
+    return ['Cédula', 'Orden médica o fórmula', 'Historia clínica reciente', 'Respuesta/negativa de EPS', 'Radicado o prueba de gestión previa'];
+  }
+  if (category.includes('trans')) {
+    return ['Cédula', 'Comparendo o acto', 'Estado de cuenta/SIMIT', 'Radicado previo', 'Prueba de afectación actual'];
+  }
+  if (category.includes('banco') || category.includes('dato')) {
+    return ['Cédula', 'Extracto o soporte de cobro/reporte', 'Reclamación previa', 'Respuesta de la entidad', 'Soporte de perjuicio actual'];
+  }
+  return ['Cédula', 'Documento o acto relacionado', 'Radicado previo', 'Respuesta recibida', 'Prueba de afectación actual'];
+};
+
 const buildDescription = (form) => {
   return [
     form.case_story,
@@ -140,6 +158,10 @@ const SuccessPage = () => {
   const transactionId = params.get('id');
   const prompts = useMemo(() => buildPromptList(caseData), [caseData]);
   const requiredAttachments = caseData?.customer_guide?.required_attachments || [];
+  const suggestedAttachments = useMemo(
+    () => (requiredAttachments.length ? requiredAttachments : buildSuggestedAttachments(caseData)),
+    [requiredAttachments, caseData],
+  );
   const uploadedFiles = caseData?.files || [];
   const opsSync = caseData?.case?.submission_summary?.ops_sync || {};
   const opsStatus = String(opsSync.status || '').toLowerCase();
@@ -192,10 +214,17 @@ const SuccessPage = () => {
     const run = async () => {
       try {
         if (transactionId) {
-          const response = await api.post('/public/payments/wompi/reconcile', {
-            transaction_id: transactionId,
-            public_token: guestCase.publicToken,
-          });
+          const isSimulated = transactionId.startsWith('simulated_');
+          const response = isSimulated
+            ? await api.post('/public/payments/simulate', {
+                transaction_id: transactionId,
+                reference: transactionId.replace('simulated_', ''),
+                public_token: guestCase.publicToken,
+              })
+            : await api.post('/public/payments/wompi/reconcile', {
+                transaction_id: transactionId,
+                public_token: guestCase.publicToken,
+              });
           hydrate(response.data);
         } else {
           const response = await api.get(`/public/cases/${guestCase.caseId}`, {
@@ -640,19 +669,23 @@ const SuccessPage = () => {
                       <label className="text-sm font-bold text-brand ml-1 flex items-center gap-2">
                         <Upload size={16} /> Adjuntar soportes
                       </label>
-                      {!!requiredAttachments.length && (
+                      {!!suggestedAttachments.length && (
                         <div className="flex flex-wrap gap-2">
-                          {requiredAttachments.map((item) => (
+                          {suggestedAttachments.map((item) => (
                             <span key={item} className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">
                               {item}
                             </span>
                           ))}
                         </div>
                       )}
+                      <p className="text-xs text-brand/50 font-medium">
+                        Formatos sugeridos: PDF, JPG, PNG, DOC y DOCX.
+                      </p>
                       <div className="border-2 border-dashed border-brand/10 rounded-2xl p-8 text-center hover:bg-brand/5 transition-colors cursor-pointer relative">
                         <input
                           type="file"
                           multiple
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                           className="absolute inset-0 opacity-0 cursor-pointer"
                           onChange={(e) => setIntakeFiles(Array.from(e.target.files || []))}
                         />
