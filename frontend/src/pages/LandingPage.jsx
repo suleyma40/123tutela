@@ -66,7 +66,7 @@ const steps = [
 const highlights = [
   'Precio unico de $49.900 por documento.',
   'Ruta clara antes de pagar, sin adivinar el tramite.',
-  'Participas por un bono de 2.5 millones de pesos en mayo.',
+  'Participas por la posibilidad de llevarse $2.500.000 COP en mayo.',
 ];
 
 const faq = [
@@ -84,7 +84,7 @@ const faq = [
   },
   {
     q: '¿Como funciona el bono de mayo de 2026?',
-    a: 'Los usuarios de la app con pago aprobado durante mayo de 2026 participan por un bono de 2.5 millones de pesos. La entrega se hace en vivo el 30 de mayo de 2026.',
+    a: 'Los usuarios de la app con pago aprobado durante mayo de 2026 participan por la posibilidad de llevarse $2.500.000 COP. El sorteo se realiza en vivo el 30 de mayo de 2026.',
   },
 ];
 
@@ -308,7 +308,7 @@ const LandingPage = () => {
               por $49.900.
             </h1>
             <p>
-              123tutela analiza tu caso, te muestra la ruta correcta y te deja activar tu documento por un precio unico. En mayo, ademas, los usuarios de la app participan por un bono de 2.5 millones de pesos.
+              123tutela analiza tu caso, te muestra la ruta correcta y te deja activar tu documento por un precio unico. En mayo, ademas, los usuarios de la app participan por la posibilidad de llevarse $2.500.000 COP.
             </p>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 28 }}>
               <Link to="/diagnostico" className="landing-btn landing-btn--primary">
@@ -476,14 +476,14 @@ const LandingPage = () => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
                   <span>Bono mayo 2026</span>
-                  <strong>2.5 millones</strong>
+                  <strong>$2.500.000 COP</strong>
                 </div>
               </div>
               <div style={{ marginTop: 18, padding: 18, borderRadius: 18, background: '#0F2C5F', color: '#fff' }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#93C5FD', marginBottom: 6 }}>ENTREGA ESPECIAL</div>
                 <div style={{ fontSize: 22, fontWeight: 800 }}>En vivo el 30 de mayo de 2026</div>
                 <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.76)', lineHeight: 1.6 }}>
-                  Los usuarios de la app con pago aprobado en mayo participan por este bono especial de 2.5 millones de pesos.
+                  Los usuarios de la app con pago aprobado en mayo participan por la posibilidad de llevarse $2.500.000 COP en el sorteo especial.
                 </div>
               </div>
               <div style={{ marginTop: 24 }}>

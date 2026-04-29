@@ -46,7 +46,7 @@ const Navbar = () => {
                 className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-100 px-4 py-2 text-amber-800 no-underline hover:bg-amber-200 transition-colors animate-pulse"
               >
                 <Sparkles size={15} />
-                Rifa mayo: gana $2.5M COP
+                Rifa mayo: posibilidad de llevarse $2.500.000 COP
               </Link>
             )}
             {!isAdmin && (
