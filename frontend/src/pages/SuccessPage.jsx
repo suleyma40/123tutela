@@ -47,6 +47,12 @@ const buildFormDataPayload = (form) => {
   return payload;
 };
 
+const normalizeOperationalCopy = (text = '') =>
+  String(text)
+    .replace(/produccion humana/gi, 'equipo experto')
+    .replace(/redaccion humana/gi, 'elaboracion por especialistas')
+    .replace(/redacte sin repreguntas ni retrasos/gi, 'elabore el documento sin reprocesos ni demoras');
+
 const StatusPill = ({ children, tone = 'default' }) => {
   const styles = {
     default: 'bg-brand/10 text-brand',
@@ -120,7 +126,7 @@ const SuccessPage = () => {
   const uploadedFiles = caseData?.files || [];
   const opsSync = caseData?.case?.submission_summary?.ops_sync || {};
   const opsStatus = String(opsSync.status || '').toLowerCase();
-  const opsSummary = caseData?.case?.facts?.agent_state?.ops_summary || '';
+  const opsSummary = normalizeOperationalCopy(caseData?.case?.facts?.agent_state?.ops_summary || '');
   const uploadedNames = uploadedFiles.map((item) => item?.original_name).filter(Boolean);
 
   useEffect(() => {
