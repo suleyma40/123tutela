@@ -103,6 +103,23 @@ def _health_intake_text(facts: dict[str, Any], *keys: str) -> str:
     return ""
 
 
+def _extract_intake_age(intake: dict[str, Any]) -> int | None:
+    for key in ("patient_age", "edad", "age", "representado_edad"):
+        raw = _text(intake.get(key))
+        if not raw:
+            continue
+        digits = "".join(ch for ch in raw if ch.isdigit())
+        if not digits:
+            continue
+        try:
+            age = int(digits)
+        except ValueError:
+            continue
+        if 0 < age < 130:
+            return age
+    return None
+
+
 def _contains_health_urgency_signal(text: str) -> bool:
     negative_markers = [
         "no es una urgencia",
@@ -276,6 +293,9 @@ def _infer_health_workflow(
 ) -> tuple[str, str, list[str]]:
     intake = (facts or {}).get("intake_form") or {}
     warnings: list[str] = []
+    warnings.append(
+        "Ruta legal sugerida en salud (Colombia): 1) Derecho de peticion/PQRS a EPS o IPS, 2) queja o gestion ante Supersalud, 3) tutela si persiste barrera o hay urgencia constitucional, 4) impugnacion del fallo de tutela dentro de 3 dias, 5) desacato si incumplen un fallo favorable."
+    )
 
     target_entity = _health_intake_text(facts, "target_entity", "eps_name")
     diagnosis = _health_intake_text(facts, "diagnosis")
@@ -289,6 +309,7 @@ def _infer_health_workflow(
     tutela_appeal_reason = _health_intake_text(facts, "tutela_appeal_reason")
     tutela_noncompliance_detail = _health_intake_text(facts, "tutela_noncompliance_detail")
     special_protection = _lower(intake.get("special_protection") or intake.get("tutela_special_protection_detail"))
+    patient_age = _extract_intake_age(intake)
     current_harm = _health_intake_text(facts, "current_harm", "ongoing_harm", "urgency_detail", "tutela_immediacy_detail")
     continuity_detail = _health_intake_text(facts, "treatment_needed", "urgency_detail", "current_harm", "ongoing_harm")
 
@@ -302,7 +323,11 @@ def _infer_health_workflow(
     )
     has_continuity_risk = bool(continuity_detail) and _contains_health_continuity_signal(_lower(continuity_detail) + " " + lowered)
     has_urgency = _health_text_supports_urgency(urgency_detail, current_harm, lowered) or urgent or has_continuity_risk
-    has_special_protection = special_protection not in {"", "no aplica", "ninguno"} or _contains_special_protection_signal(lowered)
+    has_special_protection = (
+        special_protection not in {"", "no aplica", "ninguno"}
+        or _contains_special_protection_signal(lowered)
+        or (patient_age is not None and patient_age >= 60)
+    )
     has_resolved_signal = _contains_health_resolved_signal(lowered)
     prior_claim_done = (
         all_required_done
@@ -312,7 +337,9 @@ def _infer_health_workflow(
         or _contains_any(lowered, ["derecho de peticion", "derecho de petición", "peticion previa", "petición previa", "ya reclame", "ya reclamé", "ya radiqué", "ya radique", "ya pase derecho de peticion", "ya presenté", "ya presente"])
     )
     manifest_urgency = _contains_health_manifest_urgency_signal(" ".join([_lower(urgency_detail), _lower(current_harm), lowered]))
-    urgency_without_waiting = manifest_urgency or (has_continuity_risk and has_special_protection)
+    urgency_without_waiting = manifest_urgency or (has_continuity_risk and has_special_protection) or (
+        (patient_age is not None and patient_age >= 80) and has_urgency and has_barrier
+    )
 
     has_prior_ruling = bool(tutela_ruling_date or tutela_order_summary or tutela_decision_result) or _contains_any(
         lowered,
@@ -339,7 +366,10 @@ def _infer_health_workflow(
     if has_health_core and has_barrier and has_medical_support and (has_urgency or has_special_protection):
         if not prior_claim_done:
             if urgency_without_waiting:
-                warnings.append("Se recomienda tutela en salud aunque la via previa no este completa, porque el expediente muestra urgencia manifiesta o una continuidad critica que no deberia esperar.")
+                if patient_age is not None and patient_age >= 80:
+                    warnings.append("Se habilita tutela directa por urgencia reforzada y sujeto de especial proteccion (adulto mayor), aun sin via previa totalmente agotada.")
+                else:
+                    warnings.append("Se recomienda tutela en salud aunque la via previa no este completa, porque el expediente muestra urgencia manifiesta o una continuidad critica que no deberia esperar.")
                 return "tutela", "Accion de tutela", warnings
             warnings.append("Sin una gestion previa documentada ante la EPS, este caso debe iniciar por derecho de peticion salvo que exista una urgencia manifiesta realmente reforzada.")
             return "derecho_peticion", "Derecho de peticion a EPS", warnings
@@ -421,6 +451,9 @@ def infer_workflow(
             workflow_type = "derecho_peticion"
             recommended_action = "Derecho de peticion laboral"
     elif category == "Bancos":
+        warnings.append(
+            "Ruta legal sugerida en bancos (Colombia): 1) reclamacion ante el banco, 2) queja ante Defensoria del Consumidor Financiero y/o SFC/SIC segun el caso, 3) tutela solo si persiste afectacion grave de derechos fundamentales."
+        )
         if has_habeas_signal:
             if all_required_done and (urgent or has_tutela_signal):
                 workflow_type = "tutela"
@@ -441,6 +474,9 @@ def infer_workflow(
             if not all_required_done:
                 warnings.append("Debes agotar la reclamacion directa ante la entidad financiera antes de escalar a tutela salvo vulneracion urgente.")
     elif category == "Tránsito":
+        warnings.append(
+            "Ruta legal sugerida en transito (Colombia): 1) peticion o recurso ante organismo de transito, 2) respuesta o silencio para trazabilidad, 3) tutela solo con afectacion constitucional actual y sin otro medio eficaz."
+        )
         has_resource_signal = _contains_any(lowered, ["recurso", "comparendo", "fotomulta", "audiencia"])
         has_prescription_signal = _contains_any(lowered, ["prescripcion", "prescripción", "desembargo", "cobro coactivo", "embargo"])
         if has_prescription_signal:
