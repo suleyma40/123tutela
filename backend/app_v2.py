@@ -1237,7 +1237,12 @@ def get_internal_user(current_user: dict[str, Any] = Depends(get_current_user)) 
 
 def _role_for_email(email: str) -> str:
     normalized_email = str(email or "").strip().lower()
+    normalized_email = normalized_email.replace("–", "-").replace("—", "-").replace("−", "-")
     return "internal" if normalized_email in settings.internal_admin_emails else "citizen"
+
+
+def _normalize_email_input(email: str) -> str:
+    return str(email or "").strip().lower().replace("–", "-").replace("—", "-").replace("−", "-")
 
 
 def _get_guest_case_or_404(case_id: str, public_token: str) -> dict[str, Any]:
@@ -1864,23 +1869,25 @@ async def upload_public_case_file(
 
 @app.post("/auth/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest) -> AuthResponse:
-    existing = repository.get_user_by_email(payload.email)
+    email = _normalize_email_input(payload.email)
+    existing = repository.get_user_by_email(email)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ese correo ya está registrado.")
 
-    role = _role_for_email(payload.email)
-    user = repository.create_user(payload.name, payload.email, hash_password(payload.password), role=role)
+    role = _role_for_email(email)
+    user = repository.create_user(payload.name, email, hash_password(payload.password), role=role)
     token = create_token(str(user["id"]), user["email"], settings.jwt_secret)
     return AuthResponse(token=token, user=_normalize_user(user))
 
 
 @app.post("/auth/login", response_model=AuthResponse)
 def login(payload: LoginRequest) -> AuthResponse:
-    user = repository.get_user_by_email(payload.email)
+    email = _normalize_email_input(payload.email)
+    user = repository.get_user_by_email(email)
     if not user or not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas.")
 
-    expected_role = _role_for_email(user.get("email") or payload.email)
+    expected_role = _role_for_email(user.get("email") or email)
     if user.get("role") != expected_role:
         refreshed = repository.update_user_role(str(user["id"]), expected_role)
         if refreshed:
