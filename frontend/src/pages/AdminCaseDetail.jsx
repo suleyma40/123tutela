@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Paperclip } from 'lucide-react';
 import { api } from '../lib/api';
 
 const AdminCaseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const adminBasePath = location.pathname.startsWith('/equipo') ? '/equipo' : '/admin';
   const [caso, setCaso] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -22,7 +24,7 @@ const AdminCaseDetail = () => {
       });
       setCaso(response.data);
     } catch (error) {
-      if (error.response?.status === 401) navigate('/admin');
+      if (error.response?.status === 401) navigate(adminBasePath);
     } finally {
       setLoading(false);
     }
@@ -51,7 +53,7 @@ const AdminCaseDetail = () => {
       <main className="max-w-7xl mx-auto px-6 py-10">
         <header className="flex justify-between items-start gap-6 flex-wrap mb-10">
           <div className="flex items-start gap-4">
-            <button onClick={() => navigate('/admin')} className="rounded-2xl border border-slate-200 bg-white p-3">
+            <button onClick={() => navigate(adminBasePath)} className="rounded-2xl border border-slate-200 bg-white p-3">
               <ArrowLeft size={20} />
             </button>
             <div>

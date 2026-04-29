@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { DollarSign, Eye, Filter, LayoutDashboard, Search } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 
 const AdminPanel = () => {
+  const location = useLocation();
+  const adminBasePath = location.pathname.startsWith('/equipo') ? '/equipo' : '/admin';
   const [casos, setCasos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,6 +16,14 @@ const AdminPanel = () => {
 
   useEffect(() => {
     if (isLoggedIn) fetchCasos();
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchCasos();
+    }, 10000);
+    return () => clearInterval(interval);
   }, [isLoggedIn]);
 
   const handleLogin = async (e) => {
@@ -231,7 +241,7 @@ const AdminPanel = () => {
                     </div>
                   </td>
                   <td className="px-6 py-5">
-                    <Link to={`/admin/caso/${caso.id}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-700 no-underline">
+                    <Link to={`${adminBasePath}/caso/${caso.id}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-700 no-underline">
                       <Eye size={16} />
                       Ver
                     </Link>

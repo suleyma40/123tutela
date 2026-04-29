@@ -22,6 +22,8 @@ function App() {
         <Route path="/contacto" element={<LegalPageView page="contacto" onBackHome={() => window.history.back()} />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/admin/caso/:id" element={<AdminCaseDetail />} />
+        <Route path="/equipo" element={<AdminPanel />} />
+        <Route path="/equipo/caso/:id" element={<AdminCaseDetail />} />
       </Routes>
     </Router>
   );

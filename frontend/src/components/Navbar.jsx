@@ -35,9 +35,11 @@ const Navbar = () => {
                 {!isAdmin && <Link to="/contacto" className="text-inherit no-underline hover:text-slate-900 transition-colors">Contacto</Link>}
               </>
             )}
-            <Link to="/admin" className="rounded-xl border border-slate-200 px-4 py-2 text-[#0D68FF] no-underline hover:bg-slate-50 transition-colors">
-              Admin
-            </Link>
+            {isAdmin && (
+              <Link to="/equipo" className="rounded-xl border border-slate-200 px-4 py-2 text-[#0D68FF] no-underline hover:bg-slate-50 transition-colors">
+                Panel interno
+              </Link>
+            )}
             {!isAdmin && (
               <Link
                 to="/diagnostico"
