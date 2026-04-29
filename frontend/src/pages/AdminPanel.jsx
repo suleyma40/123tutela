@@ -3,6 +3,17 @@ import { DollarSign, Eye, Filter, LayoutDashboard, Search } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 
+const formatDateTime = (value) => {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleString('es-CO');
+  } catch {
+    return String(value);
+  }
+};
+
+const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
 const AdminPanel = () => {
   const location = useLocation();
   const adminBasePath = location.pathname.startsWith('/equipo') ? '/equipo' : '/admin';
@@ -113,6 +124,66 @@ const AdminPanel = () => {
     totalIngresos: casos.filter((c) => c.payment_status === 'pagado').length * 49900,
   };
 
+  const paidCases = casos
+    .filter((c) => c.payment_status === 'pagado')
+    .map((c) => {
+      const summary = c.submission_summary || {};
+      return {
+        caseId: c.id,
+        name: c.user_name || '',
+        email: c.user_email || '',
+        phone: c.user_phone || '',
+        category: c.category || '',
+        action: c.recommended_action || '',
+        paymentReference: c.payment_reference || '',
+        expediente: summary?.customer_case?.code || '',
+        raffleCode: summary?.raffle?.code || '',
+        invoice: summary?.invoice?.number || '',
+        paidAt: summary?.payment_summary?.approved_at || summary?.invoice?.issued_at || c.updated_at || c.created_at || '',
+      };
+    });
+
+  const downloadPaidCasesCsv = () => {
+    const headers = [
+      'case_id',
+      'nombre',
+      'email',
+      'telefono',
+      'categoria',
+      'documento_recomendado',
+      'referencia_pago',
+      'codigo_expediente',
+      'codigo_rifa',
+      'factura',
+      'fecha_pago',
+    ];
+    const rows = paidCases.map((row) => [
+      row.caseId,
+      row.name,
+      row.email,
+      row.phone,
+      row.category,
+      row.action,
+      row.paymentReference,
+      row.expediente,
+      row.raffleCode,
+      row.invoice,
+      formatDateTime(row.paidAt),
+    ]);
+    const csv = [headers, ...rows].map((line) => line.map(escapeCsv).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    a.href = url;
+    a.download = `participantes-rifa-${today.getFullYear()}-${month}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#F5F7FB] flex items-center justify-center px-6">
@@ -210,6 +281,56 @@ const AdminPanel = () => {
               <p className={`text-3xl font-black ${item.tone}`}>{item.value}</p>
             </div>
           ))}
+        </section>
+
+        <section className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Rifa mensual</p>
+              <h2 className="text-xl font-black text-slate-900">Participantes con pago aprobado</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {paidCases.length} registro(s) listo(s) para control interno y descarga mensual.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadPaidCasesCsv}
+              className="rounded-2xl bg-[#0D68FF] px-4 py-3 text-sm font-black text-white hover:bg-[#0B5BE0]"
+              disabled={paidCases.length === 0}
+            >
+              Descargar base rifa (CSV)
+            </button>
+          </div>
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-left min-w-[860px]">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Caso</th>
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Nombre</th>
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Documento</th>
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Código rifa</th>
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Pago</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paidCases.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="py-6 text-sm font-semibold text-slate-400">
+                      Aún no hay pagos aprobados para rifa.
+                    </td>
+                  </tr>
+                ) : paidCases.slice(0, 12).map((row) => (
+                  <tr key={row.caseId}>
+                    <td className="py-3 text-sm font-semibold text-slate-700">{row.caseId.slice(0, 8)}</td>
+                    <td className="py-3 text-sm font-semibold text-slate-700">{row.name || '-'}</td>
+                    <td className="py-3 text-sm font-semibold text-slate-700">{row.expediente || '-'}</td>
+                    <td className="py-3 text-sm font-black text-[#0D68FF]">{row.raffleCode || '-'}</td>
+                    <td className="py-3 text-sm font-semibold text-slate-700">{formatDateTime(row.paidAt) || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         {panelError && (
