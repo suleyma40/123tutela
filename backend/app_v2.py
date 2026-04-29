@@ -1236,7 +1236,8 @@ def get_internal_user(current_user: dict[str, Any] = Depends(get_current_user)) 
 
 
 def _role_for_email(email: str) -> str:
-    return "internal" if email.lower() in settings.internal_admin_emails else "citizen"
+    normalized_email = str(email or "").strip().lower()
+    return "internal" if normalized_email in settings.internal_admin_emails else "citizen"
 
 
 def _get_guest_case_or_404(case_id: str, public_token: str) -> dict[str, Any]:
@@ -1878,6 +1879,12 @@ def login(payload: LoginRequest) -> AuthResponse:
     user = repository.get_user_by_email(payload.email)
     if not user or not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas.")
+
+    expected_role = _role_for_email(user.get("email") or payload.email)
+    if user.get("role") != expected_role:
+        refreshed = repository.update_user_role(str(user["id"]), expected_role)
+        if refreshed:
+            user = {**user, **refreshed}
 
     token = create_token(str(user["id"]), user["email"], settings.jwt_secret)
     return AuthResponse(token=token, user=_normalize_user(user))

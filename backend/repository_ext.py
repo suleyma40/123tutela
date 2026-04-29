@@ -47,6 +47,26 @@ def get_user_by_id(user_id: str) -> dict[str, Any] | None:
         return cursor.fetchone()
 
 
+def update_user_role(user_id: str, role: str) -> dict[str, Any] | None:
+    query = """
+        UPDATE app_users
+        SET role = %(role)s,
+            updated_at = %(updated_at)s
+        WHERE id = %(user_id)s
+        RETURNING id, name, email, document_number, phone, city, department, address, role, created_at, updated_at;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "user_id": user_id,
+                "role": role,
+                "updated_at": datetime.now(timezone.utc),
+            },
+        )
+        return cursor.fetchone()
+
+
 def update_user_profile(
     user_id: str,
     *,
