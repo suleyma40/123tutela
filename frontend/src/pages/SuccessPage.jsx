@@ -29,6 +29,9 @@ const buildDescription = (form) => {
     form.case_story,
     form.key_dates ? `Fechas clave: ${form.key_dates}` : '',
     form.prior_claim_result ? `Barrera o respuesta: ${form.prior_claim_result}` : '',
+    form.prior_petition_same_cause ? `Peticion previa por misma causa: ${form.prior_petition_same_cause}` : '',
+    form.prior_petition_date ? `Fecha de peticion previa: ${form.prior_petition_date}` : '',
+    form.prior_petition_response ? `Respuesta a peticion previa: ${form.prior_petition_response}` : '',
     form.urgency_detail ? `Urgencia actual: ${form.urgency_detail}` : '',
     form.extra_details,
   ].filter(Boolean).join('\n\n');
@@ -52,6 +55,11 @@ const normalizeOperationalCopy = (text = '') =>
     .replace(/produccion humana/gi, 'equipo experto')
     .replace(/redaccion humana/gi, 'elaboracion por especialistas')
     .replace(/redacte sin repreguntas ni retrasos/gi, 'elabore el documento sin reprocesos ni demoras');
+
+const isTutelaFlow = (caseData) => {
+  const action = String(caseData?.case?.recommended_action || caseData?.case?.workflow_type || '').toLowerCase();
+  return action.includes('tutela');
+};
 
 const StatusPill = ({ children, tone = 'default' }) => {
   const styles = {
@@ -113,6 +121,9 @@ const SuccessPage = () => {
     key_dates: '',
     medical_support_detail: '',
     extra_details: '',
+    prior_petition_same_cause: '',
+    prior_petition_date: '',
+    prior_petition_response: '',
     // Datos del beneficiario (tercero)
     beneficiary_name: '',
     beneficiary_document: '',
@@ -162,6 +173,9 @@ const SuccessPage = () => {
         key_dates: intake.key_dates || current.key_dates,
         medical_support_detail: intake.medical_support_detail || current.medical_support_detail,
         extra_details: intake.extra_details || current.extra_details,
+        prior_petition_same_cause: intake.prior_petition_same_cause || current.prior_petition_same_cause,
+        prior_petition_date: intake.prior_petition_date || current.prior_petition_date,
+        prior_petition_response: intake.prior_petition_response || current.prior_petition_response,
         beneficiary_name: intake.beneficiary_name || current.beneficiary_name,
         beneficiary_document: intake.beneficiary_document || current.beneficiary_document,
         beneficiary_relationship: intake.beneficiary_relationship || current.beneficiary_relationship,
@@ -257,6 +271,8 @@ const SuccessPage = () => {
   const invoiceNumber = caseData?.latest_payment?.invoice?.number || caseData?.customer_summary?.invoice?.number;
   const paymentReference = caseData?.latest_payment?.reference || caseData?.case?.payment_reference;
   const raffleCode = caseData?.latest_payment?.raffle?.code || caseData?.customer_summary?.raffle?.code;
+  const unifiedTrackingCode = raffleCode || customerCaseCode;
+  const tutelaFlow = isTutelaFlow(caseData);
 
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -284,24 +300,24 @@ const SuccessPage = () => {
 
           <div className="grid lg:grid-cols-5 gap-8">
             <div className="lg:col-span-3 space-y-8">
-              {(customerCaseCode || invoiceNumber || paymentReference) && (
+              {(unifiedTrackingCode || invoiceNumber || paymentReference) && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                 className="bg-white p-8 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-slate-200"
               >
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Tu expediente</p>
-                  <h3 className="text-2xl font-extrabold text-slate-900 mb-3">Codigo de expediente</h3>
+                  <h3 className="text-2xl font-extrabold text-slate-900 mb-3">Codigo unico de expediente</h3>
                   <p className="text-sm text-slate-500 font-medium mb-6">
-                    Este es tu numero de expediente para seguimiento y soporte.
+                    Este es el mismo codigo para expediente y participacion en rifa.
                   </p>
                   <div className="grid gap-4">
-                    {customerCaseCode && <CodeCard label="Número de expediente" value={customerCaseCode} subtle />}
+                    {unifiedTrackingCode && <CodeCard label="Codigo unico" value={unifiedTrackingCode} subtle />}
                   </div>
                 </motion.div>
               )}
 
-              {raffleCode && (
+              {unifiedTrackingCode && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -314,10 +330,10 @@ const SuccessPage = () => {
                     <p className="text-[#19B7FF] font-black uppercase text-xs tracking-widest mb-2">Codigo de participacion</p>
                     <h3 className="text-2xl font-extrabold mb-3">Sorteo mayo 2026</h3>
                     <p className="text-white/80 text-sm font-medium mb-4 max-w-xl">
-                      Este codigo confirma tu participacion con pago aprobado.
+                      Este codigo coincide con tu expediente y confirma tu participacion con pago aprobado.
                     </p>
                     <div className="bg-white/10 border border-white/20 inline-block px-6 py-3 rounded-2xl font-mono text-3xl font-black tracking-tighter">
-                      {raffleCode}
+                      {unifiedTrackingCode}
                     </div>
                   </div>
                 </motion.div>
@@ -349,7 +365,7 @@ const SuccessPage = () => {
                         <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-3">Ya tenemos</p>
                         <div className="flex flex-wrap gap-2">
                           <span className="px-3 py-1 rounded-full bg-success/10 text-success text-xs font-bold">Pago confirmado</span>
-                          {customerCaseCode && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Codigo de expediente</span>}
+                          {unifiedTrackingCode && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Codigo unico</span>}
                           {form.name && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Nombre</span>}
                           {form.document_number && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Documento</span>}
                           {form.city && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Ciudad</span>}
@@ -521,6 +537,59 @@ const SuccessPage = () => {
                             </div>
                           );
                         })}
+                      </div>
+                    )}
+
+                    {tutelaFlow && (
+                      <div className="space-y-6">
+                        <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6">
+                          <p className="text-sm font-black uppercase tracking-wide text-amber-700 mb-2">Validacion para tutela</p>
+                          <p className="text-sm text-amber-700 font-medium">
+                            Estas respuestas son necesarias para evitar una tutela incompleta o con riesgo de rechazo por falta de contexto previo.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-brand ml-1">¿Ya presentaste una peticion previa por esta misma causa?</label>
+                          <select
+                            required
+                            className="input-field"
+                            value={form.prior_petition_same_cause}
+                            onChange={(e) => handleFieldChange('prior_petition_same_cause', e.target.value)}
+                          >
+                            <option value="">Selecciona una opcion</option>
+                            <option value="si">Si</option>
+                            <option value="no">No</option>
+                            <option value="no_recuerdo">No recuerdo</option>
+                          </select>
+                        </div>
+
+                        {form.prior_petition_same_cause === 'si' && (
+                          <>
+                            <div className="space-y-2">
+                              <label className="text-sm font-bold text-brand ml-1">Fecha aproximada de la peticion previa</label>
+                              <input
+                                required
+                                type="text"
+                                className="input-field"
+                                placeholder="Ej: 15 de marzo de 2026"
+                                value={form.prior_petition_date}
+                                onChange={(e) => handleFieldChange('prior_petition_date', e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-bold text-brand ml-1">¿Que respondio la entidad o EPS?</label>
+                              <textarea
+                                required
+                                rows={3}
+                                className="input-field resize-none"
+                                placeholder="Indica si negaron, guardaron silencio o respondieron parcialmente."
+                                value={form.prior_petition_response}
+                                onChange={(e) => handleFieldChange('prior_petition_response', e.target.value)}
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
 
