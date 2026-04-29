@@ -43,7 +43,7 @@ const AdminPanel = () => {
     if (!isLoggedIn) return;
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchCasos();
-    }, 10000);
+    }, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, [isLoggedIn]);
 
@@ -283,56 +283,6 @@ const AdminPanel = () => {
           ))}
         </section>
 
-        <section className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Rifa mensual</p>
-              <h2 className="text-xl font-black text-slate-900">Participantes con pago aprobado</h2>
-              <p className="text-sm text-slate-500 mt-1">
-                {paidCases.length} registro(s) listo(s) para control interno y descarga mensual.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={downloadPaidCasesCsv}
-              className="rounded-2xl bg-[#0D68FF] px-4 py-3 text-sm font-black text-white hover:bg-[#0B5BE0]"
-              disabled={paidCases.length === 0}
-            >
-              Descargar base rifa (CSV)
-            </button>
-          </div>
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full text-left min-w-[860px]">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Caso</th>
-                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Nombre</th>
-                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Documento</th>
-                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Código rifa</th>
-                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Pago</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paidCases.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="py-6 text-sm font-semibold text-slate-400">
-                      Aún no hay pagos aprobados para rifa.
-                    </td>
-                  </tr>
-                ) : paidCases.slice(0, 12).map((row) => (
-                  <tr key={row.caseId}>
-                    <td className="py-3 text-sm font-semibold text-slate-700">{row.caseId.slice(0, 8)}</td>
-                    <td className="py-3 text-sm font-semibold text-slate-700">{row.name || '-'}</td>
-                    <td className="py-3 text-sm font-semibold text-slate-700">{row.expediente || '-'}</td>
-                    <td className="py-3 text-sm font-black text-[#0D68FF]">{row.raffleCode || '-'}</td>
-                    <td className="py-3 text-sm font-semibold text-slate-700">{formatDateTime(row.paidAt) || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
         {panelError && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
             <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -413,6 +363,66 @@ const AdminPanel = () => {
               ))}
             </tbody>
           </table>
+        </section>
+
+        <section className="rounded-[24px] border border-slate-200 bg-white p-6 mt-8 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Estados operativos</p>
+          <div className="grid md:grid-cols-4 gap-3 text-sm">
+            <div className="rounded-xl bg-slate-50 p-3"><span className="font-black text-slate-700">Pagado en revisión:</span> pago confirmado, falta completar/validar expediente.</div>
+            <div className="rounded-xl bg-slate-50 p-3"><span className="font-black text-slate-700">En revisión:</span> equipo interno redactando y preparando entrega.</div>
+            <div className="rounded-xl bg-slate-50 p-3"><span className="font-black text-slate-700">Entregado:</span> documento final enviado al cliente.</div>
+            <div className="rounded-xl bg-slate-50 p-3"><span className="font-black text-slate-700">Cola operativa:</span> todos los pagados que aún no están entregados.</div>
+          </div>
+        </section>
+
+        <section className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Rifa mensual</p>
+              <h2 className="text-xl font-black text-slate-900">Participantes con pago aprobado</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {paidCases.length} registro(s) listo(s) para control interno y descarga mensual.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadPaidCasesCsv}
+              className="rounded-2xl bg-[#0D68FF] px-4 py-3 text-sm font-black text-white hover:bg-[#0B5BE0]"
+              disabled={paidCases.length === 0}
+            >
+              Descargar base rifa (CSV)
+            </button>
+          </div>
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-left min-w-[860px]">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Caso</th>
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Nombre</th>
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Documento</th>
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Código rifa</th>
+                  <th className="py-3 text-xs font-black uppercase tracking-wide text-slate-400">Pago</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paidCases.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="py-6 text-sm font-semibold text-slate-400">
+                      Aún no hay pagos aprobados para rifa.
+                    </td>
+                  </tr>
+                ) : paidCases.slice(0, 12).map((row) => (
+                  <tr key={row.caseId}>
+                    <td className="py-3 text-sm font-semibold text-slate-700">{row.caseId.slice(0, 8)}</td>
+                    <td className="py-3 text-sm font-semibold text-slate-700">{row.name || '-'}</td>
+                    <td className="py-3 text-sm font-semibold text-slate-700">{row.expediente || '-'}</td>
+                    <td className="py-3 text-sm font-black text-[#0D68FF]">{row.raffleCode || '-'}</td>
+                    <td className="py-3 text-sm font-semibold text-slate-700">{formatDateTime(row.paidAt) || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>
