@@ -47,6 +47,13 @@ const AdminCaseDetail = () => {
   if (!caso) return <div className="min-h-screen bg-[#F5F7FB] p-20 text-center font-black text-red-600">Caso no encontrado</div>;
 
   const c = caso.case;
+  const intake = c.facts?.intake_form || {};
+  const trackingCode =
+    caso.latest_payment?.raffle?.code ||
+    caso.customer_summary?.raffle?.code ||
+    caso.latest_payment?.reference ||
+    c.payment_reference ||
+    `EXP-${String(c.id || '').slice(0, 8).toUpperCase()}`;
 
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -95,6 +102,8 @@ const AdminCaseDetail = () => {
               <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-4">Diagnostico</p>
               <div className="grid gap-3 text-sm">
                 <p><strong className="text-slate-500">Accion sugerida:</strong> {c.recommended_action}</p>
+                <p><strong className="text-slate-500">Tipo de documento:</strong> {c.recommended_action || c.workflow_type || 'N/A'}</p>
+                <p><strong className="text-slate-500">Codigo de seguimiento:</strong> {trackingCode}</p>
                 <p><strong className="text-slate-500">Entidad:</strong> {c.target_entity}</p>
                 <p><strong className="text-slate-500">Pago:</strong> {c.payment_status}</p>
               </div>
@@ -161,6 +170,39 @@ const AdminCaseDetail = () => {
                 </div>
               </div>
             )}
+
+            <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-4">Ficha para redaccion humana</p>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <p><strong className="text-slate-500">Nombre:</strong> {c.user_name || 'N/A'}</p>
+                <p><strong className="text-slate-500">Documento:</strong> {c.user_document || intake.document_number || 'N/A'}</p>
+                <p><strong className="text-slate-500">Codigo:</strong> {trackingCode}</p>
+                <p><strong className="text-slate-500">Tipo:</strong> {c.recommended_action || c.workflow_type || 'N/A'}</p>
+                <p><strong className="text-slate-500">Entidad:</strong> {c.target_entity || intake.target_entity || 'N/A'}</p>
+                <p><strong className="text-slate-500">Ciudad:</strong> {c.user_city || intake.city || 'N/A'}</p>
+              </div>
+              <div className="mt-5 grid gap-4 text-sm">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Peticion concreta</p>
+                  <p className="text-slate-700">{intake.concrete_request || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Hechos del caso</p>
+                  <p className="text-slate-700 whitespace-pre-wrap">{intake.case_story || c.description || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Antecedentes clave</p>
+                  <p className="text-slate-700 whitespace-pre-wrap">
+                    {[
+                      intake.prior_petition_same_cause ? `Peticion previa misma causa: ${intake.prior_petition_same_cause}` : '',
+                      intake.prior_petition_date ? `Fecha peticion previa: ${intake.prior_petition_date}` : '',
+                      intake.prior_petition_response ? `Respuesta entidad: ${intake.prior_petition_response}` : '',
+                      intake.urgency_detail ? `Urgencia: ${intake.urgency_detail}` : '',
+                    ].filter(Boolean).join('\n') || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>
