@@ -162,6 +162,7 @@ const AdminPanel = () => {
   ).filter((c) => {
     if (statusFilter === 'todos') return true;
     if (statusFilter === 'cola') return c.payment_status === 'pagado' && c.status !== 'entregado';
+    if (statusFilter === 'listos_humano') return isReadyForHuman(c);
     return c.status === statusFilter;
   });
 
@@ -169,6 +170,7 @@ const AdminPanel = () => {
     total: casos.length,
     ventas: casos.filter((c) => c.payment_status === 'pagado').length,
     pendientes: casos.filter((c) => c.status !== 'entregado').length,
+    listosHumano: casos.filter((c) => isReadyForHuman(c)).length,
     totalIngresos: casos.filter((c) => c.payment_status === 'pagado').length * 49900,
   };
   const eventCounts = marketing?.event_counts || {};
@@ -315,6 +317,7 @@ const AdminPanel = () => {
               >
                 <option value="todos">Todos</option>
                 <option value="cola">Cola operativa</option>
+                <option value="listos_humano">Listos para humano</option>
                 <option value="pagado_en_revision">Pagado en revision</option>
                 <option value="en_revision">En revision</option>
                 <option value="entregado">Entregado</option>
@@ -329,12 +332,13 @@ const AdminPanel = () => {
           </div>
         </header>
 
-        <section className="grid md:grid-cols-4 gap-5 mb-10">
+        <section className="grid md:grid-cols-5 gap-5 mb-10">
           {[
             { label: 'Total interacciones', value: stats.total, tone: 'text-slate-900' },
             { label: 'Pagos aprobados', value: stats.ventas, tone: 'text-[#0D68FF]' },
             { label: 'Ingresos brutos', value: `$${stats.totalIngresos.toLocaleString()}`, tone: 'text-[#0F766E]' },
             { label: 'Pendientes', value: stats.pendientes, tone: 'text-[#F97316]' },
+            { label: 'Listos para humano', value: stats.listosHumano, tone: 'text-[#065F46]' },
           ].map((item) => (
             <div key={item.label} className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
               <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">{item.label}</p>
@@ -549,7 +553,7 @@ const AdminPanel = () => {
               ) : filteredCasos.length === 0 ? (
                 <tr><td colSpan="7" className="px-6 py-16 text-center text-slate-400 font-semibold">No se encontraron registros</td></tr>
               ) : filteredCasos.map((caso) => (
-                <tr key={caso.id} className={`${isReadyForHuman(caso) ? 'bg-emerald-50/60' : ''} hover:bg-[#FCFDFF]`}>
+                <tr key={caso.id} className={`${isReadyForHuman(caso) ? 'bg-emerald-100/80 border-l-4 border-emerald-500' : ''} hover:bg-[#FCFDFF]`}>
                   <td className="px-6 py-5">
                     <p className="font-black text-slate-900">{caso.user_name || 'Anonimo'}</p>
                     <p className="text-xs text-slate-400 mt-1">{caso.user_email}</p>
@@ -570,7 +574,7 @@ const AdminPanel = () => {
                       {caso.status}
                     </span>
                     {isReadyForHuman(caso) && (
-                      <span className="ml-2 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-black uppercase text-emerald-700">
+                      <span className="ml-2 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-black uppercase text-white">
                         Listo para humano
                       </span>
                     )}
