@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, Trophy, FileText, Upload, Send, Loader2, Mail, MessageSquareMore, UserCheck, Users } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
+import { trackEvent } from '../lib/analytics';
 
 const QUESTION_FIELD_MAP = {
   medical_support: 'medical_support_detail',
@@ -280,6 +281,11 @@ const SuccessPage = () => {
       });
 
       setCaseData(response.data);
+      trackEvent('submit_intake', {
+        case_id: saved.caseId,
+        files_count: intakeFiles.length,
+        is_third_party: Boolean(form.beneficiary_name || form.beneficiary_document || form.beneficiary_relationship),
+      });
       setSuccessMessage('Información recibida. El expediente ya quedó listo para revisión por nuestro equipo jurídico.');
       setIntakeFiles([]);
     } catch (err) {

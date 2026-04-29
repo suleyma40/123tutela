@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, FileText, HeartPulse, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
+import { trackEvent } from '../lib/analytics';
 
 const DiagnosisPage = () => {
   const navigate = useNavigate();
@@ -35,6 +36,13 @@ const DiagnosisPage = () => {
         email: form.email,
       };
       localStorage.setItem('hazlopormi-guest-case', JSON.stringify(guestCase));
+      trackEvent('start_diagnosis', {
+        category: form.category,
+        city: form.city,
+        entity: form.entity_name,
+        recommended_action: response?.data?.case?.recommended_action || '',
+        case_id: response?.data?.case?.id || '',
+      });
       navigate('/pago');
     } catch (err) {
       setError(extractError(err, 'No fue posible analizar tu caso. Intenta resumir tu historia.'));

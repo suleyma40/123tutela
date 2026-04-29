@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowRight, CheckCircle2, ShieldCheck, Trophy } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
+import { trackEvent } from '../lib/analytics';
 
 const widgetScriptUrl = 'https://checkout.wompi.co/widget.js';
 
@@ -67,6 +68,10 @@ const PaymentPage = () => {
     try {
       const response = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, {
         public_token: guestCase.publicToken,
+      });
+      trackEvent('start_checkout', {
+        case_id: guestCase.caseId,
+        recommended_action: guestCase.recommendedAction,
       });
       await launchWidget(response.data.checkout);
     } catch (err) {

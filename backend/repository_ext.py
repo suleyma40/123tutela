@@ -1043,6 +1043,246 @@ def list_case_events(case_id: str) -> list[dict[str, Any]]:
         return cursor.fetchall()
 
 
+def ensure_marketing_tables() -> None:
+    query = """
+        CREATE TABLE IF NOT EXISTS marketing_events (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            session_id TEXT NOT NULL,
+            event_name TEXT NOT NULL,
+            page_path TEXT,
+            source TEXT,
+            case_id UUID NULL,
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_marketing_events_created_at ON marketing_events (created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_marketing_events_event_name ON marketing_events (event_name);
+        CREATE INDEX IF NOT EXISTS idx_marketing_events_session_id ON marketing_events (session_id);
+        CREATE TABLE IF NOT EXISTS marketing_config (
+            id SMALLINT PRIMARY KEY DEFAULT 1,
+            cta_variant TEXT NOT NULL DEFAULT 'default',
+            cta_label TEXT NOT NULL DEFAULT 'Soluciona tu caso EPS y participa',
+            raffle_label TEXT NOT NULL DEFAULT 'Rifa mayo: posibilidad de llevarse $2.500.000 COP',
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        INSERT INTO marketing_config (id, cta_variant, cta_label, raffle_label)
+        VALUES (1, 'default', 'Soluciona tu caso EPS y participa', 'Rifa mayo: posibilidad de llevarse $2.500.000 COP')
+        ON CONFLICT (id) DO NOTHING;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query)
+
+
+def create_marketing_event(
+    *,
+    session_id: str,
+    event_name: str,
+    page_path: str | None = None,
+    source: str | None = None,
+    case_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    ensure_marketing_tables()
+    query = """
+        INSERT INTO marketing_events (
+            session_id,
+            event_name,
+            page_path,
+            source,
+            case_id,
+            metadata
+        )
+        VALUES (
+            %(session_id)s,
+            %(event_name)s,
+            %(page_path)s,
+            %(source)s,
+            %(case_id)s::uuid,
+            %(metadata)s::jsonb
+        )
+        RETURNING *;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "session_id": session_id,
+                "event_name": event_name,
+                "page_path": page_path,
+                "source": source,
+                "case_id": case_id,
+                "metadata": _json(metadata or {}),
+            },
+        )
+        return cursor.fetchone()
+
+
+def get_marketing_event_counts(*, days: int = 30) -> dict[str, int]:
+    ensure_marketing_tables()
+    query = """
+        SELECT
+            COUNT(*) FILTER (WHERE event_name = 'page_view')::int AS page_views,
+            COUNT(*) FILTER (WHERE event_name = 'cta_click')::int AS cta_clicks,
+            COUNT(*) FILTER (WHERE event_name = 'start_diagnosis')::int AS diagnosis_starts,
+            COUNT(*) FILTER (WHERE event_name = 'start_checkout')::int AS checkout_starts,
+            COUNT(*) FILTER (WHERE event_name = 'submit_intake')::int AS intake_submissions
+        FROM marketing_events
+        WHERE created_at >= now() - (%(days)s || ' days')::interval;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"days": max(days, 1)})
+        return cursor.fetchone() or {
+            "page_views": 0,
+            "cta_clicks": 0,
+            "diagnosis_starts": 0,
+            "checkout_starts": 0,
+            "intake_submissions": 0,
+        }
+
+
+def get_marketing_event_counts_window(*, from_days: int, to_days: int) -> dict[str, int]:
+    ensure_marketing_tables()
+    start_days = max(from_days, to_days + 1)
+    end_days = max(0, to_days)
+    query = """
+        SELECT
+            COUNT(*) FILTER (WHERE event_name = 'page_view')::int AS page_views,
+            COUNT(*) FILTER (WHERE event_name = 'cta_click')::int AS cta_clicks,
+            COUNT(*) FILTER (WHERE event_name = 'start_diagnosis')::int AS diagnosis_starts,
+            COUNT(*) FILTER (WHERE event_name = 'start_checkout')::int AS checkout_starts,
+            COUNT(*) FILTER (WHERE event_name = 'submit_intake')::int AS intake_submissions
+        FROM marketing_events
+        WHERE created_at < now() - (%(to_days)s || ' days')::interval
+          AND created_at >= now() - (%(from_days)s || ' days')::interval;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"from_days": start_days, "to_days": end_days})
+        return cursor.fetchone() or {
+            "page_views": 0,
+            "cta_clicks": 0,
+            "diagnosis_starts": 0,
+            "checkout_starts": 0,
+            "intake_submissions": 0,
+        }
+
+
+def get_marketing_top_pages(*, days: int = 30, limit: int = 8) -> list[dict[str, Any]]:
+    ensure_marketing_tables()
+    query = """
+        SELECT
+            COALESCE(page_path, '(sin_path)') AS page_path,
+            COUNT(*)::int AS visits
+        FROM marketing_events
+        WHERE event_name = 'page_view'
+          AND created_at >= now() - (%(days)s || ' days')::interval
+        GROUP BY COALESCE(page_path, '(sin_path)')
+        ORDER BY visits DESC
+        LIMIT %(limit)s;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"days": max(days, 1), "limit": max(limit, 1)})
+        return cursor.fetchall()
+
+
+def get_marketing_breakdown(*, days: int = 30, dimension: str = "channel", limit: int = 8) -> list[dict[str, Any]]:
+    ensure_marketing_tables()
+    if dimension == "campaign":
+        dim_sql = "COALESCE(NULLIF(metadata->>'utm_campaign', ''), '(sin_campana)')"
+    else:
+        dim_sql = "COALESCE(NULLIF(metadata->>'utm_source', ''), NULLIF(source, ''), 'directo')"
+    query = f"""
+        SELECT
+            {dim_sql} AS key,
+            COUNT(*) FILTER (WHERE event_name = 'page_view')::int AS page_views,
+            COUNT(*) FILTER (WHERE event_name = 'cta_click')::int AS cta_clicks,
+            COUNT(*) FILTER (WHERE event_name = 'start_diagnosis')::int AS diagnosis_starts,
+            COUNT(*) FILTER (WHERE event_name = 'start_checkout')::int AS checkout_starts,
+            COUNT(*) FILTER (WHERE event_name = 'submit_intake')::int AS intake_submissions
+        FROM marketing_events
+        WHERE created_at >= now() - (%(days)s || ' days')::interval
+        GROUP BY 1
+        ORDER BY diagnosis_starts DESC, page_views DESC
+        LIMIT %(limit)s;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"days": max(days, 1), "limit": max(limit, 1)})
+        return cursor.fetchall()
+
+
+def get_marketing_breakdown_window(
+    *,
+    from_days: int,
+    to_days: int,
+    dimension: str = "channel",
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    ensure_marketing_tables()
+    start_days = max(from_days, to_days + 1)
+    end_days = max(0, to_days)
+    if dimension == "campaign":
+        dim_sql = "COALESCE(NULLIF(metadata->>'utm_campaign', ''), '(sin_campana)')"
+    else:
+        dim_sql = "COALESCE(NULLIF(metadata->>'utm_source', ''), NULLIF(source, ''), 'directo')"
+    query = f"""
+        SELECT
+            {dim_sql} AS key,
+            COUNT(*) FILTER (WHERE event_name = 'page_view')::int AS page_views,
+            COUNT(*) FILTER (WHERE event_name = 'cta_click')::int AS cta_clicks,
+            COUNT(*) FILTER (WHERE event_name = 'start_diagnosis')::int AS diagnosis_starts,
+            COUNT(*) FILTER (WHERE event_name = 'start_checkout')::int AS checkout_starts,
+            COUNT(*) FILTER (WHERE event_name = 'submit_intake')::int AS intake_submissions
+        FROM marketing_events
+        WHERE created_at < now() - (%(to_days)s || ' days')::interval
+          AND created_at >= now() - (%(from_days)s || ' days')::interval
+        GROUP BY 1
+        ORDER BY diagnosis_starts DESC, page_views DESC
+        LIMIT %(limit)s;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {"from_days": start_days, "to_days": end_days, "limit": max(limit, 1)},
+        )
+        return cursor.fetchall()
+
+
+def get_marketing_config() -> dict[str, Any]:
+    ensure_marketing_tables()
+    query = "SELECT id, cta_variant, cta_label, raffle_label, updated_at FROM marketing_config WHERE id = 1;"
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query)
+        return cursor.fetchone() or {
+            "id": 1,
+            "cta_variant": "default",
+            "cta_label": "Soluciona tu caso EPS y participa",
+            "raffle_label": "Rifa mayo: posibilidad de llevarse $2.500.000 COP",
+        }
+
+
+def update_marketing_config(*, cta_variant: str, cta_label: str, raffle_label: str) -> dict[str, Any]:
+    ensure_marketing_tables()
+    query = """
+        UPDATE marketing_config
+        SET cta_variant = %(cta_variant)s,
+            cta_label = %(cta_label)s,
+            raffle_label = %(raffle_label)s,
+            updated_at = %(updated_at)s
+        WHERE id = 1
+        RETURNING id, cta_variant, cta_label, raffle_label, updated_at;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "cta_variant": cta_variant,
+                "cta_label": cta_label,
+                "raffle_label": raffle_label,
+                "updated_at": datetime.now(timezone.utc),
+            },
+        )
+        return cursor.fetchone()
+
+
 def search_court_targets(city: str, department: str) -> list[dict[str, Any]]:
     query = """
         SELECT *

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { DollarSign, Eye, Filter, LayoutDashboard, Search } from 'lucide-react';
+import { Bot, Eye, Filter, LayoutDashboard, Search, TrendingUp } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 
@@ -25,6 +25,13 @@ const AdminPanel = () => {
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [panelError, setPanelError] = useState('');
+  const [marketing, setMarketing] = useState(null);
+  const [configSaving, setConfigSaving] = useState(false);
+  const [marketingConfigForm, setMarketingConfigForm] = useState({
+    cta_variant: 'default',
+    cta_label: '',
+    raffle_label: '',
+  });
 
   const handleLogout = () => {
     localStorage.removeItem('admin-token');
@@ -33,16 +40,23 @@ const AdminPanel = () => {
     setPanelError('');
     setLoginError('');
     setLoginForm({ email: '', password: '' });
+    setMarketing(null);
   };
 
   useEffect(() => {
-    if (isLoggedIn) fetchCasos();
+    if (isLoggedIn) {
+      fetchCasos();
+      fetchMarketing();
+    }
   }, [isLoggedIn]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
     const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') fetchCasos();
+      if (document.visibilityState === 'visible') {
+        fetchCasos();
+        fetchMarketing();
+      }
     }, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, [isLoggedIn]);
@@ -88,6 +102,40 @@ const AdminPanel = () => {
     }
   };
 
+  const fetchMarketing = async () => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      const response = await api.get('/internal/analytics/overview', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMarketing(response.data);
+      const cfg = response.data?.marketing_config || {};
+      setMarketingConfigForm({
+        cta_variant: cfg.cta_variant || 'default',
+        cta_label: cfg.cta_label || '',
+        raffle_label: cfg.raffle_label || '',
+      });
+    } catch (error) {
+      if (error.response?.status === 401) {
+        setIsLoggedIn(false);
+        localStorage.removeItem('admin-token');
+      }
+    }
+  };
+
+  const saveMarketingConfig = async () => {
+    setConfigSaving(true);
+    try {
+      const token = localStorage.getItem('admin-token');
+      await api.post('/internal/marketing/config', marketingConfigForm, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await fetchMarketing();
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
   const handleQuickStatus = async (caseId, newStatus) => {
     try {
       const token = localStorage.getItem('admin-token');
@@ -123,6 +171,16 @@ const AdminPanel = () => {
     pendientes: casos.filter((c) => c.status !== 'entregado').length,
     totalIngresos: casos.filter((c) => c.payment_status === 'pagado').length * 49900,
   };
+  const eventCounts = marketing?.event_counts || {};
+  const funnel = marketing?.funnel || {};
+  const topPages = marketing?.top_pages || [];
+  const recommendations = marketing?.marketing_agent || [];
+  const comparison = marketing?.comparison || {};
+  const dropAlerts = marketing?.drop_alerts || [];
+  const channels = marketing?.channels_7d || [];
+  const campaigns = marketing?.campaigns_7d || [];
+  const pct = (num, den) => (den > 0 ? `${Math.round((num / den) * 100)}%` : '0%');
+  const deltaPct = (a, b) => (b > 0 ? `${Math.round(((a - b) / b) * 100)}%` : '0%');
 
   const paidCases = casos
     .filter((c) => c.payment_status === 'pagado')
@@ -281,6 +339,179 @@ const AdminPanel = () => {
               <p className={`text-3xl font-black ${item.tone}`}>{item.value}</p>
             </div>
           ))}
+        </section>
+
+        <section className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+          <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Inteligencia comercial</p>
+              <h2 className="text-xl font-black text-slate-900">Analista de marketing</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Embudo real + recomendaciones automáticas para subir conversión.
+              </p>
+            </div>
+            <button
+              onClick={fetchMarketing}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black uppercase text-slate-600 hover:bg-slate-50"
+            >
+              Actualizar ahora
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-5 gap-3 mb-5">
+            {[
+              ['Visitas', eventCounts.page_views || 0],
+              ['Clicks CTA', eventCounts.cta_clicks || 0],
+              ['Diagnósticos', eventCounts.diagnosis_starts || 0],
+              ['Checkout', eventCounts.checkout_starts || 0],
+              ['Intake enviado', eventCounts.intake_submissions || 0],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-slate-200 bg-[#F8FBFF] p-3">
+                <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+                <p className="text-2xl font-black text-slate-900 mt-1">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-3 mb-5">
+            <div className="rounded-xl border border-slate-200 bg-[#F8FBFF] p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Comparativo 7 días</p>
+              <p className="text-sm text-slate-600">
+                Diagnóstico: <strong>{comparison?.last_7d?.diagnosis_starts || 0}</strong> ({deltaPct(comparison?.last_7d?.diagnosis_starts || 0, comparison?.prev_7d?.diagnosis_starts || 0)} vs 7 días previos)
+              </p>
+              <p className="text-sm text-slate-600">
+                Checkout: <strong>{comparison?.last_7d?.checkout_starts || 0}</strong> ({deltaPct(comparison?.last_7d?.checkout_starts || 0, comparison?.prev_7d?.checkout_starts || 0)} vs 7 días previos)
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-[#F8FBFF] p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Comparativo 30 días</p>
+              <p className="text-sm text-slate-600">
+                Diagnóstico: <strong>{comparison?.last_30d?.diagnosis_starts || 0}</strong> ({deltaPct(comparison?.last_30d?.diagnosis_starts || 0, comparison?.prev_30d?.diagnosis_starts || 0)} vs 30 días previos)
+              </p>
+              <p className="text-sm text-slate-600">
+                Intake enviado: <strong>{comparison?.last_30d?.intake_submissions || 0}</strong> ({deltaPct(comparison?.last_30d?.intake_submissions || 0, comparison?.prev_30d?.intake_submissions || 0)} vs 30 días previos)
+              </p>
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-slate-200 p-4">
+              <p className="text-sm font-black text-slate-900 mb-3 flex items-center gap-2"><TrendingUp size={16} /> Embudo operativo</p>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span>Diagnóstico</span><strong>{funnel.diagnosed || 0}</strong></div>
+                <div className="flex justify-between"><span>Checkout iniciado</span><strong>{funnel.checkout_started || 0} ({pct(funnel.checkout_started || 0, funnel.diagnosed || 0)})</strong></div>
+                <div className="flex justify-between"><span>Pago aprobado</span><strong>{funnel.paid_cases || 0} ({pct(funnel.paid_cases || 0, funnel.checkout_started || 0)})</strong></div>
+                <div className="flex justify-between"><span>Expediente enviado</span><strong>{funnel.intake_submitted || 0} ({pct(funnel.intake_submitted || 0, funnel.paid_cases || 0)})</strong></div>
+                <div className="flex justify-between"><span>Documento entregado</span><strong>{funnel.delivered_cases || 0} ({pct(funnel.delivered_cases || 0, funnel.intake_submitted || 0)})</strong></div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-4">
+              <p className="text-sm font-black text-slate-900 mb-3">Páginas con más visitas</p>
+              <div className="space-y-2">
+                {topPages.length === 0 ? (
+                  <p className="text-sm text-slate-400 font-semibold">Sin datos todavía.</p>
+                ) : topPages.map((row) => (
+                  <div key={row.page_path} className="flex justify-between text-sm">
+                    <span className="text-slate-600 truncate max-w-[220px]">{row.page_path}</span>
+                    <strong>{row.visits}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-4 bg-[#08172E] text-white">
+              <p className="text-sm font-black mb-3 flex items-center gap-2"><Bot size={16} /> Recomendaciones del agente</p>
+              <div className="space-y-3">
+                {recommendations.length === 0 ? (
+                  <p className="text-sm text-white/70">Aún no hay suficientes señales para sugerencias.</p>
+                ) : recommendations.map((item, idx) => (
+                  <div key={`${item.title}-${idx}`} className="rounded-lg border border-white/15 bg-white/5 p-3">
+                    <p className="text-xs font-black uppercase text-[#19B7FF]">{item.priority}</p>
+                    <p className="font-bold mt-1">{item.title}</p>
+                    <p className="text-sm text-white/80 mt-1">{item.action}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-4 mt-4">
+            <div className="rounded-xl border border-slate-200 p-4">
+              <p className="text-sm font-black text-slate-900 mb-3">Canales 7 días</p>
+              <div className="space-y-2">
+                {channels.length === 0 ? (
+                  <p className="text-sm text-slate-400 font-semibold">Sin datos.</p>
+                ) : channels.map((row) => (
+                  <div key={row.key} className="flex justify-between text-sm">
+                    <span className="text-slate-600">{row.key}</span>
+                    <strong>D{row.diagnosis_starts} / C{row.checkout_starts}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4">
+              <p className="text-sm font-black text-slate-900 mb-3">Campañas 7 días</p>
+              <div className="space-y-2">
+                {campaigns.length === 0 ? (
+                  <p className="text-sm text-slate-400 font-semibold">Sin datos UTM todavía.</p>
+                ) : campaigns.map((row) => (
+                  <div key={row.key} className="flex justify-between text-sm">
+                    <span className="text-slate-600">{row.key}</span>
+                    <strong>D{row.diagnosis_starts} / C{row.checkout_starts}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {dropAlerts.length > 0 && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-black text-amber-800 mb-2">Alertas de caída detectadas</p>
+              <div className="space-y-1 text-sm text-amber-700">
+                {dropAlerts.map((alert, idx) => (
+                  <p key={`${alert.label}-${idx}`}>• {alert.label}: {alert.stage} cayó {alert.drop_pct}%</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 rounded-xl border border-slate-200 p-4">
+            <p className="text-sm font-black text-slate-900 mb-3">Acción semiautomática: copy/CTA</p>
+            <div className="grid md:grid-cols-3 gap-3">
+              <select
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold"
+                value={marketingConfigForm.cta_variant}
+                onChange={(e) => setMarketingConfigForm({ ...marketingConfigForm, cta_variant: e.target.value })}
+              >
+                <option value="default">Default</option>
+                <option value="urgencia">Urgencia</option>
+                <option value="confianza">Confianza</option>
+                <option value="sorteo">Sorteo</option>
+              </select>
+              <input
+                type="text"
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Texto CTA principal"
+                value={marketingConfigForm.cta_label}
+                onChange={(e) => setMarketingConfigForm({ ...marketingConfigForm, cta_label: e.target.value })}
+              />
+              <input
+                type="text"
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Texto franja rifa"
+                value={marketingConfigForm.raffle_label}
+                onChange={(e) => setMarketingConfigForm({ ...marketingConfigForm, raffle_label: e.target.value })}
+              />
+            </div>
+            <button
+              onClick={saveMarketingConfig}
+              disabled={configSaving}
+              className="mt-3 rounded-xl bg-[#0D68FF] px-4 py-2 text-sm font-black text-white disabled:opacity-60"
+            >
+              {configSaving ? 'Guardando...' : 'Publicar variante'}
+            </button>
+          </div>
         </section>
 
         {panelError && (

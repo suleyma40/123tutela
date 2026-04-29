@@ -1259,6 +1259,114 @@ def _merge_submission_summary(case: dict[str, Any], **extra: Any) -> dict[str, A
     }
 
 
+def _build_marketing_suggestions(
+    *,
+    funnel: dict[str, int],
+    event_counts: dict[str, int],
+    drop_alerts: list[dict[str, Any]] | None = None,
+) -> list[dict[str, str]]:
+    visitors = max(int(event_counts.get("page_views") or 0), 1)
+    cta_clicks = int(event_counts.get("cta_clicks") or 0)
+    diagnosis_starts = int(event_counts.get("diagnosis_starts") or 0)
+    checkout_starts = int(event_counts.get("checkout_starts") or 0)
+    paid = int(funnel.get("paid_cases") or 0)
+    intake_submitted = int(funnel.get("intake_submitted") or 0)
+
+    suggestions: list[dict[str, str]] = []
+    cta_rate = cta_clicks / visitors
+    checkout_rate = checkout_starts / max(diagnosis_starts, 1)
+    pay_rate = paid / max(checkout_starts, 1)
+    intake_rate = intake_submitted / max(paid, 1)
+
+    if cta_rate < 0.12:
+        suggestions.append({
+            "priority": "alta",
+            "title": "Mejorar clic al CTA principal",
+            "action": "Probar 2 variantes de titular y CTA (A/B) en home durante 7 dias; mantener la que supere 12% de clic.",
+        })
+    if checkout_rate < 0.55:
+        suggestions.append({
+            "priority": "alta",
+            "title": "Reducir fuga entre diagnóstico y pago",
+            "action": "Simplificar pantalla de pago a un solo mensaje de valor, mostrar precio final sin fricción y recordar rifa/codigo unico.",
+        })
+    if pay_rate < 0.45:
+        suggestions.append({
+            "priority": "alta",
+            "title": "Subir conversión de checkout a pago",
+            "action": "Agregar prueba social y garantía operativa junto al botón de pago, más seguimiento por WhatsApp para abandono de pago.",
+        })
+    if intake_rate < 0.65:
+        suggestions.append({
+            "priority": "media",
+            "title": "Completar más expedientes post-pago",
+            "action": "Autocompletar datos básicos, mostrar checklist mínimo por caso y recordatorio automático a los 30 y 120 minutos.",
+        })
+    for alert in drop_alerts or []:
+        label = str(alert.get("label") or "segmento")
+        stage = str(alert.get("stage") or "embudo")
+        drop_pct = int(alert.get("drop_pct") or 0)
+        suggestions.append({
+            "priority": "alta",
+            "title": f"Caida detectada en {label}",
+            "action": f"{stage} cayo {drop_pct}% vs periodo anterior. Activa variante de CTA en admin y valida durante 7 dias.",
+        })
+    if not suggestions:
+        suggestions.append({
+            "priority": "media",
+            "title": "Sistema estable",
+            "action": "Mantener medición semanal y correr experimentos pequeños por canal de adquisición para mejorar CAC y conversión.",
+        })
+    return suggestions[:5]
+
+
+def _detect_period_drop(*, current: int, previous: int, threshold_pct: int = 25) -> int:
+    if previous <= 0:
+        return 0
+    delta = current - previous
+    pct = int(round((delta / previous) * 100))
+    return pct if pct <= -threshold_pct else 0
+
+
+def _build_drop_alerts(current_rows: list[dict[str, Any]], previous_rows: list[dict[str, Any]], label: str) -> list[dict[str, Any]]:
+    prev_map = {str(row.get("key") or ""): row for row in previous_rows}
+    alerts: list[dict[str, Any]] = []
+    for row in current_rows:
+        key = str(row.get("key") or "")
+        prev = prev_map.get(key)
+        if not prev:
+            continue
+        current_diag = int(row.get("diagnosis_starts") or 0)
+        prev_diag = int(prev.get("diagnosis_starts") or 0)
+        drop_diag = _detect_period_drop(current=current_diag, previous=prev_diag)
+        if drop_diag:
+            alerts.append({
+                "type": "drop",
+                "dimension": label,
+                "key": key,
+                "label": f"{label}: {key}",
+                "stage": "Diagnostico iniciado",
+                "drop_pct": abs(drop_diag),
+                "current": current_diag,
+                "previous": prev_diag,
+            })
+        current_checkout = int(row.get("checkout_starts") or 0)
+        prev_checkout = int(prev.get("checkout_starts") or 0)
+        drop_checkout = _detect_period_drop(current=current_checkout, previous=prev_checkout)
+        if drop_checkout:
+            alerts.append({
+                "type": "drop",
+                "dimension": label,
+                "key": key,
+                "label": f"{label}: {key}",
+                "stage": "Checkout iniciado",
+                "drop_pct": abs(drop_checkout),
+                "current": current_checkout,
+                "previous": prev_checkout,
+            })
+    return alerts[:8]
+
+
 def _guest_status_response(case: dict[str, Any]) -> GuestCaseStatusResponse:
     files = repository.list_files_for_case(str(case["id"]))
     orders = repository.list_payment_orders_for_case(str(case["id"]))
@@ -1436,6 +1544,38 @@ def _ensure_payment_artifacts(case_id: str) -> dict[str, Any] | None:
 @app.get("/health")
 def healthcheck() -> dict[str, str]:
     return {"status": "ok", "app": settings.app_name}
+
+
+@app.post("/public/analytics/event")
+def capture_marketing_event(payload: dict[str, Any]) -> dict[str, Any]:
+    session_id = str(payload.get("session_id") or "").strip()
+    event_name = str(payload.get("event_name") or "").strip().lower()
+    if not session_id or not event_name:
+        raise HTTPException(status_code=400, detail="session_id y event_name son obligatorios.")
+    page_path = str(payload.get("page_path") or "").strip() or None
+    source = str(payload.get("source") or "").strip() or None
+    case_id = str(payload.get("case_id") or "").strip() or None
+    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    repository.create_marketing_event(
+        session_id=session_id[:120],
+        event_name=event_name[:80],
+        page_path=page_path[:180] if page_path else None,
+        source=source[:80] if source else None,
+        case_id=case_id,
+        metadata=metadata,
+    )
+    return {"ok": True}
+
+
+@app.get("/public/marketing/config")
+def public_marketing_config() -> dict[str, Any]:
+    config = repository.get_marketing_config()
+    return {
+        "cta_variant": config.get("cta_variant") or "default",
+        "cta_label": config.get("cta_label") or "Soluciona tu caso EPS y participa",
+        "raffle_label": config.get("raffle_label") or "Rifa mayo: posibilidad de llevarse $2.500.000 COP",
+        "updated_at": config.get("updated_at"),
+    }
 
 
 @app.get("/catalog/products", response_model=list[CatalogProductResponse])
@@ -3315,6 +3455,78 @@ def list_internal_cases(
 ) -> list[CaseResponse]:
     cases = repository.list_internal_cases(status=status_filter, workflow_type=workflow_type, category=category)
     return [_normalize_case(_reconcile_case_payment(case)) for case in cases]
+
+
+@app.get("/internal/analytics/overview")
+def internal_marketing_overview(days: int = 30, _: dict[str, Any] = Depends(get_internal_user)) -> dict[str, Any]:
+    window_days = max(1, min(days, 180))
+    cases = repository.list_internal_cases()
+    event_counts = repository.get_marketing_event_counts(days=window_days)
+    event_counts_7d = repository.get_marketing_event_counts(days=7)
+    event_counts_30d = repository.get_marketing_event_counts(days=30)
+    event_counts_prev_7d = repository.get_marketing_event_counts_window(from_days=14, to_days=7)
+    event_counts_prev_30d = repository.get_marketing_event_counts_window(from_days=60, to_days=30)
+    top_pages = repository.get_marketing_top_pages(days=window_days, limit=8)
+    channels_current = repository.get_marketing_breakdown(days=7, dimension="channel", limit=8)
+    channels_previous = repository.get_marketing_breakdown_window(from_days=14, to_days=7, dimension="channel", limit=8)
+    campaigns_current = repository.get_marketing_breakdown(days=7, dimension="campaign", limit=8)
+    campaigns_previous = repository.get_marketing_breakdown_window(from_days=14, to_days=7, dimension="campaign", limit=8)
+
+    diagnosed = sum(1 for item in cases if str(item.get("estado") or "") in {"diagnosticado", "checkout_pendiente", "pagado_pendiente_intake", "pagado_en_revision", "en_revision", "entregado"})
+    checkout_started = sum(1 for item in cases if str(item.get("estado") or "") == "checkout_pendiente")
+    paid_cases = sum(1 for item in cases if str(item.get("payment_status") or "") == "pagado")
+    intake_submitted = sum(1 for item in cases if str(item.get("estado") or "") in {"pagado_en_revision", "en_revision", "entregado"})
+    delivered_cases = sum(1 for item in cases if str(item.get("estado") or "") == "entregado")
+
+    funnel = {
+        "diagnosed": diagnosed,
+        "checkout_started": checkout_started,
+        "paid_cases": paid_cases,
+        "intake_submitted": intake_submitted,
+        "delivered_cases": delivered_cases,
+    }
+    drop_alerts = [
+        *_build_drop_alerts(channels_current, channels_previous, "canal"),
+        *_build_drop_alerts(campaigns_current, campaigns_previous, "campana"),
+    ]
+    config = repository.get_marketing_config()
+    return {
+        "window_days": window_days,
+        "event_counts": event_counts,
+        "comparison": {
+            "last_7d": event_counts_7d,
+            "last_30d": event_counts_30d,
+            "prev_7d": event_counts_prev_7d,
+            "prev_30d": event_counts_prev_30d,
+        },
+        "funnel": funnel,
+        "top_pages": top_pages,
+        "channels_7d": channels_current,
+        "campaigns_7d": campaigns_current,
+        "drop_alerts": drop_alerts,
+        "marketing_config": {
+            "cta_variant": config.get("cta_variant"),
+            "cta_label": config.get("cta_label"),
+            "raffle_label": config.get("raffle_label"),
+        },
+        "marketing_agent": _build_marketing_suggestions(funnel=funnel, event_counts=event_counts, drop_alerts=drop_alerts),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post("/internal/marketing/config")
+def update_internal_marketing_config(payload: dict[str, Any], _: dict[str, Any] = Depends(get_internal_user)) -> dict[str, Any]:
+    cta_variant = str(payload.get("cta_variant") or "default").strip().lower()
+    cta_label = str(payload.get("cta_label") or "").strip() or "Soluciona tu caso EPS y participa"
+    raffle_label = str(payload.get("raffle_label") or "").strip() or "Rifa mayo: posibilidad de llevarse $2.500.000 COP"
+    if cta_variant not in {"default", "urgencia", "confianza", "sorteo"}:
+        raise HTTPException(status_code=400, detail="cta_variant no valido.")
+    updated = repository.update_marketing_config(
+        cta_variant=cta_variant[:40],
+        cta_label=cta_label[:120],
+        raffle_label=raffle_label[:140],
+    )
+    return {"ok": True, "config": updated}
 
 
 @app.get("/internal/cases/{case_id}", response_model=CaseDetailResponse)

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import DiagnosisPage from './pages/DiagnosisPage';
 import PaymentPage from './pages/PaymentPage';
@@ -7,10 +7,20 @@ import SuccessPage from './pages/SuccessPage';
 import AdminPanel from './pages/AdminPanel';
 import AdminCaseDetail from './pages/AdminCaseDetail';
 import LegalPageView from './views/LegalPageView';
+import { trackEvent } from './lib/analytics';
+
+function AnalyticsTracker() {
+  const location = useLocation();
+  React.useEffect(() => {
+    trackEvent('page_view', { path: location.pathname, query: location.search || '' });
+  }, [location.pathname, location.search]);
+  return null;
+}
 
 function App() {
   return (
     <Router>
+      <AnalyticsTracker />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/diagnostico" element={<DiagnosisPage />} />
