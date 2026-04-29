@@ -200,6 +200,8 @@ const AdminPanel = () => {
         paidAt: summary?.payment_summary?.approved_at || summary?.invoice?.issued_at || c.updated_at || c.created_at || '',
       };
     });
+  const isReadyForHuman = (caso) =>
+    caso.payment_status === 'pagado' && ['pagado_en_revision', 'en_revision'].includes(caso.status);
 
   const downloadPaidCasesCsv = () => {
     const headers = [
@@ -547,7 +549,7 @@ const AdminPanel = () => {
               ) : filteredCasos.length === 0 ? (
                 <tr><td colSpan="7" className="px-6 py-16 text-center text-slate-400 font-semibold">No se encontraron registros</td></tr>
               ) : filteredCasos.map((caso) => (
-                <tr key={caso.id} className="hover:bg-[#FCFDFF]">
+                <tr key={caso.id} className={`${isReadyForHuman(caso) ? 'bg-emerald-50/60' : ''} hover:bg-[#FCFDFF]`}>
                   <td className="px-6 py-5">
                     <p className="font-black text-slate-900">{caso.user_name || 'Anonimo'}</p>
                     <p className="text-xs text-slate-400 mt-1">{caso.user_email}</p>
@@ -567,6 +569,11 @@ const AdminPanel = () => {
                     <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase ${caso.status === 'entregado' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
                       {caso.status}
                     </span>
+                    {isReadyForHuman(caso) && (
+                      <span className="ml-2 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-black uppercase text-emerald-700">
+                        Listo para humano
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex flex-wrap gap-2">

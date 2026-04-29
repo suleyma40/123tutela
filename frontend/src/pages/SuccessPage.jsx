@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Trophy, FileText, Upload, Send, Loader2, Mail, MessageSquareMore, UserCheck, Users } from 'lucide-react';
@@ -126,6 +126,7 @@ const SuccessPage = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [caseData, setCaseData] = useState(null);
   const [intakeFiles, setIntakeFiles] = useState([]);
+  const fileInputRef = useRef(null);
   const [isThirdParty, setIsThirdParty] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -180,6 +181,10 @@ const SuccessPage = () => {
 
     const hydrate = (responseData) => {
       setCaseData(responseData);
+      setIntakeFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       const caseItem = responseData?.case || {};
       const intake = caseItem.facts?.intake_form || {};
       setForm((current) => ({
@@ -288,6 +293,9 @@ const SuccessPage = () => {
       });
       setSuccessMessage('Información recibida. El expediente ya quedó listo para revisión por nuestro equipo jurídico.');
       setIntakeFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (err) {
       setError(extractError(err, 'No pudimos guardar la informacion.'));
     } finally {
@@ -689,6 +697,7 @@ const SuccessPage = () => {
                       </p>
                       <div className="border-2 border-dashed border-brand/10 rounded-2xl p-8 text-center hover:bg-brand/5 transition-colors cursor-pointer relative">
                         <input
+                          ref={fileInputRef}
                           type="file"
                           multiple
                           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
