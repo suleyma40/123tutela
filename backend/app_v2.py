@@ -1696,7 +1696,13 @@ def simulate_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseSt
     )
     updated_case = repository.update_case_payment(str(case["id"]), payload.reference, payment_status="pagado") or case
     updated_case = _ensure_payment_artifacts(str(case["id"])) or updated_case
-    repository.create_event(str(case["id"]), "payment_approved_simulated", "system", None, {"reference": payload.reference})
+    repository.create_event(
+        case_id=str(case["id"]),
+        event_type="payment_approved_simulated",
+        actor_type="system",
+        actor_id=None,
+        payload={"reference": payload.reference},
+    )
     updated_case = _persist_guest_ops(updated_case)
     return _guest_status_response(updated_case)
 

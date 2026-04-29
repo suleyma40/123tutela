@@ -514,19 +514,27 @@ def list_internal_cases(
     workflow_type: str | None = None,
     category: str | None = None,
 ) -> list[dict[str, Any]]:
-    query = """
+    clauses: list[str] = []
+    params: dict[str, Any] = {}
+    if status:
+        clauses.append("estado = %(status)s")
+        params["status"] = status
+    if workflow_type:
+        clauses.append("workflow_type = %(workflow_type)s")
+        params["workflow_type"] = workflow_type
+    if category:
+        clauses.append("categoria = %(category)s")
+        params["category"] = category
+
+    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    query = f"""
         SELECT *
         FROM casos
-        WHERE (%(status)s IS NULL OR estado = %(status)s)
-          AND (%(workflow_type)s IS NULL OR workflow_type = %(workflow_type)s)
-          AND (%(category)s IS NULL OR categoria = %(category)s)
+        {where_sql}
         ORDER BY created_at DESC;
     """
     with get_connection() as connection, connection.cursor() as cursor:
-        cursor.execute(
-            query,
-            {"status": status, "workflow_type": workflow_type, "category": category},
-        )
+        cursor.execute(query, params)
         return cursor.fetchall()
 
 
