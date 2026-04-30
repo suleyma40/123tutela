@@ -3,6 +3,7 @@ import { Scale, ArrowRight, Sparkles } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { trackEvent } from '../lib/analytics';
 import { api } from '../lib/api';
+import { LAUNCH_PRICE_LABEL, RAFFLE_SHORT_LABEL } from '../lib/launchConfig';
 
 const Navbar = () => {
   const location = useLocation();
@@ -25,10 +26,10 @@ const Navbar = () => {
     if (marketingConfig?.cta_label) return marketingConfig.cta_label;
     if (variant === 'urgencia') return 'Activa hoy tu documento y evita más demoras';
     if (variant === 'confianza') return 'Tu caso en manos expertas, con ruta legal clara';
-    if (variant === 'sorteo') return 'Soluciona tu caso y participa por 2.5 millones';
-    return 'Soluciona tu caso EPS y participa';
+    if (variant === 'sorteo') return `Activa tu documento por ${LAUNCH_PRICE_LABEL} y participa`;
+    return `Activa tu documento por ${LAUNCH_PRICE_LABEL}`;
   }, [marketingConfig]);
-  const raffleLabel = marketingConfig?.raffle_label || 'Rifa mayo: posibilidad de llevarse $2.500.000 COP';
+  const raffleLabel = marketingConfig?.raffle_label || RAFFLE_SHORT_LABEL;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200/80 bg-[rgba(245,247,251,0.82)] backdrop-blur-xl">

@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, FileText, HeartPulse, ShieldCheck, Sparkles, 
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
 import { trackEvent } from '../lib/analytics';
+import { LAUNCH_PRICE_LABEL, RAFFLE_LONG_COPY } from '../lib/launchConfig';
 
 const DiagnosisPage = () => {
   const navigate = useNavigate();
@@ -64,9 +65,9 @@ const DiagnosisPage = () => {
               </div>
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Diagnostico inicial</p>
-                <h1 className="text-4xl md:text-5xl leading-none font-black text-slate-900">Cuéntanos tu caso</h1>
+                <h1 className="text-4xl md:text-5xl leading-none font-black text-slate-900">Cuentanos tu caso</h1>
                 <p className="text-slate-500 mt-3 max-w-2xl">
-                  Revisamos lo que pasó, te mostramos la ruta correcta y luego decides si activas tu documento por `49.900`.
+                  Revisamos lo que paso, te mostramos la ruta correcta y luego decides si activas tu documento por {LAUNCH_PRICE_LABEL}.
                 </p>
               </div>
             </div>
@@ -147,12 +148,12 @@ const DiagnosisPage = () => {
               </div>
 
               <label className="grid gap-2">
-                <span className="text-sm font-bold text-slate-700">Cuéntanos qué pasó</span>
+                <span className="text-sm font-bold text-slate-700">Cuentanos que paso</span>
                 <textarea
                   required
                   minLength={50}
                   rows={7}
-                  placeholder="Describe los hechos, las fechas importantes, lo que te negó la EPS o IPS y por qué esto te afecta hoy."
+                  placeholder="Describe los hechos, las fechas importantes, lo que te nego la EPS o IPS y por que esto te afecta hoy."
                   className="w-full rounded-[24px] border border-slate-200 bg-[#FCFDFF] px-4 py-4 outline-none resize-none"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -191,15 +192,15 @@ const DiagnosisPage = () => {
                 <div className="flex gap-4">
                   <div className="w-11 h-11 rounded-2xl bg-white/10 grid place-items-center shrink-0"><FileText size={20} /></div>
                   <div>
-                    <p className="font-black">Documento por 49.900</p>
+                    <p className="font-black">Documento por {LAUNCH_PRICE_LABEL}</p>
                     <p className="text-sm text-white/70 mt-1">Mismo precio para cualquier documento del catalogo activo de salud.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <div className="w-11 h-11 rounded-2xl bg-white/10 grid place-items-center shrink-0"><Trophy size={20} /></div>
                   <div>
-                    <p className="font-black">Bono de 2.5 millones</p>
-                    <p className="text-sm text-white/70 mt-1">Los usuarios de mayo participan y el bono se entrega en vivo el 30 de mayo de 2026.</p>
+                    <p className="font-black">Rifa de lanzamiento</p>
+                    <p className="text-sm text-white/70 mt-1">{RAFFLE_LONG_COPY}</p>
                   </div>
                 </div>
               </div>
@@ -214,7 +215,7 @@ const DiagnosisPage = () => {
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle2 size={18} className="text-[#36D399] mt-1 shrink-0" />
-                  <p className="text-sm text-slate-600">Si el caso no está claro, el sistema te pide mejor información antes de cobrar.</p>
+                  <p className="text-sm text-slate-600">Si el caso no esta claro, el sistema te pide mejor informacion antes de cobrar.</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <ShieldCheck size={18} className="text-[#0D68FF] mt-1 shrink-0" />

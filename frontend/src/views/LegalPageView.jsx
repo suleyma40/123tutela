@@ -3,6 +3,7 @@ import { ArrowLeft, Mail, Scale, ShieldCheck } from "lucide-react";
 
 import { Badge, Button } from "../ui";
 import { C } from "../theme";
+import { NOTIFICATIONS_EMAIL, RADICATIONS_EMAIL, SUPPORT_EMAIL } from "../lib/launchConfig";
 
 const PAGE_COPY = {
   terminos: {
@@ -63,6 +64,11 @@ const PAGE_COPY = {
           "La informacion se usa para analizar el caso, generar documentos, validar requisitos, ejecutar pagos, soportar radicacion operativa, mantener trazabilidad y comunicar estados, incidencias y siguientes pasos al usuario.",
       },
       {
+        title: "Autorizacion de tratamiento y comunicaciones",
+        body:
+          "Al usar la plataforma y enviar formularios o soportes, el usuario autoriza el tratamiento de sus datos personales y sensibles estrictamente para la prestacion del servicio, asi como el envio de comunicaciones transaccionales y operativas por correo electronico o WhatsApp relacionadas con pago, expediente, entrega documental, soporte e incidencias.",
+      },
+      {
         title: "Comparticion limitada",
         body:
           "Solo compartimos la informacion necesaria con proveedores tecnologicos, canales de pago y, cuando el usuario activa la radicacion, con las entidades o despachos ante los que deba presentarse el tramite.",
@@ -71,6 +77,11 @@ const PAGE_COPY = {
         title: "Conservacion y seguridad",
         body:
           "Aplicamos medidas tecnicas y operativas razonables para proteger la informacion. Aun asi, ningun sistema digital es completamente inmune a incidentes, por lo que el usuario debe cargar informacion veraz y mantener control sobre sus credenciales.",
+      },
+      {
+        title: "Consulta, actualizacion y supresion",
+        body:
+          "Como titular de datos puedes solicitar consulta, actualizacion, correccion o supresion cuando proceda legalmente, y tambien revocar autorizaciones no esenciales, usando los canales oficiales publicados en esta pagina.",
       },
       {
         title: "Derechos del titular",
@@ -93,6 +104,11 @@ const PAGE_COPY = {
         title: "Pagos y conciliacion",
         body:
           "Si un pago fue aprobado pero no se refleja en la interfaz, reporta la referencia de la transaccion para revisar el estado en el panel y en los registros internos del sistema.",
+      },
+      {
+        title: "Tratamiento de datos",
+        body:
+          "Las solicitudes sobre habeas data, actualizacion, correccion, supresion y revocatoria de autorizaciones deben enviarse por los canales de soporte indicando nombre, correo usado en la plataforma y motivo de la solicitud.",
       },
       {
         title: "Impugnacion y desacato",
@@ -172,7 +188,7 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
               <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.primary, fontWeight: 800 }}>
                   <Mail size={18} />
-                  soporte@123tutelaapp.com
+                  {SUPPORT_EMAIL}
                 </div>
                 <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
                   Canal principal para soporte, conciliacion de pagos y validacion del expediente.
@@ -190,7 +206,7 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
               <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.accent, fontWeight: 800 }}>
                   <Mail size={18} />
-                  radicaciones@123tutelaapp.com
+                  {RADICATIONS_EMAIL}
                 </div>
                 <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
                   Buzon operativo para tramites enviados, acuses, radicados y novedades del canal de presentacion.
@@ -199,7 +215,7 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
               <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.primary, fontWeight: 800 }}>
                   <Mail size={18} />
-                  notificaciones@123tutelaapp.com
+                  {NOTIFICATIONS_EMAIL}
                 </div>
                 <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
                   Remitente operativo para copias al cliente, avisos del expediente y comprobantes visibles en el panel.

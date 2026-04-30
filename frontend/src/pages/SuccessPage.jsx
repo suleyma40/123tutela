@@ -5,6 +5,7 @@ import { CheckCircle2, Trophy, FileText, Upload, Send, Loader2, Mail, MessageSqu
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
 import { trackEvent } from '../lib/analytics';
+import { RAFFLE_LONG_COPY, RAFFLE_MONTH_LABEL, RAFFLE_PRIZE_LABEL } from '../lib/launchConfig';
 
 const QUESTION_FIELD_MAP = {
   medical_support: 'medical_support_detail',
@@ -379,7 +380,7 @@ const SuccessPage = () => {
                   </div>
                   <div className="relative z-10">
                     <p className="text-[#19B7FF] font-black uppercase text-xs tracking-widest mb-2">Codigo de participacion</p>
-                    <h3 className="text-2xl font-extrabold mb-3">Sorteo mayo 2026</h3>
+                    <h3 className="text-2xl font-extrabold mb-3">Rifa {RAFFLE_MONTH_LABEL}</h3>
                     <p className="text-white/80 text-sm font-medium mb-4 max-w-xl">
                       Este codigo coincide con tu expediente y confirma tu participacion con pago aprobado.
                     </p>
@@ -796,12 +797,12 @@ const SuccessPage = () => {
                   <p>- Trazabilidad por codigo unico de seguimiento.</p>
                 </div>
                 <div className="mt-6 rounded-2xl border border-white/15 bg-white/10 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-[#19B7FF] mb-2">Rifa mayo 2026</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-[#19B7FF] mb-2">Rifa {RAFFLE_MONTH_LABEL}</p>
                   <p className="text-sm text-white/85 leading-6">
-                    Con pago aprobado participas en la rifa por un bono de $2.500.000 COP.
+                    Con pago aprobado participas en la rifa por {RAFFLE_PRIZE_LABEL}.
                   </p>
                   <p className="text-sm text-white/70 mt-2">
-                    Completa y envia tu expediente para quedar activo en el sorteo.
+                    {RAFFLE_LONG_COPY}
                   </p>
                 </div>
               </div>

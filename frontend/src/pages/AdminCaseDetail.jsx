@@ -16,10 +16,6 @@ const AdminCaseDetail = () => {
   const [sendWhatsapp, setSendWhatsapp] = useState(true);
   const [isSendingDelivery, setIsSendingDelivery] = useState(false);
   const [deliveryMessage, setDeliveryMessage] = useState('');
-  const adminAuthHeaders = () => {
-    const token = localStorage.getItem('admin-token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
 
   useEffect(() => {
     fetchCaso();
@@ -27,9 +23,7 @@ const AdminCaseDetail = () => {
 
   const fetchCaso = async () => {
     try {
-      const response = await api.get(`/internal/cases/${id}`, {
-        headers: adminAuthHeaders(),
-      });
+      const response = await api.get(`/internal/cases/${id}`);
       setCaso(response.data);
     } catch (error) {
       if (error.response?.status === 401) navigate(adminBasePath);
@@ -41,9 +35,7 @@ const AdminCaseDetail = () => {
   const handleStatusUpdate = async (newStatus) => {
     setIsUpdating(true);
     try {
-      await api.post(`/internal/cases/${id}/status`, { status: newStatus }, {
-        headers: adminAuthHeaders(),
-      });
+      await api.post(`/internal/cases/${id}/status`, { status: newStatus });
       fetchCaso();
     } finally {
       setIsUpdating(false);
@@ -64,7 +56,6 @@ const AdminCaseDetail = () => {
       formData.append('send_whatsapp', String(sendWhatsapp));
       const response = await api.post(`/internal/cases/${id}/deliver-upload`, formData, {
         headers: {
-          ...adminAuthHeaders(),
           'Content-Type': 'multipart/form-data',
         },
       });

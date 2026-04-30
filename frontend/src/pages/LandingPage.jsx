@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { ArrowRight, CheckCircle2, FileText, Gavel, Heart, Scale } from 'lucide-react';
+import { LAUNCH_PRICE_LABEL, RAFFLE_DRAW_DATE_LABEL, RAFFLE_LONG_COPY, RAFFLE_MONTH_LABEL, RAFFLE_PRIZE_LABEL } from '../lib/launchConfig';
 
 const palette = {
   bg: '#F5F7FB',
@@ -64,9 +65,9 @@ const steps = [
 ];
 
 const highlights = [
-  'Precio unico de $49.900 por documento.',
+  `Precio unico de ${LAUNCH_PRICE_LABEL} por documento.`,
   'Ruta clara antes de pagar, sin adivinar el tramite.',
-  'Participas por la posibilidad de llevarse $2.500.000 COP en mayo.',
+  `Participas por la posibilidad de llevarse ${RAFFLE_PRIZE_LABEL} en ${RAFFLE_MONTH_LABEL}.`,
 ];
 
 const faq = [
@@ -83,8 +84,8 @@ const faq = [
     a: 'El diagnostico inicial es inmediato. Luego activas tu documento con un precio unico visible antes del pago.',
   },
   {
-    q: '¿Como funciona el bono de mayo de 2026?',
-    a: 'Los usuarios de la app con pago aprobado durante mayo de 2026 participan por la posibilidad de llevarse $2.500.000 COP. El sorteo se realiza en vivo el 30 de mayo de 2026.',
+    q: '¿Como funciona la rifa de lanzamiento?',
+    a: RAFFLE_LONG_COPY,
   },
 ];
 
@@ -305,10 +306,13 @@ const LandingPage = () => {
             <h1>
               Tu documento legal en salud,
               <br />
-              por $49.900.
+              por {LAUNCH_PRICE_LABEL}.
             </h1>
             <p>
-              123tutela analiza tu caso, te muestra la ruta correcta y te deja activar tu documento por un precio unico. En mayo, ademas, los usuarios de la app participan por la posibilidad de llevarse $2.500.000 COP.
+              123tutela analiza tu caso, te muestra la ruta correcta y te deja activar tu documento por un precio unico.
+            </p>
+            <p>
+              {RAFFLE_LONG_COPY}
             </p>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 28 }}>
               <Link to="/diagnostico" className="landing-btn landing-btn--primary">
@@ -321,7 +325,7 @@ const LandingPage = () => {
             <div className="landing-chip-row">
               <span>Solo salud</span>
               <span>Precio unico</span>
-              <span>Bono en vivo el 30 de mayo de 2026</span>
+              <span>Rifa en vivo el {RAFFLE_DRAW_DATE_LABEL}</span>
             </div>
           </div>
 
@@ -348,14 +352,14 @@ const LandingPage = () => {
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#93C5FD', marginBottom: 6 }}>ACCION RECOMENDADA</div>
                 <div style={{ fontSize: 30, fontWeight: 800 }}>Accion de tutela</div>
                 <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.76)' }}>
-                  Documento listo para activar por $49.900 desde la app.
+                  Documento listo para activar por {LAUNCH_PRICE_LABEL} desde la app.
                 </div>
               </div>
 
               <div className="landing-kpi-grid">
                 {[
                   { label: 'Analisis', value: 'Gratis' },
-                  { label: 'Precio', value: '$49.900' },
+                  { label: 'Precio', value: LAUNCH_PRICE_LABEL },
                   { label: 'Bono', value: '2.5M' },
                 ].map((item) => (
                   <div key={item.label} className="landing-kpi">
@@ -442,7 +446,7 @@ const LandingPage = () => {
                 Un gancho fuerte.
               </h2>
               <p style={{ marginTop: 16, color: palette.muted, lineHeight: 1.7, maxWidth: 520 }}>
-                La promesa comercial es simple: diagnostico inicial, ruta clara y documento activable por un solo precio. Durante mayo de 2026, cada pago aprobado participa por el bono en vivo.
+                La promesa comercial es simple: diagnostico inicial, ruta clara y documento activable por un solo precio. {RAFFLE_LONG_COPY}
               </p>
               <div style={{ display: 'grid', gap: 12, marginTop: 22 }}>
                 {highlights.map((item) => (
@@ -463,7 +467,7 @@ const LandingPage = () => {
               }}
             >
               <div style={{ fontSize: 14, color: palette.muted, fontWeight: 700 }}>Precio visible para cualquier documento</div>
-              <div style={{ marginTop: 12, fontSize: 52, fontWeight: 800 }}>$49.900</div>
+              <div style={{ marginTop: 12, fontSize: 52, fontWeight: 800 }}>{LAUNCH_PRICE_LABEL}</div>
               <div style={{ color: palette.muted }}>Mismo precio para cualquier documento del catalogo activo de salud.</div>
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${palette.border}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
@@ -472,18 +476,18 @@ const LandingPage = () => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
                   <span>Cualquier documento</span>
-                  <strong>$49.900</strong>
+                  <strong>{LAUNCH_PRICE_LABEL}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
-                  <span>Bono mayo 2026</span>
-                  <strong>$2.500.000 COP</strong>
+                  <span>Rifa {RAFFLE_MONTH_LABEL}</span>
+                  <strong>{RAFFLE_PRIZE_LABEL}</strong>
                 </div>
               </div>
               <div style={{ marginTop: 18, padding: 18, borderRadius: 18, background: '#0F2C5F', color: '#fff' }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#93C5FD', marginBottom: 6 }}>ENTREGA ESPECIAL</div>
-                <div style={{ fontSize: 22, fontWeight: 800 }}>En vivo el 30 de mayo de 2026</div>
+                <div style={{ fontSize: 22, fontWeight: 800 }}>En vivo el {RAFFLE_DRAW_DATE_LABEL}</div>
                 <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.76)', lineHeight: 1.6 }}>
-                  Los usuarios de la app con pago aprobado en mayo participan por la posibilidad de llevarse $2.500.000 COP en el sorteo especial.
+                  {RAFFLE_LONG_COPY}
                 </div>
               </div>
               <div style={{ marginTop: 24 }}>

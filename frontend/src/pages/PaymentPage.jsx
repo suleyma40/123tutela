@@ -4,6 +4,7 @@ import { AlertCircle, ArrowRight, CheckCircle2, ShieldCheck, Trophy } from 'luci
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
 import { trackEvent } from '../lib/analytics';
+import { LAUNCH_PRICE_LABEL, RAFFLE_LONG_COPY, RAFFLE_PRIZE_LABEL } from '../lib/launchConfig';
 
 const widgetScriptUrl = 'https://checkout.wompi.co/widget.js';
 
@@ -40,8 +41,8 @@ const PaymentPage = () => {
             signature: { integrity: checkout['signature:integrity'] },
           });
           widget.open((result) => resolve(result || {}));
-        } catch (error) {
-          reject(error);
+        } catch (launchError) {
+          reject(launchError);
         }
       };
       if (window.WidgetCheckout) {
@@ -102,19 +103,19 @@ const PaymentPage = () => {
 
             <div className="mt-8 rounded-[24px] border border-white/10 bg-white/5 p-6 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-white/5 to-transparent rounded-bl-full pointer-events-none"></div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45 mb-3">Resultado del Análisis</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45 mb-3">Resultado del analisis</p>
               <h2 className="text-2xl font-black">{guestCase.recommendedAction}</h2>
               <p className="text-sm text-white/70 mt-4 leading-6">
                 Hemos evaluado la viabilidad de tu caso y la ruta legal recomendada es iniciar una <strong>{guestCase.recommendedAction}</strong>.
                 Al activar el servicio, especialistas juridicos elaboraran el documento con el <strong>sustento legal necesario</strong>, segun la informacion y soportes que compartas.
               </p>
               <p className="text-sm text-white/70 mt-3 leading-6">
-                Adicionalmente, te entregaremos una <strong>guía paso a paso</strong> indicándote exactamente:
+                Adicionalmente, te entregaremos una <strong>guia paso a paso</strong> indicandote exactamente:
               </p>
               <ul className="mt-3 space-y-1 text-sm text-white/70 list-disc list-inside">
-                <li>A qué entidad dirigirte y por qué canal.</li>
+                <li>A que entidad dirigirte y por que canal.</li>
                 <li>Los tiempos exactos de respuesta que dicta la ley.</li>
-                <li>Qué esperar y qué hacer si no te responden.</li>
+                <li>Que esperar y que hacer si no te responden.</li>
               </ul>
             </div>
 
@@ -129,14 +130,14 @@ const PaymentPage = () => {
               </div>
               <div className="flex items-start gap-3">
                 <Trophy size={18} className="text-[#F59E0B] mt-1 shrink-0" />
-                <p className="text-sm text-white/72">Acceso automático al sorteo de $2.500.000 COP, solo para usuarios registrados.</p>
+                <p className="text-sm text-white/72">Acceso automatico a la rifa de lanzamiento por {RAFFLE_PRIZE_LABEL}, con pago aprobado.</p>
               </div>
             </div>
           </section>
 
           <section className="rounded-[28px] border border-slate-200 bg-white p-8 md:p-10 shadow-[0_18px_55px_rgba(18,35,61,0.06)]">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400 mb-3">Checkout</p>
-            <h2 className="text-4xl font-black leading-none">$49.900</h2>
+            <h2 className="text-4xl font-black leading-none">{LAUNCH_PRICE_LABEL}</h2>
             <p className="text-slate-500 mt-3">Precio unico para cualquier documento del catalogo activo de salud.</p>
 
             <div className="grid gap-4 mt-8">
@@ -147,10 +148,10 @@ const PaymentPage = () => {
                 </div>
                 <div className="flex justify-between gap-4 text-sm mt-3">
                   <span className="text-slate-500">Documento</span>
-                  <strong>$49.900</strong>
+                  <strong>{LAUNCH_PRICE_LABEL}</strong>
                 </div>
                 <div className="flex justify-between gap-4 text-sm mt-3">
-                  <span className="text-slate-500">Participacion bono mayo</span>
+                  <span className="text-slate-500">Participacion rifa lanzamiento</span>
                   <strong>Incluida</strong>
                 </div>
               </div>
@@ -159,10 +160,10 @@ const PaymentPage = () => {
                 <div className="absolute -right-6 -top-6 text-[#0D68FF]/5">
                   <Trophy size={100} />
                 </div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0D68FF] mb-2">Beneficio Exclusivo</p>
-                <p className="text-lg font-black text-slate-900">Sorteo de $2.5 Millones COP</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0D68FF] mb-2">Beneficio exclusivo</p>
+                <p className="text-lg font-black text-slate-900">Rifa de {RAFFLE_PRIZE_LABEL}</p>
                 <p className="text-sm text-slate-500 mt-2 leading-6 relative z-10">
-                  Al completar tu solicitud hoy, participas automáticamente por un bono de $2.500.000 pesos colombianos que sortearemos en vivo el próximo 30 de mayo de 2026.
+                  {RAFFLE_LONG_COPY}
                 </p>
               </div>
 
@@ -201,20 +202,22 @@ const PaymentPage = () => {
                   try {
                     const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, { public_token: guestCase.publicToken });
                     const ref = sess.data.checkout.reference;
-                    await api.post(`/public/payments/simulate`, { 
+                    await api.post(`/public/payments/simulate`, {
                       transaction_id: `simulated_${ref}`,
-                      reference: ref, 
-                      public_token: guestCase.publicToken 
+                      reference: ref,
+                      public_token: guestCase.publicToken,
                     });
                     navigate(`/pago/resultado?id=simulated_${ref}`);
-                  } catch(e) {
+                  } catch (e) {
                     const msg = extractError(e);
                     if (msg && msg.toLowerCase().includes('pago aprobado')) {
-                      navigate(`/pago/resultado?simulated=true`);
+                      navigate('/pago/resultado?simulated=true');
                     } else {
-                      setError('Error en simulación: ' + msg);
+                      setError(`Error en simulacion: ${msg}`);
                     }
-                  } finally { setLoading(false); }
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
                 disabled={loading}
                 className="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-800 px-6 py-4 text-sm font-black text-white hover:bg-slate-700 transition-colors disabled:opacity-60"

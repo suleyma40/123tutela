@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Bot, Eye, Filter, LayoutDashboard, Search, TrendingUp } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
+import { LAUNCH_PRICE_COP, RAFFLE_SHORT_LABEL } from '../lib/launchConfig';
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -42,16 +43,10 @@ const AdminPanel = () => {
     raffle_label: '',
   });
 
-  const adminAuthHeaders = () => {
-    const token = localStorage.getItem('admin-token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
-
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout', {});
     } catch (_) {}
-    localStorage.removeItem('admin-token');
     setIsLoggedIn(false);
     setCasos([]);
     setPanelError('');
@@ -64,7 +59,7 @@ const AdminPanel = () => {
     let alive = true;
     const bootstrapSession = async () => {
       try {
-        const me = await api.get('/auth/me', { headers: adminAuthHeaders() });
+        const me = await api.get('/auth/me');
         if (alive && me?.data?.role === 'internal') {
           setIsLoggedIn(true);
         }
@@ -116,14 +111,11 @@ const AdminPanel = () => {
     setLoading(true);
     setPanelError('');
     try {
-      const response = await api.get('/internal/cases', {
-        headers: adminAuthHeaders(),
-      });
+      const response = await api.get('/internal/cases');
       setCasos(response.data);
     } catch (error) {
       if (error.response?.status === 401) {
         setIsLoggedIn(false);
-        localStorage.removeItem('admin-token');
         return;
       }
       if (error.response?.status === 403) {
@@ -139,9 +131,7 @@ const AdminPanel = () => {
 
   const fetchMarketing = async () => {
     try {
-      const response = await api.get('/internal/analytics/overview', {
-        headers: adminAuthHeaders(),
-      });
+      const response = await api.get('/internal/analytics/overview');
       setMarketing(response.data);
       const cfg = response.data?.marketing_config || {};
       setMarketingConfigForm({
@@ -152,7 +142,6 @@ const AdminPanel = () => {
     } catch (error) {
       if (error.response?.status === 401) {
         setIsLoggedIn(false);
-        localStorage.removeItem('admin-token');
       }
     }
   };
@@ -160,9 +149,7 @@ const AdminPanel = () => {
   const saveMarketingConfig = async () => {
     setConfigSaving(true);
     try {
-      await api.post('/internal/marketing/config', marketingConfigForm, {
-        headers: adminAuthHeaders(),
-      });
+      await api.post('/internal/marketing/config', marketingConfigForm);
       await fetchMarketing();
     } finally {
       setConfigSaving(false);
@@ -171,14 +158,11 @@ const AdminPanel = () => {
 
   const handleQuickStatus = async (caseId, newStatus) => {
     try {
-      await api.post(`/internal/cases/${caseId}/status`, { status: newStatus }, {
-        headers: adminAuthHeaders(),
-      });
+      await api.post(`/internal/cases/${caseId}/status`, { status: newStatus });
       await fetchCasos();
     } catch (error) {
       if (error.response?.status === 401) {
         setIsLoggedIn(false);
-        localStorage.removeItem('admin-token');
         return;
       }
       if (error.response?.status === 403) {
@@ -205,7 +189,7 @@ const AdminPanel = () => {
     ventas: casos.filter((c) => c.payment_status === 'pagado').length,
     pendientes: casos.filter((c) => c.status !== 'entregado').length,
     listosHumano: casos.filter((c) => isReadyForHuman(c)).length,
-    totalIngresos: casos.filter((c) => c.payment_status === 'pagado').length * 49900,
+    totalIngresos: casos.filter((c) => c.payment_status === 'pagado').length * LAUNCH_PRICE_COP,
   };
   const eventCounts = marketing?.event_counts || {};
   const funnel = marketing?.funnel || {};
@@ -633,6 +617,9 @@ const AdminPanel = () => {
                 onChange={(e) => setMarketingConfigForm({ ...marketingConfigForm, raffle_label: e.target.value })}
               />
             </div>
+            <p className="mt-3 text-xs font-semibold text-slate-500">
+              Default actual: {RAFFLE_SHORT_LABEL}
+            </p>
             <button
               onClick={saveMarketingConfig}
               disabled={configSaving}
