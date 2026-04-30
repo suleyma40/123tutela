@@ -154,6 +154,8 @@ const AdminPanel = () => {
       }
     }
   };
+  const isReadyForHuman = (caso) =>
+    caso.payment_status === 'pagado' && ['pagado_en_revision', 'en_revision'].includes(caso.status);
 
   const filteredCasos = casos.filter((c) =>
     (c.user_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -202,8 +204,6 @@ const AdminPanel = () => {
         paidAt: summary?.payment_summary?.approved_at || summary?.invoice?.issued_at || c.updated_at || c.created_at || '',
       };
     });
-  const isReadyForHuman = (caso) =>
-    caso.payment_status === 'pagado' && ['pagado_en_revision', 'en_revision'].includes(caso.status);
 
   const downloadPaidCasesCsv = () => {
     const headers = [
