@@ -11,11 +11,24 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def ensure_user_security_columns() -> None:
+    query = """
+        ALTER TABLE app_users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+        ALTER TABLE app_users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE app_users ADD COLUMN IF NOT EXISTS totp_recovery_hashes JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE app_users ADD COLUMN IF NOT EXISTS totp_enabled_at TIMESTAMPTZ;
+        ALTER TABLE app_users ADD COLUMN IF NOT EXISTS totp_last_used_at TIMESTAMPTZ;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query)
+
+
 def create_user(name: str, email: str, password_hash: str, *, role: str = "citizen") -> dict[str, Any]:
+    ensure_user_security_columns()
     query = """
         INSERT INTO app_users (name, email, password_hash, role)
         VALUES (%(name)s, %(email)s, %(password_hash)s, %(role)s)
-        RETURNING id, name, email, document_number, phone, city, department, address, role, created_at, updated_at;
+        RETURNING id, name, email, document_number, phone, city, department, address, role, totp_enabled, created_at, updated_at;
     """
     with get_connection() as connection, connection.cursor() as cursor:
         cursor.execute(
@@ -26,8 +39,9 @@ def create_user(name: str, email: str, password_hash: str, *, role: str = "citiz
 
 
 def get_user_by_email(email: str) -> dict[str, Any] | None:
+    ensure_user_security_columns()
     query = """
-        SELECT id, name, email, password_hash, document_number, phone, city, department, address, role, created_at, updated_at
+        SELECT id, name, email, password_hash, document_number, phone, city, department, address, role, totp_secret, totp_enabled, totp_recovery_hashes, totp_enabled_at, totp_last_used_at, created_at, updated_at
         FROM app_users
         WHERE email = %(email)s;
     """
@@ -37,8 +51,9 @@ def get_user_by_email(email: str) -> dict[str, Any] | None:
 
 
 def get_user_by_id(user_id: str) -> dict[str, Any] | None:
+    ensure_user_security_columns()
     query = """
-        SELECT id, name, email, document_number, phone, city, department, address, role, created_at, updated_at
+        SELECT id, name, email, document_number, phone, city, department, address, role, totp_enabled, created_at, updated_at
         FROM app_users
         WHERE id = %(user_id)s;
     """
@@ -48,12 +63,13 @@ def get_user_by_id(user_id: str) -> dict[str, Any] | None:
 
 
 def update_user_role(user_id: str, role: str) -> dict[str, Any] | None:
+    ensure_user_security_columns()
     query = """
         UPDATE app_users
         SET role = %(role)s,
             updated_at = %(updated_at)s
         WHERE id = %(user_id)s
-        RETURNING id, name, email, document_number, phone, city, department, address, role, created_at, updated_at;
+        RETURNING id, name, email, document_number, phone, city, department, address, role, totp_enabled, created_at, updated_at;
     """
     with get_connection() as connection, connection.cursor() as cursor:
         cursor.execute(
@@ -77,6 +93,7 @@ def update_user_profile(
     department: str,
     address: str,
 ) -> dict[str, Any] | None:
+    ensure_user_security_columns()
     query = """
         UPDATE app_users
         SET name = %(name)s,
@@ -87,7 +104,7 @@ def update_user_profile(
             address = %(address)s,
             updated_at = %(updated_at)s
         WHERE id = %(user_id)s
-        RETURNING id, name, email, document_number, phone, city, department, address, role, created_at, updated_at;
+        RETURNING id, name, email, document_number, phone, city, department, address, role, totp_enabled, created_at, updated_at;
     """
     with get_connection() as connection, connection.cursor() as cursor:
         cursor.execute(
@@ -104,6 +121,82 @@ def update_user_profile(
             },
         )
         return cursor.fetchone()
+
+
+def enable_user_totp(user_id: str, *, secret: str, recovery_hashes: list[str]) -> dict[str, Any] | None:
+    ensure_user_security_columns()
+    query = """
+        UPDATE app_users
+        SET totp_secret = %(secret)s,
+            totp_enabled = TRUE,
+            totp_recovery_hashes = %(recovery_hashes)s::jsonb,
+            totp_enabled_at = %(now)s,
+            totp_last_used_at = %(now)s,
+            updated_at = %(now)s
+        WHERE id = %(user_id)s
+        RETURNING id, name, email, document_number, phone, city, department, address, role, totp_enabled, created_at, updated_at;
+    """
+    now = datetime.now(timezone.utc)
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "user_id": user_id,
+                "secret": secret,
+                "recovery_hashes": _json(recovery_hashes),
+                "now": now,
+            },
+        )
+        return cursor.fetchone()
+
+
+def disable_user_totp(user_id: str) -> dict[str, Any] | None:
+    ensure_user_security_columns()
+    query = """
+        UPDATE app_users
+        SET totp_secret = NULL,
+            totp_enabled = FALSE,
+            totp_recovery_hashes = '[]'::jsonb,
+            totp_enabled_at = NULL,
+            totp_last_used_at = NULL,
+            updated_at = %(now)s
+        WHERE id = %(user_id)s
+        RETURNING id, name, email, document_number, phone, city, department, address, role, totp_enabled, created_at, updated_at;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"user_id": user_id, "now": datetime.now(timezone.utc)})
+        return cursor.fetchone()
+
+
+def update_user_totp_recovery_hashes(user_id: str, recovery_hashes: list[str]) -> dict[str, Any] | None:
+    ensure_user_security_columns()
+    query = """
+        UPDATE app_users
+        SET totp_recovery_hashes = %(recovery_hashes)s::jsonb,
+            totp_last_used_at = %(now)s,
+            updated_at = %(now)s
+        WHERE id = %(user_id)s
+        RETURNING id, name, email, document_number, phone, city, department, address, role, totp_enabled, created_at, updated_at;
+    """
+    now = datetime.now(timezone.utc)
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {"user_id": user_id, "recovery_hashes": _json(recovery_hashes), "now": now},
+        )
+        return cursor.fetchone()
+
+
+def touch_user_totp_used(user_id: str) -> None:
+    ensure_user_security_columns()
+    query = """
+        UPDATE app_users
+        SET totp_last_used_at = %(now)s,
+            updated_at = %(now)s
+        WHERE id = %(user_id)s;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"user_id": user_id, "now": datetime.now(timezone.utc)})
 
 
 def create_temp_file(

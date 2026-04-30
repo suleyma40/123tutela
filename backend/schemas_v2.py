@@ -15,6 +15,8 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    otp_code: str | None = Field(default=None, min_length=6, max_length=32)
+    recovery_code: str | None = Field(default=None, min_length=4, max_length=32)
 
 
 class UserProfileUpdateRequest(BaseModel):
@@ -36,6 +38,7 @@ class UserResponse(BaseModel):
     department: str | None = None
     address: str | None = None
     role: str
+    two_factor_enabled: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -43,6 +46,30 @@ class UserResponse(BaseModel):
 class AuthResponse(BaseModel):
     token: str
     user: UserResponse
+
+
+class TwoFactorSetupResponse(BaseModel):
+    secret: str
+    manual_entry_key: str
+    otpauth_uri: str
+    issuer: str
+    account_label: str
+
+
+class TwoFactorEnableRequest(BaseModel):
+    secret: str = Field(min_length=16, max_length=128)
+    otp_code: str = Field(min_length=6, max_length=32)
+
+
+class TwoFactorDisableRequest(BaseModel):
+    otp_code: str | None = Field(default=None, min_length=6, max_length=32)
+    recovery_code: str | None = Field(default=None, min_length=4, max_length=32)
+
+
+class TwoFactorEnableResponse(BaseModel):
+    ok: bool
+    user: UserResponse
+    recovery_codes: list[str] = Field(default_factory=list)
 
 
 class AnalysisPreviewRequest(BaseModel):

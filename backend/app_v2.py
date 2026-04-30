@@ -68,6 +68,10 @@ from backend.schemas_v2 import (
     GuestLeadCreateRequest,
     GuestPaymentReconcileRequest,
     RegisterRequest,
+    TwoFactorDisableRequest,
+    TwoFactorEnableRequest,
+    TwoFactorEnableResponse,
+    TwoFactorSetupResponse,
     UploadedFileResponse,
     UserProfileUpdateRequest,
     UserResponse,
@@ -77,6 +81,7 @@ from backend.schemas_v2 import (
     WompiWebhookResponse,
 )
 from backend.security import create_token, decode_token, hash_password, verify_password
+from backend.totp import build_otpauth_uri, generate_recovery_codes, generate_totp_secret, hash_recovery_code, verify_totp_code
 from backend.storage import absolute_path, move_relative_path, save_upload
 from backend.storage import ensure_upload_root
 from backend.attachment_intelligence import (
@@ -211,6 +216,7 @@ def _normalize_user(user: dict[str, Any]) -> UserResponse:
     safe_user = {key: value for key, value in user.items() if key != "password_hash"}
     if safe_user.get("id") is not None:
         safe_user["id"] = str(safe_user["id"])
+    safe_user["two_factor_enabled"] = bool(safe_user.get("totp_enabled"))
     return UserResponse(**safe_user)
 
 
@@ -1287,6 +1293,29 @@ def _normalize_email_input(email: str) -> str:
     return str(email or "").strip().lower().replace("–", "-").replace("—", "-").replace("−", "-")
 
 
+def _totp_issuer() -> str:
+    return str(settings.app_name or "123tutela").strip() or "123tutela"
+
+
+def _verify_internal_second_factor(user: dict[str, Any], *, otp_code: str | None = None, recovery_code: str | None = None) -> bool:
+    if not bool(user.get("totp_enabled")):
+        return True
+
+    secret = str(user.get("totp_secret") or "").strip()
+    if secret and otp_code and verify_totp_code(secret, otp_code):
+        repository.touch_user_totp_used(str(user["id"]))
+        return True
+
+    recovery_hashes = [str(item) for item in (user.get("totp_recovery_hashes") or []) if str(item)]
+    if recovery_code:
+        candidate = hash_recovery_code(recovery_code)
+        if candidate in recovery_hashes:
+            remaining = [item for item in recovery_hashes if item != candidate]
+            repository.update_user_totp_recovery_hashes(str(user["id"]), remaining)
+            return True
+    return False
+
+
 def _get_guest_case_or_404(case_id: str, public_token: str) -> dict[str, Any]:
     case = repository.get_case_by_id_and_public_token(case_id, public_token)
     if not case:
@@ -2094,6 +2123,20 @@ def login(payload: LoginRequest, request: Request, response: Response) -> AuthRe
         if refreshed:
             user = {**user, **refreshed}
 
+    if user.get("role") == "internal" and bool(user.get("totp_enabled")):
+        if not (payload.otp_code or payload.recovery_code):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "2fa_required", "message": "Ingresa tu codigo de Microsoft Authenticator o un codigo de recuperacion."},
+            )
+        if not _verify_internal_second_factor(user, otp_code=payload.otp_code, recovery_code=payload.recovery_code):
+            attempts.append(now)
+            _FAILED_LOGIN_ATTEMPTS[limit_key] = attempts
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "2fa_invalid", "message": "El codigo de verificacion no es valido."},
+            )
+
     _FAILED_LOGIN_ATTEMPTS.pop(limit_key, None)
     token = create_token(str(user["id"]), user["email"], settings.jwt_secret)
     if user.get("role") == "internal":
@@ -2112,6 +2155,61 @@ def login(payload: LoginRequest, request: Request, response: Response) -> AuthRe
 @app.get("/auth/me", response_model=UserResponse)
 def me(current_user: dict[str, Any] = Depends(get_current_user)) -> UserResponse:
     return _normalize_user(current_user)
+
+
+@app.post("/auth/2fa/setup", response_model=TwoFactorSetupResponse)
+def setup_two_factor(current_user: dict[str, Any] = Depends(get_internal_user)) -> TwoFactorSetupResponse:
+    secret = generate_totp_secret()
+    issuer = _totp_issuer()
+    account_label = str(current_user.get("email") or "")
+    return TwoFactorSetupResponse(
+        secret=secret,
+        manual_entry_key=secret,
+        otpauth_uri=build_otpauth_uri(secret=secret, account_name=account_label, issuer=issuer),
+        issuer=issuer,
+        account_label=account_label,
+    )
+
+
+@app.post("/auth/2fa/enable", response_model=TwoFactorEnableResponse)
+def enable_two_factor(
+    payload: TwoFactorEnableRequest,
+    current_user: dict[str, Any] = Depends(get_internal_user),
+) -> TwoFactorEnableResponse:
+    secret = str(payload.secret or "").strip().replace(" ", "").upper()
+    if not verify_totp_code(secret, payload.otp_code):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El codigo TOTP no es valido.")
+
+    recovery_codes = generate_recovery_codes()
+    updated = repository.enable_user_totp(
+        str(current_user["id"]),
+        secret=secret,
+        recovery_hashes=[hash_recovery_code(code) for code in recovery_codes],
+    )
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
+    return TwoFactorEnableResponse(ok=True, user=_normalize_user(updated), recovery_codes=recovery_codes)
+
+
+@app.post("/auth/2fa/disable", response_model=UserResponse)
+def disable_two_factor(
+    payload: TwoFactorDisableRequest,
+    current_user: dict[str, Any] = Depends(get_internal_user),
+) -> UserResponse:
+    full_user = repository.get_user_by_email(str(current_user.get("email") or ""))
+    if not full_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
+    if bool(full_user.get("totp_enabled")) and not _verify_internal_second_factor(
+        full_user,
+        otp_code=payload.otp_code,
+        recovery_code=payload.recovery_code,
+    ):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debes confirmar con un codigo valido para desactivar 2FA.")
+
+    updated = repository.disable_user_totp(str(current_user["id"]))
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
+    return _normalize_user(updated)
 
 
 @app.post("/auth/logout")

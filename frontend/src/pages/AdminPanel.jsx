@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bot, Eye, Filter, LayoutDashboard, Search, TrendingUp } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, extractError } from '../lib/api';
 import { LAUNCH_PRICE_COP, RAFFLE_SHORT_LABEL } from '../lib/launchConfig';
 
 const formatDateTime = (value) => {
@@ -31,10 +31,18 @@ const AdminPanel = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [loginForm, setLoginForm] = useState({ email: '', password: '', second_factor_code: '' });
   const [loginError, setLoginError] = useState('');
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
   const [panelError, setPanelError] = useState('');
+  const [securityError, setSecurityError] = useState('');
+  const [securityMessage, setSecurityMessage] = useState('');
+  const [twoFactorSetup, setTwoFactorSetup] = useState(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [recoveryCodes, setRecoveryCodes] = useState([]);
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
   const [marketing, setMarketing] = useState(null);
   const [configSaving, setConfigSaving] = useState(false);
   const [marketingConfigForm, setMarketingConfigForm] = useState({
@@ -48,10 +56,17 @@ const AdminPanel = () => {
       await api.post('/auth/logout', {});
     } catch (_) {}
     setIsLoggedIn(false);
+    setCurrentUser(null);
     setCasos([]);
     setPanelError('');
     setLoginError('');
-    setLoginForm({ email: '', password: '' });
+    setLoginForm({ email: '', password: '', second_factor_code: '' });
+    setRequiresTwoFactor(false);
+    setTwoFactorSetup(null);
+    setTwoFactorCode('');
+    setRecoveryCodes([]);
+    setSecurityError('');
+    setSecurityMessage('');
     setMarketing(null);
   };
 
@@ -62,9 +77,13 @@ const AdminPanel = () => {
         const me = await api.get('/auth/me');
         if (alive && me?.data?.role === 'internal') {
           setIsLoggedIn(true);
+          setCurrentUser(me.data);
         }
       } catch (_) {
-        if (alive) setIsLoggedIn(false);
+        if (alive) {
+          setIsLoggedIn(false);
+          setCurrentUser(null);
+        }
       } finally {
         if (alive) setCheckingSession(false);
       }
@@ -98,10 +117,23 @@ const AdminPanel = () => {
     setLoading(true);
     setLoginError('');
     try {
-      await api.post('/auth/login', loginForm);
+      const payload = {
+        email: loginForm.email,
+        password: loginForm.password,
+        otp_code: loginForm.second_factor_code || undefined,
+        recovery_code: loginForm.second_factor_code || undefined,
+      };
+      const response = await api.post('/auth/login', payload);
       setIsLoggedIn(true);
-    } catch {
-      setLoginError('Credenciales invalidas o sin permisos de admin.');
+      setCurrentUser(response.data.user);
+      setRequiresTwoFactor(false);
+      setLoginForm((current) => ({ ...current, second_factor_code: '' }));
+    } catch (error) {
+      const code = error?.response?.data?.detail?.code;
+      if (code === '2fa_required' || code === '2fa_invalid') {
+        setRequiresTwoFactor(true);
+      }
+      setLoginError(extractError(error, 'Credenciales invalidas o sin permisos de admin.'));
     } finally {
       setLoading(false);
     }
@@ -116,6 +148,7 @@ const AdminPanel = () => {
     } catch (error) {
       if (error.response?.status === 401) {
         setIsLoggedIn(false);
+        setCurrentUser(null);
         return;
       }
       if (error.response?.status === 403) {
@@ -142,6 +175,7 @@ const AdminPanel = () => {
     } catch (error) {
       if (error.response?.status === 401) {
         setIsLoggedIn(false);
+        setCurrentUser(null);
       }
     }
   };
@@ -163,6 +197,7 @@ const AdminPanel = () => {
     } catch (error) {
       if (error.response?.status === 401) {
         setIsLoggedIn(false);
+        setCurrentUser(null);
         return;
       }
       if (error.response?.status === 403) {
@@ -170,6 +205,69 @@ const AdminPanel = () => {
       }
     }
   };
+
+  const startTwoFactorSetup = async () => {
+    setTwoFactorBusy(true);
+    setSecurityError('');
+    setSecurityMessage('');
+    setRecoveryCodes([]);
+    try {
+      const response = await api.post('/auth/2fa/setup', {});
+      setTwoFactorSetup(response.data);
+    } catch (error) {
+      setSecurityError(extractError(error, 'No fue posible iniciar la configuracion de 2FA.'));
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const confirmTwoFactorSetup = async () => {
+    if (!twoFactorSetup?.secret) return;
+    setTwoFactorBusy(true);
+    setSecurityError('');
+    setSecurityMessage('');
+    try {
+      const response = await api.post('/auth/2fa/enable', {
+        secret: twoFactorSetup.secret,
+        otp_code: twoFactorCode,
+      });
+      setCurrentUser(response.data.user);
+      setRecoveryCodes(response.data.recovery_codes || []);
+      setTwoFactorSetup(null);
+      setTwoFactorCode('');
+      setSecurityMessage('Verificacion en 2 pasos activada. Guarda tus codigos de recuperacion.');
+    } catch (error) {
+      setSecurityError(extractError(error, 'No fue posible activar la verificacion en 2 pasos.'));
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const disableTwoFactor = async () => {
+    if (!twoFactorCode.trim()) {
+      setSecurityError('Ingresa un codigo de Microsoft Authenticator o un codigo de recuperacion.');
+      return;
+    }
+    setTwoFactorBusy(true);
+    setSecurityError('');
+    setSecurityMessage('');
+    try {
+      const response = await api.post('/auth/2fa/disable', {
+        otp_code: twoFactorCode,
+        recovery_code: twoFactorCode,
+      });
+      setCurrentUser(response.data);
+      setTwoFactorSetup(null);
+      setTwoFactorCode('');
+      setRecoveryCodes([]);
+      setSecurityMessage('Verificacion en 2 pasos desactivada.');
+    } catch (error) {
+      setSecurityError(extractError(error, 'No fue posible desactivar 2FA.'));
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
   const isReadyForHuman = (caso) =>
     caso.payment_status === 'pagado' && ['pagado_en_revision', 'en_revision'].includes(caso.status);
 
@@ -305,9 +403,22 @@ const AdminPanel = () => {
                 required
               />
             </label>
+            {requiresTwoFactor && (
+              <label className="grid gap-2">
+                <span className="text-xs font-black uppercase tracking-wide text-slate-400">Codigo 2FA o recuperacion</span>
+                <input
+                  type="text"
+                  className="rounded-2xl border border-slate-200 px-4 py-4 outline-none"
+                  placeholder="123456 o ABCD-EF12"
+                  value={loginForm.second_factor_code}
+                  onChange={(e) => setLoginForm({ ...loginForm, second_factor_code: e.target.value })}
+                  required
+                />
+              </label>
+            )}
             {loginError && <p className="text-sm font-semibold text-red-600">{loginError}</p>}
             <button type="submit" disabled={loading} className="rounded-2xl bg-[#0D68FF] px-4 py-4 text-white font-black">
-              {loading ? 'Entrando...' : 'Entrar al panel'}
+              {loading ? 'Entrando...' : requiresTwoFactor ? 'Validar y entrar' : 'Entrar al panel'}
             </button>
           </form>
         </div>
@@ -378,6 +489,115 @@ const AdminPanel = () => {
               <p className={`text-3xl font-black ${item.tone}`}>{item.value}</p>
             </div>
           ))}
+        </section>
+
+        <section className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Seguridad admin</p>
+              <h2 className="text-xl font-black text-slate-900">Verificacion en 2 pasos</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Usuario actual: <strong>{currentUser?.email || 'sin correo'}</strong>
+              </p>
+            </div>
+            <span className={`rounded-full px-4 py-2 text-xs font-black uppercase ${currentUser?.two_factor_enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+              {currentUser?.two_factor_enabled ? '2FA activo' : '2FA pendiente'}
+            </span>
+          </div>
+
+          {!currentUser?.two_factor_enabled && !twoFactorSetup && (
+            <div className="mt-4">
+              <p className="text-sm text-slate-600 mb-4">
+                Activalo con Microsoft Authenticator. En esta primera version puedes registrarlo con clave manual.
+              </p>
+              <button
+                type="button"
+                onClick={startTwoFactorSetup}
+                disabled={twoFactorBusy}
+                className="rounded-2xl bg-[#0D68FF] px-4 py-3 text-sm font-black text-white disabled:opacity-60"
+              >
+                {twoFactorBusy ? 'Preparando...' : 'Activar 2FA'}
+              </button>
+            </div>
+          )}
+
+          {!currentUser?.two_factor_enabled && twoFactorSetup && (
+            <div className="mt-5 grid gap-4">
+              <div className="rounded-2xl border border-slate-200 bg-[#F8FBFF] p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Paso 1</p>
+                <p className="text-sm text-slate-700">
+                  En Microsoft Authenticator agrega una cuenta tipo <strong>Otro</strong> o <strong>Cuenta personal</strong> y usa esta clave:
+                </p>
+                <p className="mt-3 rounded-xl bg-white px-4 py-3 font-mono text-sm font-black text-[#0D68FF] break-all">
+                  {twoFactorSetup.manual_entry_key}
+                </p>
+                <p className="mt-2 text-xs text-slate-500">Cuenta: {twoFactorSetup.account_label}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Paso 2</p>
+                <p className="text-sm text-slate-700 mb-3">Ingresa el codigo de 6 digitos para confirmar.</p>
+                <div className="flex gap-3 flex-wrap">
+                  <input
+                    type="text"
+                    className="rounded-2xl border border-slate-200 px-4 py-3 outline-none w-64"
+                    placeholder="123456"
+                    value={twoFactorCode}
+                    onChange={(e) => setTwoFactorCode(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={confirmTwoFactorSetup}
+                    disabled={twoFactorBusy}
+                    className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white disabled:opacity-60"
+                  >
+                    {twoFactorBusy ? 'Activando...' : 'Confirmar 2FA'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentUser?.two_factor_enabled && (
+            <div className="mt-5 grid gap-4">
+              <p className="text-sm text-slate-600">
+                Para desactivar 2FA, confirma con un codigo vigente de Microsoft Authenticator o con un codigo de recuperacion.
+              </p>
+              <div className="flex gap-3 flex-wrap">
+                <input
+                  type="text"
+                  className="rounded-2xl border border-slate-200 px-4 py-3 outline-none w-72"
+                  placeholder="123456 o ABCD-EF12"
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={disableTwoFactor}
+                  disabled={twoFactorBusy}
+                  className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 disabled:opacity-60"
+                >
+                  {twoFactorBusy ? 'Desactivando...' : 'Desactivar 2FA'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {recoveryCodes.length > 0 && (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-black text-amber-800 mb-2">Codigos de recuperacion</p>
+              <p className="text-sm text-amber-700 mb-3">Guardalos ahora. Se muestran una sola vez.</p>
+              <div className="grid md:grid-cols-4 gap-2">
+                {recoveryCodes.map((code) => (
+                  <div key={code} className="rounded-xl bg-white px-3 py-2 font-mono text-sm font-black text-amber-800">
+                    {code}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {securityError && <p className="mt-4 text-sm font-semibold text-red-600">{securityError}</p>}
+          {securityMessage && <p className="mt-4 text-sm font-semibold text-emerald-700">{securityMessage}</p>}
         </section>
 
         <section className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
