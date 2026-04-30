@@ -23,6 +23,20 @@ const formatBogotaDateTime = (value) => {
   }
 };
 
+const formatWaitingTime = (value, nowMs) => {
+  if (!value) return '-';
+  const createdMs = new Date(value).getTime();
+  if (!Number.isFinite(createdMs)) return '-';
+  const diffMs = Math.max(0, nowMs - createdMs);
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+};
+
 const AdminPanel = () => {
   const location = useLocation();
   const adminBasePath = location.pathname.startsWith('/equipo') ? '/equipo' : '/admin';
@@ -51,6 +65,7 @@ const AdminPanel = () => {
     cta_label: '',
     raffle_label: '',
   });
+  const [nowMs, setNowMs] = useState(Date.now());
 
   const handleLogout = async () => {
     try {
@@ -107,11 +122,18 @@ const AdminPanel = () => {
     if (!isLoggedIn) return;
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
+        setNowMs(Date.now());
         fetchCasos();
         fetchMarketing();
       }
     }, 30 * 60 * 1000);
     return () => clearInterval(interval);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const timer = setInterval(() => setNowMs(Date.now()), 60 * 1000);
+    return () => clearInterval(timer);
   }, [isLoggedIn]);
 
   const handleLogin = async (e) => {
@@ -637,16 +659,17 @@ const AdminPanel = () => {
             </span>
           </div>
           <p className="text-sm text-emerald-800 mb-4">
-            Estos casos ya tienen pago aprobado y estado operativo para trabajo del humano.
+            Estos casos ya tienen pago aprobado y están listos para realizar documento y enviarlo al usuario.
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full text-left min-w-[840px]">
+            <table className="w-full text-left min-w-[940px]">
               <thead>
                 <tr className="border-b border-emerald-200">
                   <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Cliente</th>
-                  <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Documento a elaborar</th>
+                  <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Realizar documento</th>
                   <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Codigo expediente</th>
                   <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Estado</th>
+                  <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Tiempo esperando</th>
                   <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Ultima actualizacion</th>
                   <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Accion</th>
                 </tr>
@@ -654,7 +677,7 @@ const AdminPanel = () => {
               <tbody className="divide-y divide-emerald-100">
                 {readyCases.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-5 text-sm font-semibold text-emerald-700">
+                    <td colSpan="7" className="py-5 text-sm font-semibold text-emerald-700">
                       No hay casos listos para humano en este momento.
                     </td>
                   </tr>
@@ -671,14 +694,15 @@ const AdminPanel = () => {
                       <td className="py-3 text-sm font-black text-[#0D68FF]">{expediente}</td>
                       <td className="py-3">
                         <span className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-black uppercase text-white">
-                          Listo para humano
+                          Listo para realizar
                         </span>
                       </td>
+                      <td className="py-3 text-sm font-black text-amber-700">{formatWaitingTime(caso.created_at, nowMs)}</td>
                       <td className="py-3 text-sm font-semibold text-slate-600">{formatBogotaDateTime(caso.updated_at || caso.created_at)}</td>
                       <td className="py-3">
                         <Link to={`${adminBasePath}/caso/${caso.id}`} className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-white px-3 py-2 text-emerald-700 no-underline">
                           <Eye size={16} />
-                          Abrir caso
+                          Realizar / Enviar
                         </Link>
                       </td>
                     </tr>
