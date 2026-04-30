@@ -640,3 +640,66 @@ def send_guest_delivery_whatsapp(
         return {**base_result, "status": "error", "reason": f"http_{exc.code}", "response_body": body[:500]}
     except Exception as exc:  # pragma: no cover
         return {**base_result, "status": "error", "reason": str(exc)}
+
+
+def send_diagnosis_abandonment_whatsapp(
+    *,
+    phone: str | None,
+    case: dict[str, Any],
+    reminder_minutes: int,
+    resume_url: str,
+) -> dict[str, Any]:
+    action = str(case.get("recommended_action") or "tu documento recomendado")
+    first_name = str(case.get("usuario_nombre") or "").strip().split(" ")[0] or "Hola"
+    message = (
+        f"{first_name}, tu diagnostico en 123tutela ya quedo listo.\n\n"
+        f"Accion sugerida: {action}\n"
+        f"Llevas {int(reminder_minutes)} minutos sin activar el pago.\n"
+        f"Retoma aqui: {resume_url}\n\n"
+        "Si necesitas ayuda, responde este mensaje."
+    )
+    attempted_at = datetime.now(timezone.utc).isoformat()
+    normalized_phone = _normalize_whatsapp_number(phone)
+    base_result = {
+        "provider": "n8n" if _is_n8n_whatsapp_configured() else "evolution",
+        "transport": "whatsapp",
+        "attempted_at": attempted_at,
+        "recipient": normalized_phone or phone,
+        "reminder_minutes": int(reminder_minutes),
+    }
+    if not normalized_phone:
+        return {**base_result, "status": "skipped", "reason": "missing_phone"}
+    if _is_n8n_whatsapp_configured():
+        try:
+            response_payload = _post_json(
+                settings.n8n_whatsapp_webhook_url,
+                {
+                    "number": normalized_phone,
+                    "text": message,
+                    "case_id": case.get("id"),
+                    "document": case.get("recommended_action"),
+                    "kind": "diagnosis_abandonment",
+                    "reminder_minutes": int(reminder_minutes),
+                },
+                {"Content-Type": "application/json"},
+            )
+            return {**base_result, "status": "sent", "response_payload": response_payload}
+        except urllib.error.HTTPError as exc:  # pragma: no cover
+            body = exc.read().decode("utf-8", errors="ignore")
+            return {**base_result, "status": "error", "reason": f"http_{exc.code}", "response_body": body[:500]}
+        except Exception as exc:  # pragma: no cover
+            return {**base_result, "status": "error", "reason": str(exc)}
+    if not _is_whatsapp_configured():
+        return {**base_result, "status": "pending_configuration", "reason": "evolution_not_configured"}
+    try:
+        response_payload = _post_json(
+            f"{settings.evolution_base_url.rstrip('/')}/message/sendText/{settings.evolution_instance}",
+            {"number": normalized_phone, "text": message, "linkPreview": False},
+            {"Content-Type": "application/json", "apikey": settings.evolution_api_key},
+        )
+        return {**base_result, "status": "sent", "response_payload": response_payload}
+    except urllib.error.HTTPError as exc:  # pragma: no cover
+        body = exc.read().decode("utf-8", errors="ignore")
+        return {**base_result, "status": "error", "reason": f"http_{exc.code}", "response_body": body[:500]}
+    except Exception as exc:  # pragma: no cover
+        return {**base_result, "status": "error", "reason": str(exc)}

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
@@ -89,6 +90,14 @@ class Settings:
     internal_admin_emails: list[str] = None  # type: ignore[assignment]
     cors_origins: list[str] = None  # type: ignore[assignment]
     trusted_hosts: list[str] = None  # type: ignore[assignment]
+    whatsapp_abandonment_enabled: bool = os.getenv("WHATSAPP_ABANDONMENT_ENABLED", "true").lower() == "true"
+    whatsapp_abandonment_windows: str = os.getenv("WHATSAPP_ABANDONMENT_WINDOWS", "30,120")
+    whatsapp_abandonment_daily_limit: int = int(os.getenv("WHATSAPP_ABANDONMENT_DAILY_LIMIT", "40"))
+    whatsapp_abandonment_run_limit: int = int(os.getenv("WHATSAPP_ABANDONMENT_RUN_LIMIT", "10"))
+    whatsapp_abandonment_start_hour: int = int(os.getenv("WHATSAPP_ABANDONMENT_START_HOUR", "8"))
+    whatsapp_abandonment_end_hour: int = int(os.getenv("WHATSAPP_ABANDONMENT_END_HOUR", "19"))
+    app_timezone: str = os.getenv("APP_TIMEZONE", "America/Bogota")
+    app_tz: ZoneInfo = ZoneInfo("America/Bogota")
 
     def __post_init__(self) -> None:
         configured = _split_csv(os.getenv("CORS_ORIGINS"))
@@ -105,6 +114,10 @@ class Settings:
             self.trusted_hosts = trusted
         else:
             self.trusted_hosts = ["localhost", "127.0.0.1", "123tutelaapp.com", "*.123tutelaapp.com"]
+        try:
+            self.app_tz = ZoneInfo(self.app_timezone)
+        except Exception:
+            self.app_tz = ZoneInfo("America/Bogota")
 
 
 settings = Settings()

@@ -39,6 +39,7 @@ from backend.notifications import send_post_radicado_whatsapp
 from backend.notifications import send_signed_submission_email
 from backend.notifications import send_guest_delivery_email
 from backend.notifications import send_guest_delivery_whatsapp
+from backend.notifications import send_diagnosis_abandonment_whatsapp
 from backend.submission_artifacts import create_signed_submission_artifacts
 from backend.schemas_v2 import (
     AnalysisPreviewRequest,
@@ -1241,6 +1242,159 @@ def _snapshot_case_detail(case: dict[str, Any]) -> CaseDetailResponse:
 
 def _is_internal(user: dict[str, Any]) -> bool:
     return user.get("role") == "internal"
+
+
+def _parse_whatsapp_abandonment_windows() -> list[int]:
+    raw = str(settings.whatsapp_abandonment_windows or "").strip()
+    values: list[int] = []
+    for token in raw.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            value = int(token)
+        except ValueError:
+            continue
+        if value > 0:
+            values.append(value)
+    return sorted(set(values)) or [30, 120]
+
+
+def _is_within_whatsapp_window(now_utc: datetime) -> bool:
+    local_now = now_utc.astimezone(settings.app_tz)
+    hour = local_now.hour
+    start = int(settings.whatsapp_abandonment_start_hour)
+    end = int(settings.whatsapp_abandonment_end_hour)
+    if start == end:
+        return True
+    if start < end:
+        return start <= hour < end
+    return hour >= start or hour < end
+
+
+def _build_guest_resume_url(case: dict[str, Any]) -> str:
+    token = str(case.get("public_token") or "").strip()
+    case_id = str(case.get("id") or "").strip()
+    if token and case_id:
+        return f"{settings.frontend_url.rstrip('/')}/dashboard?case_id={case_id}&token={token}"
+    return f"{settings.frontend_url.rstrip('/')}/diagnostico"
+
+
+def _run_whatsapp_abandonment_reminders(*, dry_run: bool = False) -> dict[str, Any]:
+    now_utc = datetime.now(timezone.utc)
+    windows = _parse_whatsapp_abandonment_windows()
+    if not settings.whatsapp_abandonment_enabled:
+        return {"ok": True, "status": "disabled", "windows": windows, "processed": 0, "sent": 0}
+    if not _is_within_whatsapp_window(now_utc):
+        return {"ok": True, "status": "outside_window", "windows": windows, "processed": 0, "sent": 0}
+
+    all_cases = repository.list_internal_cases()
+    run_limit = max(1, int(settings.whatsapp_abandonment_run_limit))
+    daily_limit = max(1, int(settings.whatsapp_abandonment_daily_limit))
+    day_start = now_utc.astimezone(settings.app_tz).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+
+    sent_today = 0
+    sent_records: list[dict[str, Any]] = []
+    skipped_records: list[dict[str, Any]] = []
+
+    candidate_cases = sorted(all_cases, key=lambda item: item.get("created_at") or now_utc)
+    for case in candidate_cases:
+        if sent_today >= daily_limit or len(sent_records) >= run_limit:
+            break
+        if str(case.get("payment_status") or "").lower() == "pagado":
+            continue
+        if str(case.get("estado") or "").lower() not in {"diagnosticado", "borrador", "pendiente", "pagado_pendiente_intake"}:
+            continue
+        if not str(case.get("usuario_telefono") or "").strip():
+            continue
+
+        created_at = case.get("created_at")
+        if not isinstance(created_at, datetime):
+            continue
+        elapsed_minutes = int((now_utc - created_at).total_seconds() // 60)
+        if elapsed_minutes <= 0:
+            continue
+
+        events = repository.list_case_events(str(case.get("id")))
+        reminder_events = [
+            event
+            for event in events
+            if str(event.get("event_type") or "") == "whatsapp_diagnosis_reminder_sent"
+            and isinstance(event.get("created_at"), datetime)
+            and event["created_at"] >= day_start
+        ]
+        sent_today += len(reminder_events)
+        sent_stages = {
+            int((event.get("payload") or {}).get("stage_minutes"))
+            for event in reminder_events
+            if str((event.get("payload") or {}).get("stage_minutes") or "").isdigit()
+        }
+        stage_due = next((stage for stage in windows if elapsed_minutes >= stage and stage not in sent_stages), None)
+        if stage_due is None:
+            skipped_records.append({"case_id": str(case.get("id")), "reason": "no_due_stage", "elapsed_minutes": elapsed_minutes})
+            continue
+        if sent_today >= daily_limit:
+            skipped_records.append({"case_id": str(case.get("id")), "reason": "daily_limit_reached"})
+            break
+
+        resume_url = _build_guest_resume_url(case)
+        if dry_run:
+            sent_records.append(
+                {
+                    "case_id": str(case.get("id")),
+                    "stage_minutes": stage_due,
+                    "recipient": str(case.get("usuario_telefono") or ""),
+                    "resume_url": resume_url,
+                    "status": "dry_run",
+                }
+            )
+            continue
+
+        result = send_diagnosis_abandonment_whatsapp(
+            phone=case.get("usuario_telefono"),
+            case=case,
+            reminder_minutes=stage_due,
+            resume_url=resume_url,
+        )
+        payload = {
+            "stage_minutes": stage_due,
+            "elapsed_minutes": elapsed_minutes,
+            "recipient": result.get("recipient"),
+            "status": result.get("status"),
+            "reason": result.get("reason"),
+        }
+        repository.create_event(
+            case_id=str(case.get("id")),
+            event_type="whatsapp_diagnosis_reminder_sent" if result.get("status") == "sent" else "whatsapp_diagnosis_reminder_error",
+            actor_type="system",
+            actor_id=None,
+            payload=payload,
+        )
+        sent_records.append(
+            {
+                "case_id": str(case.get("id")),
+                "stage_minutes": stage_due,
+                "recipient": result.get("recipient"),
+                "status": result.get("status"),
+                "reason": result.get("reason"),
+            }
+        )
+        if result.get("status") == "sent":
+            sent_today += 1
+
+    return {
+        "ok": True,
+        "status": "completed",
+        "dry_run": dry_run,
+        "windows": windows,
+        "sent_today": sent_today,
+        "run_limit": run_limit,
+        "daily_limit": daily_limit,
+        "processed": len(sent_records) + len(skipped_records),
+        "sent": len([item for item in sent_records if item.get("status") in {"sent", "dry_run"}]),
+        "records": sent_records[: run_limit * 2],
+        "skipped": skipped_records[:20],
+    }
 
 
 def _is_qa_test_user(user: dict[str, Any]) -> bool:
@@ -3717,6 +3871,14 @@ def update_internal_marketing_config(payload: dict[str, Any], _: dict[str, Any] 
         raffle_label=raffle_label[:140],
     )
     return {"ok": True, "config": updated}
+
+
+@app.post("/internal/notifications/whatsapp/abandonment/run")
+def run_whatsapp_abandonment_reminders(
+    dry_run: bool = True,
+    _: dict[str, Any] = Depends(get_internal_user),
+) -> dict[str, Any]:
+    return _run_whatsapp_abandonment_reminders(dry_run=dry_run)
 
 
 @app.get("/internal/cases/{case_id}", response_model=CaseDetailResponse)
