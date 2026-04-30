@@ -3604,6 +3604,19 @@ def deliver_guest_case(
         note=payload.delivery_note,
         attachments=[{"relative_path": relative_path, "filename": filename, "mime_type": "application/pdf"}],
     )
+    email_status = str(email_result.get("status") or "").lower()
+    if email_status != "sent":
+        repository.create_event(
+            case_id=case_id,
+            event_type="guest_delivery_email_failed",
+            actor_type="internal",
+            actor_id=str(current_user["id"]),
+            payload={"filename": filename, "email_result": email_result},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No se pudo enviar el correo al cliente. Estado: {email_result.get('status') or 'desconocido'}.",
+        )
     whatsapp_result = (
         send_guest_delivery_whatsapp(phone=refreshed_case.get("usuario_telefono"), case=refreshed_case, delivery_package=delivery_package)
         if payload.send_whatsapp
@@ -3682,6 +3695,19 @@ async def deliver_guest_case_upload(
         note=delivery_note or None,
         attachments=[{"relative_path": saved["relative_path"], "filename": saved["original_name"], "mime_type": saved["mime_type"]}],
     )
+    email_status = str(email_result.get("status") or "").lower()
+    if email_status != "sent":
+        repository.create_event(
+            case_id=case_id,
+            event_type="guest_delivery_email_failed",
+            actor_type="internal",
+            actor_id=str(current_user["id"]),
+            payload={"filename": saved["original_name"], "email_result": email_result},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No se pudo enviar el correo al cliente. Estado: {email_result.get('status') or 'desconocido'}.",
+        )
     whatsapp_result = (
         send_guest_delivery_whatsapp(phone=refreshed_case.get("usuario_telefono"), case=refreshed_case, delivery_package=delivery_package)
         if send_whatsapp

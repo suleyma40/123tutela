@@ -507,8 +507,12 @@ def build_guest_delivery_email(case: dict[str, Any], delivery_package: dict[str,
     guide = delivery_package.get("customer_guide") or {}
     attachments = guide.get("required_attachments") or []
     asks = guide.get("what_to_ask_for") or []
+    customer_name = str(case.get("usuario_nombre") or case.get("user_name") or "cliente").strip()
+    first_name = customer_name.split()[0] if customer_name else "cliente"
     subject = f"HazloPorMi | Tu documento esta listo: {case.get('recommended_action') or 'tramite'}"
     text = f"""
+Hola {first_name},
+
 Tu documento ya esta listo.
 
 Documento recomendado: {case.get('recommended_action') or 'tramite'}
@@ -541,10 +545,12 @@ Si no responden:
 Si niegan la solicitud:
 {guide.get('next_step_if_denied') or ''}
 
+Te deseamos muchos exitos en la solucion de tu caso. Tambien te recordamos que con tu pago aprobado quedas participando en la rifa vigente del mes.
+
 {note or ''}
 """.strip()
     html = f"""
-<h2>Tu documento ya esta listo</h2>
+<h2>Hola {first_name}, tu documento ya esta listo</h2>
 <p><strong>Documento recomendado:</strong> {case.get('recommended_action') or 'tramite'}</p>
 <p><strong>Categoria:</strong> {case.get('categoria') or ''}</p>
 <p><strong>Que vas a presentar:</strong><br>{guide.get('what_you_will_present') or ''}</p>
@@ -558,6 +564,7 @@ Si niegan la solicitud:
 <p><strong>Tiempo esperado:</strong><br>{guide.get('estimated_response_window') or ''}</p>
 <p><strong>Si no responden:</strong><br>{guide.get('next_step_if_no_response') or ''}</p>
 <p><strong>Si niegan la solicitud:</strong><br>{guide.get('next_step_if_denied') or ''}</p>
+<p>Te deseamos muchos exitos en la solucion de tu caso. Con tu pago aprobado participas en la rifa vigente del mes.</p>
 <p>{note or ''}</p>
 """.strip()
     return {"subject": subject, "text": text, "html": html}
