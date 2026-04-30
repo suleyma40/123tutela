@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 import time
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
+from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -127,6 +127,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_origin_regex=r"https?://([A-Za-z0-9-]+\.)?(hazlopormi\.app|123tutelaapp\.com)$|https?://localhost(:\d+)?$|https?://127\.0\.0\.1(:\d+)?$",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -1248,11 +1249,17 @@ def _require_profile(user: dict[str, Any]) -> None:
         )
 
 
-def get_current_user(authorization: str = Header(default="")) -> dict[str, Any]:
-    if not authorization.startswith("Bearer "):
+def get_current_user(
+    authorization: str = Header(default=""),
+    admin_session: str | None = Cookie(default=None, alias="admin_session"),
+) -> dict[str, Any]:
+    token = ""
+    if authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "", 1).strip()
+    elif admin_session:
+        token = str(admin_session).strip()
+    if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sesión requerida.")
-
-    token = authorization.replace("Bearer ", "", 1).strip()
     try:
         payload = decode_token(token, settings.jwt_secret)
     except ValueError as exc:
@@ -2062,7 +2069,7 @@ def register(payload: RegisterRequest) -> AuthResponse:
 
 
 @app.post("/auth/login", response_model=AuthResponse)
-def login(payload: LoginRequest, request: Request) -> AuthResponse:
+def login(payload: LoginRequest, request: Request, response: Response) -> AuthResponse:
     email = _normalize_email_input(payload.email)
     client_ip = (request.client.host if request.client else "unknown").strip() or "unknown"
     limit_key = f"{client_ip}:{email.lower()}"
@@ -2089,12 +2096,28 @@ def login(payload: LoginRequest, request: Request) -> AuthResponse:
 
     _FAILED_LOGIN_ATTEMPTS.pop(limit_key, None)
     token = create_token(str(user["id"]), user["email"], settings.jwt_secret)
+    if user.get("role") == "internal":
+        response.set_cookie(
+            key="admin_session",
+            value=token,
+            httponly=True,
+            secure=settings.app_env.lower() == "production",
+            samesite="lax",
+            max_age=7 * 24 * 3600,
+            path="/",
+        )
     return AuthResponse(token=token, user=_normalize_user(user))
 
 
 @app.get("/auth/me", response_model=UserResponse)
 def me(current_user: dict[str, Any] = Depends(get_current_user)) -> UserResponse:
     return _normalize_user(current_user)
+
+
+@app.post("/auth/logout")
+def logout(response: Response) -> dict[str, str]:
+    response.delete_cookie(key="admin_session", path="/")
+    return {"status": "ok"}
 
 
 @app.patch("/auth/me", response_model=UserResponse)

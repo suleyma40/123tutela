@@ -29,7 +29,8 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('admin-token'));
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [panelError, setPanelError] = useState('');
@@ -41,7 +42,15 @@ const AdminPanel = () => {
     raffle_label: '',
   });
 
-  const handleLogout = () => {
+  const adminAuthHeaders = () => {
+    const token = localStorage.getItem('admin-token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout', {});
+    } catch (_) {}
     localStorage.removeItem('admin-token');
     setIsLoggedIn(false);
     setCasos([]);
@@ -50,6 +59,26 @@ const AdminPanel = () => {
     setLoginForm({ email: '', password: '' });
     setMarketing(null);
   };
+
+  useEffect(() => {
+    let alive = true;
+    const bootstrapSession = async () => {
+      try {
+        const me = await api.get('/auth/me', { headers: adminAuthHeaders() });
+        if (alive && me?.data?.role === 'internal') {
+          setIsLoggedIn(true);
+        }
+      } catch (_) {
+        if (alive) setIsLoggedIn(false);
+      } finally {
+        if (alive) setCheckingSession(false);
+      }
+    };
+    bootstrapSession();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -74,8 +103,7 @@ const AdminPanel = () => {
     setLoading(true);
     setLoginError('');
     try {
-      const response = await api.post('/auth/login', loginForm);
-      localStorage.setItem('admin-token', response.data.token);
+      await api.post('/auth/login', loginForm);
       setIsLoggedIn(true);
     } catch {
       setLoginError('Credenciales invalidas o sin permisos de admin.');
@@ -88,9 +116,8 @@ const AdminPanel = () => {
     setLoading(true);
     setPanelError('');
     try {
-      const token = localStorage.getItem('admin-token');
       const response = await api.get('/internal/cases', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: adminAuthHeaders(),
       });
       setCasos(response.data);
     } catch (error) {
@@ -112,9 +139,8 @@ const AdminPanel = () => {
 
   const fetchMarketing = async () => {
     try {
-      const token = localStorage.getItem('admin-token');
       const response = await api.get('/internal/analytics/overview', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: adminAuthHeaders(),
       });
       setMarketing(response.data);
       const cfg = response.data?.marketing_config || {};
@@ -134,9 +160,8 @@ const AdminPanel = () => {
   const saveMarketingConfig = async () => {
     setConfigSaving(true);
     try {
-      const token = localStorage.getItem('admin-token');
       await api.post('/internal/marketing/config', marketingConfigForm, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: adminAuthHeaders(),
       });
       await fetchMarketing();
     } finally {
@@ -146,9 +171,8 @@ const AdminPanel = () => {
 
   const handleQuickStatus = async (caseId, newStatus) => {
     try {
-      const token = localStorage.getItem('admin-token');
       await api.post(`/internal/cases/${caseId}/status`, { status: newStatus }, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: adminAuthHeaders(),
       });
       await fetchCasos();
     } catch (error) {
@@ -256,6 +280,14 @@ const AdminPanel = () => {
     a.remove();
     URL.revokeObjectURL(url);
   };
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FB] flex items-center justify-center px-6">
+        <div className="text-slate-500 font-semibold">Validando acceso...</div>
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
     return (

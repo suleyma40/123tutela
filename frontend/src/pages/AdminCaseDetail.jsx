@@ -16,6 +16,10 @@ const AdminCaseDetail = () => {
   const [sendWhatsapp, setSendWhatsapp] = useState(true);
   const [isSendingDelivery, setIsSendingDelivery] = useState(false);
   const [deliveryMessage, setDeliveryMessage] = useState('');
+  const adminAuthHeaders = () => {
+    const token = localStorage.getItem('admin-token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
 
   useEffect(() => {
     fetchCaso();
@@ -23,9 +27,8 @@ const AdminCaseDetail = () => {
 
   const fetchCaso = async () => {
     try {
-      const token = localStorage.getItem('admin-token');
       const response = await api.get(`/internal/cases/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: adminAuthHeaders(),
       });
       setCaso(response.data);
     } catch (error) {
@@ -38,9 +41,8 @@ const AdminCaseDetail = () => {
   const handleStatusUpdate = async (newStatus) => {
     setIsUpdating(true);
     try {
-      const token = localStorage.getItem('admin-token');
       await api.post(`/internal/cases/${id}/status`, { status: newStatus }, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: adminAuthHeaders(),
       });
       fetchCaso();
     } finally {
@@ -56,14 +58,13 @@ const AdminCaseDetail = () => {
     setIsSendingDelivery(true);
     setDeliveryMessage('');
     try {
-      const token = localStorage.getItem('admin-token');
       const formData = new FormData();
       formData.append('file', deliveryFile);
       formData.append('delivery_note', deliveryNote || '');
       formData.append('send_whatsapp', String(sendWhatsapp));
       const response = await api.post(`/internal/cases/${id}/deliver-upload`, formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...adminAuthHeaders(),
           'Content-Type': 'multipart/form-data',
         },
       });
