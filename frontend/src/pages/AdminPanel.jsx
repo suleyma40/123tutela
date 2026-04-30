@@ -42,6 +42,7 @@ const AdminPanel = () => {
   const [twoFactorSetup, setTwoFactorSetup] = useState(null);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [recoveryCodes, setRecoveryCodes] = useState([]);
+  const [recoveryCodesVisible, setRecoveryCodesVisible] = useState(false);
   const [twoFactorBusy, setTwoFactorBusy] = useState(false);
   const [marketing, setMarketing] = useState(null);
   const [configSaving, setConfigSaving] = useState(false);
@@ -65,6 +66,7 @@ const AdminPanel = () => {
     setTwoFactorSetup(null);
     setTwoFactorCode('');
     setRecoveryCodes([]);
+    setRecoveryCodesVisible(false);
     setSecurityError('');
     setSecurityMessage('');
     setMarketing(null);
@@ -233,6 +235,7 @@ const AdminPanel = () => {
       });
       setCurrentUser(response.data.user);
       setRecoveryCodes(response.data.recovery_codes || []);
+      setRecoveryCodesVisible((response.data.recovery_codes || []).length > 0);
       setTwoFactorSetup(null);
       setTwoFactorCode('');
       setSecurityMessage('Verificacion en 2 pasos activada. Guarda tus codigos de recuperacion.');
@@ -260,6 +263,7 @@ const AdminPanel = () => {
       setTwoFactorSetup(null);
       setTwoFactorCode('');
       setRecoveryCodes([]);
+      setRecoveryCodesVisible(false);
       setSecurityMessage('Verificacion en 2 pasos desactivada.');
     } catch (error) {
       setSecurityError(extractError(error, 'No fue posible desactivar 2FA.'));
@@ -270,6 +274,16 @@ const AdminPanel = () => {
 
   const isReadyForHuman = (caso) =>
     caso.payment_status === 'pagado' && ['pagado_en_revision', 'en_revision'].includes(caso.status);
+
+  useEffect(() => {
+    if (!recoveryCodesVisible || recoveryCodes.length === 0) return;
+    const timeout = setTimeout(() => {
+      setRecoveryCodesVisible(false);
+      setRecoveryCodes([]);
+      setSecurityMessage('Codigos de recuperacion ocultos por seguridad.');
+    }, 2 * 60 * 1000);
+    return () => clearTimeout(timeout);
+  }, [recoveryCodesVisible, recoveryCodes.length]);
 
   const filteredCasos = casos.filter((c) =>
     (c.user_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -582,9 +596,21 @@ const AdminPanel = () => {
             </div>
           )}
 
-          {recoveryCodes.length > 0 && (
+          {recoveryCodesVisible && recoveryCodes.length > 0 && (
             <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-black text-amber-800 mb-2">Codigos de recuperacion</p>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <p className="text-sm font-black text-amber-800">Codigos de recuperacion</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecoveryCodesVisible(false);
+                    setRecoveryCodes([]);
+                  }}
+                  className="rounded-lg border border-amber-300 bg-white px-3 py-1 text-xs font-black uppercase text-amber-800"
+                >
+                  Ocultar
+                </button>
+              </div>
               <p className="text-sm text-amber-700 mb-3">Guardalos ahora. Se muestran una sola vez.</p>
               <div className="grid md:grid-cols-4 gap-2">
                 {recoveryCodes.map((code) => (
