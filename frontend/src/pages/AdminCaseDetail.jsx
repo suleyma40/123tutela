@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Paperclip } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Paperclip, Send } from 'lucide-react';
 import { api } from '../lib/api';
 
 const AdminCaseDetail = () => {
@@ -11,6 +11,11 @@ const AdminCaseDetail = () => {
   const [caso, setCaso] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [deliveryFile, setDeliveryFile] = useState(null);
+  const [deliveryNote, setDeliveryNote] = useState('');
+  const [sendWhatsapp, setSendWhatsapp] = useState(true);
+  const [isSendingDelivery, setIsSendingDelivery] = useState(false);
+  const [deliveryMessage, setDeliveryMessage] = useState('');
 
   useEffect(() => {
     fetchCaso();
@@ -40,6 +45,36 @@ const AdminCaseDetail = () => {
       fetchCaso();
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleUploadAndDeliver = async () => {
+    if (!deliveryFile) {
+      setDeliveryMessage('Selecciona primero el documento final (PDF o DOCX).');
+      return;
+    }
+    setIsSendingDelivery(true);
+    setDeliveryMessage('');
+    try {
+      const token = localStorage.getItem('admin-token');
+      const formData = new FormData();
+      formData.append('file', deliveryFile);
+      formData.append('delivery_note', deliveryNote || '');
+      formData.append('send_whatsapp', String(sendWhatsapp));
+      const response = await api.post(`/internal/cases/${id}/deliver-upload`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      setCaso(response.data);
+      setDeliveryFile(null);
+      setDeliveryNote('');
+      setDeliveryMessage('Documento enviado al cliente y caso marcado como entregado.');
+    } catch (error) {
+      setDeliveryMessage(error?.response?.data?.detail || 'No fue posible enviar el documento final.');
+    } finally {
+      setIsSendingDelivery(false);
     }
   };
 
@@ -201,6 +236,46 @@ const AdminCaseDetail = () => {
                     ].filter(Boolean).join('\n') || 'N/A'}
                   </p>
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-6">
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700 mb-3">Entrega al usuario</p>
+              <h3 className="text-xl font-black text-emerald-900 mb-3">Subir documento final y enviar</h3>
+              <div className="grid gap-4">
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="rounded-xl border border-emerald-200 bg-white px-3 py-3 text-sm"
+                  onChange={(e) => setDeliveryFile(e.target.files?.[0] || null)}
+                />
+                <textarea
+                  rows={3}
+                  className="rounded-xl border border-emerald-200 bg-white px-3 py-3 text-sm outline-none"
+                  placeholder="Nota opcional para el cliente"
+                  value={deliveryNote}
+                  onChange={(e) => setDeliveryNote(e.target.value)}
+                />
+                <label className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-900">
+                  <input
+                    type="checkbox"
+                    checked={sendWhatsapp}
+                    onChange={(e) => setSendWhatsapp(e.target.checked)}
+                  />
+                  Notificar también por WhatsApp
+                </label>
+                <button
+                  type="button"
+                  disabled={isSendingDelivery}
+                  onClick={handleUploadAndDeliver}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white disabled:opacity-60"
+                >
+                  <Send size={16} />
+                  {isSendingDelivery ? 'Enviando...' : 'Enviar documento al cliente'}
+                </button>
+                {!!deliveryMessage && (
+                  <p className="text-sm font-semibold text-emerald-800">{deliveryMessage}</p>
+                )}
               </div>
             </div>
           </div>

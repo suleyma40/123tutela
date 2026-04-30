@@ -3630,3 +3630,90 @@ def deliver_guest_case(
     )
     updated = _persist_guest_ops(updated)
     return _snapshot_case_detail(updated)
+
+
+@app.post("/internal/cases/{case_id}/deliver-upload", response_model=CaseDetailResponse)
+async def deliver_guest_case_upload(
+    case_id: str,
+    file: UploadFile = File(...),
+    delivery_note: str = Form(default=""),
+    send_whatsapp: bool = Form(default=True),
+    current_user: dict[str, Any] = Depends(get_internal_user),
+) -> CaseDetailResponse:
+    case = repository.get_case_by_id(case_id)
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
+
+    allowed_mime = {
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+    }
+    if str(file.content_type or "").lower() not in allowed_mime:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Formato no permitido. Sube PDF o DOCX.",
+        )
+
+    saved = save_upload(file, bucket="deliveries", owner_id=str(case_id))
+    repository.create_case_file(
+        case_id=case_id,
+        uploaded_by=str(current_user["id"]),
+        file_kind="delivery_document",
+        original_name=saved["original_name"],
+        stored_name=saved["stored_name"],
+        mime_type=saved["mime_type"],
+        file_size=saved["file_size"],
+        relative_path=saved["relative_path"],
+        metadata={"generated_by": "internal_upload_delivery"},
+    )
+
+    refreshed_case = repository.get_case_by_id(case_id) or case
+    delivery_package = build_delivery_package(refreshed_case, saved["relative_path"])
+    merged_summary = _merge_submission_summary(
+        refreshed_case,
+        customer_guide=delivery_package.get("customer_guide") or build_customer_guide(refreshed_case),
+        delivery_package=delivery_package,
+    )
+    email_result = send_guest_delivery_email(
+        recipient=refreshed_case.get("usuario_email"),
+        case=refreshed_case,
+        delivery_package=delivery_package,
+        note=delivery_note or None,
+        attachments=[{"relative_path": saved["relative_path"], "filename": saved["original_name"], "mime_type": saved["mime_type"]}],
+    )
+    whatsapp_result = (
+        send_guest_delivery_whatsapp(phone=refreshed_case.get("usuario_telefono"), case=refreshed_case, delivery_package=delivery_package)
+        if send_whatsapp
+        else {"status": "skipped", "reason": "disabled"}
+    )
+    updated = repository.update_case_status(
+        case_id,
+        status="entregado",
+        submission_summary={
+            **merged_summary,
+            "delivery_package": delivery_package,
+            "delivery_email": email_result,
+            "delivery_whatsapp": whatsapp_result,
+            "delivery_uploaded_file": {
+                "relative_path": saved["relative_path"],
+                "original_name": saved["original_name"],
+                "mime_type": saved["mime_type"],
+            },
+            "delivered_at": datetime.now(timezone.utc).isoformat(),
+            "delivered_by": str(current_user["id"]),
+        },
+    ) or refreshed_case
+    repository.create_event(
+        case_id=case_id,
+        event_type="guest_case_delivered_upload",
+        actor_type="internal",
+        actor_id=str(current_user["id"]),
+        payload={
+            "filename": saved["original_name"],
+            "email_status": email_result.get("status"),
+            "whatsapp_status": whatsapp_result.get("status"),
+        },
+    )
+    updated = _persist_guest_ops(updated)
+    return _snapshot_case_detail(updated)
