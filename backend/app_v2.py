@@ -5,10 +5,12 @@ import hashlib
 import re
 from pathlib import Path
 from typing import Any
+import time
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from backend.catalog_runtime import get_product, list_catalog, suggest_product_code
 from backend.case_architecture import (
@@ -128,8 +130,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 
 analyzer = LegalAnalyzer(settings.knowledge_base_json)
+_FAILED_LOGIN_ATTEMPTS: dict[str, list[float]] = {}
+_LOGIN_LIMIT_WINDOW_SECONDS = 15 * 60
+_LOGIN_MAX_ATTEMPTS = 8
 
 SIMPLE_SIGNATURE_CONSENT_VERSION = "ses_v1"
 SIMPLE_SIGNATURE_CONSENT_TEXT = (
@@ -169,6 +175,35 @@ ADDON_ORDER_CONFIG = {
         "description": "Seguimiento posterior de novedades y trazabilidad del expediente.",
     },
 }
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if settings.app_env.lower() == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    return response
+
+
+def _enforce_production_security() -> None:
+    if settings.app_env.lower() != "production":
+        return
+    weak_secrets = {"change-me", "change-me-session", "", None}
+    if settings.jwt_secret in weak_secrets or len(settings.jwt_secret) < 32:
+        raise RuntimeError("JWT_SECRET inseguro para produccion. Usa un secreto largo y aleatorio.")
+    if settings.session_secret in weak_secrets or len(settings.session_secret) < 32:
+        raise RuntimeError("SESSION_SECRET inseguro para produccion. Usa un secreto largo y aleatorio.")
+    if settings.wompi_environment != "production":
+        raise RuntimeError("En produccion WOMPI_ENVIRONMENT debe ser 'production'.")
+    if not settings.wompi_event_secret:
+        raise RuntimeError("Falta WOMPI_EVENT_SECRET en produccion.")
+
+
+_enforce_production_security()
 
 
 def _normalize_user(user: dict[str, Any]) -> UserResponse:
@@ -2027,10 +2062,23 @@ def register(payload: RegisterRequest) -> AuthResponse:
 
 
 @app.post("/auth/login", response_model=AuthResponse)
-def login(payload: LoginRequest) -> AuthResponse:
+def login(payload: LoginRequest, request: Request) -> AuthResponse:
     email = _normalize_email_input(payload.email)
+    client_ip = (request.client.host if request.client else "unknown").strip() or "unknown"
+    limit_key = f"{client_ip}:{email.lower()}"
+    now = time.time()
+    attempts = [ts for ts in _FAILED_LOGIN_ATTEMPTS.get(limit_key, []) if now - ts < _LOGIN_LIMIT_WINDOW_SECONDS]
+    _FAILED_LOGIN_ATTEMPTS[limit_key] = attempts
+    if len(attempts) >= _LOGIN_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos de acceso. Intenta de nuevo en 15 minutos.",
+        )
+
     user = repository.get_user_by_email(email)
     if not user or not verify_password(payload.password, user["password_hash"]):
+        attempts.append(now)
+        _FAILED_LOGIN_ATTEMPTS[limit_key] = attempts
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas.")
 
     expected_role = _role_for_email(user.get("email") or email)
@@ -2039,6 +2087,7 @@ def login(payload: LoginRequest) -> AuthResponse:
         if refreshed:
             user = {**user, **refreshed}
 
+    _FAILED_LOGIN_ATTEMPTS.pop(limit_key, None)
     token = create_token(str(user["id"]), user["email"], settings.jwt_secret)
     return AuthResponse(token=token, user=_normalize_user(user))
 
@@ -3310,6 +3359,24 @@ def _wompi_order_status(provider_status: str) -> str:
     return mapping.get(provider_status, "pending")
 
 
+def _validate_wompi_transaction_against_order(transaction: dict[str, Any], order: dict[str, Any]) -> None:
+    tx_currency = str(transaction.get("currency") or "").upper()
+    order_currency = str(order.get("currency") or "").upper()
+    if tx_currency and order_currency and tx_currency != order_currency:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Moneda de transaccion no coincide.")
+
+    tx_amount = transaction.get("amount_in_cents")
+    order_amount = order.get("amount_in_cents")
+    try:
+        tx_amount_int = int(tx_amount) if tx_amount is not None else None
+        order_amount_int = int(order_amount) if order_amount is not None else None
+    except (TypeError, ValueError):
+        tx_amount_int = None
+        order_amount_int = None
+    if tx_amount_int is not None and order_amount_int is not None and tx_amount_int != order_amount_int:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Monto de transaccion no coincide.")
+
+
 def _process_wompi_webhook(event_payload: dict[str, Any]) -> WompiWebhookResponse:
     ensure_webhook_configured()
     if not verify_event_signature(event_payload, settings.wompi_event_secret):
@@ -3324,6 +3391,7 @@ def _process_wompi_webhook(event_payload: dict[str, Any]) -> WompiWebhookRespons
     existing = repository.get_payment_order_by_reference(str(reference))
     if not existing:
         return WompiWebhookResponse(ok=True, processed=False, reference=str(reference), status=_wompi_order_status(provider_status))
+    _validate_wompi_transaction_against_order(transaction, existing)
 
     next_order_status = _wompi_order_status(provider_status)
     approved_at = parse_approved_at(transaction) if provider_status == "APPROVED" else None
@@ -3374,6 +3442,7 @@ def _process_wompi_transaction_reconciliation(transaction: dict[str, Any], refer
     existing = repository.get_payment_order_by_reference(reference)
     if not existing:
         return WompiWebhookResponse(ok=True, processed=False, reference=reference, status=_wompi_order_status(provider_status))
+    _validate_wompi_transaction_against_order(transaction, existing)
 
     next_order_status = _wompi_order_status(provider_status)
     approved_at = parse_approved_at(transaction) if provider_status == "APPROVED" else None

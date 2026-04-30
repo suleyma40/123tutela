@@ -88,6 +88,7 @@ class Settings:
     notification_smtp_use_starttls: bool = os.getenv("NOTIFICATION_SMTP_USE_STARTTLS", "true").lower() == "true"
     internal_admin_emails: list[str] = None  # type: ignore[assignment]
     cors_origins: list[str] = None  # type: ignore[assignment]
+    trusted_hosts: list[str] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         configured = _split_csv(os.getenv("CORS_ORIGINS"))
@@ -99,6 +100,11 @@ class Settings:
         qa_defaults = {self.qa_test_email.strip().lower(), "mariibpa25@gmail.com"}
         qa_configured = {email.lower() for email in _split_csv(os.getenv("QA_TEST_EMAILS"))}
         self.qa_test_emails = sorted(email for email in (qa_configured or qa_defaults) if email)
+        trusted = _split_csv(os.getenv("TRUSTED_HOSTS"))
+        if trusted:
+            self.trusted_hosts = trusted
+        else:
+            self.trusted_hosts = ["localhost", "127.0.0.1", "123tutelaapp.com", "*.123tutelaapp.com"]
 
 
 settings = Settings()

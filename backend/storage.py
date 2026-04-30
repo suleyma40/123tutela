@@ -4,12 +4,14 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile, status
 
 from backend.config import settings
 
 
 UPLOAD_ROOT = Path(settings.uploads_dir)
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png"}
 
 
 def ensure_upload_root() -> Path:
@@ -23,7 +25,12 @@ def save_upload(upload: UploadFile, *, bucket: str, owner_id: str) -> dict[str, 
     target_dir.mkdir(parents=True, exist_ok=True)
 
     original_name = upload.filename or "archivo.bin"
-    suffix = Path(original_name).suffix
+    suffix = Path(original_name).suffix.lower()
+    if suffix not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tipo de archivo no permitido. Usa PDF, DOC, DOCX, JPG o PNG.",
+        )
     stored_name = f"{uuid4().hex}{suffix}"
     target_path = target_dir / stored_name
 
@@ -31,6 +38,13 @@ def save_upload(upload: UploadFile, *, bucket: str, owner_id: str) -> dict[str, 
         shutil.copyfileobj(upload.file, buffer)
 
     size = target_path.stat().st_size
+    if size > MAX_UPLOAD_BYTES:
+        target_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Archivo demasiado grande. Maximo permitido: 15 MB.",
+        )
+
     relative_path = target_path.relative_to(root).as_posix()
     return {
         "original_name": original_name,
