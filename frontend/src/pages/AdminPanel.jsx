@@ -13,6 +13,14 @@ const formatDateTime = (value) => {
 };
 
 const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const formatBogotaDateTime = (value) => {
+  if (!value) return '-';
+  try {
+    return new Date(value).toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+  } catch {
+    return String(value);
+  }
+};
 
 const AdminPanel = () => {
   const location = useLocation();
@@ -185,6 +193,9 @@ const AdminPanel = () => {
   const campaigns = marketing?.campaigns_7d || [];
   const pct = (num, den) => (den > 0 ? `${Math.round((num / den) * 100)}%` : '0%');
   const deltaPct = (a, b) => (b > 0 ? `${Math.round(((a - b) / b) * 100)}%` : '0%');
+  const readyCases = casos
+    .filter((c) => isReadyForHuman(c))
+    .sort((a, b) => new Date(a.updated_at || a.created_at || 0) - new Date(b.updated_at || b.created_at || 0));
 
   const paidCases = casos
     .filter((c) => c.payment_status === 'pagado')
@@ -353,11 +364,85 @@ const AdminPanel = () => {
           ))}
         </section>
 
+        <section className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+          <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700 mb-1">Cola operativa humana</p>
+              <h2 className="text-xl font-black text-emerald-900">Documentos listos para elaborar</h2>
+            </div>
+            <span className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black uppercase text-white">
+              {readyCases.length} en cola
+            </span>
+          </div>
+          <p className="text-sm text-emerald-800 mb-4">
+            Estos casos ya tienen pago aprobado y estado operativo para trabajo del humano.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left min-w-[840px]">
+              <thead>
+                <tr className="border-b border-emerald-200">
+                  <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Cliente</th>
+                  <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Documento a elaborar</th>
+                  <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Codigo expediente</th>
+                  <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Estado</th>
+                  <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Ultima actualizacion</th>
+                  <th className="py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Accion</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-emerald-100">
+                {readyCases.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-5 text-sm font-semibold text-emerald-700">
+                      No hay casos listos para humano en este momento.
+                    </td>
+                  </tr>
+                ) : readyCases.map((caso) => {
+                  const summary = caso.submission_summary || {};
+                  const expediente = summary?.customer_case?.code || caso.payment_reference || '-';
+                  return (
+                    <tr key={`ready-${caso.id}`}>
+                      <td className="py-3">
+                        <p className="font-black text-slate-900">{caso.user_name || 'Anonimo'}</p>
+                        <p className="text-xs text-slate-500">{caso.user_email || '-'}</p>
+                      </td>
+                      <td className="py-3 text-sm font-semibold text-slate-700">{caso.recommended_action || '-'}</td>
+                      <td className="py-3 text-sm font-black text-[#0D68FF]">{expediente}</td>
+                      <td className="py-3">
+                        <span className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-black uppercase text-white">
+                          Listo para humano
+                        </span>
+                      </td>
+                      <td className="py-3 text-sm font-semibold text-slate-600">{formatBogotaDateTime(caso.updated_at || caso.created_at)}</td>
+                      <td className="py-3">
+                        <Link to={`${adminBasePath}/caso/${caso.id}`} className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-white px-3 py-2 text-emerald-700 no-underline">
+                          <Eye size={16} />
+                          Abrir caso
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <section id="mercadeo" className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
           <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Inteligencia comercial</p>
               <h2 className="text-xl font-black text-slate-900">Analista de marketing</h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase text-slate-600">
+                  Tarjetas de arriba: historico total de la app
+                </span>
+                <span className="rounded-full bg-blue-100 px-3 py-1 text-[11px] font-black uppercase text-blue-700">
+                  Mercadeo: ultimos {marketing?.window_days || 30} dias
+                </span>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase text-amber-700">
+                  Actualizado: {formatBogotaDateTime(marketing?.updated_at)}
+                </span>
+              </div>
               <p className="text-sm text-slate-500 mt-1">
                 Embudo real + recomendaciones automáticas para subir conversión.
               </p>
