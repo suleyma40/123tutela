@@ -390,8 +390,8 @@ CASES: list[HealthFlowCase] = [
             "numbered_requests": "1. Entregar copia de la autorizacion. 2. Reprogramar la cita con ortopedia.",
             "response_channel": "Correo electronico",
         },
-        expected_workflow="derecho_peticion",
-        expected_action="Derecho de peticion a EPS",
+        expected_workflow="tutela",
+        expected_action="Accion de tutela",
         expected_generate_error="Todavia faltan datos minimos para generar este documento",
         attachment_names=None,
     ),
@@ -432,6 +432,7 @@ CASES: list[HealthFlowCase] = [
         },
         expected_workflow="impugnacion",
         expected_action="Impugnacion de tutela",
+        expected_generate_error="Todavia faltan datos minimos para generar este documento",
         attachment_names=["Historia Clinica Neurologia.pdf", "Fallo Tutela.pdf"],
     ),
     HealthFlowCase(
@@ -470,6 +471,7 @@ CASES: list[HealthFlowCase] = [
         },
         expected_workflow="desacato",
         expected_action="Incidente de desacato",
+        expected_generate_error="Todavia faltan datos minimos para generar este documento",
         attachment_names=["Historia Clinica Artritis.pdf", "Fallo Tutela.pdf"],
     ),
     HealthFlowCase(

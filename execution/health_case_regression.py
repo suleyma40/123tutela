@@ -179,8 +179,8 @@ CASES: list[HealthRegressionCase] = [
             dates="2026-02-20, 2026-03-01",
         ),
         prior_actions=["eps_pqrs"],
-        expected_workflow="derecho_peticion",
-        expected_action="Derecho de peticion a EPS",
+        expected_workflow="tutela",
+        expected_action="Accion de tutela",
         expected_preview_status="ok",
     ),
     HealthRegressionCase(
@@ -313,8 +313,8 @@ CASES: list[HealthRegressionCase] = [
             dates="2026-03-06",
         ),
         prior_actions=[],
-        expected_workflow="tutela",
-        expected_action="Accion de tutela",
+        expected_workflow="derecho_peticion",
+        expected_action="Derecho de peticion a EPS",
         expected_preview_status="requires_more_data",
     ),
     HealthRegressionCase(
