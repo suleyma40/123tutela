@@ -63,6 +63,13 @@ def _is_n8n_whatsapp_configured() -> bool:
     return bool(settings.n8n_whatsapp_webhook_url)
 
 
+def _n8n_whatsapp_headers() -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if settings.n8n_whatsapp_webhook_api_key:
+        headers["x-api-key"] = settings.n8n_whatsapp_webhook_api_key
+    return headers
+
+
 def _normalize_whatsapp_number(phone: str | None) -> str:
     digits = re.sub(r"\D+", "", str(phone or ""))
     if not digits:
@@ -375,7 +382,7 @@ def send_post_radicado_whatsapp(*, phone: str | None, case: dict[str, Any], guid
             response_payload = _post_json(
                 settings.n8n_whatsapp_webhook_url,
                 payload,
-                {"Content-Type": "application/json"},
+                _n8n_whatsapp_headers(),
             )
         except urllib.error.HTTPError as exc:  # pragma: no cover
             body = exc.read().decode("utf-8", errors="ignore")
@@ -618,7 +625,7 @@ def send_guest_delivery_whatsapp(
             response_payload = _post_json(
                 settings.n8n_whatsapp_webhook_url,
                 {"number": normalized_phone, "text": message, "case_id": case.get("id"), "document": case.get("recommended_action")},
-                {"Content-Type": "application/json"},
+                _n8n_whatsapp_headers(),
             )
             return {**base_result, "status": "sent", "response_payload": response_payload}
         except urllib.error.HTTPError as exc:  # pragma: no cover
@@ -681,7 +688,7 @@ def send_diagnosis_abandonment_whatsapp(
                     "kind": "diagnosis_abandonment",
                     "reminder_minutes": int(reminder_minutes),
                 },
-                {"Content-Type": "application/json"},
+                _n8n_whatsapp_headers(),
             )
             return {**base_result, "status": "sent", "response_payload": response_payload}
         except urllib.error.HTTPError as exc:  # pragma: no cover
