@@ -298,6 +298,12 @@ const AdminPanel = () => {
             <p className="text-slate-500 mt-3">Casos, pagos y seguimiento bajo el mismo lenguaje visual del producto.</p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
+            <a
+              href="#mercadeo"
+              className="rounded-2xl bg-[#0D68FF] px-4 py-3 text-sm font-black text-white no-underline hover:bg-[#0B5BE0]"
+            >
+              Ir a Mercadeo
+            </a>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
@@ -347,7 +353,7 @@ const AdminPanel = () => {
           ))}
         </section>
 
-        <section className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+        <section id="mercadeo" className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
           <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Inteligencia comercial</p>
