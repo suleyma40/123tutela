@@ -75,6 +75,7 @@ class Settings:
     qa_test_emails: list[str] = None  # type: ignore[assignment]
     n8n_whatsapp_webhook_url: str = os.getenv("N8N_WHATSAPP_WEBHOOK_URL", "")
     n8n_whatsapp_webhook_api_key: str = os.getenv("N8N_WHATSAPP_WEBHOOK_API_KEY", "")
+    whatsapp_enabled: bool = os.getenv("WHATSAPP_ENABLED", "true").lower() == "true"
     n8n_ops_webhook_url: str = os.getenv("N8N_OPS_WEBHOOK_URL", "")
     evolution_base_url: str = os.getenv("EVOLUTION_BASE_URL", "")
     evolution_api_key: str = os.getenv("EVOLUTION_API_KEY", "")

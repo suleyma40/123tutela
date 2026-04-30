@@ -1283,6 +1283,8 @@ def _build_guest_resume_url(case: dict[str, Any]) -> str:
 def _run_whatsapp_abandonment_reminders(*, dry_run: bool = False) -> dict[str, Any]:
     now_utc = datetime.now(timezone.utc)
     windows = _parse_whatsapp_abandonment_windows()
+    if not settings.whatsapp_enabled:
+        return {"ok": True, "status": "disabled_globally", "windows": windows, "processed": 0, "sent": 0}
     if not settings.whatsapp_abandonment_enabled:
         return {"ok": True, "status": "disabled", "windows": windows, "processed": 0, "sent": 0}
     if not _is_within_whatsapp_window(now_utc):

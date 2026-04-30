@@ -56,10 +56,14 @@ def _is_email_configured() -> bool:
 
 
 def _is_whatsapp_configured() -> bool:
+    if not settings.whatsapp_enabled:
+        return False
     return bool(settings.evolution_base_url and settings.evolution_api_key and settings.evolution_instance)
 
 
 def _is_n8n_whatsapp_configured() -> bool:
+    if not settings.whatsapp_enabled:
+        return False
     return bool(settings.n8n_whatsapp_webhook_url)
 
 
@@ -365,6 +369,8 @@ def send_post_radicado_whatsapp(*, phone: str | None, case: dict[str, Any], guid
         "recipient": normalized_phone or phone,
         "instance": settings.evolution_instance,
     }
+    if not settings.whatsapp_enabled:
+        return {**base_result, "status": "disabled", "reason": "whatsapp_disabled"}
     if not normalized_phone:
         return {**base_result, "status": "skipped", "reason": "missing_phone"}
     if _is_n8n_whatsapp_configured():
@@ -618,6 +624,8 @@ def send_guest_delivery_whatsapp(
         "attempted_at": attempted_at,
         "recipient": normalized_phone or phone,
     }
+    if not settings.whatsapp_enabled:
+        return {**base_result, "status": "disabled", "reason": "whatsapp_disabled"}
     if not normalized_phone:
         return {**base_result, "status": "skipped", "reason": "missing_phone"}
     if _is_n8n_whatsapp_configured():
@@ -674,6 +682,8 @@ def send_diagnosis_abandonment_whatsapp(
         "recipient": normalized_phone or phone,
         "reminder_minutes": int(reminder_minutes),
     }
+    if not settings.whatsapp_enabled:
+        return {**base_result, "status": "disabled", "reason": "whatsapp_disabled"}
     if not normalized_phone:
         return {**base_result, "status": "skipped", "reason": "missing_phone"}
     if _is_n8n_whatsapp_configured():
