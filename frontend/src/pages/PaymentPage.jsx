@@ -7,6 +7,11 @@ import { trackEvent } from '../lib/analytics';
 import { LAUNCH_PRICE_LABEL, RAFFLE_LONG_COPY, RAFFLE_PRIZE_LABEL } from '../lib/launchConfig';
 
 const widgetScriptUrl = 'https://checkout.wompi.co/widget.js';
+const QA_MIN_PAYMENT_EMAILS = new Set([
+  'su-ley23@hotmail.com',
+  'm22perezia@gmail.com',
+  'mariibpa25@gmail.com',
+]);
 
 const PaymentPage = () => {
   const navigate = useNavigate();
@@ -221,7 +226,7 @@ const PaymentPage = () => {
               <ArrowRight size={20} />
             </button>
 
-            {(import.meta.env.DEV || guestCase.email?.trim().toLowerCase() === 'su-ley23@hotmail.com' || guestCase.email?.trim().toLowerCase() === 'mariibpa25@gmail.com') && (
+            {(import.meta.env.DEV || QA_MIN_PAYMENT_EMAILS.has((guestCase.email || '').trim().toLowerCase())) && (
               <>
                 <button
                   onClick={async () => {
