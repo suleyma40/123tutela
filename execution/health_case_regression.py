@@ -318,6 +318,37 @@ CASES: list[HealthRegressionCase] = [
         expected_preview_status="requires_more_data",
     ),
     HealthRegressionCase(
+        name="autorizado_sin_agenda_ips",
+        description=(
+            "La EPS ya autorizo las terapias, pero la IPS no ha agendado ninguna cita y dice que no tiene cupo. "
+            "Necesito que programen ya o me cambien de prestador."
+        ),
+        facts=_base_facts(
+            {
+                "target_entity": "IPS Rehabilitar SAS",
+                "eps_name": "Nueva EPS",
+                "ips_name": "IPS Rehabilitar SAS",
+                "acting_capacity": "nombre_propio",
+                "diagnosis": "Secuela neurologica post ACV",
+                "treatment_needed": "Terapias fisica, ocupacional y de lenguaje autorizadas por la EPS",
+                "urgency_detail": "La rehabilitacion se esta retrasando por falta de agenda de la IPS.",
+                "medical_order_date": "2026-04-10",
+                "treating_doctor_name": "Dr. Ivan Torres",
+                "evidence_summary": "Orden medica, autorizacion emitida por EPS y mensajes de IPS sin agenda.",
+                "prior_claim": "si",
+                "prior_claim_result": "La EPS autorizo, pero la IPS no agenda por falta de cupos.",
+                "case_story": "Servicio autorizado sin cita efectiva por parte de la IPS.",
+                "concrete_request": "Programar terapias de inmediato y, en subsidio, cambio de prestador por parte de la EPS.",
+                "response_channel": "Correo electronico",
+            },
+            dates="2026-04-10, 2026-04-20",
+        ),
+        prior_actions=["eps_pqrs"],
+        expected_workflow="derecho_peticion",
+        expected_action="Derecho de peticion a IPS",
+        expected_preview_status="requires_more_data",
+    ),
+    HealthRegressionCase(
         name="hecho_superado_salud",
         description=(
             "La EPS ya autorizo el procedimiento y ya me programaron la cita para esta semana. "

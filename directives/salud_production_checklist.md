@@ -88,6 +88,8 @@ Estado confirmado hoy:
 Estado implementado hoy en backend:
 
 - Primera capa endurecida de recomendacion en `backend/workflows.py`.
+- Caso especifico ajustado: si la EPS ya autorizo pero la IPS/prestador no agenda cita, la ruta sugerida prioriza `Derecho de peticion a IPS` y agrega advertencia de solicitar en paralelo a la EPS cambio de prestador.
+- Salida comercial del diagnostico en salud estandarizada con bloques claros para usuario final: `🔴 Derecho vulnerado`, `⚠️ Qué tan grave es`, `🎯 Quién es el responsable`, `⚡ Acción que necesitas`, mas cierre de continuidad para conversion.
 - `Impugnacion` y `desacato` ya se detectan solo si hay senales de fallo previo.
 - `Impugnacion` y `desacato` ya pueden entrar desde el inicio del flujo, pero solo con filtro estricto y exigiendo fallo previo cargado.
 - `Impugnacion` y `desacato` ya exigen que la IA lea el fallo previo antes de desbloquear generacion.

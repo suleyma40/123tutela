@@ -283,6 +283,34 @@ def _contains_health_resolved_signal(text: str) -> bool:
     )
 
 
+def _contains_authorized_without_schedule_signal(text: str) -> bool:
+    authorized_markers = [
+        "autorizo",
+        "autorizó",
+        "autorizado",
+        "autorizada",
+        "autorizacion aprobada",
+        "autorización aprobada",
+        "ya autorizaron",
+        "eps autorizo",
+        "eps autorizó",
+    ]
+    no_schedule_markers = [
+        "no agenda",
+        "no agendo",
+        "no agendó",
+        "no ha agendado",
+        "no han agendado",
+        "sin agenda",
+        "sin cita",
+        "no programan",
+        "no programaron",
+        "no asignan cita",
+        "lista de espera",
+    ]
+    return _contains_any(text, authorized_markers) and _contains_any(text, no_schedule_markers)
+
+
 def _infer_health_workflow(
     *,
     facts: dict[str, Any],
@@ -298,6 +326,7 @@ def _infer_health_workflow(
     )
 
     target_entity = _health_intake_text(facts, "target_entity", "eps_name")
+    ips_entity = _health_intake_text(facts, "ips_name", "ips_clinic_name", "clinic_name", "provider_name")
     diagnosis = _health_intake_text(facts, "diagnosis")
     treatment_needed = _health_intake_text(facts, "treatment_needed")
     urgency_detail = _health_intake_text(facts, "urgency_detail", "current_harm", "ongoing_harm", "tutela_immediacy_detail")
@@ -328,7 +357,12 @@ def _infer_health_workflow(
         or _contains_special_protection_signal(lowered)
         or (patient_age is not None and patient_age >= 60)
     )
-    has_resolved_signal = _contains_health_resolved_signal(lowered)
+    has_authorized_without_schedule = _contains_authorized_without_schedule_signal(lowered)
+    has_resolved_signal = _contains_health_resolved_signal(lowered) and not has_authorized_without_schedule
+    targets_ips = _contains_any(
+        f"{_lower(target_entity)} {_lower(ips_entity)} {lowered}",
+        [" ips ", "ips", "clinica", "clínica", "prestador", "institucion prestadora", "institución prestadora"],
+    )
     prior_claim_done = (
         all_required_done
         or bool(prior_actions)
@@ -362,6 +396,15 @@ def _infer_health_workflow(
     if has_resolved_signal and not has_continuity_risk and not urgency_without_waiting:
         warnings.append("El relato sugiere que la barrera principal ya fue superada; conviene revisar si el caso sigue vivo o si ahora corresponde solo trazabilidad, peticion o seguimiento.")
         return "derecho_peticion", "Derecho de peticion a EPS", warnings
+
+    if has_health_core and has_authorized_without_schedule and targets_ips:
+        warnings.append(
+            "Se detecta un caso de servicio ya autorizado pero sin agenda efectiva del prestador; la via inicial sugerida es derecho de peticion a la IPS para programacion inmediata."
+        )
+        warnings.append(
+            "En paralelo, conviene pedir a la EPS cambio de prestador o reubicacion de red por barrera de acceso y falta de oportunidad."
+        )
+        return "derecho_peticion", "Derecho de peticion a IPS", warnings
 
     if has_health_core and has_barrier and has_medical_support and (has_urgency or has_special_protection):
         if not prior_claim_done:
@@ -750,6 +793,43 @@ def build_strategy_text(
     rules = legal_analysis.get("normas_relevantes") or []
     rights_text = ", ".join(str(r.get("derecho") or r.get("name") or r) if isinstance(r, dict) else str(r) for r in rights) if isinstance(rights, list) else str(rights)
     rules_text = ", ".join(str(r.get("norma") or r.get("name") or r) if isinstance(r, dict) else str(r) for r in rules) if isinstance(rules, list) else str(rules)
+    lowered_action = _lower(recommended_action)
+    lowered_rights = _lower(rights_text)
+    is_health_profile = any(token in f"{lowered_action} {lowered_rights}" for token in ("salud", "eps", "ips", "tutela", "desacato", "impugnacion"))
+    if is_health_profile:
+        severity = "RECLAMO VALIDO"
+        if "tutela" in lowered_action:
+            severity = "URGENTE"
+        elif any(token in lowered_action for token in ("desacato", "impugnacion")):
+            severity = "IMPORTANTE"
+
+        responsible = "EPS"
+        if "ips" in lowered_action:
+            responsible = "IPS/clinica"
+        elif "desacato" in lowered_action or "impugnacion" in lowered_action:
+            responsible = "juzgado y entidad obligada por el fallo"
+
+        action_line = (
+            f"{recommended_action}: via legal sugerida segun tu relato actual; sirve para exigir respuesta o cumplimiento efectivo sin perder tiempo clave."
+        )
+        urgency_reason = "hay afectacion actual de salud y cada dia sin solucion puede empeorar el dano."
+        if "desacato" in lowered_action:
+            urgency_reason = "ya existe un fallo y el incumplimiento dia a dia agrava el riesgo y expone a sanciones."
+        elif "impugnacion" in lowered_action:
+            urgency_reason = "los terminos para controvertir el fallo son cortos y no conviene dejar vencer el plazo."
+
+        hook = (
+            f"Tu caso tiene una ruta legal clara y el tiempo importa: {urgency_reason} "
+            "Para que esto funcione, hay que definir bien que pedir, a quien dirigirlo y con que soporte. "
+            "Si quieres, te ayudamos a preparar todo para radicarlo correctamente."
+        )
+        return (
+            f"🔴 Derecho vulnerado:\n{rights_text or 'Derecho fundamental a la salud'}.\n\n"
+            f"⚠️ Qué tan grave es:\n{severity}.\n\n"
+            f"🎯 Quién es el responsable:\n{responsible}.\n\n"
+            f"⚡ Acción que necesitas:\n{action_line}\n\n"
+            f"{hook}"
+        )
     warning_text = f" Advertencias operativas: {' | '.join(warnings)}." if warnings else ""
     return (
         f"La ruta sugerida es {recommended_action} ({workflow_type.replace('_', ' ')}). "

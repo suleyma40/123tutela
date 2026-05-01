@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from dotenv import load_dotenv
+from backend.legal_prompts import LEGAL_SALUD_DIAGNOSIS_SYSTEM_PROMPT, LEGAL_SALUD_STRATEGY_SYSTEM_PROMPT
 
 load_dotenv()
 
@@ -287,6 +288,21 @@ class LegalAnalyzer:
         )
         return json.loads(response.choices[0].message.content or "{}")
 
+    def _ask_json_with_system(self, *, prompt: str, system_prompt: str | None) -> dict[str, Any]:
+        if not self.client:
+            raise RuntimeError("OpenAI no está configurado en este entorno.")
+        messages: list[dict[str, str]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=0,
+        )
+        return json.loads(response.choices[0].message.content or "{}")
+
     def layer_1_fact_extraction(self, user_description: str, category: str | None = None) -> dict[str, Any]:
         if not self.client:
             return self._fact_fallback(user_description, category)
@@ -300,7 +316,12 @@ class LegalAnalyzer:
         {user_description}
         """
         try:
-            return self._ask_json(prompt)
+            problem_text = json.dumps(fact_data, ensure_ascii=False).lower()
+            is_health_case = any(token in problem_text for token in ("salud", "eps", "ips", "medic", "tratamiento", "cita"))
+            return self._ask_json_with_system(
+                prompt=prompt,
+                system_prompt=LEGAL_SALUD_DIAGNOSIS_SYSTEM_PROMPT if is_health_case else None,
+            )
         except Exception:
             return self._fact_fallback(user_description, category)
 
@@ -349,7 +370,10 @@ class LegalAnalyzer:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": LEGAL_SALUD_STRATEGY_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
                 temperature=0.3,
             )
             return response.choices[0].message.content or self._strategy_fallback(legal_match_data)
