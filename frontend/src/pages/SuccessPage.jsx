@@ -90,10 +90,69 @@ const StatusPill = ({ children, tone = 'default' }) => {
   return <span className={`px-3 py-1 rounded-full text-xs font-black ${styles[tone] || styles.default}`}>{children}</span>;
 };
 
-const completionRatio = (form) => {
+const completionRatio = ({ form, prompts, isThirdParty, uploadedCount, tutelaFlow }) => {
   const requiredFields = ['name', 'email', 'phone', 'document_number', 'city', 'department', 'address', 'concrete_request', 'case_story'];
+  if (isThirdParty) {
+    requiredFields.push('beneficiary_name', 'beneficiary_document', 'beneficiary_relationship');
+  }
+  if (tutelaFlow) {
+    requiredFields.push('prior_petition_same_cause');
+    if (String(form.prior_petition_same_cause || '').toLowerCase() === 'si') {
+      requiredFields.push('prior_petition_date', 'prior_petition_response');
+    }
+  }
+  for (const prompt of prompts || []) {
+    const fieldName = QUESTION_FIELD_MAP[prompt.id] || prompt.id;
+    if (fieldName && !requiredFields.includes(fieldName)) {
+      requiredFields.push(fieldName);
+    }
+  }
   const completed = requiredFields.filter((key) => String(form[key] || '').trim()).length;
-  return Math.round((completed / requiredFields.length) * 100);
+  const supportsCompleted = uploadedCount > 0 ? 1 : 0;
+  const total = requiredFields.length + 1;
+  return Math.round(((completed + supportsCompleted) / Math.max(1, total)) * 100);
+};
+
+const normalizePromptText = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const dedupePrompts = (prompts = []) => {
+  const seen = new Set();
+  const unique = [];
+  for (const item of prompts) {
+    const key = normalizePromptText(item?.question);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+  return unique;
+};
+
+const buildStrategicQuestions = (caseData, form) => {
+  const action = String(caseData?.case?.recommended_action || '').toLowerCase();
+  const category = String(caseData?.case?.category || '').toLowerCase();
+  const items = [];
+  if (category.includes('salud') || action.includes('tutela')) {
+    items.push(
+      { id: 'target_entity', question: 'Entidad exacta que incumple hoy (EPS o IPS/clinica)', why: 'Define contra quien se dirige la accion principal.', multiline: false },
+      { id: 'treatment_needed', question: 'Servicio exacto pendiente (terapia, cita, medicamento o cirugia)', why: 'Evita solicitudes ambiguas en el documento.', multiline: false },
+      { id: 'urgency_detail', question: 'Riesgo medico actual si esto sigue igual 2-4 semanas', why: 'Sustenta urgencia y perjuicio irremediable.', multiline: true },
+      { id: 'key_dates', question: 'Fechas clave: orden medica, autorizacion y ultimo reclamo', why: 'Permite linea de tiempo verificable.', multiline: true },
+    );
+  }
+  if (action.includes('desacato')) {
+    items.push(
+      { id: 'key_dates', question: 'Fecha del fallo y fecha del ultimo incumplimiento', why: 'Base minima para incidente de desacato.', multiline: true },
+      { id: 'prior_claim_result', question: 'Como incumplieron exactamente el fallo', why: 'Delimita hechos de incumplimiento.', multiline: true },
+    );
+  }
+  return items.filter((item) => !String(form[item.id] || '').trim());
 };
 
 const CodeCard = ({ label, value, subtle = false }) => (
@@ -162,7 +221,7 @@ const SuccessPage = () => {
   const paymentReferenceParam = params.get('reference');
   const caseIdParam = params.get('case_id');
   const publicTokenParam = params.get('public_token');
-  const prompts = useMemo(() => buildPromptList(caseData), [caseData]);
+  const prompts = useMemo(() => dedupePrompts(buildPromptList(caseData)), [caseData]);
   const requiredAttachments = caseData?.customer_guide?.required_attachments || [];
   const suggestedAttachments = useMemo(
     () => (requiredAttachments.length ? requiredAttachments : buildSuggestedAttachments(caseData)),
@@ -367,7 +426,17 @@ const SuccessPage = () => {
   const fallbackCaseId = caseData?.case?.id ? String(caseData.case.id).slice(0, 8).toUpperCase() : '';
   const unifiedTrackingCode = raffleCode || customerCaseCode || paymentReference || (fallbackCaseId ? `EXP-${fallbackCaseId}` : '');
   const tutelaFlow = isTutelaFlow(caseData);
-  const progress = completionRatio(form);
+  const uploadedSupportCount = (uploadedFiles?.length || 0) + intakeFiles.length;
+  const progress = completionRatio({
+    form,
+    prompts,
+    isThirdParty,
+    uploadedCount: uploadedSupportCount,
+    tutelaFlow,
+  });
+  const strategicQuestions = useMemo(() => buildStrategicQuestions(caseData, form), [caseData, form]);
+  const caseStatus = String(caseData?.case?.status || '').toLowerCase();
+  const isReadyForLegalTeam = ['pagado_en_revision', 'en_revision', 'entregado'].includes(caseStatus) || Boolean(successMessage);
 
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -430,6 +499,24 @@ const SuccessPage = () => {
                     <div className="bg-white/10 border border-white/20 inline-block px-6 py-3 rounded-2xl font-mono text-3xl font-black tracking-tighter">
                       {unifiedTrackingCode}
                     </div>
+                    <div className="mt-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const content = `Codigo rifa y expediente: ${unifiedTrackingCode}\nFecha: ${new Date().toLocaleString('es-CO')}\nRifa: ${RAFFLE_MONTH_LABEL}`;
+                          const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `codigo-rifa-${String(unifiedTrackingCode).replace(/\s+/g, '-')}.txt`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="inline-flex items-center rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-xs font-black text-white hover:bg-white/20 transition-colors"
+                      >
+                        Descargar codigo
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -449,9 +536,9 @@ const SuccessPage = () => {
                             {opsSummary || 'Estamos consolidando tu expediente para que nuestros especialistas elaboren tu documento.'}
                           </p>
                         </div>
-                        {opsStatus === 'sent' && <StatusPill tone="success">Enviado al equipo jurídico</StatusPill>}
-                        {opsStatus === 'error' && <StatusPill tone="danger">Sincronización con incidencia</StatusPill>}
-                        {!['sent', 'error'].includes(opsStatus) && <StatusPill>Pendiente de envío</StatusPill>}
+                        {isReadyForLegalTeam && <StatusPill tone="success">Listo para revisión jurídica</StatusPill>}
+                        {!isReadyForLegalTeam && opsStatus === 'error' && <StatusPill tone="danger">Sincronización con incidencia</StatusPill>}
+                        {!isReadyForLegalTeam && opsStatus !== 'error' && <StatusPill>Pendiente de completar</StatusPill>}
                       </div>
                     </div>
 
@@ -598,12 +685,46 @@ const SuccessPage = () => {
                       </>
                     )}
 
+                    {!!strategicQuestions.length && (
+                      <div className="space-y-6">
+                        <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-6">
+                          <p className="text-sm font-black uppercase tracking-wide text-emerald-700 mb-2">Preguntas clave para tu caso</p>
+                          <p className="text-sm text-emerald-700 font-medium">
+                            Estas respuestas son las mas utiles para que el documento quede solido y sin repreguntas innecesarias.
+                          </p>
+                        </div>
+                        {strategicQuestions.map((prompt) => (
+                          <div key={`strategic_${prompt.id}`} className="space-y-2">
+                            <label className="text-sm font-bold text-brand ml-1">{prompt.question}</label>
+                            {prompt.multiline ? (
+                              <textarea
+                                rows={3}
+                                className="input-field resize-none"
+                                placeholder="Escribe tu respuesta"
+                                value={form[prompt.id] || ''}
+                                onChange={(e) => handleFieldChange(prompt.id, e.target.value)}
+                              />
+                            ) : (
+                              <input
+                                type="text"
+                                className="input-field"
+                                placeholder="Escribe tu respuesta"
+                                value={form[prompt.id] || ''}
+                                onChange={(e) => handleFieldChange(prompt.id, e.target.value)}
+                              />
+                            )}
+                            {prompt.why && <p className="text-xs text-brand/50 font-medium">{prompt.why}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {!!prompts.length && (
                       <div className="space-y-6">
                         <div className="rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
-                          <p className="text-sm font-black uppercase tracking-wide text-brand mb-2">Información complementaria</p>
+                          <p className="text-sm font-black uppercase tracking-wide text-brand mb-2">Informacion complementaria</p>
                           <p className="text-sm text-brand/70 font-medium">
-                            Responde estas preguntas para que nuestros especialistas reciban el expediente completo y puedan elaborar tu documento sin demoras.
+                            Solo responde los bloques que apliquen en tu caso. Si ya respondiste arriba, puedes dejar en blanco los repetidos.
                           </p>
                         </div>
                         {prompts.map((prompt) => {
