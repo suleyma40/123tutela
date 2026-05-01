@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -814,6 +815,12 @@ def build_strategy_text(
     lowered_action = _lower(recommended_action)
     lowered_rights = _lower(rights_text)
     lowered_context = _lower(" ".join([diagnosis, treatment_needed, case_story, urgency_detail]))
+    description_text = _lower(facts.get("hechos_principales") or facts.get("problema_central") or "")
+
+    inferred_clinic_name = ""
+    clinic_match = re.search(r"(clinica|clínica|ips)\s+([a-z0-9áéíóúñ\-\.\s]{2,60})", f"{lowered_context} {description_text}")
+    if clinic_match:
+        inferred_clinic_name = clinic_match.group(0).strip(" .,:;")
     is_health_profile = any(token in f"{lowered_action} {lowered_rights}" for token in ("salud", "eps", "ips", "tutela", "desacato", "impugnacion"))
     if is_health_profile:
         severity = "RECLAMO VALIDO"
@@ -833,12 +840,17 @@ def build_strategy_text(
                 "servicio autorizado por eps pero sin agenda",
             )
         )
+        ips_primary_signal = ips_primary_signal or (
+            any(token in f"{lowered_context} {description_text}" for token in ("autorizo", "autorizó", "autorizada", "autorizado"))
+            and any(token in f"{lowered_context} {description_text}" for token in ("no agenda", "sin agenda", "sin cita", "no han agendado", "no agendo", "no agendó"))
+            and any(token in f"{lowered_context} {description_text}" for token in ("clinica", "clínica", "ips", "prestador"))
+        )
 
         responsible = eps_name or target_entity or "EPS"
         if "ips" in lowered_action:
-            responsible = ips_name or target_entity or "IPS/clinica"
+            responsible = ips_name or inferred_clinic_name or target_entity or "IPS/clinica"
         elif ips_primary_signal:
-            primary = ips_name or target_entity or "IPS/clinica"
+            primary = ips_name or inferred_clinic_name or target_entity or "IPS/clinica"
             secondary = eps_name or "EPS"
             responsible = f"{primary} (responsable principal) y {secondary} para cambio de prestador"
         elif "desacato" in lowered_action or "impugnacion" in lowered_action:
@@ -859,7 +871,7 @@ def build_strategy_text(
         )
         if ips_primary_signal:
             action_line = (
-                f"1) Tutela contra {ips_name or 'la IPS/clinica'} para que agende y ejecute las terapias sin mas demoras. "
+                f"1) Tutela contra {ips_name or inferred_clinic_name or 'la IPS/clinica'} para que agende y ejecute las terapias sin mas demoras. "
                 f"2) Derecho de peticion a {eps_name or 'la EPS'} solicitando cambio de prestador por incumplimiento de oportunidad."
             )
         urgency_reason = "hay afectacion actual de salud y cada dia sin solucion puede aumentar dolor, rigidez y perdida funcional."
