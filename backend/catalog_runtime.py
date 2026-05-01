@@ -125,6 +125,14 @@ PRODUCTS: tuple[Product, ...] = (
         detailed_description="Documento juridico para proteger intereses colectivos y reclamar intervencion judicial cuando la afectacion trasciende a una sola persona.",
         next_step_hint="Luego se hace seguimiento al proceso y a las actuaciones posteriores.",
     ),
+    Product(
+        code="pago_prueba",
+        name="Pago de prueba QA",
+        price_cop=10_000,
+        short_description="Producto interno para validar checkout en entorno real con monto minimo controlado.",
+        detailed_description="Usado exclusivamente por correos QA habilitados para verificar sesiones Wompi de bajo monto.",
+        next_step_hint="Despues de la validacion QA, continuar con flujo normal del producto real.",
+    ),
 )
 
 PRODUCT_MAP = {product.code: product for product in PRODUCTS}
