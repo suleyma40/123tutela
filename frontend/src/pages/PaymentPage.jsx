@@ -86,6 +86,28 @@ const PaymentPage = () => {
       document.body.appendChild(script);
     });
 
+  const redirectAfterWidget = ({ checkout, widgetResult }) => {
+    const tx =
+      widgetResult?.transaction?.id ||
+      widgetResult?.transactionId ||
+      widgetResult?.id ||
+      '';
+    const reference =
+      widgetResult?.transaction?.reference ||
+      widgetResult?.reference ||
+      checkout?.reference ||
+      '';
+    if (tx) {
+      navigate(`/pago/resultado?id=${encodeURIComponent(String(tx))}`);
+      return;
+    }
+    if (reference) {
+      navigate(`/pago/resultado?reference=${encodeURIComponent(String(reference))}`);
+      return;
+    }
+    navigate('/pago/resultado');
+  };
+
   const handlePayment = async () => {
     if (!guestCase) return;
     setLoading(true);
@@ -98,7 +120,8 @@ const PaymentPage = () => {
         case_id: guestCase.caseId,
         recommended_action: guestCase.recommendedAction,
       });
-      await launchWidget(response.data.checkout);
+      const widgetResult = await launchWidget(response.data.checkout);
+      redirectAfterWidget({ checkout: response.data.checkout, widgetResult });
     } catch (err) {
       setError(extractError(err, 'No fue posible iniciar el pago. Intenta de nuevo.'));
     } finally {
@@ -237,7 +260,8 @@ const PaymentPage = () => {
                         public_token: guestCase.publicToken,
                         product_code: 'pago_prueba',
                       });
-                      await launchWidget(sess.data.checkout);
+                      const widgetResult = await launchWidget(sess.data.checkout);
+                      redirectAfterWidget({ checkout: sess.data.checkout, widgetResult });
                     } catch (e) {
                       setError(`Error en pago real de prueba: ${extractError(e)}`);
                     } finally {
