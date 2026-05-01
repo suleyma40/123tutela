@@ -184,6 +184,16 @@ ADDON_ORDER_CONFIG = {
 }
 
 
+def _require_public_health_scope(category: str) -> str:
+    normalized = normalize_guest_category(category)
+    if normalized != "Salud":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="En esta etapa solo estan habilitados los casos de salud.",
+        )
+    return normalized
+
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -1831,7 +1841,7 @@ def get_public_generated_file(relative_path: str) -> FileResponse:
 
 @app.post("/public/leads/diagnosis", response_model=GuestDiagnosisResponse, status_code=status.HTTP_201_CREATED)
 def create_guest_lead(payload: GuestLeadCreateRequest) -> GuestDiagnosisResponse:
-    category = normalize_guest_category(payload.category)
+    category = _require_public_health_scope(payload.category)
     form_data = dict(payload.form_data or {})
     if payload.entity_name:
         form_data.setdefault("target_entity", payload.entity_name)
@@ -1981,23 +1991,42 @@ def create_guest_wompi_checkout_session(
     case = _get_guest_case_or_404(case_id, payload.public_token)
     if case.get("payment_status") == "pagado":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este caso ya tiene un pago aprobado.")
-    amount_in_cents = amount_cop_to_cents(BASE_SERVICE_PRICE_COP)
-    reference = build_reference(case_id, SERVICE_PRODUCT_CODE)
+
+    product_code = SERVICE_PRODUCT_CODE
+    product_name = SERVICE_PRODUCT_NAME
+    product_description = "Diagnostico, redaccion humana y guia detallada HazloPorMi en hasta 24 horas habiles."
+    amount_cop = BASE_SERVICE_PRICE_COP
+
+    product_code_override = str(payload.product_code or "").strip().lower()
+    if product_code_override:
+        email = str(case.get("usuario_email") or "").strip().lower()
+        if email not in settings.qa_test_emails:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Override de producto no permitido para este correo.")
+        override_product = get_product(product_code_override)
+        if not override_product:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Producto de prueba no encontrado.")
+        product_code = override_product.code
+        product_name = override_product.name
+        product_description = override_product.short_description
+        amount_cop = int(override_product.price_cop)
+
+    amount_in_cents = amount_cop_to_cents(amount_cop)
+    reference = build_reference(case_id, product_code)
     checkout = build_checkout_payload(
         reference=reference,
         amount_in_cents=amount_in_cents,
-        product_name=SERVICE_PRODUCT_NAME,
-        description="Diagnostico, redaccion humana y guia detallada HazloPorMi en hasta 24 horas habiles.",
+        product_name=product_name,
+        description=product_description,
         customer_email=case["usuario_email"],
     )
     order = repository.create_payment_order(
         case_id=case_id,
         user_id=None,
         environment=settings.wompi_environment,
-        product_code=SERVICE_PRODUCT_CODE,
-        product_name=SERVICE_PRODUCT_NAME,
+        product_code=product_code,
+        product_name=product_name,
         include_filing=False,
-        amount_cop=BASE_SERVICE_PRICE_COP,
+        amount_cop=amount_cop,
         amount_in_cents=amount_in_cents,
         currency="COP",
         reference=reference,
@@ -2013,7 +2042,7 @@ def create_guest_wompi_checkout_session(
         event_type="guest_payment_order_created",
         actor_type="guest",
         actor_id=None,
-        payload={"reference": reference, "amount_cop": BASE_SERVICE_PRICE_COP},
+        payload={"reference": reference, "amount_cop": amount_cop, "product_code": product_code},
     )
     return GuestCheckoutSessionResponse(public_token=payload.public_token, order=_normalize_payment_order(order), checkout=checkout)
 
@@ -2080,7 +2109,7 @@ def update_public_case_intake(case_id: str, payload: GuestIntakeUpdateRequest) -
     if case.get("payment_status") != "pagado":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Primero debes completar el pago.")
 
-    category = normalize_guest_category(case.get("categoria") or case.get("category") or "")
+    category = _require_public_health_scope(case.get("categoria") or case.get("category") or "")
     prior_actions = [item["id"] for item in (case.get("prerequisites") or []) if item.get("completed")]
     attachment_records = repository.list_files_for_case(case_id)
     attachment_context = build_attachment_context(attachment_records)
@@ -2409,6 +2438,7 @@ def analysis_preview(
     payload: AnalysisPreviewRequest,
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> AnalysisPreviewResponse:
+    category = _require_public_health_scope(payload.category)
     attachment_records: list[dict[str, Any]] = []
     for file_id in payload.attachment_ids:
         file_record = repository.get_file_by_id(file_id)
@@ -2423,11 +2453,11 @@ def analysis_preview(
     enriched_form_data = _merge_form_with_attachment_suggestions(
         form_data=payload.form_data or {},
         description=enriched_description,
-        category=payload.category,
+        category=category,
         attachment_context=attachment_context,
     )
 
-    result = analyzer.full_analysis(enriched_description, category=payload.category)
+    result = analyzer.full_analysis(enriched_description, category=category)
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
 
@@ -2435,18 +2465,18 @@ def analysis_preview(
         existing_facts=result["facts"],
         form_data=enriched_form_data,
         description=enriched_description,
-        category=payload.category,
+        category=category,
     )
 
     workflow = infer_workflow(
-        category=payload.category,
+        category=category,
         description=enriched_description,
         facts=result["facts"],
         legal_analysis=result["legal_analysis"],
         prior_actions=payload.prior_actions,
     )
     routing = build_routing(
-        category=payload.category,
+        category=category,
         city=payload.city,
         department=payload.department,
         facts=result["facts"],
@@ -2460,7 +2490,7 @@ def analysis_preview(
         warnings=workflow["warnings"],
     )
     intake_review = validate_intake(
-        category=payload.category,
+        category=category,
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
         description=enriched_description,
@@ -2468,7 +2498,7 @@ def analysis_preview(
         prior_actions=payload.prior_actions,
     )
     preview_gate = validate_submission_readiness(
-        category=payload.category,
+        category=category,
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
         description=enriched_description,
@@ -2488,7 +2518,7 @@ def analysis_preview(
     result["facts"]["attachment_intelligence"] = attachment_context
     result["facts"]["autofill_suggestions"] = enriched_form_data.get("_autofill") or {}
     result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
-        category=payload.category,
+        category=category,
         description=enriched_description,
         workflow=workflow,
         facts=result["facts"],
@@ -2531,6 +2561,7 @@ def analysis_preview(
 @app.post("/cases", response_model=CaseDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depends(get_current_user)) -> CaseDetailResponse:
     _require_profile(current_user)
+    category = _require_public_health_scope(payload.category)
 
     attachment_records: list[dict[str, Any]] = []
     for file_id in payload.attachment_ids:
@@ -2546,11 +2577,11 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
     enriched_form_data = _merge_form_with_attachment_suggestions(
         form_data=payload.form_data or {},
         description=enriched_description,
-        category=payload.category,
+        category=category,
         attachment_context=attachment_context,
     )
 
-    result = analyzer.full_analysis(enriched_description, category=payload.category)
+    result = analyzer.full_analysis(enriched_description, category=category)
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
 
@@ -2558,18 +2589,18 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         existing_facts=result["facts"],
         form_data=enriched_form_data,
         description=enriched_description,
-        category=payload.category,
+        category=category,
     )
 
     workflow = infer_workflow(
-        category=payload.category,
+        category=category,
         description=enriched_description,
         facts=result["facts"],
         legal_analysis=result["legal_analysis"],
         prior_actions=payload.prior_actions,
     )
     routing = build_routing(
-        category=payload.category,
+        category=category,
         city=payload.city,
         department=payload.department,
         facts=result["facts"],
@@ -2583,7 +2614,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         warnings=workflow["warnings"],
     )
     intake_review = validate_intake(
-        category=payload.category,
+        category=category,
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
         description=enriched_description,
@@ -2591,7 +2622,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         prior_actions=payload.prior_actions,
     )
     preview_gate = validate_submission_readiness(
-        category=payload.category,
+        category=category,
         workflow_type=workflow["workflow_type"],
         recommended_action=workflow["recommended_action"],
         description=enriched_description,
@@ -2611,7 +2642,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
     result["facts"]["attachment_intelligence"] = attachment_context
     result["facts"]["autofill_suggestions"] = enriched_form_data.get("_autofill") or {}
     result["facts"], result["legal_analysis"], routing = _enrich_architecture_outputs(
-        category=payload.category,
+        category=category,
         description=enriched_description,
         workflow=workflow,
         facts=result["facts"],
@@ -2643,7 +2674,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         department=payload.department,
         address=current_user["address"],
         workflow_type=workflow["workflow_type"],
-        category=payload.category,
+        category=category,
         description=enriched_description,
         recommended_action=workflow["recommended_action"],
         strategy_text=strategy,

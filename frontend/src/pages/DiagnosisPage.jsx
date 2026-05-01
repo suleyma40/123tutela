@@ -67,7 +67,7 @@ const DiagnosisPage = () => {
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Diagnostico inicial</p>
                 <h1 className="text-4xl md:text-5xl leading-none font-black text-slate-900">Cuentanos tu caso</h1>
                 <p className="text-slate-500 mt-3 max-w-2xl">
-                  Revisamos lo que paso, te mostramos la ruta correcta y luego decides si activas tu documento por {LAUNCH_PRICE_LABEL}.
+                  Revisamos tu caso de salud, te mostramos si la ruta correcta es peticion, tutela, impugnacion o desacato, y luego decides si activas el documento por {LAUNCH_PRICE_LABEL}.
                 </p>
               </div>
             </div>
@@ -125,7 +125,7 @@ const DiagnosisPage = () => {
 
               <div className="grid md:grid-cols-2 gap-6">
                 <label className="grid gap-2">
-                  <span className="text-sm font-bold text-slate-700">Categoria</span>
+                  <span className="text-sm font-bold text-slate-700">Alcance habilitado</span>
                   <select
                     className="w-full rounded-2xl border border-slate-200 bg-[#FCFDFF] px-4 py-4 outline-none"
                     value={form.category}
@@ -186,14 +186,14 @@ const DiagnosisPage = () => {
                   <div className="w-11 h-11 rounded-2xl bg-white/10 grid place-items-center shrink-0"><HeartPulse size={20} /></div>
                   <div>
                     <p className="font-black">Diagnostico inmediato</p>
-                    <p className="text-sm text-white/70 mt-1">Te mostramos si conviene tutela, peticion, impugnacion o desacato.</p>
+                    <p className="text-sm text-white/70 mt-1">Te mostramos la ruta correcta dentro del bloque de salud: peticion, tutela, impugnacion o desacato.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <div className="w-11 h-11 rounded-2xl bg-white/10 grid place-items-center shrink-0"><FileText size={20} /></div>
                   <div>
                     <p className="font-black">Documento por {LAUNCH_PRICE_LABEL}</p>
-                    <p className="text-sm text-white/70 mt-1">Mismo precio para cualquier documento del catalogo activo de salud.</p>
+                    <p className="text-sm text-white/70 mt-1">Mismo precio para cualquiera de los cuatro tramites hoy habilitados en salud.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -211,7 +211,7 @@ const DiagnosisPage = () => {
               <div className="grid gap-4">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 size={18} className="text-[#36D399] mt-1 shrink-0" />
-                  <p className="text-sm text-slate-600">Primero ves la ruta recomendada. No compras a ciegas.</p>
+                  <p className="text-sm text-slate-600">Primero ves la ruta recomendada para tu caso de salud. No compras a ciegas.</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle2 size={18} className="text-[#36D399] mt-1 shrink-0" />

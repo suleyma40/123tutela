@@ -246,6 +246,7 @@ class GuestDiagnosisResponse(BaseModel):
 
 class GuestCheckoutSessionRequest(BaseModel):
     public_token: str = Field(min_length=12, max_length=120)
+    product_code: str | None = Field(default=None, min_length=3, max_length=80)
 
 
 class GuestCheckoutSessionResponse(BaseModel):

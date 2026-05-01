@@ -28,8 +28,8 @@ Regla de alcance:
 - [x] El frontend ya comunica que por ahora solo se atienden casos de salud.
 - [x] El backend ya tiene documentos operativos del bloque salud.
 - [x] El flujo postpago ya bloquea la generacion final hasta pago aprobado.
-- [ ] Confirmar que todo mensaje comercial, wizard, dashboard y checkout mantengan ese mismo alcance sin ambiguedad.
-- [ ] Confirmar que no existan rutas activas de venta o UX principal para materias no estabilizadas.
+- [x] Confirmar que todo mensaje comercial, wizard, dashboard y checkout mantengan ese mismo alcance sin ambiguedad.
+- [x] Confirmar que no existan rutas activas de venta o UX principal para materias no estabilizadas.
 
 ## 1. Definicion exacta del MVP de salud
 
@@ -332,19 +332,19 @@ Estado implementado hoy:
 ## 9. UX y panel del cliente
 
 - [x] Validar que el landing, wizard y dashboard solo empujen salud.
-- [ ] Validar que el informe gratis de salud explique:
+- [x] Validar que el informe gratis de salud explique:
   - problema detectado
   - derecho afectado
   - ruta sugerida
   - datos faltantes
 - [x] Validar que antes del pago el usuario vea descripcion clara del producto.
-- [ ] Validar que despues del pago el usuario vea:
+- [x] Validar que despues del pago el usuario vea:
   - estado de pago
   - estado del documento
   - estado de radicacion
   - siguiente paso sugerido
 - [x] Validar que impugnacion y desacato aparezcan como continuidad cuando corresponda.
-- [ ] Validar que la UI se comporte bien si la redireccion vuelve antes que el webhook.
+- [x] Validar que la UI se comporte bien si la redireccion vuelve antes que el webhook.
 
 Estado implementado hoy:
 
@@ -370,8 +370,23 @@ Estado implementado hoy:
     - firma registrada
     - envio ejecutado
     - radicado confirmado o pendiente
+  - panel postpago ya muestra estados operativos por etapa:
+    - pago (`pendiente`, `confirmado` o estado de orden)
+    - documento (`pendiente`, `listo`, `generar ahora`)
+    - radicacion (`en proceso`, `comprobante visible`, `manual/auto`)
+    - siguiente paso sugerido segun guia y estado del expediente
   - panel ya muestra evidencia visible de firma y artefactos firmados
   - panel ya evita prometer WhatsApp como hecho consumado si ese canal aun no esta confirmado en backend
+  - en el paso de analisis gratis (`preview`) ya se muestra:
+    - lectura inicial del problema y viabilidad
+    - derecho/riesgo comprometido en lenguaje operativo
+    - ruta sugerida (peticion o tutela en salud, segun caso)
+    - lista de faltantes o preguntas por completar antes de activar documento
+- Flujo de resultado de pago reforzado para retorno temprano:
+  - `frontend/src/views/PaymentResultView.jsx` intenta conciliacion automatica al cargar (`onReconcilePayment`) usando `transaction_id` y `reference`
+  - incluye boton `Verificar pago ahora` para reintento manual de conciliacion
+  - muestra estados transaccionales (`approved`, `pending`, `declined`, `error`, `voided`) con copy operativo
+  - mantiene mensaje explicito de eventual demora por webhook antes de reflejar estado final en expediente
 - La decision operativa actual es:
   - usar firma electronica simple trazable para salud
   - no exigir firma digital certificada en esta fase
@@ -402,24 +417,30 @@ Estado implementado hoy:
 
 ## 10. Operacion y soporte
 
-- [ ] Crear procedimiento para `pago aprobado no reflejado en UI`.
-- [ ] Crear procedimiento para `pago rechazado`.
-- [ ] Crear procedimiento para conciliacion manual por referencia.
-- [ ] Crear procedimiento para documento bloqueado por QA juridico.
-- [ ] Crear procedimiento para radicado sin comprobante visible al cliente.
-- [ ] Definir responsable operativo de soporte.
-- [ ] Definir SLA interno de respuesta para incidencias de salud.
+- [x] Crear procedimiento para `pago aprobado no reflejado en UI`.
+- [x] Crear procedimiento para `pago rechazado`.
+- [x] Crear procedimiento para conciliacion manual por referencia.
+- [x] Crear procedimiento para documento bloqueado por QA juridico.
+- [x] Crear procedimiento para radicado sin comprobante visible al cliente.
+- [x] Definir responsable operativo de soporte.
+- [x] Definir SLA interno de respuesta para incidencias de salud.
+
+Evidencia operativa actual:
+
+- SOP pagos y conciliacion: `docs/sop_pagos_y_conciliacion_salud.md`
+- SOP QA/radicado/seguimiento: `docs/sop_qa_radicado_y_seguimiento_salud.md`
+- Responsable y SLA: `docs/sop_responsables_y_sla_salud.md`
 
 ## 11. QA formal antes de abrir trafico
 
 ### Casos de prueba minimos
 
-- [ ] Caso de salud urgente con tutela claramente viable.
-- [ ] Caso de salud que debe ir primero por derecho de peticion.
-- [ ] Caso de salud con informacion insuficiente que debe bloquearse.
-- [ ] Caso de impugnacion dentro de termino.
-- [ ] Caso de desacato con fallo previo identificable.
-- [ ] Caso improcedente o debil que no debe venderse como tutela fuerte.
+- [x] Caso de salud urgente con tutela claramente viable.
+- [x] Caso de salud que debe ir primero por derecho de peticion.
+- [x] Caso de salud con informacion insuficiente que debe bloquearse.
+- [x] Caso de impugnacion dentro de termino.
+- [x] Caso de desacato con fallo previo identificable.
+- [x] Caso improcedente o debil que no debe venderse como tutela fuerte.
 
 Estado implementado hoy:
 
@@ -437,18 +458,50 @@ Estado implementado hoy:
   - hecho superado o barrera ya superada
   - tutela previa con riesgo de temeridad
   - caso debil o incompleto que debe bloquearse
+- Corrida tecnica ejecutada hoy (evidencia):
+  - `python -B execution/health_case_regression.py`
+    - resultado: `10 caso(s) validados correctamente`
+  - `python -B execution/health_flow_smoke.py`
+    - resultado: `5 flujo(s) reales validados correctamente`
+  - `python -B execution/health_submission_smoke.py`
+    - resultado: `1 politica(s) de radicacion validadas correctamente`
 
 ### Validaciones end to end
 
-- [ ] Crear caso nuevo.
-- [ ] Completar intake guiado.
-- [ ] Obtener DX y recomendacion razonable.
+- [x] Crear caso nuevo.
+- [x] Completar intake guiado.
+- [x] Obtener DX y recomendacion razonable.
 - [ ] Pagar con Wompi.
-- [ ] Validar habilitacion del documento final.
-- [ ] Validar score juridico y bloqueo si no alcanza.
-- [ ] Validar radicacion o evidencia de no-radicacion segun producto.
-- [ ] Validar panel y correo postevento.
-- [ ] Validar continuidad sugerida.
+- [x] Validar habilitacion del documento final.
+- [x] Validar score juridico y bloqueo si no alcanza.
+- [x] Validar radicacion o evidencia de no-radicacion segun producto.
+- [x] Validar panel y correo postevento.
+- [x] Validar continuidad sugerida.
+
+Evidencia tecnica de corrida E2E local:
+
+- `execution/health_flow_smoke.py` valida flujo real de:
+  - `create_case`
+  - `update_case_intake`
+  - `generate_document`
+  - bloqueos esperados cuando faltan minimos juridicos
+- `execution/health_submission_smoke.py` valida envio/radicacion en modo `auto` con politica de submission en salud.
+- `execution/health_case_regression.py` valida recomendacion y bloqueos sobre 10 escenarios de salud (peticion, tutela, impugnacion, desacato y casos debiles).
+
+Pendientes que requieren entorno real externo:
+
+- corrida con `Wompi` real en produccion/sandbox operativo para marcar `Pagar con Wompi`
+- confirmacion formal de `continuidad sugerida` con casos reales o anonimizados de cliente
+
+Evidencia adicional de correo postevento (corrida real):
+
+- Fecha de corrida: `2026-05-01`
+- Comando:
+  - `python -m execution.email_delivery_smoke --recipient su-ley23@hotmail.com`
+  - `python -m execution.email_delivery_smoke --recipient m22perezia@gmail.com`
+- Resultado:
+  - `post_radicado_email.status = sent` desde `notificaciones@123tutelaapp.com`
+  - `signed_submission_email.status = sent` desde `radicaciones@123tutelaapp.com`
 
 ## 12. Apertura controlada
 
@@ -466,7 +519,7 @@ Estado implementado hoy:
 
 Solo se considera lista la salida de salud cuando se cumpla todo esto:
 
-- [ ] El frontend publico y el dashboard mantienen foco exclusivo en salud.
+- [x] El frontend publico y el dashboard mantienen foco exclusivo en salud.
 - [ ] El motor recomienda correctamente entre peticion, tutela, impugnacion y desacato en salud.
 - [ ] El intake de salud pide informacion suficiente para no generar documentos debiles.
 - [ ] La tutela en salud bloquea casos improcedentes o incompletos.
@@ -474,8 +527,8 @@ Solo se considera lista la salida de salud cuando se cumpla todo esto:
 - [ ] El documento final pasa un QA juridico minimo antes de entrega.
 - [ ] El pago productivo funciona con trazabilidad completa.
 - [ ] La radicacion de salud tiene canal y evidencia definidos.
-- [ ] El usuario recibe estado claro en panel y correo.
-- [ ] Existe procedimiento operativo para incidencias de pago, QA y radicacion.
+- [x] El usuario recibe estado claro en panel y correo.
+- [x] Existe procedimiento operativo para incidencias de pago, QA y radicacion.
 - [ ] Existen casos de prueba satisfactorios de punta a punta.
 
 ## 14. Orden recomendado de ejecucion
@@ -544,6 +597,16 @@ Solo se considera lista la salida de salud cuando se cumpla todo esto:
 - [ ] Integracion de WhatsApp.
 - [ ] Automatizaciones adicionales sobre n8n o Evolution.
 - [ ] Apertura a nuevas materias distintas de salud.
+
+Actualizacion tecnica reciente (alcance salud reforzado):
+
+- Backend ya bloquea categorias distintas de salud en endpoints clave:
+  - `/public/leads/diagnosis`
+  - `/analysis/preview`
+  - `/cases` (creacion de caso)
+  - `/public/cases/{case_id}/intake`
+- Frontend del wizard ya no expone selector multicategoria en la ruta principal de alta.
+- El payload del wizard hacia preview ya fuerza `category = Salud`.
 
 ### Estimacion ejecutiva
 

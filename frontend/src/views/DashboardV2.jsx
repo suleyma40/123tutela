@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Briefcase, CreditCard, FileText, HelpCircle, Lay
 
 import { api } from "../lib/api";
 import { Badge, Button, Field, SessionCard, TextArea, TextInput } from "../ui";
-import { ACTIVE_CASE_CATEGORIES, C } from "../theme";
+import { C } from "../theme";
 
 const priorActionMap = {
   Salud: [
@@ -977,12 +977,14 @@ const getActiveFlowStep = (item) => {
 
 const buildWritingGuide = (category) => {
   const base = {
-    title: "Que debes contar para que el documento salga bien",
+    title: "Para salud o tutela por salud, cuenta esto",
     bullets: [
-      "Que paso exactamente y desde cuando.",
-      "A que entidad, empresa o persona le reclamas.",
-      "Que pediste antes y que te respondieron, si hubo respuesta.",
-      "Que necesitas que quede ordenado o resuelto.",
+      "Diagnostico, medicamento, examen o procedimiento pendiente.",
+      "Desde cuando la EPS o IPS no responde, niega o interrumpe el servicio.",
+      "Orden medica, formula o incapacidad si existe.",
+      "Si el tratamiento se interrumpio, explica que pasa hoy por esa suspension.",
+      "Si el paciente es menor, embarazada, tiene discapacidad o enfermedad grave, dilo expresamente.",
+      "Como te afecta hoy: dolor, riesgo, suspension del tratamiento, empeoramiento o minimo vital.",
     ],
   };
   if (category === "Salud") {
@@ -1444,13 +1446,14 @@ const shrinkPreviewDescription = (text, maxLength = 5800) => {
 };
 
 const buildPreviewPayload = ({ form, previewDescription, tempFiles, attachmentIds = [], fallbackCity = "", fallbackDepartment = "" }) => {
+  const healthForm = { ...form, category: "Salud" };
   const payload = {
-    category: String(form.category || "Salud").trim(),
-    city: String(form.city || fallbackCity || "").trim(),
-    department: String(form.department || fallbackDepartment || "").trim(),
+    category: "Salud",
+    city: String(healthForm.city || fallbackCity || "").trim(),
+    department: String(healthForm.department || fallbackDepartment || "").trim(),
     description: String(previewDescription || "").trim(),
-    prior_actions: Array.isArray(form.prior_actions) ? form.prior_actions.filter(Boolean) : [],
-    form_data: { ...form },
+    prior_actions: Array.isArray(healthForm.prior_actions) ? healthForm.prior_actions.filter(Boolean) : [],
+    form_data: healthForm,
     attachment_ids: (
       Array.isArray(attachmentIds) && attachmentIds.length
         ? attachmentIds
@@ -5330,7 +5333,7 @@ export default function DashboardV2(props) {
             Dinos que paso y te guiamos paso a paso.
           </h2>
           <p style={{ marginTop: 10, color: C.textMuted, maxWidth: 760 }}>
-            Primero completas tus datos personales. Luego nos cuentas el caso con preguntas simples. Despues ves el analisis gratis, confirmas el expediente y solo al final decides si pagas el documento.
+            Primero completas tus datos personales. Luego nos cuentas el caso de salud con preguntas simples. Despues ves el analisis gratis, confirmas el expediente y solo al final decides si pagas el documento correcto.
           </p>
         </div>
         {(form.category === "Salud" || normalizeAction(form.recommended_action) === "accion de tutela") && (
@@ -5367,7 +5370,7 @@ export default function DashboardV2(props) {
           <StepShell
             stepNumber={1}
             title="Tus datos personales"
-            subtitle="Se usan en la tutela, la carta, el derecho de peticion y el correo de radicacion."
+            subtitle="Se usan en el documento de salud, el expediente y el correo de radicacion."
             onNext={() => setWizardStep(2)}
             nextDisabled={!profileReady}
             nextLabel="Continuar al analisis"
@@ -5439,7 +5442,7 @@ export default function DashboardV2(props) {
             )}
             <div className="glass-card" style={{ padding: 18, background: "#F8FAFD", display: "grid", gap: 10 }}>
               <div style={{ fontWeight: 800, color: C.text }}>Procedimiento simple</div>
-              <div style={{ color: C.textMuted }}>1. Elige el tipo de problema. 2. Explica que paso. 3. Responde solo las preguntas que aparezcan. 4. Genera el analisis gratis.</div>
+              <div style={{ color: C.textMuted }}>1. Confirma el alcance en salud. 2. Explica que paso. 3. Responde solo las preguntas que aparezcan. 4. Genera el analisis gratis.</div>
             </div>
             {form.category === "Salud" && (
               <div className="glass-card" style={{ padding: 18, background: "#EEF4FF", border: "1px solid #BFDBFE", display: "grid", gap: 12 }}>
@@ -5574,20 +5577,15 @@ export default function DashboardV2(props) {
                 </div>
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              {ACTIVE_CASE_CATEGORIES.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => setForm((current) => ({ ...current, category: item.label, prior_actions: [] }))}
-                  style={{ textAlign: "left", padding: 16, borderRadius: 18, border: form.category === item.label ? `2px solid ${item.color}` : `1px solid ${C.border}`, background: form.category === item.label ? `${item.color}15` : C.card }}
-                >
-                  <div style={{ fontWeight: 800, color: C.text }}>{item.title}</div>
-                  <div style={{ color: C.textMuted, marginTop: 6, fontSize: 14 }}>{item.desc}</div>
-                </button>
-              ))}
+            <div className="glass-card" style={{ padding: 18, background: "#F0FDF4", border: "1px solid #BBF7D0", display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#15803D" }}>ALCANCE HABILITADO</div>
+              <div style={{ color: C.text, fontWeight: 800 }}>En esta salida solo estamos abriendo casos de salud.</div>
+              <div style={{ color: C.textMuted, lineHeight: 1.6 }}>
+                La app decide dentro de salud si corresponde derecho de peticion, accion de tutela, impugnacion o desacato. No estamos abriendo otras materias desde este flujo.
+              </div>
             </div>
             <div style={{ color: C.textMuted, fontSize: 13 }}>
-              Por ahora solo estamos habilitando casos de salud mientras terminamos de estabilizar los demas bloques.
+              Si tu problema no es de salud, este flujo todavia no debe usarse para abrir ese caso.
             </div>
             <div className="glass-card" style={{ padding: 18, background: "#FCFDFF", display: "grid", gap: 10 }}>
               <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted }}>{writingGuide.title.toUpperCase()}</div>
@@ -5597,15 +5595,11 @@ export default function DashboardV2(props) {
                 ))}
               </div>
             </div>
-            <Field label={form.category === "Salud" ? "Primer relato para que el agente arranque" : "Explica el caso con detalle"}>
+            <Field label="Primer relato para que el agente arranque">
               <TextArea
                 value={form.description}
                 onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder={
-                  form.category === "Salud"
-                    ? "Escribe en tus palabras que está pasando. El agente seguirá preguntando una cosa a la vez, incluso diagnóstico, barrera de la EPS, urgencia y gestión previa."
-                    : "Cuenta que paso, desde cuando, con quien, que pediste antes, que pruebas tienes y que solucion necesitas."
-                }
+                placeholder="Escribe en tus palabras que esta pasando. El agente seguira preguntando una cosa a la vez, incluso diagnostico, barrera de la EPS, urgencia y gestion previa."
               />
             </Field>
             <GuidedIntakeFields

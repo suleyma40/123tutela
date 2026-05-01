@@ -98,7 +98,7 @@ const PaymentPage = () => {
 
             <h1 className="mt-6 text-4xl md:text-5xl font-black leading-none">Activa tu documento</h1>
             <p className="mt-4 text-white/72 text-lg leading-7">
-              Ya tienes una ruta recomendada. Activa tu documento con pago seguro y, despues del pago, completa tus datos y anexa soportes para que el equipo experto lo elabore.
+              Ya tienes una ruta recomendada dentro del bloque de salud. Activa tu documento con pago seguro y, despues del pago, completa tus datos y anexa soportes para que el equipo experto lo elabore.
             </p>
 
             <div className="mt-8 rounded-[24px] border border-white/10 bg-white/5 p-6 relative overflow-hidden">
@@ -122,7 +122,7 @@ const PaymentPage = () => {
             <div className="grid gap-4 mt-8">
               <div className="flex items-start gap-3">
                 <CheckCircle2 size={18} className="text-[#36D399] mt-1 shrink-0" />
-                <p className="text-sm text-white/72">Documento legal elaborado por especialistas, listo para presentar.</p>
+                <p className="text-sm text-white/72">Documento de salud elaborado por especialistas, listo para presentar.</p>
               </div>
               <div className="flex items-start gap-3">
                 <ShieldCheck size={18} className="text-[#19B7FF] mt-1 shrink-0" />
@@ -138,7 +138,7 @@ const PaymentPage = () => {
           <section className="rounded-[28px] border border-slate-200 bg-white p-8 md:p-10 shadow-[0_18px_55px_rgba(18,35,61,0.06)]">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400 mb-3">Checkout</p>
             <h2 className="text-4xl font-black leading-none">{LAUNCH_PRICE_LABEL}</h2>
-            <p className="text-slate-500 mt-3">Precio unico para cualquier documento del catalogo activo de salud.</p>
+            <p className="text-slate-500 mt-3">Precio unico para cualquiera de los cuatro tramites hoy habilitados en salud.</p>
 
             <div className="grid gap-4 mt-8">
               <div className="rounded-[22px] border border-slate-200 bg-[#FCFDFF] p-5">
@@ -147,7 +147,7 @@ const PaymentPage = () => {
                   <strong>Gratis</strong>
                 </div>
                 <div className="flex justify-between gap-4 text-sm mt-3">
-                  <span className="text-slate-500">Documento</span>
+                  <span className="text-slate-500">Documento de salud recomendado</span>
                   <strong>{LAUNCH_PRICE_LABEL}</strong>
                 </div>
                 <div className="flex justify-between gap-4 text-sm mt-3">
@@ -195,35 +195,58 @@ const PaymentPage = () => {
             </button>
 
             {(import.meta.env.DEV || guestCase.email?.trim().toLowerCase() === 'su-ley23@hotmail.com' || guestCase.email?.trim().toLowerCase() === 'mariibpa25@gmail.com') && (
-              <button
-                onClick={async () => {
-                  setLoading(true);
-                  setError('');
-                  try {
-                    const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, { public_token: guestCase.publicToken });
-                    const ref = sess.data.checkout.reference;
-                    await api.post(`/public/payments/simulate`, {
-                      transaction_id: `simulated_${ref}`,
-                      reference: ref,
-                      public_token: guestCase.publicToken,
-                    });
-                    navigate(`/pago/resultado?id=simulated_${ref}`);
-                  } catch (e) {
-                    const msg = extractError(e);
-                    if (msg && msg.toLowerCase().includes('pago aprobado')) {
-                      navigate('/pago/resultado?simulated=true');
-                    } else {
-                      setError(`Error en simulacion: ${msg}`);
+              <>
+                <button
+                  onClick={async () => {
+                    setLoading(true);
+                    setError('');
+                    try {
+                      const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, {
+                        public_token: guestCase.publicToken,
+                        product_code: 'pago_prueba',
+                      });
+                      await launchWidget(sess.data.checkout);
+                    } catch (e) {
+                      setError(`Error en pago real de prueba: ${extractError(e)}`);
+                    } finally {
+                      setLoading(false);
                     }
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                disabled={loading}
-                className="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-800 px-6 py-4 text-sm font-black text-white hover:bg-slate-700 transition-colors disabled:opacity-60"
-              >
-                Simular Pago (Modo Prueba)
-              </button>
+                  }}
+                  disabled={loading}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-700 px-6 py-4 text-sm font-black text-white hover:bg-emerald-600 transition-colors disabled:opacity-60"
+                >
+                  Pagar prueba real ($10.000)
+                </button>
+                <button
+                  onClick={async () => {
+                    setLoading(true);
+                    setError('');
+                    try {
+                      const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, { public_token: guestCase.publicToken });
+                      const ref = sess.data.checkout.reference;
+                      await api.post(`/public/payments/simulate`, {
+                        transaction_id: `simulated_${ref}`,
+                        reference: ref,
+                        public_token: guestCase.publicToken,
+                      });
+                      navigate(`/pago/resultado?id=simulated_${ref}`);
+                    } catch (e) {
+                      const msg = extractError(e);
+                      if (msg && msg.toLowerCase().includes('pago aprobado')) {
+                        navigate('/pago/resultado?simulated=true');
+                      } else {
+                        setError(`Error en simulacion: ${msg}`);
+                      }
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-800 px-6 py-4 text-sm font-black text-white hover:bg-slate-700 transition-colors disabled:opacity-60"
+                >
+                  Simular Pago (Modo Prueba)
+                </button>
+              </>
             )}
 
             <img

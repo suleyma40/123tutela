@@ -48,7 +48,7 @@ const Navbar = () => {
             {isLanding ? (
               <>
                 <a href="#como-funciona" className="text-inherit no-underline hover:text-slate-900 transition-colors">Como funciona</a>
-                <a href="#categorias" className="text-inherit no-underline hover:text-slate-900 transition-colors">Categorias</a>
+                <a href="#documentos-salud" className="text-inherit no-underline hover:text-slate-900 transition-colors">Documentos de salud</a>
                 <a href="#precios" className="text-inherit no-underline hover:text-slate-900 transition-colors">Precios</a>
               </>
             ) : (
@@ -63,6 +63,11 @@ const Navbar = () => {
               <Link to="/equipo" className="rounded-xl border border-slate-200 px-4 py-2 text-[#0D68FF] no-underline hover:bg-slate-50 transition-colors">
                 Panel interno
               </Link>
+            )}
+            {!isAdmin && (
+              <span className="hidden lg:inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
+                Solo salud
+              </span>
             )}
             {!isAdmin && (
               <Link

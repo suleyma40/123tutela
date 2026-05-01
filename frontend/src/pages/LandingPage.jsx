@@ -373,11 +373,11 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <section id="categorias" className="landing-section">
+      <section id="documentos-salud" className="landing-section">
         <div className="landing-wrap">
           <div className="landing-section__head">
             <div>
-              <Badge color={palette.primary}>Categorias</Badge>
+              <Badge color={palette.primary}>Solo salud</Badge>
               <h2>
                 Documentos de salud
                 <br />
@@ -385,7 +385,7 @@ const LandingPage = () => {
               </h2>
             </div>
             <p style={{ maxWidth: 420, color: palette.muted }}>
-              El mismo precio para cualquier documento del catalogo activo de salud: peticion, tutela, impugnacion y desacato.
+              Por ahora no abrimos otras materias. El catalogo activo se limita a peticion, tutela, impugnacion y desacato en salud.
             </p>
           </div>
 
@@ -466,9 +466,9 @@ const LandingPage = () => {
                 border: `1px solid ${palette.border}`,
               }}
             >
-              <div style={{ fontSize: 14, color: palette.muted, fontWeight: 700 }}>Precio visible para cualquier documento</div>
+              <div style={{ fontSize: 14, color: palette.muted, fontWeight: 700 }}>Precio visible para los tramites de salud habilitados</div>
               <div style={{ marginTop: 12, fontSize: 52, fontWeight: 800 }}>{LAUNCH_PRICE_LABEL}</div>
-              <div style={{ color: palette.muted }}>Mismo precio para cualquier documento del catalogo activo de salud.</div>
+              <div style={{ color: palette.muted }}>Mismo precio para peticion, tutela, impugnacion y desacato en salud.</div>
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${palette.border}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
                   <span>Analisis inicial del caso</span>
