@@ -1100,6 +1100,7 @@ def _rehydrate_case_intelligence(case: dict[str, Any]) -> dict[str, Any]:
         recommended_action=workflow["recommended_action"],
         legal_analysis=legal_analysis,
         warnings=workflow["warnings"],
+        facts=facts,
     )
     intake_review = validate_intake(
         category=category,
@@ -1879,6 +1880,7 @@ def create_guest_lead(payload: GuestLeadCreateRequest) -> GuestDiagnosisResponse
         recommended_action=workflow["recommended_action"],
         legal_analysis=result["legal_analysis"],
         warnings=workflow["warnings"],
+        facts=result["facts"],
     )
     intake_review = validate_intake(
         category=category,
@@ -2147,6 +2149,7 @@ def update_public_case_intake(case_id: str, payload: GuestIntakeUpdateRequest) -
         recommended_action=workflow["recommended_action"],
         legal_analysis=legal_analysis,
         warnings=workflow["warnings"],
+        facts=facts,
     )
     intake_review = validate_intake(
         category=category,
@@ -2488,6 +2491,7 @@ def analysis_preview(
         recommended_action=workflow["recommended_action"],
         legal_analysis=result["legal_analysis"],
         warnings=workflow["warnings"],
+        facts=result["facts"],
     )
     intake_review = validate_intake(
         category=category,
@@ -2612,6 +2616,7 @@ def create_case(payload: CaseCreateRequest, current_user: dict[str, Any] = Depen
         recommended_action=workflow["recommended_action"],
         legal_analysis=result["legal_analysis"],
         warnings=workflow["warnings"],
+        facts=result["facts"],
     )
     intake_review = validate_intake(
         category=category,
@@ -2785,6 +2790,7 @@ def update_case_intake(
         recommended_action=workflow["recommended_action"],
         legal_analysis=legal_analysis,
         warnings=workflow["warnings"],
+        facts=facts,
     )
     intake_review = validate_intake(
         category=category,

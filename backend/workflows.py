@@ -796,19 +796,32 @@ def build_strategy_text(
     recommended_action: str,
     legal_analysis: dict[str, Any],
     warnings: list[str],
+    facts: dict[str, Any] | None = None,
 ) -> str:
+    facts = facts or {}
+    intake = (facts or {}).get("intake_form") or {}
     rights = legal_analysis.get("derechos_vulnerados") or []
     rules = legal_analysis.get("normas_relevantes") or []
+    diagnosis = _health_intake_text(facts, "diagnosis")
+    treatment_needed = _health_intake_text(facts, "treatment_needed")
+    ips_name = _health_intake_text(facts, "ips_name", "ips_clinic_name", "clinic_name", "provider_name")
+    eps_name = _health_intake_text(facts, "eps_name")
+    target_entity = _health_intake_text(facts, "target_entity")
+    case_story = _health_intake_text(facts, "case_story", "hechos_principales")
+    urgency_detail = _health_intake_text(facts, "urgency_detail", "current_harm", "ongoing_harm", "tutela_immediacy_detail")
     rights_text = ", ".join(str(r.get("derecho") or r.get("name") or r) if isinstance(r, dict) else str(r) for r in rights) if isinstance(rights, list) else str(rights)
     rules_text = ", ".join(str(r.get("norma") or r.get("name") or r) if isinstance(r, dict) else str(r) for r in rules) if isinstance(rules, list) else str(rules)
     lowered_action = _lower(recommended_action)
     lowered_rights = _lower(rights_text)
+    lowered_context = _lower(" ".join([diagnosis, treatment_needed, case_story, urgency_detail]))
     is_health_profile = any(token in f"{lowered_action} {lowered_rights}" for token in ("salud", "eps", "ips", "tutela", "desacato", "impugnacion"))
     if is_health_profile:
         severity = "RECLAMO VALIDO"
-        if "tutela" in lowered_action:
+        if any(token in lowered_context for token in ("dolor intenso", "empeor", "suspension", "sin terapia", "sin tratamiento", "riesgo")) or "tutela" in lowered_action:
+            severity = "IMPORTANTE"
+        if any(token in lowered_context for token in ("uci", "riesgo vital", "peligro de muerte", "convulsion", "sangrado", "hemorrag", "infarto", "acv")):
             severity = "URGENTE"
-        elif any(token in lowered_action for token in ("desacato", "impugnacion")):
+        if any(token in lowered_action for token in ("desacato", "impugnacion")):
             severity = "IMPORTANTE"
 
         warnings_text = _lower(" | ".join(warnings or []))
@@ -821,11 +834,13 @@ def build_strategy_text(
             )
         )
 
-        responsible = "EPS"
+        responsible = eps_name or target_entity or "EPS"
         if "ips" in lowered_action:
-            responsible = "IPS/clinica"
+            responsible = ips_name or target_entity or "IPS/clinica"
         elif ips_primary_signal:
-            responsible = "IPS/clinica (responsable principal) y EPS para cambio de prestador"
+            primary = ips_name or target_entity or "IPS/clinica"
+            secondary = eps_name or "EPS"
+            responsible = f"{primary} (responsable principal) y {secondary} para cambio de prestador"
         elif "desacato" in lowered_action or "impugnacion" in lowered_action:
             responsible = "juzgado y entidad obligada por el fallo"
 
@@ -834,10 +849,19 @@ def build_strategy_text(
             right_line = "Acceso oportuno y continuidad del tratamiento ordenado, ligado al derecho fundamental a la salud y a una vida digna."
         if ips_primary_signal:
             right_line = "Acceso oportuno a terapias ya autorizadas y continuidad del tratamiento, sin barreras administrativas de agenda."
+        if treatment_needed:
+            right_line = f"Derecho a recibir oportunamente {treatment_needed.lower()} sin barreras administrativas."
+        elif diagnosis:
+            right_line = f"Derecho a la continuidad del tratamiento medico relacionado con {diagnosis.lower()}."
 
         action_line = (
             f"{recommended_action}: via legal sugerida segun tu relato actual; sirve para exigir respuesta o cumplimiento efectivo sin perder tiempo clave."
         )
+        if ips_primary_signal:
+            action_line = (
+                f"1) Tutela contra {ips_name or 'la IPS/clinica'} para que agende y ejecute las terapias sin mas demoras. "
+                f"2) Derecho de peticion a {eps_name or 'la EPS'} solicitando cambio de prestador por incumplimiento de oportunidad."
+            )
         urgency_reason = "hay afectacion actual de salud y cada dia sin solucion puede aumentar dolor, rigidez y perdida funcional."
         if "tutela" in lowered_action:
             urgency_reason = "hay dolor y afectacion funcional actual; retrasar terapias puede empeorar la movilidad y cronificar el dano articular."
@@ -846,10 +870,23 @@ def build_strategy_text(
         elif "impugnacion" in lowered_action:
             urgency_reason = "los terminos para controvertir el fallo son cortos y no conviene dejar vencer el plazo."
 
+        medical_consequence = "Cada semana sin atencion puede aumentar el deterioro funcional y reducir la ventana de recuperacion."
+        if any(token in lowered_context for token in ("rodilla", "menisco", "ligamento", "articul")):
+            medical_consequence = (
+                "Cada semana sin terapias, los musculos de soporte se debilitan y aumenta la sobrecarga articular; "
+                "eso puede acelerar artrosis, reducir el movimiento y dejar secuelas funcionales mas dificiles de revertir."
+            )
+        elif any(token in lowered_context for token in ("diabetes", "insulina", "hipergluc")):
+            medical_consequence = "Sin control adecuado, la glucosa alta puede danar rinon, nervios y vista, y aumentar riesgo de crisis aguda."
+        elif any(token in lowered_context for token in ("cancer", "oncolog", "quimioterapia", "radioterapia")):
+            medical_consequence = "Cada ciclo retrasado puede reducir efectividad del protocolo y aumentar riesgo de progresion de la enfermedad."
+
         hook = (
+            f"{medical_consequence} "
             f"Tu caso tiene una ruta legal clara y el tiempo importa: {urgency_reason} "
             "Para que esto funcione, hay que definir bien que pedir, a quien dirigirlo y con que soporte. "
-            "Si quieres, te ayudamos a preparar todo para radicarlo correctamente."
+            "Si quieres, te ayudamos a preparar todo para radicarlo correctamente.\n\n"
+            "👉 Pagar y activar documento →"
         )
         return (
             f"🔴 Derecho vulnerado:\n{right_line}\n\n"
