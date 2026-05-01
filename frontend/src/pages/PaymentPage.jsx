@@ -23,6 +23,9 @@ const PaymentPage = () => {
     }
   }, [navigate]);
 
+  const diagnosisCopy = (guestCase?.strategyText || '').trim();
+  const hasStructuredDiagnosis = diagnosisCopy.includes('🔴 Derecho vulnerado:');
+
   const launchWidget = (checkout) =>
     new Promise((resolve, reject) => {
       const start = () => {
@@ -105,18 +108,26 @@ const PaymentPage = () => {
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-white/5 to-transparent rounded-bl-full pointer-events-none"></div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45 mb-3">Resultado del analisis</p>
               <h2 className="text-2xl font-black">{guestCase.recommendedAction}</h2>
-              <p className="text-sm text-white/70 mt-4 leading-6">
-                Hemos evaluado la viabilidad de tu caso y la ruta legal recomendada es iniciar una <strong>{guestCase.recommendedAction}</strong>.
-                Al activar el servicio, especialistas juridicos elaboraran el documento con el <strong>sustento legal necesario</strong>, segun la informacion y soportes que compartas.
-              </p>
-              <p className="text-sm text-white/70 mt-3 leading-6">
-                Adicionalmente, te entregaremos una <strong>guia paso a paso</strong> indicandote exactamente:
-              </p>
-              <ul className="mt-3 space-y-1 text-sm text-white/70 list-disc list-inside">
-                <li>A que entidad dirigirte y por que canal.</li>
-                <li>Los tiempos exactos de respuesta que dicta la ley.</li>
-                <li>Que esperar y que hacer si no te responden.</li>
-              </ul>
+              {hasStructuredDiagnosis ? (
+                <pre className="text-sm text-white/80 mt-4 leading-6 whitespace-pre-wrap font-sans">
+                  {diagnosisCopy}
+                </pre>
+              ) : (
+                <>
+                  <p className="text-sm text-white/70 mt-4 leading-6">
+                    Hemos evaluado la viabilidad de tu caso y la ruta legal recomendada es iniciar una <strong>{guestCase.recommendedAction}</strong>.
+                    Al activar el servicio, especialistas juridicos elaboraran el documento con el <strong>sustento legal necesario</strong>, segun la informacion y soportes que compartas.
+                  </p>
+                  <p className="text-sm text-white/70 mt-3 leading-6">
+                    Adicionalmente, te entregaremos una <strong>guia paso a paso</strong> indicandote exactamente:
+                  </p>
+                  <ul className="mt-3 space-y-1 text-sm text-white/70 list-disc list-inside">
+                    <li>A que entidad dirigirte y por que canal.</li>
+                    <li>Los tiempos exactos de respuesta que dicta la ley.</li>
+                    <li>Que esperar y que hacer si no te responden.</li>
+                  </ul>
+                </>
+              )}
             </div>
 
             <div className="grid gap-4 mt-8">
