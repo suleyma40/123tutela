@@ -33,6 +33,7 @@ const PaymentPage = () => {
               ...parsed,
               recommendedAction: freshCase.recommended_action || parsed.recommendedAction,
               strategyText: freshCase.strategy_text || parsed.strategyText,
+              paymentStatus: freshCase.payment_status || parsed.paymentStatus || 'pendiente',
             };
             setGuestCase(refreshed);
             localStorage.setItem('hazlopormi-guest-case', JSON.stringify(refreshed));
@@ -46,6 +47,7 @@ const PaymentPage = () => {
 
   const diagnosisCopy = (guestCase?.strategyText || '').trim();
   const hasStructuredDiagnosis = diagnosisCopy.includes('🔴 Derecho vulnerado:');
+  const isAlreadyPaid = String(guestCase?.paymentStatus || '').toLowerCase() === 'pagado';
 
   const launchWidget = (checkout) =>
     new Promise((resolve, reject) => {
@@ -110,6 +112,10 @@ const PaymentPage = () => {
 
   const handlePayment = async () => {
     if (!guestCase) return;
+    if (isAlreadyPaid) {
+      navigate(`/pago/resultado?case_id=${encodeURIComponent(String(guestCase.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase.publicToken || ''))}`);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -240,16 +246,26 @@ const PaymentPage = () => {
               </div>
             )}
 
-            <button
-              onClick={handlePayment}
-              disabled={loading}
-              className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-[#0D68FF] px-6 py-5 text-lg font-black text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
-            >
-              {loading ? 'Iniciando pago...' : 'Pagar y activar documento'}
-              <ArrowRight size={20} />
-            </button>
+            {isAlreadyPaid ? (
+              <button
+                onClick={() => navigate(`/pago/resultado?case_id=${encodeURIComponent(String(guestCase.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase.publicToken || ''))}`)}
+                className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-700 px-6 py-5 text-lg font-black text-white hover:bg-emerald-600 transition-colors"
+              >
+                Continuar y completar datos
+                <ArrowRight size={20} />
+              </button>
+            ) : (
+              <button
+                onClick={handlePayment}
+                disabled={loading}
+                className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-[#0D68FF] px-6 py-5 text-lg font-black text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+              >
+                {loading ? 'Iniciando pago...' : 'Pagar y activar documento'}
+                <ArrowRight size={20} />
+              </button>
+            )}
 
-            {(import.meta.env.DEV || QA_MIN_PAYMENT_EMAILS.has((guestCase.email || '').trim().toLowerCase())) && (
+            {!isAlreadyPaid && (import.meta.env.DEV || QA_MIN_PAYMENT_EMAILS.has((guestCase.email || '').trim().toLowerCase())) && (
               <>
                 <button
                   onClick={async () => {
