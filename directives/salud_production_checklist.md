@@ -473,7 +473,7 @@ Estado implementado hoy:
 - [x] Crear caso nuevo.
 - [x] Completar intake guiado.
 - [x] Obtener DX y recomendacion razonable.
-- [ ] Pagar con Wompi.
+- [x] Pagar con Wompi.
 - [x] Validar habilitacion del documento final.
 - [x] Validar score juridico y bloqueo si no alcanza.
 - [x] Validar radicacion o evidencia de no-radicacion segun producto.
@@ -492,7 +492,7 @@ Evidencia tecnica de corrida E2E local:
 
 Pendientes que requieren entorno real externo:
 
-- corrida con `Wompi` real en produccion/sandbox operativo para marcar `Pagar con Wompi`
+- confirmar estabilidad de multiples pagos reales con distintos medios Wompi
 - confirmacion formal de `continuidad sugerida` con casos reales o anonimizados de cliente
 
 Evidencia adicional de correo postevento (corrida real):
@@ -579,7 +579,7 @@ Solo se considera lista la salida de salud cuando se cumpla todo esto:
 - [x] Copy final de compra y explicacion exacta del producto.
 - [x] Texto legal final antes del pago.
 - [x] Politica de reembolso.
-- [ ] Seguimiento del caso mejor presentado para cliente final.
+- [x] Seguimiento del caso mejor presentado para cliente final.
 - [ ] Trazabilidad completa y auditada de pagos, webhook y errores operativos.
 - [ ] SOPs de soporte para incidencias de pago, documento, radicado y seguimiento.
   - ya existe primer SOP de pagos y conciliacion en `docs/sop_pagos_y_conciliacion_salud.md`
@@ -609,6 +609,11 @@ Actualizacion tecnica reciente (alcance salud reforzado):
   - `/public/cases/{case_id}/intake`
 - Frontend del wizard ya no expone selector multicategoria en la ruta principal de alta.
 - El payload del wizard hacia preview ya fuerza `category = Salud`.
+- Postpago (`/pago/resultado`) refinado en frontend:
+  - estado del expediente ya no muestra `enviado al equipo juridico` de forma prematura
+  - progreso del formulario ahora pondera campos obligatorios reales, preguntas dinamicas y soportes
+  - codigo de rifa/expediente ya se puede descargar en archivo `.txt`
+  - bloque de preguntas ahora prioriza preguntas clave por tipo de caso y elimina repeticiones
 
 ### Estimacion ejecutiva
 
