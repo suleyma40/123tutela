@@ -108,7 +108,11 @@ class Settings:
         internal_configured = {email.lower() for email in _split_csv(os.getenv("INTERNAL_ADMIN_EMAILS"))}
         internal_defaults = {"mariibpa25@gmail.com", "su-ley23@hotmail.com"}
         self.internal_admin_emails = sorted(email for email in (internal_configured or internal_defaults) if email)
-        qa_defaults = {self.qa_test_email.strip().lower(), "mariibpa25@gmail.com"}
+        qa_defaults = {
+            self.qa_test_email.strip().lower(),
+            "mariibpa25@gmail.com",
+            "m22perezia@gmail.com",
+        }
         qa_configured = {email.lower() for email in _split_csv(os.getenv("QA_TEST_EMAILS"))}
         self.qa_test_emails = sorted(email for email in (qa_configured or qa_defaults) if email)
         trusted = _split_csv(os.getenv("TRUSTED_HOSTS"))
