@@ -398,6 +398,14 @@ def _infer_health_workflow(
         return "derecho_peticion", "Derecho de peticion a EPS", warnings
 
     if has_health_core and has_authorized_without_schedule and targets_ips:
+        if prior_claim_done and (has_urgency or has_continuity_risk):
+            warnings.append(
+                "Se detecta servicio autorizado por EPS pero sin agenda efectiva de la IPS; procede tutela para exigir programacion oportuna contra la IPS como responsable principal de la barrera actual."
+            )
+            warnings.append(
+                "En paralelo, conviene solicitar a la EPS cambio de prestador o reubicacion de red por falta de oportunidad del prestador asignado."
+            )
+            return "tutela", "Accion de tutela", warnings
         warnings.append(
             "Se detecta un caso de servicio ya autorizado pero sin agenda efectiva del prestador; la via inicial sugerida es derecho de peticion a la IPS para programacion inmediata."
         )
@@ -803,16 +811,36 @@ def build_strategy_text(
         elif any(token in lowered_action for token in ("desacato", "impugnacion")):
             severity = "IMPORTANTE"
 
+        warnings_text = _lower(" | ".join(warnings or []))
+        ips_primary_signal = any(
+            token in warnings_text
+            for token in (
+                "ips como responsable principal",
+                "sin agenda efectiva de la ips",
+                "servicio autorizado por eps pero sin agenda",
+            )
+        )
+
         responsible = "EPS"
         if "ips" in lowered_action:
             responsible = "IPS/clinica"
+        elif ips_primary_signal:
+            responsible = "IPS/clinica (responsable principal) y EPS para cambio de prestador"
         elif "desacato" in lowered_action or "impugnacion" in lowered_action:
             responsible = "juzgado y entidad obligada por el fallo"
+
+        right_line = rights_text or "Derecho fundamental a la salud"
+        if "tutela" in lowered_action:
+            right_line = "Acceso oportuno y continuidad del tratamiento ordenado, ligado al derecho fundamental a la salud y a una vida digna."
+        if ips_primary_signal:
+            right_line = "Acceso oportuno a terapias ya autorizadas y continuidad del tratamiento, sin barreras administrativas de agenda."
 
         action_line = (
             f"{recommended_action}: via legal sugerida segun tu relato actual; sirve para exigir respuesta o cumplimiento efectivo sin perder tiempo clave."
         )
-        urgency_reason = "hay afectacion actual de salud y cada dia sin solucion puede empeorar el dano."
+        urgency_reason = "hay afectacion actual de salud y cada dia sin solucion puede aumentar dolor, rigidez y perdida funcional."
+        if "tutela" in lowered_action:
+            urgency_reason = "hay dolor y afectacion funcional actual; retrasar terapias puede empeorar la movilidad y cronificar el dano articular."
         if "desacato" in lowered_action:
             urgency_reason = "ya existe un fallo y el incumplimiento dia a dia agrava el riesgo y expone a sanciones."
         elif "impugnacion" in lowered_action:
@@ -824,7 +852,7 @@ def build_strategy_text(
             "Si quieres, te ayudamos a preparar todo para radicarlo correctamente."
         )
         return (
-            f"🔴 Derecho vulnerado:\n{rights_text or 'Derecho fundamental a la salud'}.\n\n"
+            f"🔴 Derecho vulnerado:\n{right_line}\n\n"
             f"⚠️ Qué tan grave es:\n{severity}.\n\n"
             f"🎯 Quién es el responsable:\n{responsible}.\n\n"
             f"⚡ Acción que necesitas:\n{action_line}\n\n"
