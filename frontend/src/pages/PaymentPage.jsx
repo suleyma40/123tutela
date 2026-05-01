@@ -17,7 +17,23 @@ const PaymentPage = () => {
   useEffect(() => {
     const saved = localStorage.getItem('hazlopormi-guest-case');
     if (saved) {
-      setGuestCase(JSON.parse(saved));
+      const parsed = JSON.parse(saved);
+      setGuestCase(parsed);
+      if (parsed?.caseId && parsed?.publicToken) {
+        api
+          .get(`/public/cases/${parsed.caseId}`, { params: { public_token: parsed.publicToken } })
+          .then((response) => {
+            const freshCase = response?.data?.case || {};
+            const refreshed = {
+              ...parsed,
+              recommendedAction: freshCase.recommended_action || parsed.recommendedAction,
+              strategyText: freshCase.strategy_text || parsed.strategyText,
+            };
+            setGuestCase(refreshed);
+            localStorage.setItem('hazlopormi-guest-case', JSON.stringify(refreshed));
+          })
+          .catch(() => {});
+      }
     } else {
       navigate('/diagnostico');
     }

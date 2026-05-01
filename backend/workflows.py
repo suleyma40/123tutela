@@ -874,6 +874,11 @@ def build_strategy_text(
                 f"1) Tutela contra {ips_name or inferred_clinic_name or 'la IPS/clinica'} para que agende y ejecute las terapias sin mas demoras. "
                 f"2) Derecho de peticion a {eps_name or 'la EPS'} solicitando cambio de prestador por incumplimiento de oportunidad."
             )
+        elif "tutela" in lowered_action and (eps_name or target_entity):
+            action_line = (
+                f"1) Tutela para exigir cumplimiento oportuno del servicio en salud. "
+                f"2) En paralelo, peticion a {eps_name or target_entity} para cambio de prestador si persiste la barrera de agenda."
+            )
         urgency_reason = "hay afectacion actual de salud y cada dia sin solucion puede aumentar dolor, rigidez y perdida funcional."
         if "tutela" in lowered_action:
             urgency_reason = "hay dolor y afectacion funcional actual; retrasar terapias puede empeorar la movilidad y cronificar el dano articular."
@@ -893,9 +898,13 @@ def build_strategy_text(
         elif any(token in lowered_context for token in ("cancer", "oncolog", "quimioterapia", "radioterapia")):
             medical_consequence = "Cada ciclo retrasado puede reducir efectividad del protocolo y aumentar riesgo de progresion de la enfermedad."
 
+        severity_extra = ""
+        if severity in {"IMPORTANTE", "URGENTE"}:
+            severity_extra = "Nivel de alerta: alto. "
         hook = (
             f"{medical_consequence} "
             f"Tu caso tiene una ruta legal clara y el tiempo importa: {urgency_reason} "
+            f"{severity_extra}"
             "Para que esto funcione, hay que definir bien que pedir, a quien dirigirlo y con que soporte. "
             "Si quieres, te ayudamos a preparar todo para radicarlo correctamente.\n\n"
             "👉 Pagar y activar documento →"
