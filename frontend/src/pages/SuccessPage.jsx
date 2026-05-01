@@ -159,6 +159,9 @@ const SuccessPage = () => {
 
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const transactionId = params.get('id');
+  const paymentReferenceParam = params.get('reference');
+  const caseIdParam = params.get('case_id');
+  const publicTokenParam = params.get('public_token');
   const prompts = useMemo(() => buildPromptList(caseData), [caseData]);
   const requiredAttachments = caseData?.customer_guide?.required_attachments || [];
   const suggestedAttachments = useMemo(
@@ -173,12 +176,20 @@ const SuccessPage = () => {
 
   useEffect(() => {
     const saved = localStorage.getItem('hazlopormi-guest-case');
-    if (!saved) {
-      navigate('/');
+    const stored = saved ? JSON.parse(saved) : {};
+    const guestCase = {
+      ...stored,
+      caseId: caseIdParam || stored.caseId,
+      publicToken: publicTokenParam || stored.publicToken,
+    };
+    if (guestCase?.caseId && guestCase?.publicToken) {
+      localStorage.setItem('hazlopormi-guest-case', JSON.stringify(guestCase));
+    }
+    if (!guestCase?.caseId || !guestCase?.publicToken) {
+      setError('No pudimos identificar tu expediente. Abre el enlace original de pago para continuar.');
+      setLoading(false);
       return;
     }
-
-    const guestCase = JSON.parse(saved);
 
     const hydrate = (responseData) => {
       setCaseData(responseData);
@@ -230,8 +241,16 @@ const SuccessPage = () => {
               })
             : await api.post('/public/payments/wompi/reconcile', {
                 transaction_id: transactionId,
+                reference: paymentReferenceParam || undefined,
                 public_token: guestCase.publicToken,
               });
+          hydrate(response.data);
+        } else if (paymentReferenceParam) {
+          const response = await api.post('/public/payments/wompi/reconcile', {
+            transaction_id: paymentReferenceParam,
+            reference: paymentReferenceParam,
+            public_token: guestCase.publicToken,
+          });
           hydrate(response.data);
         } else {
           const response = await api.get(`/public/cases/${guestCase.caseId}`, {
@@ -247,11 +266,32 @@ const SuccessPage = () => {
     };
 
     run();
-  }, [transactionId, navigate]);
+  }, [transactionId, paymentReferenceParam, caseIdParam, publicTokenParam, navigate]);
 
   const handleFieldChange = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
+
+  useEffect(() => {
+    if (!caseData?.case?.id) return;
+    const draftKey = `hazlopormi-intake-draft-${caseData.case.id}`;
+    localStorage.setItem(draftKey, JSON.stringify(form));
+  }, [form, caseData?.case?.id]);
+
+  useEffect(() => {
+    if (!caseData?.case?.id) return;
+    const draftKey = `hazlopormi-intake-draft-${caseData.case.id}`;
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw);
+      if (draft && typeof draft === 'object') {
+        setForm((current) => ({ ...current, ...draft }));
+      }
+    } catch (_) {
+      // ignore malformed draft
+    }
+  }, [caseData?.case?.id]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -293,6 +333,9 @@ const SuccessPage = () => {
         is_third_party: Boolean(form.beneficiary_name || form.beneficiary_document || form.beneficiary_relationship),
       });
       setSuccessMessage('Información recibida. El expediente ya quedó listo para revisión por nuestro equipo jurídico.');
+      if (saved?.caseId) {
+        localStorage.removeItem(`hazlopormi-intake-draft-${saved.caseId}`);
+      }
       setIntakeFiles([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';

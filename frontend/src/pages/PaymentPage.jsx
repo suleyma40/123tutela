@@ -98,14 +98,14 @@ const PaymentPage = () => {
       checkout?.reference ||
       '';
     if (tx) {
-      navigate(`/pago/resultado?id=${encodeURIComponent(String(tx))}`);
+      navigate(`/pago/resultado?id=${encodeURIComponent(String(tx))}&case_id=${encodeURIComponent(String(guestCase?.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase?.publicToken || ''))}`);
       return;
     }
     if (reference) {
-      navigate(`/pago/resultado?reference=${encodeURIComponent(String(reference))}`);
+      navigate(`/pago/resultado?reference=${encodeURIComponent(String(reference))}&case_id=${encodeURIComponent(String(guestCase?.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase?.publicToken || ''))}`);
       return;
     }
-    navigate('/pago/resultado');
+    navigate(`/pago/resultado?case_id=${encodeURIComponent(String(guestCase?.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase?.publicToken || ''))}`);
   };
 
   const handlePayment = async () => {
