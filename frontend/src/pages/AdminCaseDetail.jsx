@@ -89,6 +89,7 @@ const AdminCaseDetail = () => {
     const kind = String(file?.mime_type || '').toLowerCase();
     return kind.startsWith('audio/') || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(name);
   });
+  const deliveredFiles = (caso.files || []).filter((file) => String(file?.file_kind || '').toLowerCase() === 'delivery_document');
 
   const handleTranscribeAudio = async (fileId) => {
     setTranscribingByFile((current) => ({ ...current, [fileId]: true }));
@@ -371,6 +372,24 @@ const AdminCaseDetail = () => {
                 </button>
                 {!!deliveryMessage && (
                   <p className="text-sm font-semibold text-emerald-800">{deliveryMessage}</p>
+                )}
+                {!!deliveredFiles.length && (
+                  <div className="rounded-xl border border-emerald-200 bg-white p-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-emerald-700 mb-2">Documentos ya cargados en este caso</p>
+                    <div className="grid gap-2">
+                      {deliveredFiles.map((file) => (
+                        <a
+                          key={`delivered-${file.id}`}
+                          href={file?.relative_path ? `/public/files/${file.relative_path}` : '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-semibold text-emerald-900 underline truncate"
+                        >
+                          {file.original_name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

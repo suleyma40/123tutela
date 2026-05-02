@@ -34,7 +34,7 @@ const PAGE_COPY = {
       {
         title: "Tiempo de respuesta",
         body:
-          "La referencia comercial de menos de 5 minutos aplica a la generacion del documento y al inicio del envio digital cuando el caso ya esta completo, el pago fue aprobado y el canal permite tramite inmediato. No significa respuesta de la entidad ni radicado definitivo dentro de ese mismo tiempo.",
+          "La referencia de menos de 5 minutos aplica solo al diagnostico inicial orientativo. El documento final y la guia operativa requieren validacion humana y se entregan en hasta 24 horas habiles desde pago aprobado e informacion completa. Esto no significa respuesta de la entidad ni radicado definitivo dentro de ese mismo tiempo.",
       },
       {
         title: "Continuidad del caso",
