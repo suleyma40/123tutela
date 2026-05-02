@@ -13,6 +13,7 @@ const QUESTION_FIELD_MAP = {
 };
 const MAX_AUDIO_SECONDS = 180;
 const MAX_AUDIO_MB = 20;
+const MAX_AUDIO_FILES = 3;
 
 const buildPromptList = (caseData) => {
   const caseItem = caseData?.case || {};
@@ -55,6 +56,7 @@ const buildDescription = (form) => {
     form.prior_petition_date ? `Fecha de peticion previa: ${form.prior_petition_date}` : '',
     form.prior_petition_response ? `Respuesta a peticion previa: ${form.prior_petition_response}` : '',
     form.urgency_detail ? `Urgencia actual: ${form.urgency_detail}` : '',
+    form.audio_transcript ? `Transcripcion literal del audio: ${form.audio_transcript}` : '',
     form.extra_details,
   ].filter(Boolean).join('\n\n');
 };
@@ -218,6 +220,7 @@ const SuccessPage = () => {
     prior_petition_same_cause: '',
     prior_petition_date: '',
     prior_petition_response: '',
+    audio_transcript: '',
     // Datos del beneficiario (tercero)
     beneficiary_name: '',
     beneficiary_document: '',
@@ -243,15 +246,24 @@ const SuccessPage = () => {
 
   const appendSelectedFiles = (files) => {
     if (!files?.length) return;
+    const currentAudioCount = intakeFiles.filter(
+      (file) => String(file.type || '').startsWith('audio/') || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(String(file.name || '')),
+    ).length;
+    let audioCount = currentAudioCount;
     const filtered = [];
     for (const file of files) {
       const isAudio = String(file.type || '').startsWith('audio/');
       if (isAudio) {
+        if (audioCount >= MAX_AUDIO_FILES) {
+          setError(`Solo puedes adjuntar hasta ${MAX_AUDIO_FILES} audios por expediente.`);
+          continue;
+        }
         const sizeMb = file.size / (1024 * 1024);
         if (sizeMb > MAX_AUDIO_MB) {
           setError(`El audio "${file.name}" supera ${MAX_AUDIO_MB} MB. Comprimelo o grabalo mas corto.`);
           continue;
         }
+        audioCount += 1;
       }
       filtered.push(file);
     }
@@ -688,7 +700,10 @@ const SuccessPage = () => {
                       </div>
                       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
                         <p className="text-xs text-slate-600 font-semibold">
-                          Audio permitido: maximo {MAX_AUDIO_SECONDS / 60} minutos por grabacion, hasta {MAX_AUDIO_MB} MB por archivo.
+                          Audio permitido: hasta {MAX_AUDIO_FILES} audios por expediente, maximo {MAX_AUDIO_SECONDS / 60} minutos por audio, hasta {MAX_AUDIO_MB} MB por archivo.
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          El equipo humano escucha el audio completo. Si quieres, agrega abajo la transcripcion literal para acelerar la revision.
                         </p>
                         {narrationMode === 'audio' && (
                           <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -986,6 +1001,22 @@ const SuccessPage = () => {
                         Entre mas completa sea la narracion (fechas, entidades, respuestas y riesgo actual), menos repreguntas tendra tu expediente.
                       </p>
                     </div>
+
+                    {narrationMode === 'audio' && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-brand ml-1">Transcripcion literal del audio (opcional)</label>
+                        <textarea
+                          rows={5}
+                          className="input-field resize-none"
+                          placeholder="Si la tienes, pega aqui la transcripcion completa del audio. No resumen: texto literal con todos los detalles."
+                          value={form.audio_transcript}
+                          onChange={(e) => handleFieldChange('audio_transcript', e.target.value)}
+                        />
+                        <p className="text-xs text-brand/50 font-medium">
+                          Si no tienes transcripcion, no se bloquea el caso: el equipo humano escuchara el audio completo.
+                        </p>
+                      </div>
+                    )}
 
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-brand ml-1">Detalles adicionales</label>

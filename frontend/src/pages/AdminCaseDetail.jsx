@@ -81,6 +81,11 @@ const AdminCaseDetail = () => {
     caso.latest_payment?.reference ||
     c.payment_reference ||
     `EXP-${String(c.id || '').slice(0, 8).toUpperCase()}`;
+  const audioFiles = (caso.files || []).filter((file) => {
+    const name = String(file?.original_name || '').toLowerCase();
+    const kind = String(file?.mime_type || '').toLowerCase();
+    return kind.startsWith('audio/') || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(name);
+  });
 
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -181,6 +186,26 @@ const AdminCaseDetail = () => {
                 <p className="text-sm text-slate-400 font-semibold">No hay archivos cargados para este caso.</p>
               )}
             </div>
+
+            {!!audioFiles.length && (
+              <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-6">
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-700 mb-3">Narracion en audio</p>
+                <p className="text-sm text-emerald-800 mb-3">El equipo debe escuchar el audio completo. La transcripcion literal puede venir en formulario si el cliente la adjunto.</p>
+                <div className="grid gap-2">
+                  {audioFiles.map((file) => (
+                    <a
+                      key={`audio-${file.id}`}
+                      href={`/public/files/${file.relative_path}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-bold text-emerald-800 underline"
+                    >
+                      Escuchar/descargar: {file.original_name}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {c.facts?.intake_form && (
               <div className="rounded-[24px] border border-white/10 bg-[#08172E] p-6 text-white">
