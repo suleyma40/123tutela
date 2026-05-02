@@ -67,7 +67,24 @@ const AdminCaseDetail = () => {
       setDeliveryNote('');
       setDeliveryMessage('Documentos enviados al cliente y caso marcado como entregado.');
     } catch (error) {
-      setDeliveryMessage(error?.response?.data?.detail || 'No fue posible enviar el documento final.');
+      const detail = error?.response?.data?.detail;
+      let readable = 'No fue posible enviar el documento final.';
+      if (typeof detail === 'string' && detail.trim()) {
+        readable = detail;
+      } else if (Array.isArray(detail) && detail.length) {
+        readable = detail
+          .map((item) => {
+            if (typeof item === 'string') return item;
+            if (item && typeof item === 'object') {
+              const loc = Array.isArray(item.loc) ? item.loc.join('.') : '';
+              const msg = item.msg ? String(item.msg) : JSON.stringify(item);
+              return loc ? `${loc}: ${msg}` : msg;
+            }
+            return String(item);
+          })
+          .join(' | ');
+      }
+      setDeliveryMessage(readable);
     } finally {
       setIsSendingDelivery(false);
     }

@@ -4213,7 +4213,8 @@ def deliver_guest_case(
 @app.post("/internal/cases/{case_id}/deliver-upload", response_model=CaseDetailResponse)
 async def deliver_guest_case_upload(
     case_id: str,
-    files: list[UploadFile] = File(...),
+    files: list[UploadFile] | None = File(default=None),
+    file: UploadFile | None = File(default=None),
     delivery_note: str = Form(default=""),
     send_whatsapp: bool = Form(default=False),
     current_user: dict[str, Any] = Depends(get_internal_user),
@@ -4222,7 +4223,11 @@ async def deliver_guest_case_upload(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
 
-    if not files:
+    normalized_files: list[UploadFile] = list(files or [])
+    if file is not None:
+        normalized_files.append(file)
+
+    if not normalized_files:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debes adjuntar al menos un archivo.")
 
     allowed_mime = {
@@ -4231,7 +4236,7 @@ async def deliver_guest_case_upload(
         "application/msword",
     }
     saved_items: list[dict[str, Any]] = []
-    for file in files:
+    for file in normalized_files:
         if str(file.content_type or "").lower() not in allowed_mime:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
