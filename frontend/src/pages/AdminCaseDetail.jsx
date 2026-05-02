@@ -13,7 +13,6 @@ const AdminCaseDetail = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [deliveryFiles, setDeliveryFiles] = useState([]);
   const [deliveryNote, setDeliveryNote] = useState('');
-  const [sendWhatsapp, setSendWhatsapp] = useState(true);
   const [isSendingDelivery, setIsSendingDelivery] = useState(false);
   const [deliveryMessage, setDeliveryMessage] = useState('');
   const [transcribingByFile, setTranscribingByFile] = useState({});
@@ -57,7 +56,7 @@ const AdminCaseDetail = () => {
         formData.append('files', file);
       });
       formData.append('delivery_note', deliveryNote || '');
-      formData.append('send_whatsapp', String(sendWhatsapp));
+      formData.append('send_whatsapp', 'false');
       const response = await api.post(`/internal/cases/${id}/deliver-upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -316,12 +315,43 @@ const AdminCaseDetail = () => {
                   multiple
                   accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   className="rounded-xl border border-emerald-200 bg-white px-3 py-3 text-sm"
-                  onChange={(e) => setDeliveryFiles(Array.from(e.target.files || []))}
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.files || []);
+                    if (!selected.length) return;
+                    setDeliveryFiles((current) => {
+                      const merged = [...current];
+                      selected.forEach((file) => {
+                        const key = `${file.name}::${file.size}::${file.lastModified}`;
+                        const exists = merged.some(
+                          (item) => `${item.name}::${item.size}::${item.lastModified}` === key,
+                        );
+                        if (!exists) merged.push(file);
+                      });
+                      return merged;
+                    });
+                    e.target.value = '';
+                  }}
                 />
                 {!!deliveryFiles.length && (
-                  <p className="text-xs font-bold text-emerald-800">
-                    {deliveryFiles.length} archivo(s) seleccionado(s): {deliveryFiles.map((file) => file.name).join(', ')}
-                  </p>
+                  <div className="rounded-xl border border-emerald-200 bg-white p-3">
+                    <p className="text-xs font-bold text-emerald-800 mb-2">{deliveryFiles.length} archivo(s) listo(s) para envio:</p>
+                    <div className="grid gap-2">
+                      {deliveryFiles.map((file, index) => (
+                        <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+                          <p className="text-xs font-semibold text-emerald-900 truncate">{file.name}</p>
+                          <button
+                            type="button"
+                            className="text-xs font-black text-red-600"
+                            onClick={() => {
+                              setDeliveryFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
+                            }}
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 <textarea
                   rows={3}
@@ -330,14 +360,6 @@ const AdminCaseDetail = () => {
                   value={deliveryNote}
                   onChange={(e) => setDeliveryNote(e.target.value)}
                 />
-                <label className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-900">
-                  <input
-                    type="checkbox"
-                    checked={sendWhatsapp}
-                    onChange={(e) => setSendWhatsapp(e.target.checked)}
-                  />
-                  Notificar también por WhatsApp
-                </label>
                 <button
                   type="button"
                   disabled={isSendingDelivery}

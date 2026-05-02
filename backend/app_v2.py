@@ -4144,7 +4144,7 @@ async def deliver_guest_case_upload(
     case_id: str,
     files: list[UploadFile] = File(...),
     delivery_note: str = Form(default=""),
-    send_whatsapp: bool = Form(default=True),
+    send_whatsapp: bool = Form(default=False),
     current_user: dict[str, Any] = Depends(get_internal_user),
 ) -> CaseDetailResponse:
     case = repository.get_case_by_id(case_id)
