@@ -2,7 +2,17 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { ArrowRight, CheckCircle2, FileText, Gavel, Heart, Scale } from 'lucide-react';
-import { LAUNCH_PRICE_LABEL, RAFFLE_DRAW_DATE_LABEL, RAFFLE_LONG_COPY, RAFFLE_MONTH_LABEL, RAFFLE_PRIZE_LABEL } from '../lib/launchConfig';
+import {
+  BUSINESS_ADDRESS,
+  BUSINESS_OPERATOR,
+  CONTACT_PHONE,
+  LAUNCH_PRICE_LABEL,
+  NOTIFICATIONS_EMAIL,
+  RAFFLE_DRAW_DATE_LABEL,
+  RAFFLE_LONG_COPY,
+  RAFFLE_MONTH_LABEL,
+  RAFFLE_PRIZE_LABEL,
+} from '../lib/launchConfig';
 
 const palette = {
   bg: '#F5F7FB',
@@ -519,7 +529,18 @@ const LandingPage = () => {
 
       <footer>
         <div className="landing-wrap landing-footer">
-          <div>© 2026 123tutela Colombia. No reemplazamos asesoria legal personalizada en casos penales o de alta complejidad.</div>
+          <div>
+            <div>© 2026 123tutela Colombia. {BUSINESS_OPERATOR}.</div>
+            <div style={{ marginTop: 6 }}>
+              Correo de notificaciones: {NOTIFICATIONS_EMAIL} · Telefono: {CONTACT_PHONE}
+            </div>
+            <div style={{ marginTop: 4 }}>
+              Direccion: {BUSINESS_ADDRESS}
+            </div>
+            <div style={{ marginTop: 4 }}>
+              Cumplimos politica de privacidad, tratamiento de datos personales y canales de soporte verificables.
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             <Link to="/terminos" style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>Terminos</Link>
             <Link to="/privacidad" style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>Privacidad</Link>

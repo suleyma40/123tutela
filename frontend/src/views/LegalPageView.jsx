@@ -3,7 +3,14 @@ import { ArrowLeft, Mail, Scale, ShieldCheck } from "lucide-react";
 
 import { Badge, Button } from "../ui";
 import { C } from "../theme";
-import { NOTIFICATIONS_EMAIL, RADICATIONS_EMAIL, SUPPORT_EMAIL } from "../lib/launchConfig";
+import {
+  BUSINESS_ADDRESS,
+  BUSINESS_OPERATOR,
+  CONTACT_PHONE,
+  NOTIFICATIONS_EMAIL,
+  RADICATIONS_EMAIL,
+  SUPPORT_EMAIL,
+} from "../lib/launchConfig";
 
 const PAGE_COPY = {
   terminos: {
@@ -101,6 +108,11 @@ const PAGE_COPY = {
           "Para consultas sobre acceso, pagos, expediente o estado del proceso, escribe al canal principal de soporte con el correo de tu cuenta y una descripcion corta del problema.",
       },
       {
+        title: "Identidad comercial y transparencia",
+        body:
+          "123tutela es un servicio real operado por Educolombia. Antes del pago mostramos de forma visible el nombre comercial, canales de contacto, terminos, politica de privacidad y ruta de soporte para validacion de usuarios y plataformas publicitarias.",
+      },
+      {
         title: "Pagos y conciliacion",
         body:
           "Si un pago fue aprobado pero no se refleja en la interfaz, reporta la referencia de la transaccion para revisar el estado en el panel y en los registros internos del sistema.",
@@ -185,6 +197,17 @@ export default function LegalPageView({ page = "terminos", onBackHome }) {
 
           {page === "contacto" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+              <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.primary, fontWeight: 800 }}>
+                  <ShieldCheck size={18} />
+                  {BUSINESS_OPERATOR}
+                </div>
+                <p style={{ marginTop: 10, color: C.textMuted, lineHeight: 1.65 }}>
+                  Telefono: {CONTACT_PHONE}
+                  <br />
+                  Direccion: {BUSINESS_ADDRESS}
+                </p>
+              </div>
               <div className="glass-card" style={{ padding: 20, background: "#FCFDFF" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.primary, fontWeight: 800 }}>
                   <Mail size={18} />

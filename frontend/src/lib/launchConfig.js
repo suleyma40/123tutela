@@ -9,3 +9,6 @@ export const RAFFLE_LONG_COPY = `Los usuarios con pago aprobado durante ${RAFFLE
 export const SUPPORT_EMAIL = 'soporte@123tutelaapp.com';
 export const NOTIFICATIONS_EMAIL = 'notificaciones@123tutelaapp.com';
 export const RADICATIONS_EMAIL = 'radicaciones@123tutelaapp.com';
+export const CONTACT_PHONE = '3126510220';
+export const BUSINESS_ADDRESS = 'Calle 58 FA Sur #66C-42, Medellin, Colombia';
+export const BUSINESS_OPERATOR = 'Servicio operado por Educolombia';
