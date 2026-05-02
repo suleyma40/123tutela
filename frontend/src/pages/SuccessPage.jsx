@@ -117,6 +117,14 @@ const completionRatio = ({ form, prompts, isThirdParty, uploadedCount, tutelaFlo
   return Math.round(((completed + supportsCompleted) / Math.max(1, total)) * 100);
 };
 
+const isAudioFile = (file) =>
+  String(file?.type || '').startsWith('audio/')
+  || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(String(file?.name || ''));
+
+const isAudioUploadedRecord = (item) =>
+  String(item?.mime_type || '').startsWith('audio/')
+  || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(String(item?.original_name || ''));
+
 const normalizePromptText = (value) =>
   String(value || '')
     .normalize('NFD')
@@ -252,13 +260,11 @@ const SuccessPage = () => {
     const currentAudioCount = [
       ...intakeFiles,
       ...uploadedFiles.map((item) => ({ name: item?.original_name || '', type: item?.mime_type || '' })),
-    ].filter(
-      (file) => String(file.type || '').startsWith('audio/') || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(String(file.name || '')),
-    ).length;
+    ].filter((file) => isAudioFile(file)).length;
     let audioCount = currentAudioCount;
     const filtered = [];
     for (const file of files) {
-      const isAudio = String(file.type || '').startsWith('audio/');
+      const isAudio = isAudioFile(file);
       if (isAudio) {
         if (audioCount >= MAX_AUDIO_FILES) {
           setError(`Solo puedes adjuntar hasta ${MAX_AUDIO_FILES} audios por expediente.`);
@@ -473,8 +479,11 @@ const SuccessPage = () => {
         });
       }
 
-      const hasAudioNarration = intakeFiles.some((file) => String(file.type || '').startsWith('audio/') || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(String(file.name || '')));
+      const hasAudioNarration = intakeFiles.some((file) => isAudioFile(file)) || uploadedFiles.some((item) => isAudioUploadedRecord(item));
       const isAudioMode = narrationMode === 'audio';
+      if (isAudioMode && !hasAudioNarration) {
+        throw new Error('Seleccionaste modo audio, pero no hay audio cargado en el expediente. Adjunta o graba al menos un audio antes de enviar.');
+      }
       const audioClarification = String(form.extra_details || '').trim();
       const normalizedCaseStory = isAudioMode
         ? `Narracion principal adjunta en audio.${audioClarification ? ` Aclaracion adicional: ${audioClarification}` : ''}`
@@ -549,6 +558,9 @@ const SuccessPage = () => {
   });
   const caseStatus = String(caseData?.case?.status || '').toLowerCase();
   const isReadyForLegalTeam = ['pagado_en_revision', 'en_revision', 'entregado'].includes(caseStatus) || Boolean(successMessage);
+  const isSubmittedForReview = ['pagado_en_revision', 'en_revision'].includes(caseStatus);
+  const uploadedAudioCount = uploadedFiles.filter((item) => isAudioUploadedRecord(item)).length;
+  const progressValue = isSubmittedForReview || isDelivered ? 100 : progress;
 
   const handleRemoveSavedFile = async (fileId) => {
     const saved = JSON.parse(localStorage.getItem('hazlopormi-guest-case') || '{}');
@@ -650,7 +662,7 @@ const SuccessPage = () => {
                 </motion.div>
               )}
 
-              {isPaid && !isDelivered && (
+              {isPaid && !isDelivered && !isSubmittedForReview && (
                 <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-slate-200">
                   <h3 className="text-2xl font-extrabold text-slate-900 mb-8 flex items-center gap-3">
                     <MessageSquareMore className="text-[#19B7FF]" /> Completar expediente
@@ -1145,6 +1157,32 @@ const SuccessPage = () => {
                 </div>
               )}
 
+              {isPaid && isSubmittedForReview && !isDelivered && (
+                <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-emerald-200">
+                  <div className="bg-emerald-50 text-emerald-600 w-16 h-16 rounded-full flex items-center justify-center mb-6">
+                    <CheckCircle2 size={32} />
+                  </div>
+                  <h3 className="text-3xl font-extrabold text-slate-900 mb-3">Expediente enviado a verificación</h3>
+                  <p className="text-slate-600 font-medium mb-6">
+                    Tu información ya fue enviada al equipo jurídico. Tiempo máximo de entrega: 24 horas hábiles.
+                  </p>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500 mb-3">Qué procede ahora</p>
+                    <ul className="text-sm text-slate-700 list-disc list-inside space-y-1">
+                      <li>Validación jurídica final del expediente.</li>
+                      <li>Elaboración del documento y control de calidad.</li>
+                      <li>Entrega por correo y WhatsApp con guía de radicación.</li>
+                      <li>Participación activa en la rifa por {RAFFLE_PRIZE_LABEL}.</li>
+                    </ul>
+                  </div>
+                  <p className="text-sm text-slate-600 mt-5">
+                    {uploadedAudioCount > 0
+                      ? `Audio recibido en expediente: ${uploadedAudioCount}.`
+                      : 'No hay audio guardado en este expediente.'}
+                  </p>
+                </div>
+              )}
+
               {isDelivered && (
                 <div className="bg-white p-12 rounded-[2rem] shadow-[0_18px_55px_rgba(18,35,61,0.06)] border border-emerald-200 text-center">
                   <div className="bg-emerald-50 text-emerald-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1167,13 +1205,14 @@ const SuccessPage = () => {
                     step="2"
                     title="Completar expediente"
                     detail="Completa tus datos y adjunta los documentos de soporte"
-                    active={!successMessage}
-                    done={Boolean(successMessage)}
+                    active={!isSubmittedForReview && !isDelivered}
+                    done={isSubmittedForReview || isDelivered}
                   />
                   <TimelineStep
                     step="3"
                     title="Elaboración por especialistas"
                     detail="Máximo 24 horas hábiles desde información completa"
+                    active={isSubmittedForReview && !isDelivered}
                     done={isDelivered}
                   />
                   <TimelineStep
@@ -1187,11 +1226,13 @@ const SuccessPage = () => {
               <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-[0_18px_55px_rgba(18,35,61,0.06)]">
                 <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-3">Progreso del formulario</p>
                 <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#0D68FF]" style={{ width: `${progress}%` }} />
+                  <div className="h-full bg-[#0D68FF]" style={{ width: `${progressValue}%` }} />
                 </div>
-                <p className="text-sm text-slate-600 font-semibold mt-3">{progress}% completo</p>
+                <p className="text-sm text-slate-600 font-semibold mt-3">{progressValue}% completo</p>
                 <p className="text-sm text-slate-500 mt-3">
-                  Entre mas completo quede el expediente, mas rapido y preciso trabaja el equipo especialista.
+                  {isSubmittedForReview || isDelivered
+                    ? 'Expediente enviado correctamente. El avance operativo continúa en la línea de tiempo.'
+                    : 'Entre mas completo quede el expediente, mas rapido y preciso trabaja el equipo especialista.'}
                 </p>
               </div>
 
