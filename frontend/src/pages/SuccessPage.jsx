@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Trophy, FileText, Upload, Send, Loader2, Mail, MessageSquareMore, UserCheck, Users, Mic, Square } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
 import { trackEvent } from '../lib/analytics';
-import { RAFFLE_LONG_COPY, RAFFLE_MONTH_LABEL, RAFFLE_PRIZE_LABEL } from '../lib/launchConfig';
+import { RAFFLE_DRAW_DATE_LABEL, RAFFLE_DRAW_TIME_LABEL, RAFFLE_LONG_COPY, RAFFLE_MONTH_LABEL, RAFFLE_PRIZE_LABEL } from '../lib/launchConfig';
 
 const QUESTION_FIELD_MAP = {
   medical_support: 'medical_support_detail',
@@ -146,7 +146,7 @@ const dedupePrompts = (prompts = []) => {
   return unique;
 };
 
-const buildStrategicQuestions = (caseData, form) => {
+const buildStrategicQuestions = (caseData) => {
   const action = String(caseData?.case?.recommended_action || '').toLowerCase();
   const category = String(caseData?.case?.category || '').toLowerCase();
   const items = [];
@@ -164,7 +164,7 @@ const buildStrategicQuestions = (caseData, form) => {
       { id: 'prior_claim_result', question: 'Como incumplieron exactamente el fallo', why: 'Delimita hechos de incumplimiento.', multiline: true },
     );
   }
-  return items.filter((item) => !String(form[item.id] || '').trim());
+  return items;
 };
 
 const CodeCard = ({ label, value, subtle = false }) => (
@@ -526,7 +526,7 @@ const SuccessPage = () => {
     }
   };
 
-  const strategicQuestions = useMemo(() => buildStrategicQuestions(caseData, form), [caseData, form]);
+  const strategicQuestions = useMemo(() => buildStrategicQuestions(caseData), [caseData]);
 
   if (loading) {
     return (
@@ -999,7 +999,7 @@ const SuccessPage = () => {
                               />
                             </div>
                             <div className="space-y-2">
-                              <label className="text-sm font-bold text-brand ml-1">¿Que respondio la entidad o EPS?</label>
+                              <label className="text-sm font-bold text-brand ml-1">¿Que respondio la entidad responsable?</label>
                               <textarea
                                 required
                                 rows={3}
@@ -1171,7 +1171,7 @@ const SuccessPage = () => {
                     <ul className="text-sm text-slate-700 list-disc list-inside space-y-1">
                       <li>Validación jurídica final del expediente.</li>
                       <li>Elaboración del documento y control de calidad.</li>
-                      <li>Entrega por correo y WhatsApp con guía de radicación.</li>
+                      <li>Entrega por correo con guía de radicación.</li>
                       <li>Participación activa en la rifa por {RAFFLE_PRIZE_LABEL}.</li>
                     </ul>
                   </div>
@@ -1180,6 +1180,35 @@ const SuccessPage = () => {
                       ? `Audio recibido en expediente: ${uploadedAudioCount}.`
                       : 'No hay audio guardado en este expediente.'}
                   </p>
+                  <p className="text-sm text-slate-600 mt-2">
+                    Rifa en vivo: {RAFFLE_DRAW_DATE_LABEL}, {RAFFLE_DRAW_TIME_LABEL}.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {unifiedTrackingCode && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const content = `Codigo rifa y expediente: ${unifiedTrackingCode}\nFecha: ${new Date().toLocaleString('es-CO')}\nRifa: ${RAFFLE_MONTH_LABEL}\nSorteo: ${RAFFLE_DRAW_DATE_LABEL} ${RAFFLE_DRAW_TIME_LABEL}`;
+                          const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `codigo-rifa-${String(unifiedTrackingCode).replace(/\s+/g, '-')}.txt`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        Descargar código de participación
+                      </button>
+                    )}
+                    <Link
+                      to="/terminos"
+                      className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-700 no-underline hover:bg-slate-50 transition-colors"
+                    >
+                      Ver términos y condiciones
+                    </Link>
+                  </div>
                 </div>
               )}
 
