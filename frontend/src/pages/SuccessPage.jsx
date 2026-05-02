@@ -406,6 +406,8 @@ const SuccessPage = () => {
     }
   };
 
+  const strategicQuestions = useMemo(() => buildStrategicQuestions(caseData, form), [caseData, form]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F5F7FB]">
@@ -434,7 +436,6 @@ const SuccessPage = () => {
     uploadedCount: uploadedSupportCount,
     tutelaFlow,
   });
-  const strategicQuestions = useMemo(() => buildStrategicQuestions(caseData, form), [caseData, form]);
   const caseStatus = String(caseData?.case?.status || '').toLowerCase();
   const isReadyForLegalTeam = ['pagado_en_revision', 'en_revision', 'entregado'].includes(caseStatus) || Boolean(successMessage);
 
