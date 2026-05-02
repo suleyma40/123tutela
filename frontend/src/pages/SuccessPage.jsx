@@ -826,12 +826,15 @@ const SuccessPage = () => {
                       <label className="text-sm font-bold text-brand ml-1">Hechos del caso en orden</label>
                       <textarea
                         required
-                        rows={5}
+                        rows={6}
                         className="input-field resize-none"
-                        placeholder="Cuenta que paso, en que fechas y como te afecto."
+                        placeholder="Cuenta el caso con mas detalle: que paso primero, que gestiones hiciste, que respondieron y como te afecta hoy."
                         value={form.case_story}
                         onChange={(e) => handleFieldChange('case_story', e.target.value)}
                       />
+                      <p className="text-xs text-brand/50 font-medium">
+                        Entre mas completa sea la narracion (fechas, entidades, respuestas y riesgo actual), menos repreguntas tendra tu expediente.
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -845,10 +848,13 @@ const SuccessPage = () => {
                       />
                     </div>
 
-                    <div className="space-y-4">
-                      <label className="text-sm font-bold text-brand ml-1 flex items-center gap-2">
-                        <Upload size={16} /> Adjuntar soportes
+                    <div className="space-y-4 rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
+                      <label className="text-sm font-black uppercase tracking-wide text-brand mb-1 flex items-center gap-2">
+                        <Upload size={16} /> Soportes del caso (adjunta aqui)
                       </label>
+                      <p className="text-sm text-brand/70 font-medium">
+                        Sube aqui los documentos que te pedimos. Si te queda mas facil, tambien puedes adjuntar un audio corto narrando el caso.
+                      </p>
                       {!!suggestedAttachments.length && (
                         <div className="flex flex-wrap gap-2">
                           {suggestedAttachments.map((item) => (
@@ -859,20 +865,23 @@ const SuccessPage = () => {
                         </div>
                       )}
                       <p className="text-xs text-brand/50 font-medium">
-                        Formatos sugeridos: PDF, JPG, PNG, DOC y DOCX.
+                        Formatos: PDF, JPG, PNG, DOC, DOCX y audio (MP3, WAV, M4A, AAC).
                       </p>
                       <div className="border-2 border-dashed border-brand/10 rounded-2xl p-8 text-center hover:bg-brand/5 transition-colors cursor-pointer relative">
                         <input
                           ref={fileInputRef}
                           type="file"
                           multiple
-                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp3,.wav,.m4a,.aac,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/aac"
                           className="absolute inset-0 opacity-0 cursor-pointer"
                           onChange={(e) => setIntakeFiles(Array.from(e.target.files || []))}
                         />
                         <FileText className="mx-auto text-brand/20 mb-2" size={32} />
                         <p className="text-sm text-brand/60 font-bold">
                           {intakeFiles.length > 0 ? `${intakeFiles.length} archivos seleccionados` : 'Click o arrastra para subir tus anexos'}
+                        </p>
+                        <p className="text-xs text-brand/50 mt-2">
+                          Puedes combinar soportes escritos + una nota de voz con la narracion del caso.
                         </p>
                       </div>
                       {!!uploadedNames.length && (
