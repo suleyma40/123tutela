@@ -243,7 +243,9 @@ const SuccessPage = () => {
   const opsSync = caseData?.case?.submission_summary?.ops_sync || {};
   const opsStatus = String(opsSync.status || '').toLowerCase();
   const opsSummary = normalizeOperationalCopy(caseData?.case?.facts?.agent_state?.ops_summary || '');
-  const uploadedNames = uploadedFiles.map((item) => item?.original_name).filter(Boolean);
+  const uploadedItems = uploadedFiles
+    .map((item) => ({ id: item?.id, name: item?.original_name }))
+    .filter((item) => item.id && item.name);
 
   const appendSelectedFiles = (files) => {
     if (!files?.length) return;
@@ -548,6 +550,23 @@ const SuccessPage = () => {
   const caseStatus = String(caseData?.case?.status || '').toLowerCase();
   const isReadyForLegalTeam = ['pagado_en_revision', 'en_revision', 'entregado'].includes(caseStatus) || Boolean(successMessage);
 
+  const handleRemoveSavedFile = async (fileId) => {
+    const saved = JSON.parse(localStorage.getItem('hazlopormi-guest-case') || '{}');
+    if (!saved?.caseId || !saved?.publicToken) return;
+    try {
+      await api.delete(`/public/cases/${saved.caseId}/uploads/${fileId}`, {
+        params: { public_token: saved.publicToken },
+      });
+      const refreshed = await api.get(`/public/cases/${saved.caseId}`, {
+        params: { public_token: saved.publicToken },
+      });
+      setCaseData(refreshed.data);
+      setUploadNotice('Soporte eliminado del expediente.');
+    } catch (e) {
+      setError(extractError(e, 'No fue posible eliminar el soporte.'));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
       <Navbar />
@@ -661,7 +680,7 @@ const SuccessPage = () => {
                           {form.name && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Nombre</span>}
                           {form.document_number && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Documento</span>}
                           {form.city && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">Ciudad</span>}
-                          {uploadedNames.length > 0 && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">{uploadedNames.length} soporte(s)</span>}
+                          {uploadedItems.length > 0 && <span className="px-3 py-1 rounded-full bg-brand/5 text-brand text-xs font-bold">{uploadedItems.length} soporte(s)</span>}
                         </div>
                       </div>
 
@@ -1088,14 +1107,23 @@ const SuccessPage = () => {
                           </button>
                         </div>
                       )}
-                      {!!uploadedNames.length && (
+                      {!!uploadedItems.length && (
                         <div className="space-y-2">
                           <p className="text-xs font-bold text-slate-600">Ya guardados en este expediente (de pruebas previas o envíos anteriores):</p>
                           <div className="flex flex-wrap gap-2">
-                          {uploadedNames.map((name) => (
-                            <span key={name} className="px-3 py-1 rounded-full bg-success/10 text-success text-xs font-bold">
-                              {name}
-                            </span>
+                          {uploadedItems.map((item) => (
+                            <div key={item.id} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-success/10 text-success text-xs font-bold">
+                              <span>{item.name}</span>
+                              <button
+                                type="button"
+                                className="text-success/80 hover:text-success font-black"
+                                onClick={() => handleRemoveSavedFile(item.id)}
+                                aria-label={`Eliminar ${item.name}`}
+                                title="Quitar del expediente"
+                              >
+                                ×
+                              </button>
+                            </div>
                           ))}
                           </div>
                         </div>

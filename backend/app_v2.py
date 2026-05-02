@@ -2272,6 +2272,25 @@ async def upload_public_case_file(
     return _normalize_file(record)
 
 
+@app.delete("/public/cases/{case_id}/uploads/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_public_case_file(case_id: str, file_id: str, public_token: str) -> Response:
+    case = _get_guest_case_or_404(case_id, public_token)
+    file_item = repository.get_file_by_id(file_id)
+    if not file_item or str(file_item.get("case_id")) != str(case_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado para este expediente.")
+    updated = repository.update_case_file_status(file_id=file_id, case_id=case_id, status="removed")
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No fue posible eliminar el archivo.")
+    repository.create_event(
+        case_id=case_id,
+        event_type="guest_attachment_removed",
+        actor_type="guest",
+        actor_id=None,
+        payload={"file_id": str(file_id), "name": file_item.get("original_name")},
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @app.post("/auth/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest) -> AuthResponse:
     email = _normalize_email_input(payload.email)

@@ -385,6 +385,7 @@ def list_files_for_case(case_id: str) -> list[dict[str, Any]]:
         SELECT *
         FROM case_files
         WHERE case_id = %(case_id)s
+          AND status = 'attached'
         ORDER BY created_at ASC;
     """
     with get_connection() as connection, connection.cursor() as cursor:
@@ -396,6 +397,19 @@ def get_file_by_id(file_id: str) -> dict[str, Any] | None:
     query = "SELECT * FROM case_files WHERE id = %(file_id)s;"
     with get_connection() as connection, connection.cursor() as cursor:
         cursor.execute(query, {"file_id": file_id})
+        return cursor.fetchone()
+
+
+def update_case_file_status(*, file_id: str, case_id: str, status: str) -> dict[str, Any] | None:
+    query = """
+        UPDATE case_files
+        SET status = %(status)s
+        WHERE id = %(file_id)s
+          AND case_id = %(case_id)s
+        RETURNING *;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"file_id": file_id, "case_id": case_id, "status": status})
         return cursor.fetchone()
 
 

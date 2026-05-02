@@ -240,6 +240,15 @@ const PaymentPage = () => {
               </div>
             </div>
 
+            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+              <p className="text-sm font-bold text-amber-800">
+                Importante: en Wompi el cobro puede aparecer a nombre de <strong>Educolombia</strong>, empresa operadora de 123tutela.
+              </p>
+              <p className="text-xs text-amber-700 mt-1">
+                Es normal y corresponde a este servicio.
+              </p>
+            </div>
+
             {error && (
               <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm font-semibold text-red-600">
                 {error}
