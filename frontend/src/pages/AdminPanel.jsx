@@ -65,6 +65,7 @@ const AdminPanel = () => {
     cta_label: '',
     raffle_label: '',
   });
+  const [activeTab, setActiveTab] = useState('operacion');
   const [nowMs, setNowMs] = useState(Date.now());
 
   const handleLogout = async () => {
@@ -472,12 +473,29 @@ const AdminPanel = () => {
             <p className="text-slate-500 mt-3">Casos, pagos y seguimiento bajo el mismo lenguaje visual del producto.</p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <a
-              href="#mercadeo"
-              className="rounded-2xl bg-[#0D68FF] px-4 py-3 text-sm font-black text-white no-underline hover:bg-[#0B5BE0]"
-            >
-              Ir a Mercadeo
-            </a>
+            <div className="rounded-2xl border border-slate-200 bg-white p-1 flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab('operacion')}
+                className={`rounded-xl px-3 py-2 text-xs font-black uppercase ${activeTab === 'operacion' ? 'bg-[#0D68FF] text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                Operación
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('mercadeo')}
+                className={`rounded-xl px-3 py-2 text-xs font-black uppercase ${activeTab === 'mercadeo' ? 'bg-[#0D68FF] text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                Mercadeo
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('participantes')}
+                className={`rounded-xl px-3 py-2 text-xs font-black uppercase ${activeTab === 'participantes' ? 'bg-[#0D68FF] text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                Participantes
+              </button>
+            </div>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
@@ -512,6 +530,8 @@ const AdminPanel = () => {
           </div>
         </header>
 
+        {activeTab === 'operacion' && (
+          <>
         <section className="grid md:grid-cols-5 gap-5 mb-10">
           {[
             { label: 'Total interacciones', value: stats.total, tone: 'text-slate-900' },
@@ -713,6 +733,10 @@ const AdminPanel = () => {
           </div>
         </section>
 
+          </>
+        )}
+
+        {activeTab === 'mercadeo' && (
         <section id="mercadeo" className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
           <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
             <div>
@@ -899,8 +923,9 @@ const AdminPanel = () => {
             </button>
           </div>
         </section>
+        )}
 
-        {panelError && (
+        {activeTab === 'operacion' && panelError && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <span>{panelError}</span>
@@ -914,6 +939,7 @@ const AdminPanel = () => {
           </div>
         )}
 
+        {activeTab === 'operacion' && (
         <section className="rounded-[28px] border border-slate-200 bg-white overflow-hidden shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
           <table className="w-full text-left">
             <thead className="bg-[#F8FBFF] border-b border-slate-200">
@@ -986,7 +1012,9 @@ const AdminPanel = () => {
             </tbody>
           </table>
         </section>
+        )}
 
+        {activeTab === 'operacion' && (
         <section className="rounded-[24px] border border-slate-200 bg-white p-6 mt-8 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Estados operativos</p>
           <div className="grid md:grid-cols-4 gap-3 text-sm">
@@ -996,7 +1024,9 @@ const AdminPanel = () => {
             <div className="rounded-xl bg-slate-50 p-3"><span className="font-black text-slate-700">Cola operativa:</span> todos los pagados que aún no están entregados.</div>
           </div>
         </section>
+        )}
 
+        {activeTab === 'participantes' && (
         <section className="rounded-[24px] border border-slate-200 bg-white p-6 mb-8 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
@@ -1046,6 +1076,7 @@ const AdminPanel = () => {
             </table>
           </div>
         </section>
+        )}
       </main>
     </div>
   );
