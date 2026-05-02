@@ -137,7 +137,7 @@ Estado implementado hoy en backend:
 - [ ] Confirmar cuales campos son obligatorios para preview.
 - [ ] Confirmar cuales campos son obligatorios para guardar expediente.
 - [ ] Confirmar cuales campos son obligatorios para generar documento final.
-- [ ] Definir las repreguntas dinamicas de salud que realmente mejoran calidad.
+- [x] Definir las repreguntas dinamicas de salud que realmente mejoran calidad.
 - [ ] Definir reglas para detectar contradicciones o vacios criticos.
 - [ ] Definir cuando el sistema debe bloquear y pedir mas datos.
 - [ ] Definir cuando el sistema debe escalar a revision humana o conservadora.
@@ -148,6 +148,10 @@ Estado implementado hoy:
   - `preview`
   - `save`
   - `generate`
+- Recoleccion postpago endurecida en `backend/agent_orchestrator.py`:
+  - elimina preguntas repetidas y evita pedir datos basicos personales en bloque clinico
+  - usa esquema en 3 rondas (problema central, fechas/soportes faltantes, checklist documental final)
+  - agrega preguntas especificas por tipo de documento (tutela EPS, tutela IPS, desacato, impugnacion y peticion)
 - El wizard inicial de salud ya usa una entrevista guiada por el agente desde el arranque, no solo despues del pago.
 - Las preguntas iniciales del agente ya siguen mejor el orden juridicamente util:
   - entidad de salud
