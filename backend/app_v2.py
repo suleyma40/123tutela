@@ -159,6 +159,7 @@ ADDON_PRICES_COP = {
     "filing_auto": 34_000,
     "filing_guide": 17_000,
     "follow_up": 17_000,
+    "full_support_pack": 65_000,
 }
 
 ADDON_ORDER_CONFIG = {
@@ -181,6 +182,11 @@ ADDON_ORDER_CONFIG = {
         "code": "addon_follow_up",
         "name": "Seguimiento del caso",
         "description": "Seguimiento posterior de novedades y trazabilidad del expediente.",
+    },
+    "full_support_pack": {
+        "code": "addon_full_support_pack",
+        "name": "Paquete completo: radicacion y seguimiento",
+        "description": "Incluye seguimiento, desacato o impugnacion cuando aplique, elaboracion de documentos y acompanamiento operativo.",
     },
 }
 
@@ -2008,9 +2014,21 @@ def create_guest_wompi_checkout_session(
     product_name = SERVICE_PRODUCT_NAME
     product_description = "Diagnostico, redaccion humana y guia detallada HazloPorMi en hasta 24 horas habiles."
     amount_cop = BASE_SERVICE_PRICE_COP
+    add_on_type = _lower(payload.add_on_type)
+
+    if add_on_type:
+        config = ADDON_ORDER_CONFIG.get(add_on_type)
+        if not config:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de add-on no permitido.")
+        product_code = str(config["code"])
+        product_name = str(config["name"])
+        product_description = str(config["description"])
+        amount_cop += int(ADDON_PRICES_COP[add_on_type])
 
     product_code_override = str(payload.product_code or "").strip().lower()
     if product_code_override:
+        if add_on_type:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No puedes combinar product_code con add_on_type.")
         email = str(case.get("usuario_email") or "").strip().lower()
         if email not in settings.qa_test_emails:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Override de producto no permitido para este correo.")
@@ -2037,7 +2055,7 @@ def create_guest_wompi_checkout_session(
         environment=settings.wompi_environment,
         product_code=product_code,
         product_name=product_name,
-        include_filing=False,
+        include_filing=bool(add_on_type),
         amount_cop=amount_cop,
         amount_in_cents=amount_in_cents,
         currency="COP",
@@ -2054,7 +2072,7 @@ def create_guest_wompi_checkout_session(
         event_type="guest_payment_order_created",
         actor_type="guest",
         actor_id=None,
-        payload={"reference": reference, "amount_cop": amount_cop, "product_code": product_code},
+        payload={"reference": reference, "amount_cop": amount_cop, "product_code": product_code, "add_on_type": add_on_type},
     )
     return GuestCheckoutSessionResponse(public_token=payload.public_token, order=_normalize_payment_order(order), checkout=checkout)
 
@@ -4124,7 +4142,7 @@ def deliver_guest_case(
 @app.post("/internal/cases/{case_id}/deliver-upload", response_model=CaseDetailResponse)
 async def deliver_guest_case_upload(
     case_id: str,
-    file: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     delivery_note: str = Form(default=""),
     send_whatsapp: bool = Form(default=True),
     current_user: dict[str, Any] = Depends(get_internal_user),
@@ -4133,32 +4151,38 @@ async def deliver_guest_case_upload(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
 
+    if not files:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Debes adjuntar al menos un archivo.")
+
     allowed_mime = {
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
     }
-    if str(file.content_type or "").lower() not in allowed_mime:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato no permitido. Sube PDF o DOCX.",
+    saved_items: list[dict[str, Any]] = []
+    for file in files:
+        if str(file.content_type or "").lower() not in allowed_mime:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Formato no permitido ({file.filename}). Sube PDF o DOCX.",
+            )
+        saved = save_upload(file, bucket="deliveries", owner_id=str(case_id))
+        repository.create_case_file(
+            case_id=case_id,
+            uploaded_by=str(current_user["id"]),
+            file_kind="delivery_document",
+            original_name=saved["original_name"],
+            stored_name=saved["stored_name"],
+            mime_type=saved["mime_type"],
+            file_size=saved["file_size"],
+            relative_path=saved["relative_path"],
+            metadata={"generated_by": "internal_upload_delivery"},
         )
-
-    saved = save_upload(file, bucket="deliveries", owner_id=str(case_id))
-    repository.create_case_file(
-        case_id=case_id,
-        uploaded_by=str(current_user["id"]),
-        file_kind="delivery_document",
-        original_name=saved["original_name"],
-        stored_name=saved["stored_name"],
-        mime_type=saved["mime_type"],
-        file_size=saved["file_size"],
-        relative_path=saved["relative_path"],
-        metadata={"generated_by": "internal_upload_delivery"},
-    )
+        saved_items.append(saved)
 
     refreshed_case = repository.get_case_by_id(case_id) or case
-    delivery_package = build_delivery_package(refreshed_case, saved["relative_path"])
+    primary_saved = saved_items[0]
+    delivery_package = build_delivery_package(refreshed_case, primary_saved["relative_path"])
     merged_summary = _merge_submission_summary(
         refreshed_case,
         customer_guide=delivery_package.get("customer_guide") or build_customer_guide(refreshed_case),
@@ -4169,7 +4193,10 @@ async def deliver_guest_case_upload(
         case=refreshed_case,
         delivery_package=delivery_package,
         note=delivery_note or None,
-        attachments=[{"relative_path": saved["relative_path"], "filename": saved["original_name"], "mime_type": saved["mime_type"]}],
+        attachments=[
+            {"relative_path": item["relative_path"], "filename": item["original_name"], "mime_type": item["mime_type"]}
+            for item in saved_items
+        ],
     )
     email_status = str(email_result.get("status") or "").lower()
     if email_status != "sent":
@@ -4178,7 +4205,7 @@ async def deliver_guest_case_upload(
             event_type="guest_delivery_email_failed",
             actor_type="internal",
             actor_id=str(current_user["id"]),
-            payload={"filename": saved["original_name"], "email_result": email_result},
+            payload={"filenames": [str(item.get("original_name") or "") for item in saved_items], "email_result": email_result},
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -4198,10 +4225,18 @@ async def deliver_guest_case_upload(
             "delivery_email": email_result,
             "delivery_whatsapp": whatsapp_result,
             "delivery_uploaded_file": {
-                "relative_path": saved["relative_path"],
-                "original_name": saved["original_name"],
-                "mime_type": saved["mime_type"],
+                "relative_path": primary_saved["relative_path"],
+                "original_name": primary_saved["original_name"],
+                "mime_type": primary_saved["mime_type"],
             },
+            "delivery_uploaded_files": [
+                {
+                    "relative_path": item["relative_path"],
+                    "original_name": item["original_name"],
+                    "mime_type": item["mime_type"],
+                }
+                for item in saved_items
+            ],
             "delivered_at": datetime.now(timezone.utc).isoformat(),
             "delivered_by": str(current_user["id"]),
         },
@@ -4212,7 +4247,7 @@ async def deliver_guest_case_upload(
         actor_type="internal",
         actor_id=str(current_user["id"]),
         payload={
-            "filename": saved["original_name"],
+            "filenames": [str(item.get("original_name") or "") for item in saved_items],
             "email_status": email_result.get("status"),
             "whatsapp_status": whatsapp_result.get("status"),
         },

@@ -18,6 +18,7 @@ const PaymentPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [guestCase, setGuestCase] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState('base');
 
   useEffect(() => {
     const saved = localStorage.getItem('hazlopormi-guest-case');
@@ -121,6 +122,7 @@ const PaymentPage = () => {
     try {
       const response = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, {
         public_token: guestCase.publicToken,
+        add_on_type: selectedPlan === 'full' ? 'full_support_pack' : undefined,
       });
       trackEvent('start_checkout', {
         case_id: guestCase.caseId,
@@ -198,8 +200,31 @@ const PaymentPage = () => {
 
           <section className="rounded-[28px] border border-slate-200 bg-white p-8 md:p-10 shadow-[0_18px_55px_rgba(18,35,61,0.06)]">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400 mb-3">Checkout</p>
-            <h2 className="text-4xl font-black leading-none">{LAUNCH_PRICE_LABEL}</h2>
-            <p className="text-slate-500 mt-3">Precio unico para cualquiera de los cuatro tramites hoy habilitados en salud.</p>
+            <h2 className="text-4xl font-black leading-none">{selectedPlan === 'full' ? '$114.900' : LAUNCH_PRICE_LABEL}</h2>
+            <p className="text-slate-500 mt-3">
+              {selectedPlan === 'full'
+                ? 'Incluye documento base + paquete completo de seguimiento y radicacion.'
+                : 'Precio unico para cualquiera de los cuatro tramites hoy habilitados en salud.'}
+            </p>
+
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedPlan('base')}
+                className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${selectedPlan === 'base' ? 'border-[#0D68FF] bg-blue-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+              >
+                <p className="text-sm font-black text-slate-900">Plan base - {LAUNCH_PRICE_LABEL}</p>
+                <p className="text-xs text-slate-600 mt-1">Documento recomendado y guia de radicacion.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedPlan('full')}
+                className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${selectedPlan === 'full' ? 'border-[#0D68FF] bg-blue-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+              >
+                <p className="text-sm font-black text-slate-900">Paquete completo - $114.900</p>
+                <p className="text-xs text-slate-600 mt-1">Incluye seguimiento, desacato/impugnacion cuando aplique, elaboracion y acompanamiento.</p>
+              </button>
+            </div>
 
             <div className="grid gap-4 mt-8">
               <div className="rounded-[22px] border border-slate-200 bg-[#FCFDFF] p-5">
@@ -211,9 +236,19 @@ const PaymentPage = () => {
                   <span className="text-slate-500">Documento de salud recomendado</span>
                   <strong>{LAUNCH_PRICE_LABEL}</strong>
                 </div>
+                {selectedPlan === 'full' && (
+                  <div className="flex justify-between gap-4 text-sm mt-3">
+                    <span className="text-slate-500">Paquete completo adicional</span>
+                    <strong>$65.000</strong>
+                  </div>
+                )}
                 <div className="flex justify-between gap-4 text-sm mt-3">
                   <span className="text-slate-500">Participacion rifa lanzamiento</span>
                   <strong>Incluida</strong>
+                </div>
+                <div className="mt-4 border-t border-slate-200 pt-3 flex justify-between gap-4 text-sm">
+                  <span className="font-bold text-slate-800">Total a pagar</span>
+                  <strong>{selectedPlan === 'full' ? '$114.900' : LAUNCH_PRICE_LABEL}</strong>
                 </div>
               </div>
 
@@ -269,7 +304,7 @@ const PaymentPage = () => {
                 disabled={loading}
                 className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-[#0D68FF] px-6 py-5 text-lg font-black text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
               >
-                {loading ? 'Iniciando pago...' : 'Pagar y activar documento'}
+                {loading ? 'Iniciando pago...' : selectedPlan === 'full' ? 'Pagar paquete completo' : 'Pagar y activar documento'}
                 <ArrowRight size={20} />
               </button>
             )}

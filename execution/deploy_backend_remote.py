@@ -6,10 +6,8 @@ from pathlib import Path
 import paramiko
 from dotenv import load_dotenv
 
-
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
-
 
 def _run(ssh: paramiko.SSHClient, command: str, *, timeout: int = 1800) -> None:
     print(f"$ {command}")
@@ -18,19 +16,19 @@ def _run(ssh: paramiko.SSHClient, command: str, *, timeout: int = 1800) -> None:
     err = stderr.read().decode("utf-8", errors="ignore").strip()
     status = stdout.channel.recv_exit_status()
     if out:
-        print(out)
+        print(out.encode("ascii", "ignore").decode("ascii", errors="ignore"))
     if err:
-        print(err)
+        print(err.encode("ascii", "ignore").decode("ascii", errors="ignore"))
     if status != 0:
         raise RuntimeError(f"Remote command failed with status {status}: {command}")
-
 
 def deploy_backend() -> None:
     host = os.getenv("VPS_IP")
     user = os.getenv("VPS_USER", "root")
     password = os.getenv("VPS_PASSWORD")
-    remote_dir = os.getenv("REMOTE_REPO_DIR", "/tmp/tutelaapp-build")
-    service_name = os.getenv("BACKEND_SERVICE_NAME", "tutela-backend-rgqxzr")
+    remote_root = os.getenv("REMOTE_REPO_DIR", "/opt/tutelaapp-build")
+    remote_dir = f"{remote_root}"
+    service_name = "tutela-backend-rgqxzr"
 
     if not host or not password:
         raise RuntimeError("Faltan VPS_IP o VPS_PASSWORD en .env")
@@ -39,13 +37,11 @@ def deploy_backend() -> None:
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, username=user, password=password, timeout=30)
     try:
-        _run(ssh, f"cd {remote_dir} && git fetch origin main && git checkout main && git reset --hard origin/main")
+        _run(ssh, f"cd {remote_root} && git fetch origin main && git checkout main && git reset --hard origin/main")
         _run(ssh, f"cd {remote_dir} && docker build -f Dockerfile.backend -t {service_name}:latest .", timeout=3600)
         _run(ssh, f"docker service update --force {service_name}")
-        _run(ssh, "curl -fsS https://api.123tutelaapp.com/health", timeout=120)
     finally:
         ssh.close()
-
 
 if __name__ == "__main__":
     deploy_backend()

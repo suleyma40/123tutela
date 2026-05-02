@@ -32,8 +32,11 @@ services:
       APP_ENV: ${APP_ENV:-production}
       APP_URL: ${APP_URL:-https://123tutelaapp.com}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      ROOT_DOMAIN: ${ROOT_DOMAIN:-123tutelaapp.com}
+      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-123tutelaapp.com}
       BACKEND_URL: ${BACKEND_URL:?BACKEND_URL is required}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-123tutelaapp.com,www.123tutelaapp.com,api.123tutelaapp.com,*.123tutelaapp.com}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${APP_DB_NAME:-123tutela}
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}

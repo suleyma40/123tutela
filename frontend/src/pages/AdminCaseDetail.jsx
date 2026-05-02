@@ -11,7 +11,7 @@ const AdminCaseDetail = () => {
   const [caso, setCaso] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [deliveryFile, setDeliveryFile] = useState(null);
+  const [deliveryFiles, setDeliveryFiles] = useState([]);
   const [deliveryNote, setDeliveryNote] = useState('');
   const [sendWhatsapp, setSendWhatsapp] = useState(true);
   const [isSendingDelivery, setIsSendingDelivery] = useState(false);
@@ -45,15 +45,17 @@ const AdminCaseDetail = () => {
   };
 
   const handleUploadAndDeliver = async () => {
-    if (!deliveryFile) {
-      setDeliveryMessage('Selecciona primero el documento final (PDF o DOCX).');
+    if (!deliveryFiles.length) {
+      setDeliveryMessage('Selecciona al menos un documento final (PDF o DOCX).');
       return;
     }
     setIsSendingDelivery(true);
     setDeliveryMessage('');
     try {
       const formData = new FormData();
-      formData.append('file', deliveryFile);
+      deliveryFiles.forEach((file) => {
+        formData.append('files', file);
+      });
       formData.append('delivery_note', deliveryNote || '');
       formData.append('send_whatsapp', String(sendWhatsapp));
       const response = await api.post(`/internal/cases/${id}/deliver-upload`, formData, {
@@ -62,9 +64,9 @@ const AdminCaseDetail = () => {
         },
       });
       setCaso(response.data);
-      setDeliveryFile(null);
+      setDeliveryFiles([]);
       setDeliveryNote('');
-      setDeliveryMessage('Documento enviado al cliente y caso marcado como entregado.');
+      setDeliveryMessage('Documentos enviados al cliente y caso marcado como entregado.');
     } catch (error) {
       setDeliveryMessage(error?.response?.data?.detail || 'No fue posible enviar el documento final.');
     } finally {
@@ -311,10 +313,16 @@ const AdminCaseDetail = () => {
               <div className="grid gap-4">
                 <input
                   type="file"
+                  multiple
                   accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   className="rounded-xl border border-emerald-200 bg-white px-3 py-3 text-sm"
-                  onChange={(e) => setDeliveryFile(e.target.files?.[0] || null)}
+                  onChange={(e) => setDeliveryFiles(Array.from(e.target.files || []))}
                 />
+                {!!deliveryFiles.length && (
+                  <p className="text-xs font-bold text-emerald-800">
+                    {deliveryFiles.length} archivo(s) seleccionado(s): {deliveryFiles.map((file) => file.name).join(', ')}
+                  </p>
+                )}
                 <textarea
                   rows={3}
                   className="rounded-xl border border-emerald-200 bg-white px-3 py-3 text-sm outline-none"
