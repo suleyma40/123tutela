@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Trophy, FileText, Upload, Send, Loader2, Mail, MessageSquareMore, UserCheck, Users } from 'lucide-react';
+import { CheckCircle2, Trophy, FileText, Upload, Send, Loader2, Mail, MessageSquareMore, UserCheck, Users, Mic, Square } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
 import { trackEvent } from '../lib/analytics';
@@ -11,6 +11,8 @@ const QUESTION_FIELD_MAP = {
   medical_support: 'medical_support_detail',
   eps_barrier: 'prior_claim_result',
 };
+const MAX_AUDIO_SECONDS = 180;
+const MAX_AUDIO_MB = 20;
 
 const buildPromptList = (caseData) => {
   const caseItem = caseData?.case || {};
@@ -187,6 +189,12 @@ const SuccessPage = () => {
   const [caseData, setCaseData] = useState(null);
   const [intakeFiles, setIntakeFiles] = useState([]);
   const fileInputRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordingStreamRef = useRef(null);
+  const recordingTimerRef = useRef(null);
+  const [narrationMode, setNarrationMode] = useState('write');
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isThirdParty, setIsThirdParty] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -232,6 +240,77 @@ const SuccessPage = () => {
   const opsStatus = String(opsSync.status || '').toLowerCase();
   const opsSummary = normalizeOperationalCopy(caseData?.case?.facts?.agent_state?.ops_summary || '');
   const uploadedNames = uploadedFiles.map((item) => item?.original_name).filter(Boolean);
+
+  const appendSelectedFiles = (files) => {
+    if (!files?.length) return;
+    const filtered = [];
+    for (const file of files) {
+      const isAudio = String(file.type || '').startsWith('audio/');
+      if (isAudio) {
+        const sizeMb = file.size / (1024 * 1024);
+        if (sizeMb > MAX_AUDIO_MB) {
+          setError(`El audio "${file.name}" supera ${MAX_AUDIO_MB} MB. Comprimelo o grabalo mas corto.`);
+          continue;
+        }
+      }
+      filtered.push(file);
+    }
+    if (!filtered.length) return;
+    setIntakeFiles((current) => [...current, ...filtered]);
+  };
+
+  const stopRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current = null;
+    }
+    setIsRecording(false);
+  };
+
+  const startRecording = async () => {
+    try {
+      setError('');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size) chunks.push(event.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        const file = new File([blob], `narracion-${Date.now()}.webm`, { type: blob.type || 'audio/webm' });
+        const sizeMb = file.size / (1024 * 1024);
+        if (sizeMb > MAX_AUDIO_MB) {
+          setError(`La grabacion supera ${MAX_AUDIO_MB} MB. Intenta un audio mas corto.`);
+        } else {
+          appendSelectedFiles([file]);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recordingStreamRef.current = stream;
+      setRecordingSeconds(0);
+      setIsRecording(true);
+      recorder.start();
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev + 1 >= MAX_AUDIO_SECONDS) {
+            stopRecording();
+            return MAX_AUDIO_SECONDS;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (_) {
+      setError('No pudimos activar el microfono. Revisa permisos del navegador.');
+    }
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem('hazlopormi-guest-case');
@@ -352,6 +431,8 @@ const SuccessPage = () => {
     }
   }, [caseData?.case?.id]);
 
+  useEffect(() => () => stopRecording(), []);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!caseData) return;
@@ -372,6 +453,8 @@ const SuccessPage = () => {
         });
       }
 
+      const hasAudioNarration = intakeFiles.some((file) => String(file.type || '').startsWith('audio/') || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(String(file.name || '')));
+      const normalizedCaseStory = String(form.case_story || '').trim() || (hasAudioNarration ? 'Narracion principal adjunta en audio.' : '');
       const response = await api.patch(`/public/cases/${saved.caseId}/intake`, {
         public_token: saved.publicToken,
         name: form.name,
@@ -381,8 +464,8 @@ const SuccessPage = () => {
         city: form.city,
         department: form.department,
         address: form.address,
-        description: buildDescription(form),
-        form_data: buildFormDataPayload(form),
+        description: buildDescription({ ...form, case_story: normalizedCaseStory }),
+        form_data: buildFormDataPayload({ ...form, case_story: normalizedCaseStory }),
       });
 
       setCaseData(response.data);
@@ -575,6 +658,67 @@ const SuccessPage = () => {
                   </div>
 
                   <form onSubmit={handleSubmit} className="space-y-8">
+                    <div className="rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
+                      <p className="text-sm font-black uppercase tracking-wide text-brand mb-4">Como prefieres contar tu caso</p>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setNarrationMode('write')}
+                          className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                            narrationMode === 'write'
+                              ? 'border-[#0D68FF] bg-[#0D68FF]/10 text-[#0D68FF]'
+                              : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                          }`}
+                        >
+                          <p className="font-black text-sm">Escribir narracion</p>
+                          <p className="text-xs mt-1">Completa los hechos en texto con fechas y respuestas.</p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNarrationMode('audio')}
+                          className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                            narrationMode === 'audio'
+                              ? 'border-[#0D68FF] bg-[#0D68FF]/10 text-[#0D68FF]'
+                              : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                          }`}
+                        >
+                          <p className="font-black text-sm">Hablar (audio)</p>
+                          <p className="text-xs mt-1">Graba directo en la plataforma o sube nota de voz.</p>
+                        </button>
+                      </div>
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                        <p className="text-xs text-slate-600 font-semibold">
+                          Audio permitido: maximo {MAX_AUDIO_SECONDS / 60} minutos por grabacion, hasta {MAX_AUDIO_MB} MB por archivo.
+                        </p>
+                        {narrationMode === 'audio' && (
+                          <div className="mt-3 flex flex-wrap items-center gap-3">
+                            {!isRecording ? (
+                              <button
+                                type="button"
+                                onClick={startRecording}
+                                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500"
+                              >
+                                <Mic size={14} />
+                                Grabar ahora
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={stopRecording}
+                                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-black text-white hover:bg-red-500"
+                              >
+                                <Square size={14} />
+                                Detener grabacion
+                              </button>
+                            )}
+                            <span className="text-xs font-bold text-slate-600">
+                              {isRecording ? `Grabando... ${String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:${String(recordingSeconds % 60).padStart(2, '0')}` : 'Microfono inactivo'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Selector: nombre propio o tercero */}
                     <div className="rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
                       <p className="text-sm font-black uppercase tracking-wide text-brand mb-4">¿Para quién es el documento?</p>
@@ -823,12 +967,18 @@ const SuccessPage = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-brand ml-1">Hechos del caso en orden</label>
+                      <label className="text-sm font-bold text-brand ml-1">
+                        Hechos del caso en orden {narrationMode === 'audio' ? '(resumen breve)' : ''}
+                      </label>
                       <textarea
-                        required
+                        required={narrationMode !== 'audio'}
                         rows={6}
                         className="input-field resize-none"
-                        placeholder="Cuenta el caso con mas detalle: que paso primero, que gestiones hiciste, que respondieron y como te afecta hoy."
+                        placeholder={
+                          narrationMode === 'audio'
+                            ? 'Si ya grabaste audio, escribe aqui un resumen corto (opcional pero recomendado).'
+                            : 'Cuenta el caso con mas detalle: que paso primero, que gestiones hiciste, que respondieron y como te afecta hoy.'
+                        }
                         value={form.case_story}
                         onChange={(e) => handleFieldChange('case_story', e.target.value)}
                       />
@@ -865,16 +1015,16 @@ const SuccessPage = () => {
                         </div>
                       )}
                       <p className="text-xs text-brand/50 font-medium">
-                        Formatos: PDF, JPG, PNG, DOC, DOCX y audio (MP3, WAV, M4A, AAC).
+                        Formatos: PDF, JPG, PNG, DOC, DOCX y audio (MP3, WAV, M4A, AAC, WEBM, OGG).
                       </p>
                       <div className="border-2 border-dashed border-brand/10 rounded-2xl p-8 text-center hover:bg-brand/5 transition-colors cursor-pointer relative">
                         <input
                           ref={fileInputRef}
                           type="file"
                           multiple
-                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp3,.wav,.m4a,.aac,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/aac"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp3,.wav,.m4a,.aac,.webm,.ogg,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/aac,audio/webm,audio/ogg"
                           className="absolute inset-0 opacity-0 cursor-pointer"
-                          onChange={(e) => setIntakeFiles(Array.from(e.target.files || []))}
+                          onChange={(e) => appendSelectedFiles(Array.from(e.target.files || []))}
                         />
                         <FileText className="mx-auto text-brand/20 mb-2" size={32} />
                         <p className="text-sm text-brand/60 font-bold">
