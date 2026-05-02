@@ -613,6 +613,15 @@ Actualizacion tecnica reciente (alcance salud reforzado):
   - `/public/cases/{case_id}/intake`
 - Frontend del wizard ya no expone selector multicategoria en la ruta principal de alta.
 - El payload del wizard hacia preview ya fuerza `category = Salud`.
+
+Inicio de ejecucion de bloqueantes (2026-05-02):
+
+- Plan de ejecucion activo: `docs/plan_ejecucion_bloqueantes_lanzamiento_2026_05_02.md`
+- Acta QA juridica: `docs/acta_qa_juridica_salud_2026_05_02.md`
+- Acta trazabilidad pagos Wompi: `docs/acta_trazabilidad_pagos_wompi_2026_05_02.md`
+- Acta radicacion/evidencia: `docs/acta_radicacion_evidencia_operativa_2026_05_02.md`
+- Acta QA E2E: `docs/acta_qa_e2e_salud_2026_05_02.md`
+- Bitacora go-live semana 1: `docs/bitacora_go_live_salud_semana_1.md`
 - Postpago (`/pago/resultado`) refinado en frontend:
   - estado del expediente ya no muestra `enviado al equipo juridico` de forma prematura
   - progreso del formulario ahora pondera campos obligatorios reales, preguntas dinamicas y soportes
