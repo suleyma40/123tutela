@@ -188,6 +188,7 @@ const SuccessPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [uploadNotice, setUploadNotice] = useState('');
   const [caseData, setCaseData] = useState(null);
   const [intakeFiles, setIntakeFiles] = useState([]);
   const fileInputRef = useRef(null);
@@ -272,6 +273,7 @@ const SuccessPage = () => {
     }
     if (!filtered.length) return;
     setIntakeFiles((current) => [...current, ...filtered]);
+    setUploadNotice(`Tienes ${filtered.length} archivo(s) nuevo(s) listo(s). Para guardarlos en el expediente, presiona "Enviar expediente al equipo jurídico".`);
   };
 
   const stopRecording = () => {
@@ -306,6 +308,7 @@ const SuccessPage = () => {
           setError(`La grabacion supera ${MAX_AUDIO_MB} MB. Intenta un audio mas corto.`);
         } else {
           appendSelectedFiles([file]);
+          setUploadNotice('Audio grabado correctamente. Ahora presiona "Enviar expediente al equipo jurídico" para guardarlo en el expediente.');
         }
       };
       mediaRecorderRef.current = recorder;
@@ -501,6 +504,7 @@ const SuccessPage = () => {
         localStorage.removeItem(`hazlopormi-intake-draft-${saved.caseId}`);
       }
       setIntakeFiles([]);
+      setUploadNotice('');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -1068,18 +1072,38 @@ const SuccessPage = () => {
                           Puedes combinar soportes escritos + una nota de voz con la narracion del caso.
                         </p>
                       </div>
+                      {!!intakeFiles.length && (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
+                          <p className="text-xs font-bold text-blue-700">Seleccionados y pendientes por guardar: {intakeFiles.length}</p>
+                          <button
+                            type="button"
+                            className="text-xs font-black text-blue-700 underline"
+                            onClick={() => {
+                              setIntakeFiles([]);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                              setUploadNotice('');
+                            }}
+                          >
+                            Limpiar selección
+                          </button>
+                        </div>
+                      )}
                       {!!uploadedNames.length && (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="space-y-2">
+                          <p className="text-xs font-bold text-slate-600">Ya guardados en este expediente (de pruebas previas o envíos anteriores):</p>
+                          <div className="flex flex-wrap gap-2">
                           {uploadedNames.map((name) => (
                             <span key={name} className="px-3 py-1 rounded-full bg-success/10 text-success text-xs font-bold">
                               {name}
                             </span>
                           ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {successMessage && <p className="text-green-700 text-sm font-bold">{successMessage}</p>}
+                    {uploadNotice && <p className="text-blue-700 text-sm font-bold">{uploadNotice}</p>}
                     {error && <p className="text-red-600 text-sm font-bold">{error}</p>}
 
                     <button
