@@ -203,7 +203,7 @@ const PaymentPage = () => {
             <h2 className="text-4xl font-black leading-none">{selectedPlan === 'full' ? '$114.900' : LAUNCH_PRICE_LABEL}</h2>
             <p className="text-slate-500 mt-3">
               {selectedPlan === 'full'
-                ? 'Incluye documento base + paquete completo de seguimiento y radicacion.'
+                ? 'Incluye elaboracion, radicacion y seguimiento del mismo caso hasta desacato (no demandas).'
                 : 'Precio unico para cualquiera de los cuatro tramites hoy habilitados en salud.'}
             </p>
 
@@ -222,7 +222,7 @@ const PaymentPage = () => {
                 className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${selectedPlan === 'full' ? 'border-[#0D68FF] bg-blue-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
               >
                 <p className="text-sm font-black text-slate-900">Paquete completo - $114.900</p>
-                <p className="text-xs text-slate-600 mt-1">Incluye seguimiento, desacato/impugnacion cuando aplique, elaboracion y acompanamiento.</p>
+                <p className="text-xs text-slate-600 mt-1">Incluye elaboracion, radicacion y seguimiento del mismo tema hasta desacato (sin demandas), segun lineamientos y tiempos disponibles.</p>
               </button>
             </div>
 

@@ -46,7 +46,7 @@ const PAGE_COPY = {
       {
         title: "Continuidad del caso",
         body:
-          "Impugnacion, desacato y otros pasos posteriores pueden requerir nueva validacion documental, verificacion de terminos y cobro independiente. Si falta un soporte esencial, la plataforma puede impedir la compra o pedir informacion adicional antes de seguir.",
+          "Tambien puedes activar un paquete adicional de $65.000 para elaboracion, radicacion y seguimiento del mismo tema hasta la etapa de desacato, segun lineamientos y tiempos disponibles. Este alcance no incluye demandas u otros procesos distintos al flujo de salud definido.",
       },
       {
         title: "Reembolsos",

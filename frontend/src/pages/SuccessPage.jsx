@@ -1275,6 +1275,7 @@ const SuccessPage = () => {
                   <p>- Fundamentacion legal por tipo de tramite.</p>
                   <p>- Checklist de anexos y canal de radicacion.</p>
                   <p>- Trazabilidad por codigo unico de seguimiento.</p>
+                  <p>- Opcion de paquete completo por $65.000 adicionales: elaboracion, radicacion y seguimiento del mismo caso hasta desacato (no demandas).</p>
                 </div>
                 <div className="mt-6 rounded-2xl border border-white/15 bg-white/10 p-4">
                   <p className="text-xs font-black uppercase tracking-wide text-[#19B7FF] mb-2">Rifa {RAFFLE_MONTH_LABEL}</p>

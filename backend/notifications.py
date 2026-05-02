@@ -558,6 +558,9 @@ Si no responden:
 Si niegan la solicitud:
 {guide.get('next_step_if_denied') or ''}
 
+Servicio adicional disponible:
+Si quieres que 123tutela lo haga por ti, puedes activar por $65.000 adicionales un paquete de elaboracion, radicacion y seguimiento del mismo caso hasta desacato (no incluye demandas), segun lineamientos y tiempos disponibles.
+
 Te deseamos muchos exitos en la solucion de tu caso. Tambien te recordamos que con tu pago aprobado quedas participando en la rifa vigente del mes.
 
 {note or ''}
@@ -577,6 +580,7 @@ Te deseamos muchos exitos en la solucion de tu caso. Tambien te recordamos que c
 <p><strong>Tiempo esperado:</strong><br>{guide.get('estimated_response_window') or ''}</p>
 <p><strong>Si no responden:</strong><br>{guide.get('next_step_if_no_response') or ''}</p>
 <p><strong>Si niegan la solicitud:</strong><br>{guide.get('next_step_if_denied') or ''}</p>
+<p><strong>Servicio adicional disponible:</strong><br>Si quieres que 123tutela lo haga por ti, puedes activar por $65.000 adicionales un paquete de elaboracion, radicacion y seguimiento del mismo caso hasta desacato (no incluye demandas), segun lineamientos y tiempos disponibles.</p>
 <p>Te deseamos muchos exitos en la solucion de tu caso. Con tu pago aprobado participas en la rifa vigente del mes.</p>
 <p>{note or ''}</p>
 """.strip()
