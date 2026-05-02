@@ -16,6 +16,8 @@ const AdminCaseDetail = () => {
   const [sendWhatsapp, setSendWhatsapp] = useState(true);
   const [isSendingDelivery, setIsSendingDelivery] = useState(false);
   const [deliveryMessage, setDeliveryMessage] = useState('');
+  const [transcribingByFile, setTranscribingByFile] = useState({});
+  const [transcriptByFile, setTranscriptByFile] = useState({});
 
   useEffect(() => {
     fetchCaso();
@@ -86,6 +88,23 @@ const AdminCaseDetail = () => {
     const kind = String(file?.mime_type || '').toLowerCase();
     return kind.startsWith('audio/') || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(name);
   });
+
+  const handleTranscribeAudio = async (fileId) => {
+    setTranscribingByFile((current) => ({ ...current, [fileId]: true }));
+    try {
+      const response = await api.post(`/internal/cases/${id}/files/${fileId}/transcribe`);
+      const transcript = String(response?.data?.transcript_text || '').trim();
+      setTranscriptByFile((current) => ({ ...current, [fileId]: transcript }));
+      await fetchCaso();
+    } catch (error) {
+      setTranscriptByFile((current) => ({
+        ...current,
+        [fileId]: `Error de transcripción: ${error?.response?.data?.detail || 'No fue posible transcribir.'}`,
+      }));
+    } finally {
+      setTranscribingByFile((current) => ({ ...current, [fileId]: false }));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F5F7FB] text-slate-900">
@@ -165,22 +184,33 @@ const AdminCaseDetail = () => {
               <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-4">Archivos adjuntos</p>
               {caso.files && caso.files.length > 0 ? (
                 <div className="grid md:grid-cols-2 gap-4">
-                  {caso.files.map((file) => (
-                    <a
-                      key={file.id}
-                      href={`/public/files/${file.relative_path}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-[#FCFDFF] px-4 py-4 text-slate-700 no-underline"
-                    >
-                      <Paperclip size={16} />
-                      <div className="overflow-hidden">
-                        <p className="font-bold truncate">{file.original_name}</p>
-                        <p className="text-[11px] uppercase text-slate-400 font-black">{file.file_kind}</p>
+                  {caso.files.map((file) => {
+                    const hasPath = Boolean(file?.relative_path);
+                    return (
+                      <div
+                        key={file.id}
+                        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-[#FCFDFF] px-4 py-4 text-slate-700"
+                      >
+                        <Paperclip size={16} />
+                        <div className="overflow-hidden">
+                          <p className="font-bold truncate">{file.original_name}</p>
+                          <p className="text-[11px] uppercase text-slate-400 font-black">{file.file_kind}</p>
+                          {!hasPath && <p className="text-[11px] text-red-500 font-semibold">Archivo sin ruta (revisar carga)</p>}
+                        </div>
+                        {hasPath && (
+                          <a
+                            href={`/public/files/${file.relative_path}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="ml-auto shrink-0 text-slate-600"
+                            title="Abrir archivo"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
                       </div>
-                      <ExternalLink size={14} className="ml-auto shrink-0" />
-                    </a>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-slate-400 font-semibold">No hay archivos cargados para este caso.</p>
@@ -193,15 +223,34 @@ const AdminCaseDetail = () => {
                 <p className="text-sm text-emerald-800 mb-3">El equipo debe escuchar el audio completo. La transcripcion literal puede venir en formulario si el cliente la adjunto.</p>
                 <div className="grid gap-2">
                   {audioFiles.map((file) => (
-                    <a
-                      key={`audio-${file.id}`}
-                      href={`/public/files/${file.relative_path}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm font-bold text-emerald-800 underline"
-                    >
-                      Escuchar/descargar: {file.original_name}
-                    </a>
+                    <div key={`audio-${file.id}`} className="rounded-xl border border-emerald-200 bg-white p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <a
+                          href={file?.relative_path ? `/public/files/${file.relative_path}` : '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-bold text-emerald-800 underline"
+                        >
+                          Escuchar/descargar: {file.original_name}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleTranscribeAudio(file.id)}
+                          disabled={Boolean(transcribingByFile[file.id])}
+                          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white disabled:opacity-60"
+                        >
+                          {transcribingByFile[file.id] ? 'Transcribiendo...' : 'Transcribir audio'}
+                        </button>
+                      </div>
+                      {((file?.metadata || {}).transcript_text || transcriptByFile[file.id]) && (
+                        <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                          <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700 mb-1">Transcripción</p>
+                          <p className="text-sm text-emerald-900 whitespace-pre-wrap">
+                            {transcriptByFile[file.id] || (file?.metadata || {}).transcript_text}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

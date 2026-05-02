@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 import time
+from openai import OpenAI
 
 from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -238,6 +239,7 @@ def _normalize_file(item: dict[str, Any]) -> UploadedFileResponse:
         file_kind=item["file_kind"],
         status=item["status"],
         original_name=item["original_name"],
+        relative_path=item.get("relative_path"),
         mime_type=item["mime_type"],
         file_size=item["file_size"],
         created_at=item["created_at"],
@@ -911,6 +913,14 @@ def _format_blocking_detail_with_actions(
         f"{issue} (completalo en: {_blocking_issue_fix_location(issue, recommended_action)})"
         for issue in detail_parts[:4]
     ]
+
+
+def _is_audio_file_record(file_item: dict[str, Any] | None) -> bool:
+    if not file_item:
+        return False
+    mime_type = str(file_item.get("mime_type") or "").lower()
+    original_name = str(file_item.get("original_name") or "").lower()
+    return mime_type.startswith("audio/") or bool(re.search(r"\.(mp3|wav|m4a|aac|webm|ogg)$", original_name))
     if actionable_text:
         detail_parts = detail_parts + ["Corrige ahora: " + " | ".join(actionable_text)]
     return prefix + " | ".join(detail_parts)
@@ -3945,6 +3955,62 @@ def get_internal_case(case_id: str, _: dict[str, Any] = Depends(get_internal_use
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
     return _snapshot_case_detail(case)
+
+
+@app.post("/internal/cases/{case_id}/files/{file_id}/transcribe")
+def transcribe_internal_audio_file(
+    case_id: str,
+    file_id: str,
+    current_user: dict[str, Any] = Depends(get_internal_user),
+) -> dict[str, Any]:
+    case = repository.get_case_by_id(case_id)
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trámite no encontrado.")
+    file_item = repository.get_file_by_id(file_id)
+    if not file_item or str(file_item.get("case_id")) != str(case_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archivo no encontrado para este expediente.")
+    if not _is_audio_file_record(file_item):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Solo se puede transcribir archivos de audio.")
+    if not settings.openai_api_key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OPENAI_API_KEY no configurada para transcripción.")
+
+    relative_path = file_item.get("relative_path")
+    if not relative_path:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El archivo no tiene ruta guardada.")
+    file_path = absolute_path(relative_path)
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontramos el archivo de audio en almacenamiento.")
+
+    try:
+        client = OpenAI(api_key=settings.openai_api_key)
+        with file_path.open("rb") as audio_stream:
+            transcript = client.audio.transcriptions.create(
+                model="gpt-4o-mini-transcribe",
+                file=audio_stream,
+            )
+        transcript_text = str(getattr(transcript, "text", "") or "").strip()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"No fue posible transcribir el audio: {exc}") from exc
+
+    if not transcript_text:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="La transcripción retornó vacía.")
+
+    metadata = dict(file_item.get("metadata") or {})
+    metadata["transcript_text"] = transcript_text
+    metadata["transcribed_at"] = datetime.now(timezone.utc).isoformat()
+    metadata["transcribed_by"] = str(current_user.get("id") or "")
+    updated = repository.update_case_file_metadata(file_id=file_id, case_id=case_id, metadata=metadata)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No fue posible guardar la transcripción.")
+
+    repository.create_event(
+        case_id=case_id,
+        event_type="internal_audio_transcribed",
+        actor_type="internal",
+        actor_id=str(current_user["id"]),
+        payload={"file_id": str(file_id), "name": file_item.get("original_name")},
+    )
+    return {"ok": True, "file_id": str(file_id), "transcript_text": transcript_text}
 
 
 @app.post("/internal/cases/{case_id}/status", response_model=CaseDetailResponse)

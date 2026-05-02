@@ -413,6 +413,26 @@ def update_case_file_status(*, file_id: str, case_id: str, status: str) -> dict[
         return cursor.fetchone()
 
 
+def update_case_file_metadata(*, file_id: str, case_id: str, metadata: dict[str, Any]) -> dict[str, Any] | None:
+    query = """
+        UPDATE case_files
+        SET metadata = %(metadata)s::jsonb
+        WHERE id = %(file_id)s
+          AND case_id = %(case_id)s
+        RETURNING *;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            {
+                "file_id": file_id,
+                "case_id": case_id,
+                "metadata": _json(metadata or {}),
+            },
+        )
+        return cursor.fetchone()
+
+
 def create_case_record(
     *,
     user_id: str,

@@ -117,6 +117,7 @@ class UploadedFileResponse(BaseModel):
     file_kind: str
     status: str
     original_name: str
+    relative_path: str | None = None
     mime_type: str
     file_size: int
     created_at: datetime
