@@ -246,7 +246,10 @@ const SuccessPage = () => {
 
   const appendSelectedFiles = (files) => {
     if (!files?.length) return;
-    const currentAudioCount = intakeFiles.filter(
+    const currentAudioCount = [
+      ...intakeFiles,
+      ...uploadedFiles.map((item) => ({ name: item?.original_name || '', type: item?.mime_type || '' })),
+    ].filter(
       (file) => String(file.type || '').startsWith('audio/') || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(String(file.name || '')),
     ).length;
     let audioCount = currentAudioCount;
@@ -466,7 +469,14 @@ const SuccessPage = () => {
       }
 
       const hasAudioNarration = intakeFiles.some((file) => String(file.type || '').startsWith('audio/') || /\.(mp3|wav|m4a|aac|webm|ogg)$/i.test(String(file.name || '')));
-      const normalizedCaseStory = String(form.case_story || '').trim() || (hasAudioNarration ? 'Narracion principal adjunta en audio.' : '');
+      const isAudioMode = narrationMode === 'audio';
+      const audioClarification = String(form.extra_details || '').trim();
+      const normalizedCaseStory = isAudioMode
+        ? `Narracion principal adjunta en audio.${audioClarification ? ` Aclaracion adicional: ${audioClarification}` : ''}`
+        : (String(form.case_story || '').trim() || (hasAudioNarration ? 'Narracion principal adjunta en audio.' : ''));
+      const normalizedConcreteRequest = isAudioMode
+        ? (String(form.concrete_request || '').trim() || 'Solicito resolver integralmente el caso segun la narracion en audio y soportes adjuntos.')
+        : form.concrete_request;
       const response = await api.patch(`/public/cases/${saved.caseId}/intake`, {
         public_token: saved.publicToken,
         name: form.name,
@@ -476,8 +486,8 @@ const SuccessPage = () => {
         city: form.city,
         department: form.department,
         address: form.address,
-        description: buildDescription({ ...form, case_story: normalizedCaseStory }),
-        form_data: buildFormDataPayload({ ...form, case_story: normalizedCaseStory }),
+        description: buildDescription({ ...form, case_story: normalizedCaseStory, concrete_request: normalizedConcreteRequest }),
+        form_data: buildFormDataPayload({ ...form, case_story: normalizedCaseStory, concrete_request: normalizedConcreteRequest }),
       });
 
       setCaseData(response.data);
@@ -845,7 +855,7 @@ const SuccessPage = () => {
                       </>
                     )}
 
-                    {!!strategicQuestions.length && (
+                    {narrationMode !== 'audio' && !!strategicQuestions.length && (
                       <div className="space-y-6">
                         <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-6">
                           <p className="text-sm font-black uppercase tracking-wide text-emerald-700 mb-2">Preguntas clave para tu caso</p>
@@ -879,7 +889,7 @@ const SuccessPage = () => {
                       </div>
                     )}
 
-                    {!!prompts.length && (
+                    {narrationMode !== 'audio' && !!prompts.length && (
                       <div className="space-y-6">
                         <div className="rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
                           <p className="text-sm font-black uppercase tracking-wide text-brand mb-2">Informacion complementaria</p>
@@ -916,7 +926,7 @@ const SuccessPage = () => {
                       </div>
                     )}
 
-                    {tutelaFlow && (
+                    {narrationMode !== 'audio' && tutelaFlow && (
                       <div className="space-y-6">
                         <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6">
                           <p className="text-sm font-black uppercase tracking-wide text-amber-700 mb-2">Validacion para tutela</p>
@@ -969,65 +979,58 @@ const SuccessPage = () => {
                       </div>
                     )}
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-brand ml-1">Peticion concreta</label>
-                      <textarea
-                        required
-                        rows={3}
-                        className="input-field resize-none"
-                        placeholder="Ej: Solicito que autoricen el medicamento, programen el procedimiento o respondan de fondo."
-                        value={form.concrete_request}
-                        onChange={(e) => handleFieldChange('concrete_request', e.target.value)}
-                      />
-                    </div>
+                    {narrationMode !== 'audio' ? (
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-brand ml-1">Peticion concreta</label>
+                          <textarea
+                            required
+                            rows={3}
+                            className="input-field resize-none"
+                            placeholder="Ej: Solicito que autoricen el medicamento, programen el procedimiento o respondan de fondo."
+                            value={form.concrete_request}
+                            onChange={(e) => handleFieldChange('concrete_request', e.target.value)}
+                          />
+                        </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-brand ml-1">
-                        Hechos del caso en orden {narrationMode === 'audio' ? '(resumen breve)' : ''}
-                      </label>
-                      <textarea
-                        required={narrationMode !== 'audio'}
-                        rows={6}
-                        className="input-field resize-none"
-                        placeholder={
-                          narrationMode === 'audio'
-                            ? 'Si ya grabaste audio, escribe aqui un resumen corto (opcional pero recomendado).'
-                            : 'Cuenta el caso con mas detalle: que paso primero, que gestiones hiciste, que respondieron y como te afecta hoy.'
-                        }
-                        value={form.case_story}
-                        onChange={(e) => handleFieldChange('case_story', e.target.value)}
-                      />
-                      <p className="text-xs text-brand/50 font-medium">
-                        Entre mas completa sea la narracion (fechas, entidades, respuestas y riesgo actual), menos repreguntas tendra tu expediente.
-                      </p>
-                    </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-brand ml-1">Hechos del caso en orden</label>
+                          <textarea
+                            required
+                            rows={6}
+                            className="input-field resize-none"
+                            placeholder="Cuenta el caso con mas detalle: que paso primero, que gestiones hiciste, que respondieron y como te afecta hoy."
+                            value={form.case_story}
+                            onChange={(e) => handleFieldChange('case_story', e.target.value)}
+                          />
+                          <p className="text-xs text-brand/50 font-medium">
+                            Entre mas completa sea la narracion (fechas, entidades, respuestas y riesgo actual), menos repreguntas tendra tu expediente.
+                          </p>
+                        </div>
 
-                    {narrationMode === 'audio' && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-brand ml-1">Detalles adicionales</label>
+                          <textarea
+                            rows={4}
+                            className="input-field resize-none"
+                            placeholder="Agrega cualquier dato adicional que consideres relevante para tu caso."
+                            value={form.extra_details}
+                            onChange={(e) => handleFieldChange('extra_details', e.target.value)}
+                          />
+                        </div>
+                      </>
+                    ) : (
                       <div className="space-y-2">
-                        <label className="text-sm font-bold text-brand ml-1">Transcripcion literal del audio (opcional)</label>
+                        <label className="text-sm font-bold text-brand ml-1">Aclaracion adicional (opcional)</label>
                         <textarea
-                          rows={5}
+                          rows={4}
                           className="input-field resize-none"
-                          placeholder="Si la tienes, pega aqui la transcripcion completa del audio. No resumen: texto literal con todos los detalles."
-                          value={form.audio_transcript}
-                          onChange={(e) => handleFieldChange('audio_transcript', e.target.value)}
+                          placeholder="Agrega una aclaracion puntual si quieres complementar el audio."
+                          value={form.extra_details}
+                          onChange={(e) => handleFieldChange('extra_details', e.target.value)}
                         />
-                        <p className="text-xs text-brand/50 font-medium">
-                          Si no tienes transcripcion, no se bloquea el caso: el equipo humano escuchara el audio completo.
-                        </p>
                       </div>
                     )}
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-brand ml-1">Detalles adicionales</label>
-                      <textarea
-                        rows={4}
-                        className="input-field resize-none"
-                        placeholder="Agrega cualquier dato adicional que consideres relevante para tu caso."
-                        value={form.extra_details}
-                        onChange={(e) => handleFieldChange('extra_details', e.target.value)}
-                      />
-                    </div>
 
                     <div className="space-y-4 rounded-[2rem] border border-brand/10 bg-brand/5 p-6">
                       <label className="text-sm font-black uppercase tracking-wide text-brand mb-1 flex items-center gap-2">
