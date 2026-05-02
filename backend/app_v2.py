@@ -60,6 +60,8 @@ from backend.schemas_v2 import (
     ManualRadicadoRequest,
     FollowUpReportRequest,
     PaymentOrderResponse,
+    PublicSurveySubmissionRequest,
+    PublicSurveySubmissionResponse,
     PaymentConfirmationRequest,
     GuestCaseStatusResponse,
     GuestCheckoutSessionRequest,
@@ -1992,6 +1994,75 @@ def create_guest_lead(payload: GuestLeadCreateRequest) -> GuestDiagnosisResponse
         commercial_summary=customer_summary,
         price_cop=BASE_SERVICE_PRICE_COP,
     )
+
+
+@app.post("/public/testing/survey", response_model=PublicSurveySubmissionResponse, status_code=status.HTTP_201_CREATED)
+def submit_public_testing_survey(payload: PublicSurveySubmissionRequest) -> PublicSurveySubmissionResponse:
+    ratings = [payload.overall_rating, payload.ease_rating, payload.trust_rating]
+    average_rating = round(sum(ratings) / len(ratings), 2)
+    level = "alto" if average_rating >= 4 else "medio" if average_rating >= 3 else "bajo"
+    strategy = (
+        f"Analisis rapido de encuesta: promedio {average_rating}/5 (nivel {level}). "
+        f"Disposicion de pago: {payload.would_pay}. Revisar bloqueadores y mejoras reportadas."
+    )
+    facts = {
+        "survey_test": {
+            "company": payload.company or "",
+            "role": payload.role or "",
+            "overall_rating": payload.overall_rating,
+            "ease_rating": payload.ease_rating,
+            "trust_rating": payload.trust_rating,
+            "average_rating": average_rating,
+            "would_pay": payload.would_pay,
+            "blockers": payload.blockers or "",
+            "positives": payload.positives or "",
+            "improvement": payload.improvement or "",
+            "submitted_at": datetime.now(timezone.utc).isoformat(),
+        }
+    }
+    description = (
+        "Encuesta de testeo de producto (fin de semana).\n"
+        f"Empresa: {payload.company or 'No reportada'}\n"
+        f"Rol: {payload.role or 'No reportado'}\n"
+        f"Calificacion general: {payload.overall_rating}/5\n"
+        f"Facilidad de uso: {payload.ease_rating}/5\n"
+        f"Confianza: {payload.trust_rating}/5\n"
+        f"Pagaria por el servicio: {payload.would_pay}\n"
+        f"Lo que mas le gusto: {payload.positives or 'No reportado'}\n"
+        f"Bloqueadores: {payload.blockers or 'No reportado'}\n"
+        f"Mejora sugerida: {payload.improvement or 'No reportado'}"
+    )
+    public_token = build_public_token()
+    submission_summary = {"public_token": public_token, "lead_source": "survey_test_weekend"}
+    case = repository.create_guest_case_record(
+        public_token=public_token,
+        user_name=payload.name,
+        user_email=payload.email,
+        user_phone=payload.phone,
+        city="Medellin",
+        department="Antioquia",
+        workflow_type="test_survey",
+        category="Testeo encuesta",
+        description=description,
+        recommended_action="Analisis interno de encuesta",
+        strategy_text=strategy,
+        facts=facts,
+        legal_analysis={},
+        routing={"channel": "testing", "source": "public_survey_form"},
+        prerequisites=[],
+        warnings=[],
+        submission_summary=submission_summary,
+    )
+    case_id = str(case.get("id") or "")
+    repository.update_case_status(case_id, status="en_revision")
+    repository.create_event(
+        case_id=case_id,
+        event_type="survey_test_response_created",
+        actor_type="guest",
+        actor_id=None,
+        payload={"average_rating": average_rating, "would_pay": payload.would_pay},
+    )
+    return PublicSurveySubmissionResponse(case_id=case_id, message="Respuesta registrada correctamente.")
 
 
 @app.get("/public/cases/{case_id}", response_model=GuestCaseStatusResponse)

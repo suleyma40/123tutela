@@ -245,6 +245,26 @@ class GuestDiagnosisResponse(BaseModel):
     price_cop: int
 
 
+class PublicSurveySubmissionRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    phone: str = Field(min_length=7, max_length=40)
+    company: str | None = Field(default=None, max_length=160)
+    role: str | None = Field(default=None, max_length=120)
+    overall_rating: int = Field(ge=1, le=5)
+    ease_rating: int = Field(ge=1, le=5)
+    trust_rating: int = Field(ge=1, le=5)
+    would_pay: str = Field(min_length=2, max_length=60)
+    blockers: str | None = Field(default=None, max_length=3000)
+    positives: str | None = Field(default=None, max_length=3000)
+    improvement: str | None = Field(default=None, max_length=3000)
+
+
+class PublicSurveySubmissionResponse(BaseModel):
+    case_id: str
+    message: str
+
+
 class GuestCheckoutSessionRequest(BaseModel):
     public_token: str = Field(min_length=12, max_length=120)
     product_code: str | None = Field(default=None, min_length=3, max_length=80)

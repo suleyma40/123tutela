@@ -7,6 +7,7 @@ import SuccessPage from './pages/SuccessPage';
 import AdminPanel from './pages/AdminPanel';
 import AdminCaseDetail from './pages/AdminCaseDetail';
 import LegalPageView from './views/LegalPageView';
+import SurveyTestPage from './pages/SurveyTestPage';
 import { trackEvent } from './lib/analytics';
 
 function AnalyticsTracker() {
@@ -30,6 +31,7 @@ function App() {
         <Route path="/terminos" element={<LegalPageView page="terminos" onBackHome={() => window.history.back()} />} />
         <Route path="/privacidad" element={<LegalPageView page="privacidad" onBackHome={() => window.history.back()} />} />
         <Route path="/contacto" element={<LegalPageView page="contacto" onBackHome={() => window.history.back()} />} />
+        <Route path="/testeo/encuesta" element={<SurveyTestPage />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/admin/caso/:id" element={<AdminCaseDetail />} />
         <Route path="/equipo" element={<AdminPanel />} />
