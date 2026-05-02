@@ -55,126 +55,140 @@ def _collect_ops_follow_up_prompts(*, intake: dict[str, Any], facts: dict[str, A
     prompts: list[dict[str, Any]] = []
     attachment_suggestions = ((facts.get("attachment_intelligence") or {}).get("typed_suggestions") or {})
     uploaded_files = facts.get("uploaded_evidence_files") or []
+    facts_text = _lower(
+        _join_texts(
+            intake.get("case_story"),
+            intake.get("prior_claim_result"),
+            intake.get("eps_response_detail"),
+            intake.get("concrete_request"),
+            facts.get("hechos_principales"),
+        )
+    )
+    has_story = len(_text(intake.get("case_story"))) >= 90
+    has_service = bool(_text(intake.get("treatment_needed")) or _has_any(facts_text, ["medicamento", "terapia", "procedimiento", "cirugia", "cita", "examen"]))
+    has_responsible = bool(_text(intake.get("target_entity") or intake.get("eps_name")) or _has_any(facts_text, ["eps", "ips", "clinica", "hospital"]))
+    has_prior_actions = bool(
+        _text(intake.get("prior_claim_result"))
+        or _text(intake.get("eps_response_detail"))
+        or _text(intake.get("tutela_other_means_detail"))
+        or _has_any(facts_text, ["pqrs", "derecho de peticion", "radicado", "reclame", "reclamo", "respondieron", "no respondieron"])
+    )
+    has_dates = bool(_text(intake.get("key_dates")) or _text(intake.get("medical_order_date")) or _text(intake.get("eps_request_date")))
+    has_written_support = bool(
+        uploaded_files
+        or _text(attachment_suggestions.get("medical_order_date"))
+        or _text(attachment_suggestions.get("treating_doctor_name"))
+        or _text(attachment_suggestions.get("history_clinical_summary"))
+    )
+    has_support_comment = bool(_text(intake.get("medical_support_detail")) or _text(intake.get("supporting_documents")) or _text(intake.get("evidence_summary")))
 
-    if not _text(intake.get("document_number")):
-        _push_prompt(
-            prompts,
-            {
-                "id": "document_number",
-                "question": "Cual es tu numero de documento para dejar completo el expediente?",
-                "placeholder": "Ej: 1023456789",
-                "multiline": False,
-                "why": "Operacion necesita identificar con precision a la persona que recibira el documento.",
-            },
-        )
-    if not _text(intake.get("city")):
-        _push_prompt(
-            prompts,
-            {
-                "id": "city",
-                "question": "En que ciudad presentarias o recibirias este documento?",
-                "placeholder": "Ej: Bogota, Medellin, Cali",
-                "multiline": False,
-                "why": "La ciudad ayuda a definir competente, formato y datos de radicacion.",
-            },
-        )
-    if not _text(intake.get("address")):
-        _push_prompt(
-            prompts,
-            {
-                "id": "address",
-                "question": "Cual es tu direccion de notificacion o residencia?",
-                "placeholder": "Ej: Calle 123 # 45-67, Barrio..., Ciudad...",
-                "multiline": False,
-                "why": "El humano necesita cerrar la informacion base del encabezado y notificaciones.",
-            },
-        )
-    if not _text(intake.get("case_story")):
+    # RONDA 1: una sola pregunta abierta para entender nucleo del caso.
+    if not (has_story and has_service and has_responsible and has_prior_actions):
         _push_prompt(
             prompts,
             {
                 "id": "case_story",
-                "question": "Cuenta la historia completa en orden: que paso, cuando reclamaste y que respondio la entidad.",
-                "placeholder": "Escribe los hechos en orden cronologico, sin lenguaje juridico.",
+                "question": "Cuentame que esta pasando con tu salud y que te estan negando o incumpliendo. Incluye si ya reclamaste antes y que te respondieron.",
+                "placeholder": "Describe en un solo bloque el servicio en juego, quien incumple y que gestiones previas hiciste.",
                 "multiline": True,
-                "why": "La redaccion humana necesita una cronologia entendible y no solo un resumen comercial.",
+                "why": "Con esta respuesta cerramos problema central, responsable real y gestion previa sin hacer preguntas repetidas.",
             },
         )
-    if not _text(intake.get("key_dates")):
+
+    # RONDA 2: solo fechas y soportes faltantes.
+    if not (has_dates and has_written_support):
         _push_prompt(
             prompts,
             {
                 "id": "key_dates",
-                "question": "Escribe las fechas clave del caso: orden medica, solicitud, respuesta, negativa o ultimo incumplimiento.",
-                "placeholder": "Ej: 4 de marzo orden medica, 6 de marzo PQRS, 11 de marzo respuesta negativa",
+                "question": "Para completar tu caso: fecha de orden medica o autorizacion, si tienes orden/formula/autorizacion escrita, si tienes respuesta escrita de la entidad y cuanto tiempo lleva sin resolverse.",
+                "placeholder": "Ej: orden 12/03, autorizacion 15/03, sin cita desde hace 4 semanas, tengo correo de respuesta.",
                 "multiline": True,
-                "why": "Las fechas ordenadas facilitan el trabajo del redactor humano y reducen repreguntas.",
-            },
-        )
-    if not _text(intake.get("concrete_request")):
-        _push_prompt(
-            prompts,
-            {
-                "id": "concrete_request",
-                "question": "Que necesitas exactamente que ordenen o solucionen en tu caso?",
-                "placeholder": "Ej: entregar medicamento, autorizar examen, programar cirugia, responder de fondo",
-                "multiline": True,
-                "why": "La pretension concreta debe quedar lista para el redactor humano.",
-            },
-        )
-    if not _text(intake.get("copy_email")):
-        _push_prompt(
-            prompts,
-            {
-                "id": "copy_email",
-                "question": "A que correo quieres que llegue la entrega del documento y las copias del caso?",
-                "placeholder": "Ej: nombre@correo.com",
-                "multiline": False,
-                "why": "Operacion necesita el canal final de entrega confirmado.",
+                "why": "La cronologia y evidencia escrita son claves para procedencia y fuerza probatoria.",
             },
         )
 
-    _push_prompt(prompts, _build_next_prompt(intake=intake, facts=facts, workflow_type=workflow_type))
+    # Preguntas especificas por tipo de caso (sin pedir datos personales basicos).
+    if workflow_type == "tutela":
+        target_text = _lower(_text(intake.get("target_entity") or intake.get("eps_name")))
+        prior_claim_text = _lower(_join_texts(intake.get("prior_claim_result"), intake.get("eps_response_detail"), intake.get("tutela_other_means_detail"), facts_text))
+        eps_authorized = _has_any(prior_claim_text, ["autoriz", "autorizacion", "autorizado"])
+        ips_noncompliance = _has_any(prior_claim_text, ["no agenda", "no asigna cita", "ips", "clinica", "prestador", "no responde"])
+        if eps_authorized and ips_noncompliance:
+            if not _text(intake.get("target_entity")) or not _text(intake.get("prior_claim_result")):
+                _push_prompt(
+                    prompts,
+                    {
+                        "id": "ips_followup",
+                        "question": "Como tutela contra IPS/clinica: confirma si tienes autorizacion de la EPS, si la clinica respondio por escrito por que no agenda, si ya presentaste peticion a la clinica y si quieres pedir en paralelo cambio de prestador a la EPS.",
+                        "placeholder": "Ej: autorizacion #123, clinica sin agenda, peticion radicada, si deseo cambio de prestador.",
+                        "multiline": True,
+                        "why": "Define responsable correcto (IPS/clinica) y habilita accion paralela con EPS.",
+                    },
+                )
+        else:
+            if not _text(intake.get("eps_response_detail")) or not _text(intake.get("tutela_other_means_detail")):
+                _push_prompt(
+                    prompts,
+                    {
+                        "id": "eps_barrier",
+                        "question": "Como tutela por negacion de servicio: confirma si el medico lo ordeno por escrito, si la EPS nego formalmente o guarda silencio, que gestion previa hiciste y que riesgo hay si esto sigue sin resolverse.",
+                        "placeholder": "Ej: orden escrita, EPS no responde desde..., ya hice PQRS, riesgo de empeorar por...",
+                        "multiline": True,
+                        "why": "Sostiene subsidiariedad, barrera concreta y urgencia medica actual.",
+                    },
+                )
+    elif workflow_type == "desacato":
+        if not (_text(intake.get("tutela_court_name")) and _text(intake.get("tutela_ruling_date")) and _text(intake.get("tutela_order_summary"))):
+            _push_prompt(
+                prompts,
+                {
+                    "id": "desacato_core",
+                    "question": "Para desacato confirma: juzgado y numero de expediente, fecha del fallo, orden exacta del juez, cuantos dias llevan sin cumplir y si tienes copia del fallo.",
+                    "placeholder": "Ej: Juzgado..., expediente..., fallo del..., ordeno..., incumplido por... dias.",
+                    "multiline": True,
+                    "why": "Sin estos datos el desacato queda debil o improcedente.",
+                },
+            )
+    elif workflow_type == "impugnacion":
+        if not (_text(intake.get("tutela_ruling_date")) and _text(intake.get("tutela_decision_result")) and _text(intake.get("tutela_appeal_reason"))):
+            _push_prompt(
+                prompts,
+                {
+                    "id": "impugnacion_core",
+                    "question": "Para impugnacion confirma: fecha de notificacion del fallo negativo, razon por la que el juez nego y si tienes copia del fallo (recuerda: hay 3 dias habiles para impugnar).",
+                    "placeholder": "Ej: notificado el..., el juez nego por..., tengo adjunto el fallo.",
+                    "multiline": True,
+                    "why": "La impugnacion depende del termino legal y del texto exacto del fallo.",
+                },
+            )
+    elif workflow_type == "derecho_peticion":
+        if not _text(intake.get("concrete_request")) or not _text(intake.get("prior_claim_result")):
+            _push_prompt(
+                prompts,
+                {
+                    "id": "peticion_core",
+                    "question": "Para derecho de peticion: confirma si ya presentaste peticion por este tema, que respondieron, que quieres que hagan exactamente y si la urgencia medica exige respuesta prioritaria.",
+                    "placeholder": "Ej: peticion previa el..., respuesta..., solicito..., urgencia...",
+                    "multiline": True,
+                    "why": "Define pretension concreta y terminos de respuesta aplicables.",
+                },
+            )
 
-    if workflow_type == "tutela" and not _text(intake.get("ongoing_harm")):
-        _push_prompt(
-            prompts,
-            {
-                "id": "ongoing_harm",
-                "question": "Que dano o riesgo sigue ocurriendo hoy si no resuelven esto?",
-                "placeholder": "Ej: dolor, agravacion, interrupcion del tratamiento, riesgo de crisis o complicacion",
-                "multiline": True,
-                "why": "La redaccion de tutela necesita dano actual explicado con claridad.",
-            },
-        )
-    if workflow_type == "tutela" and not _text(intake.get("tutela_other_means_detail")):
-        _push_prompt(
-            prompts,
-            {
-                "id": "tutela_other_means_detail",
-                "question": "Que gestiones previas hiciste antes de llegar aqui y por que no resolvieron el problema?",
-                "placeholder": "Ej: PQRS, llamada, correo, visita a la EPS, respuesta insuficiente o silencio",
-                "multiline": True,
-                "why": "Esto evita que el humano tenga que reconstruir subsidiariedad desde cero.",
-            },
-        )
-
-    if not uploaded_files and not (
-        _text(intake.get("medical_order_date"))
-        or _text(intake.get("treating_doctor_name"))
-        or _text(attachment_suggestions.get("medical_order_date"))
-        or _text(attachment_suggestions.get("treating_doctor_name"))
-    ):
+    # RONDA 3: checklist de soportes al cierre.
+    if not has_support_comment:
         _push_prompt(
             prompts,
             {
                 "id": "medical_support",
-                "question": "Que soporte puedes subir hoy: orden medica, formula, historia clinica, respuesta de la EPS o fallo previo?",
-                "placeholder": "Ej: tengo formula y respuesta de la EPS por correo, o aun no tengo soporte escrito",
+                "question": "Adjunta lo disponible: historia clinica/epicrisis, orden o formula, autorizacion EPS si existe, respuesta de peticion, fallo previo si aplica y cedula del paciente. Si falta algo, dime exactamente que falta.",
+                "placeholder": "Ej: tengo historia clinica y autorizacion; falta respuesta escrita de la clinica.",
                 "multiline": True,
-                "why": "Operacion necesita saber si ya puede redactar o si primero debe pedir documentos concretos.",
+                "why": "Evita rechazo por soportes insuficientes y deja claro que documento falta.",
             },
         )
+
+    _push_prompt(prompts, _build_next_prompt(intake=intake, facts=facts, workflow_type=workflow_type))
     return prompts
 
 
