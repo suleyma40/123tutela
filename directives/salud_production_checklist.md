@@ -634,6 +634,7 @@ Inicio de ejecucion de bloqueantes (2026-05-02):
   - el frontend preserva codigos de test `TEST123`, `TESTMAYO` y `QA2026` durante build y checkout
   - la simulacion publica con codigo valido queda permitida para cualquier correo
   - el checkout de testeo conserva solo dos acciones visibles: pago real normal y continuar sin pago de test
+  - el panel admin incluye pestaña `Testeo` con resumen de encuestas, promedio, disposicion de pago, bloqueadores y enlace al detalle
 
 ### Estimacion ejecutiva
 

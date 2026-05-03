@@ -358,6 +358,27 @@ const AdminPanel = () => {
         paidAt: summary?.payment_summary?.approved_at || summary?.invoice?.issued_at || c.updated_at || c.created_at || '',
       };
     });
+  const surveyCases = casos
+    .filter((c) => String(c.category || '').toLowerCase().includes('testeo') || Boolean(c.facts?.survey_test))
+    .map((c) => {
+      const survey = c.facts?.survey_test || {};
+      const average = Number(survey.average_rating || 0);
+      return {
+        ...c,
+        survey,
+        averageRating: Number.isFinite(average) ? average : 0,
+      };
+    })
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const surveySummary = {
+    total: surveyCases.length,
+    average:
+      surveyCases.length > 0
+        ? (surveyCases.reduce((sum, c) => sum + Number(c.averageRating || 0), 0) / surveyCases.length).toFixed(1)
+        : '0.0',
+    wouldPayYes: surveyCases.filter((c) => String(c.survey?.would_pay || '').toLowerCase() === 'si').length,
+    blockers: surveyCases.filter((c) => String(c.survey?.blockers || '').trim()).length,
+  };
 
   const downloadPaidCasesCsv = () => {
     const headers = [
@@ -494,6 +515,13 @@ const AdminPanel = () => {
                 className={`rounded-xl px-3 py-2 text-xs font-black uppercase ${activeTab === 'participantes' ? 'bg-[#0D68FF] text-white' : 'text-slate-600 hover:bg-slate-50'}`}
               >
                 Participantes
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('testeo')}
+                className={`rounded-xl px-3 py-2 text-xs font-black uppercase ${activeTab === 'testeo' ? 'bg-[#0D68FF] text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                Testeo
               </button>
             </div>
             <div className="relative">
@@ -1074,6 +1102,83 @@ const AdminPanel = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </section>
+        )}
+
+        {activeTab === 'testeo' && (
+        <section className="grid gap-6 mb-8">
+          <div className="grid md:grid-cols-4 gap-5">
+            {[
+              { label: 'Encuestas recibidas', value: surveySummary.total, tone: 'text-slate-900' },
+              { label: 'Promedio general', value: `${surveySummary.average}/5`, tone: 'text-[#0D68FF]' },
+              { label: 'Pagarían', value: `${surveySummary.wouldPayYes}/${surveySummary.total}`, tone: 'text-emerald-700' },
+              { label: 'Con bloqueadores', value: surveySummary.blockers, tone: 'text-amber-700' },
+            ].map((item) => (
+              <div key={item.label} className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">{item.label}</p>
+                <p className={`text-3xl font-black ${item.tone}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Encuesta post-documento</p>
+                <h2 className="text-xl font-black text-slate-900">Resultados de testeo</h2>
+                <p className="text-sm text-slate-500 mt-1">Cada respuesta se registra como caso interno y aparece aqui al recargar el panel.</p>
+              </div>
+              <Link to="/testeo/encuesta" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 no-underline hover:bg-slate-50">
+                Abrir encuesta
+              </Link>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left min-w-[980px]">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Tester</th>
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Promedio</th>
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Pagaría</th>
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Bloqueador</th>
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Mejora</th>
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Fecha</th>
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Detalle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {surveyCases.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-6 text-sm font-semibold text-slate-500">
+                        Aun no hay encuestas registradas.
+                      </td>
+                    </tr>
+                  ) : surveyCases.map((caso) => (
+                    <tr key={`survey-${caso.id}`} className="hover:bg-[#FCFDFF]">
+                      <td className="px-4 py-4">
+                        <p className="font-black text-slate-900">{caso.user_name || 'Anonimo'}</p>
+                        <p className="text-xs text-slate-500">{caso.user_email || '-'}</p>
+                      </td>
+                      <td className="px-4 py-4 text-sm font-black text-[#0D68FF]">{caso.averageRating || '-'}/5</td>
+                      <td className="px-4 py-4 text-sm font-semibold text-slate-700">{caso.survey?.would_pay || '-'}</td>
+                      <td className="px-4 py-4 text-sm text-slate-600 max-w-[240px] truncate" title={caso.survey?.blockers || ''}>
+                        {caso.survey?.blockers || '-'}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-600 max-w-[240px] truncate" title={caso.survey?.improvement || ''}>
+                        {caso.survey?.improvement || '-'}
+                      </td>
+                      <td className="px-4 py-4 text-sm font-semibold text-slate-600">{formatBogotaDateTime(caso.created_at)}</td>
+                      <td className="px-4 py-4">
+                        <Link to={`${adminBasePath}/caso/${caso.id}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-700 no-underline">
+                          <Eye size={16} />
+                          Ver
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
         )}
