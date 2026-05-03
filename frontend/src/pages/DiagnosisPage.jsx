@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, FileText, HeartPulse, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
@@ -8,6 +8,7 @@ import { LAUNCH_PRICE_LABEL, RAFFLE_LONG_COPY } from '../lib/launchConfig';
 
 const DiagnosisPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
@@ -37,6 +38,12 @@ const DiagnosisPage = () => {
         email: form.email,
       };
       localStorage.setItem('hazlopormi-guest-case', JSON.stringify(guestCase));
+      const testCode = new URLSearchParams(location.search).get('test_code') || '';
+      if (testCode) {
+        localStorage.setItem('hazlopormi-test-code', testCode);
+      } else {
+        localStorage.removeItem('hazlopormi-test-code');
+      }
       trackEvent('start_diagnosis', {
         category: form.category,
         city: form.city,
@@ -44,7 +51,7 @@ const DiagnosisPage = () => {
         recommended_action: response?.data?.case?.recommended_action || '',
         case_id: response?.data?.case?.id || '',
       });
-      navigate('/pago');
+      navigate(testCode ? `/pago?test_code=${encodeURIComponent(testCode)}` : '/pago');
     } catch (err) {
       setError(extractError(err, 'No fue posible analizar tu caso. Intenta resumir tu historia.'));
     } finally {

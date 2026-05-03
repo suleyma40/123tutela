@@ -28,6 +28,12 @@ const PaymentPage = () => {
   const [selectedPlan, setSelectedPlan] = useState('base');
 
   useEffect(() => {
+    const codeFromUrl = new URLSearchParams(location.search).get('test_code') || '';
+    const storedCode = localStorage.getItem('hazlopormi-test-code') || '';
+    const effectiveCode = codeFromUrl || storedCode;
+    if (codeFromUrl) {
+      localStorage.setItem('hazlopormi-test-code', codeFromUrl);
+    }
     const saved = localStorage.getItem('hazlopormi-guest-case');
     if (saved) {
       const parsed = JSON.parse(saved);
@@ -49,14 +55,14 @@ const PaymentPage = () => {
           .catch(() => {});
       }
     } else {
-      navigate('/diagnostico');
+      navigate(effectiveCode ? `/diagnostico?test_code=${encodeURIComponent(effectiveCode)}` : '/diagnostico');
     }
-  }, [navigate]);
+  }, [navigate, location.search]);
 
   const diagnosisCopy = (guestCase?.strategyText || '').trim();
   const hasStructuredDiagnosis = diagnosisCopy.includes('🔴 Derecho vulnerado:');
   const isAlreadyPaid = String(guestCase?.paymentStatus || '').toLowerCase() === 'pagado';
-  const testCode = new URLSearchParams(location.search).get('test_code') || '';
+  const testCode = new URLSearchParams(location.search).get('test_code') || localStorage.getItem('hazlopormi-test-code') || '';
   const isPublicTestMode = PUBLIC_TEST_CODES.has(String(testCode).trim().toLowerCase());
   const canShowTesterButtons =
     !isAlreadyPaid &&
