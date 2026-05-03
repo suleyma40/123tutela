@@ -632,6 +632,8 @@ Inicio de ejecucion de bloqueantes (2026-05-02):
   - la landing y la navegacion muestran link visible de testeo
   - `/dashboard` y rutas no registradas ya no quedan en blanco; redirigen a inicio
   - el frontend preserva codigos de test `TEST123`, `TESTMAYO` y `QA2026` durante build y checkout
+  - la simulacion publica con codigo valido queda permitida para cualquier correo
+  - el checkout de testeo conserva solo dos acciones visibles: pago real normal y continuar sin pago de test
 
 ### Estimacion ejecutiva
 

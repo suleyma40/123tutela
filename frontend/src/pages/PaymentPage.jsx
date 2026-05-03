@@ -372,58 +372,6 @@ const PaymentPage = () => {
                     Continuar sin pago (test)
                   </button>
                 )}
-                <button
-                  onClick={async () => {
-                    setLoading(true);
-                    setError('');
-                    try {
-                      const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, {
-                        public_token: guestCase.publicToken,
-                        product_code: 'pago_prueba',
-                      });
-                      const widgetResult = await launchWidget(sess.data.checkout);
-                      redirectAfterWidget({ checkout: sess.data.checkout, widgetResult });
-                    } catch (e) {
-                      setError(`Error en pago real de prueba: ${extractError(e)}`);
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  disabled={loading}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-700 px-6 py-4 text-sm font-black text-white hover:bg-emerald-600 transition-colors disabled:opacity-60"
-                >
-                  Pagar prueba real ($10.000)
-                </button>
-                <button
-                  onClick={async () => {
-                    setLoading(true);
-                    setError('');
-                    try {
-                      const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, { public_token: guestCase.publicToken });
-                      const ref = sess.data.checkout.reference;
-                      await api.post(`/public/payments/simulate`, {
-                        transaction_id: `simulated_${ref}`,
-                        reference: ref,
-                        public_token: guestCase.publicToken,
-                        test_code: testCode || undefined,
-                      });
-                      navigate(withTestCode(`/pago/resultado?id=simulated_${ref}`));
-                    } catch (e) {
-                      const msg = extractError(e);
-                      if (msg && msg.toLowerCase().includes('pago aprobado')) {
-                        navigate(withTestCode('/pago/resultado?simulated=true'));
-                      } else {
-                        setError(`Error en simulacion: ${msg}`);
-                      }
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  disabled={loading}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-800 px-6 py-4 text-sm font-black text-white hover:bg-slate-700 transition-colors disabled:opacity-60"
-                >
-                  Simular Pago (Modo Prueba)
-                </button>
               </>
             )}
 

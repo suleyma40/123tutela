@@ -212,8 +212,6 @@ def _enforce_public_test_payment_access(case: dict[str, Any], payload: GuestPaym
         raise HTTPException(status_code=403, detail="Codigo de test invalido.")
     if not email:
         raise HTTPException(status_code=422, detail="No pudimos validar el correo del caso para test.")
-    if repository.has_simulated_payment_for_email(email=email):
-        raise HTTPException(status_code=409, detail="Este correo ya uso un cupo de test.")
 
     consumed = repository.count_simulated_payments_by_test_code(provided_test_code)
     if consumed >= int(settings.public_test_max_uses):
