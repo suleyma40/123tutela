@@ -11,7 +11,20 @@ from backend.config import settings
 
 UPLOAD_ROOT = Path(settings.uploads_dir)
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
-ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png"}
+ALLOWED_EXTENSIONS = {
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".aac",
+    ".webm",
+    ".ogg",
+}
 
 
 def ensure_upload_root() -> Path:
@@ -29,7 +42,7 @@ def save_upload(upload: UploadFile, *, bucket: str, owner_id: str) -> dict[str, 
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Tipo de archivo no permitido. Usa PDF, DOC, DOCX, JPG o PNG.",
+            detail="Tipo de archivo no permitido. Usa PDF, DOC, DOCX, JPG, PNG o audio (MP3, WAV, M4A, AAC, WEBM, OGG).",
         )
     stored_name = f"{uuid4().hex}{suffix}"
     target_path = target_dir / stored_name

@@ -73,6 +73,8 @@ class Settings:
     qa_test_email: str = os.getenv("QA_TEST_EMAIL", "su-ley23@hotmail.com")
     qa_test_radicado_email: str = os.getenv("QA_TEST_RADICADO_EMAIL", "su-ley23@hotmail.com")
     qa_test_emails: list[str] = None  # type: ignore[assignment]
+    public_test_codes: list[str] = None  # type: ignore[assignment]
+    public_test_max_uses: int = int(os.getenv("PUBLIC_TEST_MAX_USES", "20"))
     n8n_whatsapp_webhook_url: str = os.getenv("N8N_WHATSAPP_WEBHOOK_URL", "")
     n8n_whatsapp_webhook_api_key: str = os.getenv("N8N_WHATSAPP_WEBHOOK_API_KEY", "")
     whatsapp_enabled: bool = os.getenv("WHATSAPP_ENABLED", "true").lower() == "true"
@@ -115,6 +117,11 @@ class Settings:
         }
         qa_configured = {email.lower() for email in _split_csv(os.getenv("QA_TEST_EMAILS"))}
         self.qa_test_emails = sorted(email for email in (qa_configured or qa_defaults) if email)
+        self.public_test_codes = sorted(
+            code.lower()
+            for code in _split_csv(os.getenv("PUBLIC_TEST_CODES", "TEST123,TESTMAYO,QA2026"))
+            if code.strip()
+        )
         trusted = _split_csv(os.getenv("TRUSTED_HOSTS"))
         if trusted:
             self.trusted_hosts = trusted

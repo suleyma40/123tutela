@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowRight, CheckCircle2, ShieldCheck, Trophy } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { api, extractError } from '../lib/api';
@@ -12,9 +12,16 @@ const QA_MIN_PAYMENT_EMAILS = new Set([
   'm22perezia@gmail.com',
   'mariibpa25@gmail.com',
 ]);
+const PUBLIC_TEST_CODES = new Set(
+  String(import.meta.env.VITE_PUBLIC_TEST_CODES || 'TEST123')
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 const PaymentPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [guestCase, setGuestCase] = useState(null);
@@ -49,6 +56,13 @@ const PaymentPage = () => {
   const diagnosisCopy = (guestCase?.strategyText || '').trim();
   const hasStructuredDiagnosis = diagnosisCopy.includes('🔴 Derecho vulnerado:');
   const isAlreadyPaid = String(guestCase?.paymentStatus || '').toLowerCase() === 'pagado';
+  const testCode = new URLSearchParams(location.search).get('test_code') || '';
+  const isPublicTestMode = PUBLIC_TEST_CODES.has(String(testCode).trim().toLowerCase());
+  const canShowTesterButtons =
+    !isAlreadyPaid &&
+    (import.meta.env.DEV ||
+      QA_MIN_PAYMENT_EMAILS.has((guestCase?.email || '').trim().toLowerCase()) ||
+      isPublicTestMode);
 
   const launchWidget = (checkout) =>
     new Promise((resolve, reject) => {
@@ -309,8 +323,43 @@ const PaymentPage = () => {
               </button>
             )}
 
-            {!isAlreadyPaid && (import.meta.env.DEV || QA_MIN_PAYMENT_EMAILS.has((guestCase.email || '').trim().toLowerCase())) && (
+            {canShowTesterButtons && (
               <>
+                {isPublicTestMode && (
+                  <button
+                    onClick={async () => {
+                      setLoading(true);
+                      setError('');
+                      try {
+                        const sess = await api.post(`/public/cases/${guestCase.caseId}/payments/wompi/session`, {
+                          public_token: guestCase.publicToken,
+                          add_on_type: selectedPlan === 'full' ? 'full_support_pack' : undefined,
+                        });
+                        const ref = sess.data.checkout.reference;
+                        await api.post(`/public/payments/simulate`, {
+                          transaction_id: `simulated_${ref}`,
+                          reference: ref,
+                          public_token: guestCase.publicToken,
+                          test_code: testCode || undefined,
+                        });
+                        navigate(`/pago/resultado?id=simulated_${ref}&test_mode=1&test_code=${encodeURIComponent(String(testCode || ''))}`);
+                      } catch (e) {
+                        const msg = extractError(e);
+                        if (msg && msg.toLowerCase().includes('pago aprobado')) {
+                          navigate('/pago/resultado?simulated=true&test_mode=1');
+                        } else {
+                          setError(`Error en simulacion: ${msg}`);
+                        }
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-violet-700 px-6 py-4 text-sm font-black text-white hover:bg-violet-600 transition-colors disabled:opacity-60"
+                  >
+                    Continuar sin pago (test)
+                  </button>
+                )}
                 <button
                   onClick={async () => {
                     setLoading(true);
@@ -344,8 +393,9 @@ const PaymentPage = () => {
                         transaction_id: `simulated_${ref}`,
                         reference: ref,
                         public_token: guestCase.publicToken,
+                        test_code: testCode || undefined,
                       });
-                      navigate(`/pago/resultado?id=simulated_${ref}`);
+                      navigate(`/pago/resultado?id=simulated_${ref}${testCode ? `&test_code=${encodeURIComponent(String(testCode))}` : ''}`);
                     } catch (e) {
                       const msg = extractError(e);
                       if (msg && msg.toLowerCase().includes('pago aprobado')) {

@@ -241,6 +241,7 @@ const SuccessPage = () => {
   const paymentReferenceParam = params.get('reference');
   const caseIdParam = params.get('case_id');
   const publicTokenParam = params.get('public_token');
+  const testCodeParam = params.get('test_code');
   const prompts = useMemo(() => dedupePrompts(buildPromptList(caseData)), [caseData]);
   const requiredAttachments = caseData?.customer_guide?.required_attachments || [];
   const suggestedAttachments = useMemo(
@@ -398,11 +399,12 @@ const SuccessPage = () => {
         if (transactionId) {
           const isSimulated = transactionId.startsWith('simulated_');
           const response = isSimulated
-            ? await api.post('/public/payments/simulate', {
-                transaction_id: transactionId,
-                reference: transactionId.replace('simulated_', ''),
-                public_token: guestCase.publicToken,
-              })
+              ? await api.post('/public/payments/simulate', {
+                  transaction_id: transactionId,
+                  reference: transactionId.replace('simulated_', ''),
+                  public_token: guestCase.publicToken,
+                  test_code: testCodeParam || undefined,
+                })
             : await api.post('/public/payments/wompi/reconcile', {
                 transaction_id: transactionId,
                 reference: paymentReferenceParam || undefined,

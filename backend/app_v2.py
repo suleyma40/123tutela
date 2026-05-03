@@ -193,6 +193,34 @@ ADDON_ORDER_CONFIG = {
 }
 
 
+def _normalize_test_code(value: str | None) -> str:
+    return str(value or "").strip().lower()
+
+
+def _enforce_public_test_payment_access(case: dict[str, Any], payload: GuestPaymentReconcileRequest) -> str:
+    email = str(case.get("usuario_email") or "").strip().lower()
+    provided_test_code = _normalize_test_code(payload.test_code)
+    allowed_codes = {code.strip().lower() for code in (settings.public_test_codes or []) if code}
+
+    # QA fallback (internal tests)
+    if email in settings.qa_test_emails:
+        return provided_test_code
+
+    if not provided_test_code:
+        raise HTTPException(status_code=403, detail="Simulacion solo habilitada con codigo de test.")
+    if provided_test_code not in allowed_codes:
+        raise HTTPException(status_code=403, detail="Codigo de test invalido.")
+    if not email:
+        raise HTTPException(status_code=422, detail="No pudimos validar el correo del caso para test.")
+    if repository.has_simulated_payment_for_email(email=email):
+        raise HTTPException(status_code=409, detail="Este correo ya uso un cupo de test.")
+
+    consumed = repository.count_simulated_payments_by_test_code(provided_test_code)
+    if consumed >= int(settings.public_test_max_uses):
+        raise HTTPException(status_code=409, detail="Cupos de test agotados para este codigo.")
+    return provided_test_code
+
+
 def _require_public_health_scope(category: str) -> str:
     normalized = normalize_guest_category(category)
     if normalized != "Salud":
@@ -2178,12 +2206,8 @@ def simulate_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseSt
         raise HTTPException(status_code=404, detail="Caso no encontrado.")
     if payload.public_token and str(case.get("public_token") or "") != payload.public_token:
         raise HTTPException(status_code=403, detail="No tienes acceso a este caso.")
-    
-    # Only allow for QA emails
-    email = str(case.get("usuario_email") or "").strip().lower()
-    if email not in settings.qa_test_emails:
-        raise HTTPException(status_code=403, detail="Simulacion no permitida para este correo.")
-        
+    effective_test_code = _enforce_public_test_payment_access(case, payload)
+
     repository.update_payment_order_status(
         payload.reference,
         status="APPROVED",
@@ -2198,7 +2222,11 @@ def simulate_guest_payment(payload: GuestPaymentReconcileRequest) -> GuestCaseSt
         event_type="payment_approved_simulated",
         actor_type="system",
         actor_id=None,
-        payload={"reference": payload.reference},
+        payload={
+            "reference": payload.reference,
+            "test_code": effective_test_code or None,
+            "email": str(case.get("usuario_email") or "").strip().lower(),
+        },
     )
     updated_case = _persist_guest_ops(updated_case)
     return _guest_status_response(updated_case)

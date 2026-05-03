@@ -1170,6 +1170,33 @@ def list_case_events(case_id: str) -> list[dict[str, Any]]:
         return cursor.fetchall()
 
 
+def count_simulated_payments_by_test_code(test_code: str) -> int:
+    query = """
+        SELECT COUNT(*)::int AS total
+        FROM case_events
+        WHERE event_type = 'payment_approved_simulated'
+          AND LOWER(COALESCE(payload->>'test_code', '')) = LOWER(%(test_code)s);
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"test_code": test_code})
+        row = cursor.fetchone() or {}
+        return int(row.get("total") or 0)
+
+
+def has_simulated_payment_for_email(*, email: str) -> bool:
+    query = """
+        SELECT 1
+        FROM case_events ce
+        JOIN casos c ON c.id = ce.case_id
+        WHERE ce.event_type = 'payment_approved_simulated'
+          AND LOWER(COALESCE(c.usuario_email, '')) = LOWER(%(email)s)
+        LIMIT 1;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"email": email})
+        return cursor.fetchone() is not None
+
+
 def ensure_marketing_tables() -> None:
     query = """
         CREATE TABLE IF NOT EXISTS marketing_events (

@@ -294,6 +294,7 @@ class GuestPaymentReconcileRequest(BaseModel):
     transaction_id: str = Field(min_length=3, max_length=120)
     reference: str | None = Field(default=None, min_length=3, max_length=120)
     public_token: str | None = Field(default=None, min_length=12, max_length=120)
+    test_code: str | None = Field(default=None, min_length=3, max_length=64)
 
 
 class GuestCaseStatusResponse(BaseModel):
