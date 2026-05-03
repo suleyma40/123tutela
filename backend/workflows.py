@@ -856,24 +856,43 @@ def build_strategy_text(
         elif "desacato" in lowered_action or "impugnacion" in lowered_action:
             responsible = "juzgado y entidad obligada por el fallo"
 
-        right_line = rights_text or "Derecho fundamental a la salud"
-        if "tutela" in lowered_action:
+        norm_line = ""
+        if "desacato" in lowered_action:
+            norm_line = "Base normativa: Art. 86 de la Constitucion Politica y Art. 52 del Decreto 2591 de 1991."
+        elif "impugnacion" in lowered_action:
+            norm_line = "Base normativa: Art. 31 de la Constitucion Politica y Decreto 2591 de 1991 (termino de impugnacion)."
+        elif "tutela" in lowered_action:
+            norm_line = "Base normativa: Arts. 48 y 49 de la Constitucion Politica, Ley Estatutaria 1751 de 2015 y Decreto 2591 de 1991."
+        elif rules_text:
+            norm_line = f"Base normativa: {rules_text}."
+
+        right_line = rights_text or "Derecho fundamental a la salud en su dimension de acceso, continuidad y oportunidad"
+        if "desacato" in lowered_action:
+            right_line = "Derecho a que se cumpla integralmente el fallo de tutela ya concedido y la orden judicial de proteccion en salud."
+        elif "impugnacion" in lowered_action:
+            right_line = "Derecho al debido proceso y a la doble instancia para controvertir la decision que nego o limito la tutela."
+        elif "tutela" in lowered_action:
             right_line = "Acceso oportuno y continuidad del tratamiento ordenado, ligado al derecho fundamental a la salud y a una vida digna."
         if ips_primary_signal:
             right_line = "Acceso oportuno a terapias ya autorizadas y continuidad del tratamiento, sin barreras administrativas de agenda."
-        if treatment_needed:
+        if treatment_needed and "desacato" not in lowered_action and "impugnacion" not in lowered_action:
             right_line = f"Derecho a recibir oportunamente {treatment_needed.lower()} sin barreras administrativas."
-        elif diagnosis:
+        elif diagnosis and "desacato" not in lowered_action and "impugnacion" not in lowered_action:
             right_line = f"Derecho a la continuidad del tratamiento medico relacionado con {diagnosis.lower()}."
 
-        action_line = (
-            f"{recommended_action}: via legal sugerida segun tu relato actual; sirve para exigir respuesta o cumplimiento efectivo sin perder tiempo clave."
-        )
+        action_line = f"{recommended_action}: via legal sugerida segun tu relato actual; sirve para exigir respuesta o cumplimiento efectivo sin perder tiempo clave."
         if ips_primary_signal:
             action_line = (
                 f"1) Tutela contra {ips_name or inferred_clinic_name or 'la IPS/clinica'} para que agende y ejecute las terapias sin mas demoras. "
                 f"2) Derecho de peticion a {eps_name or 'la EPS'} solicitando cambio de prestador por incumplimiento de oportunidad."
             )
+        elif "desacato" in lowered_action:
+            action_line = (
+                "1) Incidente de desacato ante el mismo juzgado que profirio el fallo para exigir cumplimiento inmediato de la orden. "
+                "2) En paralelo, solicitud de cumplimiento a la entidad obligada, dejando constancia escrita del incumplimiento."
+            )
+            if target_entity:
+                responsible = f"Juzgado que emitio el fallo y {target_entity} como entidad obligada a cumplir."
         elif "tutela" in lowered_action and (eps_name or target_entity):
             action_line = (
                 f"1) Tutela para exigir cumplimiento oportuno del servicio en salud. "
@@ -914,6 +933,7 @@ def build_strategy_text(
             f"⚠️ Qué tan grave es:\n{severity}.\n\n"
             f"🎯 Quién es el responsable:\n{responsible}.\n\n"
             f"⚡ Acción que necesitas:\n{action_line}\n\n"
+            f"{norm_line}\n\n"
             f"{hook}"
         )
     warning_text = f" Advertencias operativas: {' | '.join(warnings)}." if warnings else ""
