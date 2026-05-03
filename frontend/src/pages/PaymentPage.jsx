@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowRight, CheckCircle2, ShieldCheck, Trophy } from 'lucide-react';
 import Navbar from '../components/Navbar';
@@ -26,13 +26,19 @@ const PaymentPage = () => {
   const [error, setError] = useState('');
   const [guestCase, setGuestCase] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState('base');
+  const testCodeFromUrl = new URLSearchParams(location.search).get('test_code') || '';
+  const storedTestCode = localStorage.getItem('hazlopormi-test-code') || '';
+  const effectiveTestCode = testCodeFromUrl || storedTestCode;
+
+  const withTestCode = useCallback((basePath) => {
+    if (!effectiveTestCode) return basePath;
+    const separator = basePath.includes('?') ? '&' : '?';
+    return `${basePath}${separator}test_code=${encodeURIComponent(effectiveTestCode)}`;
+  }, [effectiveTestCode]);
 
   useEffect(() => {
-    const codeFromUrl = new URLSearchParams(location.search).get('test_code') || '';
-    const storedCode = localStorage.getItem('hazlopormi-test-code') || '';
-    const effectiveCode = codeFromUrl || storedCode;
-    if (codeFromUrl) {
-      localStorage.setItem('hazlopormi-test-code', codeFromUrl);
+    if (testCodeFromUrl) {
+      localStorage.setItem('hazlopormi-test-code', testCodeFromUrl);
     }
     const saved = localStorage.getItem('hazlopormi-guest-case');
     if (saved) {
@@ -55,14 +61,14 @@ const PaymentPage = () => {
           .catch(() => {});
       }
     } else {
-      navigate(effectiveCode ? `/diagnostico?test_code=${encodeURIComponent(effectiveCode)}` : '/diagnostico');
+      navigate(withTestCode('/diagnostico'));
     }
-  }, [navigate, location.search]);
+  }, [navigate, location.search, testCodeFromUrl, withTestCode]);
 
   const diagnosisCopy = (guestCase?.strategyText || '').trim();
   const hasStructuredDiagnosis = diagnosisCopy.includes('🔴 Derecho vulnerado:');
   const isAlreadyPaid = String(guestCase?.paymentStatus || '').toLowerCase() === 'pagado';
-  const testCode = new URLSearchParams(location.search).get('test_code') || localStorage.getItem('hazlopormi-test-code') || '';
+  const testCode = effectiveTestCode;
   const isPublicTestMode = PUBLIC_TEST_CODES.has(String(testCode).trim().toLowerCase());
   const canShowTesterButtons =
     !isAlreadyPaid &&
@@ -121,20 +127,20 @@ const PaymentPage = () => {
       checkout?.reference ||
       '';
     if (tx) {
-      navigate(`/pago/resultado?id=${encodeURIComponent(String(tx))}&case_id=${encodeURIComponent(String(guestCase?.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase?.publicToken || ''))}`);
+      navigate(withTestCode(`/pago/resultado?id=${encodeURIComponent(String(tx))}&case_id=${encodeURIComponent(String(guestCase?.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase?.publicToken || ''))}`));
       return;
     }
     if (reference) {
-      navigate(`/pago/resultado?reference=${encodeURIComponent(String(reference))}&case_id=${encodeURIComponent(String(guestCase?.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase?.publicToken || ''))}`);
+      navigate(withTestCode(`/pago/resultado?reference=${encodeURIComponent(String(reference))}&case_id=${encodeURIComponent(String(guestCase?.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase?.publicToken || ''))}`));
       return;
     }
-    navigate(`/pago/resultado?case_id=${encodeURIComponent(String(guestCase?.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase?.publicToken || ''))}`);
+    navigate(withTestCode(`/pago/resultado?case_id=${encodeURIComponent(String(guestCase?.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase?.publicToken || ''))}`));
   };
 
   const handlePayment = async () => {
     if (!guestCase) return;
     if (isAlreadyPaid) {
-      navigate(`/pago/resultado?case_id=${encodeURIComponent(String(guestCase.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase.publicToken || ''))}`);
+      navigate(withTestCode(`/pago/resultado?case_id=${encodeURIComponent(String(guestCase.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase.publicToken || ''))}`));
       return;
     }
     setLoading(true);
@@ -312,7 +318,7 @@ const PaymentPage = () => {
 
             {isAlreadyPaid ? (
               <button
-                onClick={() => navigate(`/pago/resultado?case_id=${encodeURIComponent(String(guestCase.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase.publicToken || ''))}`)}
+                onClick={() => navigate(withTestCode(`/pago/resultado?case_id=${encodeURIComponent(String(guestCase.caseId || ''))}&public_token=${encodeURIComponent(String(guestCase.publicToken || ''))}`))}
                 className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-700 px-6 py-5 text-lg font-black text-white hover:bg-emerald-600 transition-colors"
               >
                 Continuar y completar datos
@@ -348,11 +354,11 @@ const PaymentPage = () => {
                           public_token: guestCase.publicToken,
                           test_code: testCode || undefined,
                         });
-                        navigate(`/pago/resultado?id=simulated_${ref}&test_mode=1&test_code=${encodeURIComponent(String(testCode || ''))}`);
+                        navigate(withTestCode(`/pago/resultado?id=simulated_${ref}&test_mode=1`));
                       } catch (e) {
                         const msg = extractError(e);
                         if (msg && msg.toLowerCase().includes('pago aprobado')) {
-                          navigate('/pago/resultado?simulated=true&test_mode=1');
+                          navigate(withTestCode('/pago/resultado?simulated=true&test_mode=1'));
                         } else {
                           setError(`Error en simulacion: ${msg}`);
                         }
@@ -401,11 +407,11 @@ const PaymentPage = () => {
                         public_token: guestCase.publicToken,
                         test_code: testCode || undefined,
                       });
-                      navigate(`/pago/resultado?id=simulated_${ref}${testCode ? `&test_code=${encodeURIComponent(String(testCode))}` : ''}`);
+                      navigate(withTestCode(`/pago/resultado?id=simulated_${ref}`));
                     } catch (e) {
                       const msg = extractError(e);
                       if (msg && msg.toLowerCase().includes('pago aprobado')) {
-                        navigate('/pago/resultado?simulated=true');
+                        navigate(withTestCode('/pago/resultado?simulated=true'));
                       } else {
                         setError(`Error en simulacion: ${msg}`);
                       }

@@ -242,6 +242,8 @@ const SuccessPage = () => {
   const caseIdParam = params.get('case_id');
   const publicTokenParam = params.get('public_token');
   const testCodeParam = params.get('test_code');
+  const storedTestCode = localStorage.getItem('hazlopormi-test-code') || '';
+  const effectiveTestCode = testCodeParam || storedTestCode;
   const prompts = useMemo(() => dedupePrompts(buildPromptList(caseData)), [caseData]);
   const requiredAttachments = caseData?.customer_guide?.required_attachments || [];
   const suggestedAttachments = useMemo(
@@ -340,6 +342,9 @@ const SuccessPage = () => {
   };
 
   useEffect(() => {
+    if (testCodeParam) {
+      localStorage.setItem('hazlopormi-test-code', testCodeParam);
+    }
     const saved = localStorage.getItem('hazlopormi-guest-case');
     const stored = saved ? JSON.parse(saved) : {};
     const guestCase = {
@@ -403,7 +408,7 @@ const SuccessPage = () => {
                   transaction_id: transactionId,
                   reference: transactionId.replace('simulated_', ''),
                   public_token: guestCase.publicToken,
-                  test_code: testCodeParam || undefined,
+                  test_code: effectiveTestCode || undefined,
                 })
             : await api.post('/public/payments/wompi/reconcile', {
                 transaction_id: transactionId,
