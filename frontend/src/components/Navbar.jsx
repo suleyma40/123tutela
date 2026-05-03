@@ -5,6 +5,8 @@ import { trackEvent } from '../lib/analytics';
 import { api } from '../lib/api';
 import { LAUNCH_PRICE_LABEL, RAFFLE_SHORT_LABEL } from '../lib/launchConfig';
 
+const TEST_PAYMENT_LINK = '/diagnostico?test_code=TEST123';
+
 const Navbar = () => {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
@@ -68,6 +70,15 @@ const Navbar = () => {
               <span className="hidden lg:inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
                 Solo salud
               </span>
+            )}
+            {!isAdmin && (
+              <Link
+                to={TEST_PAYMENT_LINK}
+                onClick={() => trackEvent('cta_click', { cta: 'public_test_link', cta_variant: 'test' })}
+                className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-violet-700 no-underline hover:bg-violet-100 transition-colors"
+              >
+                Link testeo
+              </Link>
             )}
             {!isAdmin && (
               <Link

@@ -80,6 +80,8 @@ const highlights = [
   `Participas por la posibilidad de llevarse ${RAFFLE_PRIZE_LABEL} en ${RAFFLE_MONTH_LABEL}.`,
 ];
 
+const TEST_PAYMENT_LINK = '/diagnostico?test_code=TEST123';
+
 const faq = [
   {
     q: '¿123tutela redacta automaticamente con IA?',
@@ -328,6 +330,9 @@ const LandingPage = () => {
               <Link to="/diagnostico" className="landing-btn landing-btn--primary">
                 Quiero mi documento <ArrowRight size={18} />
               </Link>
+              <Link to={TEST_PAYMENT_LINK} className="landing-btn landing-btn--outline">
+                Link de pago testeo
+              </Link>
               <Link to="/admin" className="landing-btn landing-btn--ghost">
                 Ya tengo cuenta
               </Link>
@@ -503,6 +508,9 @@ const LandingPage = () => {
               <div style={{ marginTop: 24 }}>
                 <Link to="/diagnostico" className="landing-btn landing-btn--primary" style={{ width: '100%' }}>
                   Activar mi documento ahora
+                </Link>
+                <Link to={TEST_PAYMENT_LINK} className="landing-btn landing-btn--outline" style={{ width: '100%', marginTop: 10 }}>
+                  Abrir link de testeo
                 </Link>
               </div>
             </div>

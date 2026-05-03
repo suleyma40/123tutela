@@ -627,6 +627,11 @@ Inicio de ejecucion de bloqueantes (2026-05-02):
   - progreso del formulario ahora pondera campos obligatorios reales, preguntas dinamicas y soportes
   - codigo de rifa/expediente ya se puede descargar en archivo `.txt`
   - bloque de preguntas ahora prioriza preguntas clave por tipo de caso y elimina repeticiones
+- Acceso de testeo publico reforzado:
+  - `/testeo` redirige a `/diagnostico?test_code=TEST123`
+  - la landing y la navegacion muestran link visible de testeo
+  - `/dashboard` y rutas no registradas ya no quedan en blanco; redirigen a inicio
+  - el frontend preserva codigos de test `TEST123`, `TESTMAYO` y `QA2026` durante build y checkout
 
 ### Estimacion ejecutiva
 

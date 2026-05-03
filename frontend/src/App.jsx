@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import DiagnosisPage from './pages/DiagnosisPage';
 import PaymentPage from './pages/PaymentPage';
@@ -31,11 +31,14 @@ function App() {
         <Route path="/terminos" element={<LegalPageView page="terminos" onBackHome={() => window.history.back()} />} />
         <Route path="/privacidad" element={<LegalPageView page="privacidad" onBackHome={() => window.history.back()} />} />
         <Route path="/contacto" element={<LegalPageView page="contacto" onBackHome={() => window.history.back()} />} />
+        <Route path="/testeo" element={<Navigate to="/diagnostico?test_code=TEST123" replace />} />
         <Route path="/testeo/encuesta" element={<SurveyTestPage />} />
+        <Route path="/dashboard" element={<Navigate to="/" replace />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/admin/caso/:id" element={<AdminCaseDetail />} />
         <Route path="/equipo" element={<AdminPanel />} />
         <Route path="/equipo/caso/:id" element={<AdminCaseDetail />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

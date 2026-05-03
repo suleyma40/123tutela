@@ -13,7 +13,7 @@ const QA_MIN_PAYMENT_EMAILS = new Set([
   'mariibpa25@gmail.com',
 ]);
 const PUBLIC_TEST_CODES = new Set(
-  String(import.meta.env.VITE_PUBLIC_TEST_CODES || 'TEST123')
+  String(import.meta.env.VITE_PUBLIC_TEST_CODES || 'TEST123,TESTMAYO,QA2026')
     .split(',')
     .map((v) => v.trim().toLowerCase())
     .filter(Boolean)
