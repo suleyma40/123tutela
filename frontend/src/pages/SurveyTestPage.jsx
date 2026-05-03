@@ -11,8 +11,12 @@ const initialForm = {
   overall_rating: 4,
   ease_rating: 4,
   trust_rating: 4,
+  usage_probability: 4,
+  launch_readiness: 'lanzar_con_cautela',
+  advertising_confidence: 'con_cautela',
   would_pay: 'si',
   positives: '',
+  failures: '',
   blockers: '',
   improvement: '',
 };
@@ -38,6 +42,7 @@ const SurveyTestPage = () => {
         overall_rating: Number(form.overall_rating),
         ease_rating: Number(form.ease_rating),
         trust_rating: Number(form.trust_rating),
+        usage_probability: Number(form.usage_probability),
       };
       const response = await api.post('/public/testing/survey', payload);
       setSuccess(`Gracias. Tu respuesta fue registrada. Codigo interno: ${response?.data?.case_id || 'OK'}`);
@@ -89,6 +94,28 @@ const SurveyTestPage = () => {
               </label>
             </div>
 
+            <div className="grid md:grid-cols-3 gap-4">
+              <label className="text-sm font-bold text-slate-700">Probabilidad de uso real (1-5)
+                <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={form.usage_probability} onChange={(e) => onChange('usage_probability', e.target.value)}>
+                  {[1, 2, 3, 4, 5].map((n) => <option key={`u-${n}`} value={n}>{n}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-bold text-slate-700">¿Podemos lanzar?
+                <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={form.launch_readiness} onChange={(e) => onChange('launch_readiness', e.target.value)}>
+                  <option value="lanzar_confiado">Si, lanzar con confianza</option>
+                  <option value="lanzar_con_cautela">Si, lanzar con cautela</option>
+                  <option value="no_lanzar_aun">No lanzar todavia</option>
+                </select>
+              </label>
+              <label className="text-sm font-bold text-slate-700">Publicidad
+                <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={form.advertising_confidence} onChange={(e) => onChange('advertising_confidence', e.target.value)}>
+                  <option value="confiada">Pautar con confianza</option>
+                  <option value="con_cautela">Pautar con cautela</option>
+                  <option value="pausar">Pausar publicidad</option>
+                </select>
+              </label>
+            </div>
+
             <label className="text-sm font-bold text-slate-700">¿Pagarías por el servicio?
               <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={form.would_pay} onChange={(e) => onChange('would_pay', e.target.value)}>
                 <option value="si">Sí</option>
@@ -98,6 +125,7 @@ const SurveyTestPage = () => {
             </label>
 
             <textarea className="rounded-xl border border-slate-200 px-4 py-3" rows={3} placeholder="¿Qué fue lo más útil?" value={form.positives} onChange={(e) => onChange('positives', e.target.value)} />
+            <textarea className="rounded-xl border border-slate-200 px-4 py-3" rows={3} placeholder="Fallas o errores que encontraste durante el flujo" value={form.failures} onChange={(e) => onChange('failures', e.target.value)} />
             <textarea className="rounded-xl border border-slate-200 px-4 py-3" rows={3} placeholder="¿Qué te bloqueó o generó duda?" value={form.blockers} onChange={(e) => onChange('blockers', e.target.value)} />
             <textarea className="rounded-xl border border-slate-200 px-4 py-3" rows={3} placeholder="¿Qué mejorarías primero?" value={form.improvement} onChange={(e) => onChange('improvement', e.target.value)} />
 
@@ -115,4 +143,3 @@ const SurveyTestPage = () => {
 };
 
 export default SurveyTestPage;
-

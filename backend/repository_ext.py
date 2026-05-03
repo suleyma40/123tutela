@@ -687,6 +687,45 @@ def delete_case_for_user(case_id: str, user_id: str) -> bool:
         return bool(cursor.fetchone())
 
 
+def list_internal_test_case_candidates() -> list[dict[str, Any]]:
+    query = """
+        SELECT DISTINCT c.id, c.usuario_nombre, c.usuario_email, c.categoria, c.workflow_type, c.estado, c.created_at
+        FROM casos c
+        LEFT JOIN payment_orders po ON po.case_id = c.id
+        LEFT JOIN case_events ce ON ce.case_id = c.id
+        WHERE c.categoria = 'Testeo encuesta'
+           OR c.workflow_type = 'test_survey'
+           OR c.submission_summary->>'lead_source' = 'survey_test_weekend'
+           OR po.provider_transaction_id LIKE 'simulated_%'
+           OR ce.event_type = 'payment_approved_simulated'
+        ORDER BY c.created_at DESC;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query)
+        return cursor.fetchall()
+
+
+def delete_internal_test_cases() -> list[dict[str, Any]]:
+    query = """
+        DELETE FROM casos c
+        WHERE c.id IN (
+            SELECT DISTINCT c2.id
+            FROM casos c2
+            LEFT JOIN payment_orders po ON po.case_id = c2.id
+            LEFT JOIN case_events ce ON ce.case_id = c2.id
+            WHERE c2.categoria = 'Testeo encuesta'
+               OR c2.workflow_type = 'test_survey'
+               OR c2.submission_summary->>'lead_source' = 'survey_test_weekend'
+               OR po.provider_transaction_id LIKE 'simulated_%'
+               OR ce.event_type = 'payment_approved_simulated'
+        )
+        RETURNING id, usuario_nombre, usuario_email, categoria, workflow_type, estado, created_at;
+    """
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query)
+        return cursor.fetchall()
+
+
 def get_case_by_id(case_id: str) -> dict[str, Any] | None:
     query = "SELECT * FROM casos WHERE id = %(case_id)s;"
     with get_connection() as connection, connection.cursor() as cursor:

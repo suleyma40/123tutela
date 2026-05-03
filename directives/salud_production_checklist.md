@@ -635,6 +635,8 @@ Inicio de ejecucion de bloqueantes (2026-05-02):
   - la simulacion publica con codigo valido queda permitida para cualquier correo
   - el checkout de testeo conserva solo dos acciones visibles: pago real normal y continuar sin pago de test
   - el panel admin incluye pestaña `Testeo` con resumen de encuestas, promedio, disposicion de pago, bloqueadores y enlace al detalle
+  - la encuesta de testeo ahora pregunta probabilidad de uso, veredicto de lanzamiento, confianza para pauta, fallas, bloqueadores y mejoras
+  - admin permite limpiar casos de prueba de forma acotada a encuestas de testeo y pagos simulados
 
 ### Estimacion ejecutiva
 

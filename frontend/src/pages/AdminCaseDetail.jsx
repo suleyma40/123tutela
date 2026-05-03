@@ -95,6 +95,7 @@ const AdminCaseDetail = () => {
 
   const c = caso.case;
   const intake = c.facts?.intake_form || {};
+  const survey = c.facts?.survey_test || null;
   const trackingCode =
     caso.latest_payment?.raffle?.code ||
     caso.customer_summary?.raffle?.code ||
@@ -198,6 +199,25 @@ const AdminCaseDetail = () => {
                 {c.description}
               </p>
             </div>
+
+            {survey && (
+              <div className="rounded-[24px] border border-blue-200 bg-blue-50 p-6">
+                <p className="text-xs font-black uppercase tracking-wide text-blue-700 mb-4">Analisis de encuesta</p>
+                <div className="grid md:grid-cols-3 gap-3 text-sm">
+                  <div className="rounded-xl bg-white p-3"><strong>Promedio:</strong> {survey.average_rating || '-'} / 5</div>
+                  <div className="rounded-xl bg-white p-3"><strong>Uso:</strong> {survey.usage_probability || '-'} / 5</div>
+                  <div className="rounded-xl bg-white p-3"><strong>Pago:</strong> {survey.would_pay || '-'}</div>
+                  <div className="rounded-xl bg-white p-3"><strong>Lanzamiento:</strong> {String(survey.launch_readiness || '-').replaceAll('_', ' ')}</div>
+                  <div className="rounded-xl bg-white p-3"><strong>Publicidad:</strong> {String(survey.advertising_confidence || '-').replaceAll('_', ' ')}</div>
+                  <div className="rounded-xl bg-white p-3"><strong>Confianza:</strong> {survey.trust_rating || '-'} / 5</div>
+                </div>
+                <div className="mt-4 grid gap-3 text-sm">
+                  <p className="rounded-xl bg-white p-3"><strong>Fallas:</strong> {survey.failures || 'No reportado'}</p>
+                  <p className="rounded-xl bg-white p-3"><strong>Bloqueadores:</strong> {survey.blockers || 'No reportado'}</p>
+                  <p className="rounded-xl bg-white p-3"><strong>Mejoras:</strong> {survey.improvement || 'No reportado'}</p>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-[24px] border border-slate-200 bg-white p-6">
               <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-4">Archivos adjuntos</p>

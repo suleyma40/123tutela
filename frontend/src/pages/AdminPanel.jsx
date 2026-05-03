@@ -60,6 +60,8 @@ const AdminPanel = () => {
   const [twoFactorBusy, setTwoFactorBusy] = useState(false);
   const [marketing, setMarketing] = useState(null);
   const [configSaving, setConfigSaving] = useState(false);
+  const [testCleanupBusy, setTestCleanupBusy] = useState(false);
+  const [testCleanupMessage, setTestCleanupMessage] = useState('');
   const [marketingConfigForm, setMarketingConfigForm] = useState({
     cta_variant: 'default',
     cta_label: '',
@@ -377,7 +379,32 @@ const AdminPanel = () => {
         ? (surveyCases.reduce((sum, c) => sum + Number(c.averageRating || 0), 0) / surveyCases.length).toFixed(1)
         : '0.0',
     wouldPayYes: surveyCases.filter((c) => String(c.survey?.would_pay || '').toLowerCase() === 'si').length,
+    launchConfident: surveyCases.filter((c) => String(c.survey?.launch_readiness || '') === 'lanzar_confiado').length,
+    launchCautious: surveyCases.filter((c) => String(c.survey?.launch_readiness || '') === 'lanzar_con_cautela').length,
+    adsConfident: surveyCases.filter((c) => String(c.survey?.advertising_confidence || '') === 'confiada').length,
+    adsCautious: surveyCases.filter((c) => String(c.survey?.advertising_confidence || '') === 'con_cautela').length,
     blockers: surveyCases.filter((c) => String(c.survey?.blockers || '').trim()).length,
+  };
+
+  const cleanupTestCases = async () => {
+    const preview = await api.post('/internal/testing/cleanup', null, { params: { dry_run: true } });
+    const count = Number(preview?.data?.candidate_count || 0);
+    if (!count) {
+      setTestCleanupMessage('No hay casos de prueba para limpiar.');
+      return;
+    }
+    const ok = window.confirm(`Se eliminaran ${count} caso(s) de prueba: encuestas de testeo y pagos simulados. Esta accion no toca pagos reales. ¿Continuar?`);
+    if (!ok) return;
+    setTestCleanupBusy(true);
+    setTestCleanupMessage('');
+    try {
+      const response = await api.post('/internal/testing/cleanup', null, { params: { dry_run: false } });
+      setTestCleanupMessage(`Casos de prueba eliminados: ${response?.data?.deleted_count || 0}.`);
+      await fetchCasos();
+      await fetchMarketing();
+    } finally {
+      setTestCleanupBusy(false);
+    }
   };
 
   const downloadPaidCasesCsv = () => {
@@ -1112,8 +1139,8 @@ const AdminPanel = () => {
             {[
               { label: 'Encuestas recibidas', value: surveySummary.total, tone: 'text-slate-900' },
               { label: 'Promedio general', value: `${surveySummary.average}/5`, tone: 'text-[#0D68FF]' },
-              { label: 'Pagarían', value: `${surveySummary.wouldPayYes}/${surveySummary.total}`, tone: 'text-emerald-700' },
-              { label: 'Con bloqueadores', value: surveySummary.blockers, tone: 'text-amber-700' },
+              { label: 'Lanzar', value: `${surveySummary.launchConfident} confiado / ${surveySummary.launchCautious} cautela`, tone: 'text-emerald-700' },
+              { label: 'Publicidad', value: `${surveySummary.adsConfident} confiada / ${surveySummary.adsCautious} cautela`, tone: 'text-amber-700' },
             ].map((item) => (
               <div key={item.label} className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_18px_55px_rgba(18,35,61,0.04)]">
                 <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">{item.label}</p>
@@ -1127,12 +1154,23 @@ const AdminPanel = () => {
               <div>
                 <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-1">Encuesta post-documento</p>
                 <h2 className="text-xl font-black text-slate-900">Resultados de testeo</h2>
-                <p className="text-sm text-slate-500 mt-1">Cada respuesta se registra como caso interno y aparece aqui al recargar el panel.</p>
+                <p className="text-sm text-slate-500 mt-1">Cada respuesta se registra como caso interno y aparece aqui al recargar el panel. Sirve para decidir lanzamiento, pauta y mejoras.</p>
               </div>
-              <Link to="/testeo/encuesta" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 no-underline hover:bg-slate-50">
-                Abrir encuesta
-              </Link>
+              <div className="flex gap-3 flex-wrap">
+                <Link to="/testeo/encuesta" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 no-underline hover:bg-slate-50">
+                  Abrir encuesta
+                </Link>
+                <button
+                  type="button"
+                  onClick={cleanupTestCases}
+                  disabled={testCleanupBusy}
+                  className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 hover:bg-red-100 disabled:opacity-60"
+                >
+                  {testCleanupBusy ? 'Limpiando...' : 'Limpiar casos de prueba'}
+                </button>
+              </div>
             </div>
+            {testCleanupMessage && <p className="mb-4 text-sm font-semibold text-emerald-700">{testCleanupMessage}</p>}
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[980px]">
                 <thead>
@@ -1140,6 +1178,9 @@ const AdminPanel = () => {
                     <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Tester</th>
                     <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Promedio</th>
                     <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Pagaría</th>
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Lanzamiento</th>
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Publicidad</th>
+                    <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Uso</th>
                     <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Bloqueador</th>
                     <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Mejora</th>
                     <th className="px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-400">Fecha</th>
@@ -1149,7 +1190,7 @@ const AdminPanel = () => {
                 <tbody className="divide-y divide-slate-100">
                   {surveyCases.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-4 py-6 text-sm font-semibold text-slate-500">
+                      <td colSpan="10" className="px-4 py-6 text-sm font-semibold text-slate-500">
                         Aun no hay encuestas registradas.
                       </td>
                     </tr>
@@ -1161,6 +1202,9 @@ const AdminPanel = () => {
                       </td>
                       <td className="px-4 py-4 text-sm font-black text-[#0D68FF]">{caso.averageRating || '-'}/5</td>
                       <td className="px-4 py-4 text-sm font-semibold text-slate-700">{caso.survey?.would_pay || '-'}</td>
+                      <td className="px-4 py-4 text-sm font-semibold text-slate-700">{String(caso.survey?.launch_readiness || '-').replaceAll('_', ' ')}</td>
+                      <td className="px-4 py-4 text-sm font-semibold text-slate-700">{String(caso.survey?.advertising_confidence || '-').replaceAll('_', ' ')}</td>
+                      <td className="px-4 py-4 text-sm font-black text-[#0D68FF]">{caso.survey?.usage_probability || '-'}/5</td>
                       <td className="px-4 py-4 text-sm text-slate-600 max-w-[240px] truncate" title={caso.survey?.blockers || ''}>
                         {caso.survey?.blockers || '-'}
                       </td>

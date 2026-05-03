@@ -2024,12 +2024,17 @@ def create_guest_lead(payload: GuestLeadCreateRequest) -> GuestDiagnosisResponse
 
 @app.post("/public/testing/survey", response_model=PublicSurveySubmissionResponse, status_code=status.HTTP_201_CREATED)
 def submit_public_testing_survey(payload: PublicSurveySubmissionRequest) -> PublicSurveySubmissionResponse:
-    ratings = [payload.overall_rating, payload.ease_rating, payload.trust_rating]
+    ratings = [payload.overall_rating, payload.ease_rating, payload.trust_rating, payload.usage_probability]
     average_rating = round(sum(ratings) / len(ratings), 2)
     level = "alto" if average_rating >= 4 else "medio" if average_rating >= 3 else "bajo"
+    ad_confidence = str(payload.advertising_confidence or "").replace("_", " ")
+    launch_readiness = str(payload.launch_readiness or "").replace("_", " ")
     strategy = (
         f"Analisis rapido de encuesta: promedio {average_rating}/5 (nivel {level}). "
-        f"Disposicion de pago: {payload.would_pay}. Revisar bloqueadores y mejoras reportadas."
+        f"Probabilidad de uso: {payload.usage_probability}/5. "
+        f"Veredicto de lanzamiento: {launch_readiness}. "
+        f"Publicidad sugerida: {ad_confidence}. "
+        f"Disposicion de pago: {payload.would_pay}. Revisar fallas, bloqueadores y mejoras reportadas."
     )
     facts = {
         "survey_test": {
@@ -2038,8 +2043,12 @@ def submit_public_testing_survey(payload: PublicSurveySubmissionRequest) -> Publ
             "overall_rating": payload.overall_rating,
             "ease_rating": payload.ease_rating,
             "trust_rating": payload.trust_rating,
+            "usage_probability": payload.usage_probability,
             "average_rating": average_rating,
+            "launch_readiness": payload.launch_readiness,
+            "advertising_confidence": payload.advertising_confidence,
             "would_pay": payload.would_pay,
+            "failures": payload.failures or "",
             "blockers": payload.blockers or "",
             "positives": payload.positives or "",
             "improvement": payload.improvement or "",
@@ -2053,8 +2062,12 @@ def submit_public_testing_survey(payload: PublicSurveySubmissionRequest) -> Publ
         f"Calificacion general: {payload.overall_rating}/5\n"
         f"Facilidad de uso: {payload.ease_rating}/5\n"
         f"Confianza: {payload.trust_rating}/5\n"
+        f"Probabilidad de uso: {payload.usage_probability}/5\n"
+        f"Veredicto de lanzamiento: {launch_readiness}\n"
+        f"Publicidad recomendada: {ad_confidence}\n"
         f"Pagaria por el servicio: {payload.would_pay}\n"
         f"Lo que mas le gusto: {payload.positives or 'No reportado'}\n"
+        f"Fallas encontradas: {payload.failures or 'No reportado'}\n"
         f"Bloqueadores: {payload.blockers or 'No reportado'}\n"
         f"Mejora sugerida: {payload.improvement or 'No reportado'}"
     )
@@ -3982,6 +3995,28 @@ def list_internal_cases(
 ) -> list[CaseResponse]:
     cases = repository.list_internal_cases(status=status_filter, workflow_type=workflow_type, category=category)
     return [_normalize_case(_reconcile_case_payment(case)) for case in cases]
+
+
+@app.post("/internal/testing/cleanup")
+def cleanup_internal_test_cases(
+    dry_run: bool = True,
+    _: dict[str, Any] = Depends(get_internal_user),
+) -> dict[str, Any]:
+    candidates = repository.list_internal_test_case_candidates()
+    if dry_run:
+        return {
+            "dry_run": True,
+            "candidate_count": len(candidates),
+            "deleted_count": 0,
+            "cases": [{**item, "id": str(item.get("id"))} for item in candidates],
+        }
+    deleted = repository.delete_internal_test_cases()
+    return {
+        "dry_run": False,
+        "candidate_count": len(candidates),
+        "deleted_count": len(deleted),
+        "cases": [{**item, "id": str(item.get("id"))} for item in deleted],
+    }
 
 
 @app.get("/internal/analytics/overview")
