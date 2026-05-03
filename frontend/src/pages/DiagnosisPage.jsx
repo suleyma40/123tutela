@@ -38,11 +38,11 @@ const DiagnosisPage = () => {
         email: form.email,
       };
       localStorage.setItem('hazlopormi-guest-case', JSON.stringify(guestCase));
-      const testCode = new URLSearchParams(location.search).get('test_code') || '';
-      if (testCode) {
-        localStorage.setItem('hazlopormi-test-code', testCode);
-      } else {
-        localStorage.removeItem('hazlopormi-test-code');
+      const urlTestCode = new URLSearchParams(location.search).get('test_code') || '';
+      const storedTestCode = localStorage.getItem('hazlopormi-test-code') || '';
+      const testCode = urlTestCode || storedTestCode;
+      if (urlTestCode) {
+        localStorage.setItem('hazlopormi-test-code', urlTestCode);
       }
       trackEvent('start_diagnosis', {
         category: form.category,
